@@ -1,0 +1,13 @@
+language: rust
+rust:
+  - nightly
+  - stable
+matrix:
+  allow_failures:
+    - rust: nightly
+
+script:
+- cargo build --verbose
+- cargo test --verbose --ignored
+- cargo build --verbose --no-default-features
+- cargo test --verbose --no-default-features --ignored
