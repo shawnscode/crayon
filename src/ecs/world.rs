@@ -1,14 +1,18 @@
+extern crate bit_set;
+
 use std::any::{TypeId, Any};
 use std::collections::HashMap;
+use self::bit_set::BitSet;
 
 use super::*;
-use super::super::utils::handle::*;
+use super::super::utils::*;
 
 /// The `World` struct contains all the data, which is entities and
 /// their components. All methods are supposed to be valid for any
 /// context they are available in.
 pub struct World {
     entities: HandleSet,
+    masks: Vec<BitSet>,
     storages: HashMap<TypeId, Box<Any>>,
 }
 
@@ -17,6 +21,7 @@ impl World {
     pub fn new() -> Self {
         World {
             entities: HandleSet::new(),
+            masks: Vec::new(),
             storages: HashMap::new(),
         }
     }
@@ -24,7 +29,13 @@ impl World {
     /// Creates and returns a unused Entity handle.
     #[inline]
     pub fn create(&mut self) -> Entity {
-        self.entities.create()
+        let ent = self.entities.create();
+
+        if self.masks.len() <= (ent.index() as usize) {
+            self.masks.resize(ent.index() as usize + 1, BitSet::new());
+        }
+
+        ent
     }
 
     /// Returns true if this `Handle` was created by `HandleSet`, and
@@ -43,6 +54,7 @@ impl World {
     /// Recycles the `Entity` handle, and mark its version as dead.
     #[inline]
     pub fn free(&mut self, ent: Entity) -> bool {
+        self.masks[ent.index() as usize].clear();
         self.entities.free(ent)
     }
 
@@ -76,6 +88,15 @@ impl World {
         }
     }
 
+    /// Returns true if we have componen in this `Entity`, otherwise false.
+    // #[inline]
+    // pub fn has<T>(&self, ent:Entity) -> bool {
+    //     if self.entities.is_alive(ent) {
+    //         self.masks
+    //     }
+    //
+    //     self.entities.is_alive(ent) && self.masks[ent.index()].contains()
+    // }
     /// Returns a reference to the component corresponding to the `Entity::index`.
     #[inline]
     pub fn fetch<T>(&self, ent: Entity) -> Option<&T>

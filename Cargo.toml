@@ -1,7 +1,8 @@
 [package]
-
 name = "lemon"
 version = "0.0.1"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 
 [dependencies]
+bit-set = "*"
+lazy_static = "*"
