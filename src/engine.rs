@@ -5,7 +5,7 @@ use std::collections::{VecDeque, HashMap};
 use std::time::{Duration, Instant};
 
 ///
-pub trait Subsystem: Any + 'static {}
+pub trait Subsystem: Any + Send + Sync + 'static {}
 
 /// `Engine` is the most foundamental struct used to manage all other subsystems.
 pub struct Engine {
@@ -63,9 +63,9 @@ impl Engine {
 
             while self.last_frame_timepoint.elapsed() <= td {
                 if (self.last_frame_timepoint.elapsed() - td) > Duration::from_millis(5) {
-                    std::thread::sleep(Duration::from_millis(1))
+                    std::thread::sleep(Duration::from_millis(1));
                 } else {
-                    std::thread::yield_now()
+                    std::thread::yield_now();
                 }
             }
         }

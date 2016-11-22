@@ -1,33 +1,32 @@
-use std::any::{Any};
+use std::any::Any;
 use std::collections::HashMap;
 
 use super::super::utils::handle::Index;
 
 /// Abstract component trait with associated storage type.
-pub trait Component: Any + 'static where Self: Sized {
+pub trait Component: Any + 'static
+    where Self: Sized
+{
     type Storage: ComponentStorage<Self> + Any + Send + Sync;
 }
 
-pub trait BasicComponentStorage {}
-
 /// Traits used to implement a standart/basic storage for components.
-pub trait ComponentStorage<T>: BasicComponentStorage
+pub trait ComponentStorage<T>
     where T: Component
 {
     /// Creates a new `ComponentStorage<T>`. This is called when you register a
     /// new component type within the world.
     fn new() -> Self;
-    /// Clean the storage given a check to figure out if an index
-    /// is valid or not. Allows us to safely drop the storage.
-    // fn clean<F>(&mut self, F) where F: Fn(Index) -> bool;
-    /// Tries reading the data associated with an `Index`.
-    unsafe fn get(&self, Index) -> &T;
-    /// Tries mutating the data associated with an `Index`.
-    unsafe fn get_mut(&mut self, Index) -> &mut T;
+    /// Returns a reference to the value corresponding to the `Index`.
+    fn get(&self, Index) -> Option<&T>;
+    /// Returns a mutable reference to the value corresponding to the `Index`.
+    fn get_mut(&mut self, Index) -> Option<&mut T>;
     /// Inserts new data for a given `Index`.
-    unsafe fn insert(&mut self, Index, T);
-    /// Removes the data associated with an `Index.
-    unsafe fn remove(&mut self, Index) -> T;
+    /// If the storage did not have this `Index` present, `None` is returned.
+    /// Otherwise the value is updated, and the old value is returned.
+    fn insert(&mut self, Index, T) -> Option<T>;
+    /// Removes and returns the data associated with an `Index`.
+    fn remove(&mut self, Index) -> Option<T>;
 }
 
 /// HashMap based storage. Best suited for rare components.
@@ -37,8 +36,6 @@ pub struct HashMapStorage<T>
     values: HashMap<Index, T>,
 }
 
-impl<T> BasicComponentStorage for HashMapStorage<T> where T: Component {}
-
 impl<T> ComponentStorage<T> for HashMapStorage<T>
     where T: Component
 {
@@ -46,19 +43,19 @@ impl<T> ComponentStorage<T> for HashMapStorage<T>
         HashMapStorage { values: HashMap::new() }
     }
 
-    unsafe fn get(&self, id: Index) -> &T {
-        self.values.get(&id).unwrap()
+    fn get(&self, id: Index) -> Option<&T> {
+        self.values.get(&id)
     }
 
-    unsafe fn get_mut(&mut self, id: Index) -> &mut T {
-        self.values.get_mut(&id).unwrap()
+    fn get_mut(&mut self, id: Index) -> Option<&mut T> {
+        self.values.get_mut(&id)
     }
 
-    unsafe fn insert(&mut self, id: Index, v: T) {
-        self.values.insert(id, v);
+    fn insert(&mut self, id: Index, v: T) -> Option<T> {
+        self.values.insert(id, v)
     }
 
-    unsafe fn remove(&mut self, id: Index) -> T {
-        self.values.remove(&id).unwrap()
+    fn remove(&mut self, id: Index) -> Option<T> {
+        self.values.remove(&id)
     }
 }

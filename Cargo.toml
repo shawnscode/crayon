@@ -1,6 +1,6 @@
 [package]
 
-name = "lemon3d"
+name = "lemon"
 version = "0.0.1"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 

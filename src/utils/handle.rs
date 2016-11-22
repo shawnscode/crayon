@@ -4,6 +4,7 @@ use std::ops::Deref;
 /// a single 64-bits word per `Handle`.
 pub type Index = u32;
 
+
 /// `Handle` is made up of two field, `index` and `version`. `index` are
 /// usually used to indicated address into some kind of space. This value
 /// is recycled when an `Handle` is freed to save address. However, this
@@ -17,6 +18,7 @@ pub struct Handle {
 
 impl Handle {
     /// Constructs a new `Handle`.
+    #[inline]
     pub fn new(index: Index, version: Index) -> Self {
         Handle {
             index: index,
@@ -25,6 +27,7 @@ impl Handle {
     }
 
     /// Constructs a nil/uninitialized `Handle`.
+    #[inline]
     pub fn nil() -> Self {
         Handle {
             index: 0,
@@ -33,14 +36,28 @@ impl Handle {
     }
 
     /// Returns true if this `Handle` has been initialized.
+    #[inline]
     pub fn is_valid(&self) -> bool {
-        self.index > 0 && self.version > 0
+        self.index > 0 || self.version > 0
     }
 
     /// Invalidate this `Handle` to default value.
+    #[inline]
     pub fn invalidate(&mut self) {
         self.index = 0;
         self.version = 0;
+    }
+
+    /// Returns index value.
+    #[inline]
+    pub fn index(&self) -> Index {
+        self.index
+    }
+
+    /// Returns version value.
+    #[inline]
+    pub fn version(&self) -> Index {
+        self.version
     }
 }
 
@@ -125,8 +142,9 @@ impl HandleSet {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
-    fn handle_basic() {
+    fn basic() {
         let mut h2 = Handle::new(2, 4);
         assert_eq!(h2.index, 2);
         assert_eq!(h2.version, 4);
@@ -141,21 +159,54 @@ mod tests {
     }
 
     #[test]
-    fn handle_set_basic() {
+    fn set_basic() {
+        let mut set = HandleSet::new();
+        assert_eq!(set.size(), 0);
+
+        // Spawn entities.
+        let e1 = set.create();
+        assert!(e1.is_valid());
+        assert!(set.is_alive(e1));
+        assert_eq!(set.size(), 1);
+
+        let mut e2 = e1;
+        assert!(set.is_alive(e2));
+        assert_eq!(set.size(), 1);
+
+        // Invalidate entities.
+        e2.invalidate();
+        assert!(!e2.is_valid());
+        assert!(!set.is_alive(e2));
+        assert!(set.is_alive(e1));
+
+        // Free entities.
+        let e2 = e1;
+        set.free(e2);
+        assert!(!set.is_alive(e2));
+        assert!(!set.is_alive(e1));
+        assert_eq!(set.size(), 0);
+    }
+
+    #[test]
+    fn index_reuse() {
         let mut set = HandleSet::new();
 
-        let h1 = set.create();
-        assert_eq!(h1, Handle::new(0, 1));
-        assert!(set.is_alive(h1));
+        assert_eq!(set.size(), 0);
 
-        let h2 = set.create();
-        assert_eq!(h2, Handle::new(1, 1));
-        assert!(set.is_alive(h2));
+        let mut v = vec![];
+        for _ in 0..10 {
+            v.push(set.create());
+        }
 
-        set.free(h1);
-        assert!(!set.is_alive(h1));
+        assert_eq!(set.size(), 10);
+        for e in v.iter() {
+            set.free(*e);
+        }
 
-        let h3 = set.create();
-        assert_eq!(h3, Handle::new(0, 3));
+        for _ in 0..10 {
+            let e = set.create();
+            assert!((*e as usize) < v.len());
+            assert!(v[*e as usize].version() != e.version());
+        }
     }
 }
