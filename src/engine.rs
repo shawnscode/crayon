@@ -1,6 +1,6 @@
 use std;
 use std::any::{Any, TypeId};
-use std::sync::{RwLock};
+use std::sync::RwLock;
 use std::collections::{VecDeque, HashMap};
 use std::time::{Duration, Instant};
 
@@ -48,7 +48,8 @@ impl Engine {
     pub fn get<T>(&self) -> &RwLock<T>
         where T: Subsystem
     {
-        let boxed = self.subsystems.get(&TypeId::of::<T>())
+        let boxed = self.subsystems
+            .get(&TypeId::of::<T>())
             .expect("Tried to retrieve an non-exists subsystem.");
         boxed.downcast_ref().unwrap()
     }
@@ -139,13 +140,11 @@ impl Engine {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
 
     #[test]
-    fn engine_basic() {
-
-    }
+    fn basic() {}
 
     struct CountSystem {
         value: u32,
@@ -162,7 +161,7 @@ mod tests {
     }
 
     #[test]
-    fn engine_subsystem() {
+    fn subsystems() {
         let mut engine = Engine::new();
         engine.register(CountSystem::new());
 

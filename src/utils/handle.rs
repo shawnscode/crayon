@@ -140,7 +140,7 @@ impl HandleSet {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
 
     #[test]
@@ -159,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    fn set_basic() {
+    fn set() {
         let mut set = HandleSet::new();
         assert_eq!(set.size(), 0);
 

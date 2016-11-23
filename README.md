@@ -1,4 +1,5 @@
 #### Build Status
+[![Build Status](https://travis-ci.org/drunkenme/lemon-toolkit-rs.svg?branch=master)](https://travis-ci.org/drunkenme/lemon-toolkit-rs)
 
 #### Introduction
 Lemon3d is an experimental purpose project, written with a minimalistic modular design philosophy. Its built from the ground up to focus on cache friendly data layouts in multicore environments with entity-component based architecture.

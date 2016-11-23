@@ -1,7 +1,7 @@
 extern crate bit_set;
 
-use std::any::{TypeId, Any};
-use std::collections::HashMap;
+use std::any::Any;
+use std::ops::{Index, IndexMut};
 use self::bit_set::BitSet;
 
 use super::*;
@@ -13,7 +13,7 @@ use super::super::utils::*;
 pub struct World {
     entities: HandleSet,
     masks: Vec<BitSet>,
-    storages: HashMap<TypeId, Box<Any>>,
+    storages: Vec<Option<Box<Any>>>,
 }
 
 impl World {
@@ -22,7 +22,7 @@ impl World {
         World {
             entities: HandleSet::new(),
             masks: Vec::new(),
-            storages: HashMap::new(),
+            storages: Vec::new(),
         }
     }
 
@@ -51,11 +51,19 @@ impl World {
         self.entities.size()
     }
 
-    /// Recycles the `Entity` handle, and mark its version as dead.
+    /// Recycles the `Entity` handle, free corresponding components.
+    /// and mark its version as dead.
     #[inline]
     pub fn free(&mut self, ent: Entity) -> bool {
-        self.masks[ent.index() as usize].clear();
-        self.entities.free(ent)
+        if self.is_alive(ent) {
+            // for x in self.masks[ent.index() as usize].iter() {
+            // }
+
+            self.masks[ent.index() as usize].clear();
+            self.entities.free(ent)
+        } else {
+            false
+        }
     }
 
     /// Registers a new component type.
@@ -63,7 +71,18 @@ impl World {
     pub fn register<T>(&mut self)
         where T: Component
     {
-        self.storages.insert(TypeId::of::<T>(), Box::new(T::Storage::new()));
+        if T::type_index() >= self.storages.len() {
+            for i in self.storages.len()..(T::type_index() + 1) {
+                self.storages.insert(i, None);
+            }
+        }
+
+        // Returns if we are going to register this component duplicatedly.
+        if let Some(_) = self.storages[T::type_index()] {
+            return;
+        }
+
+        self.storages.insert(T::type_index(), Some(Box::new(T::Storage::new())));
     }
 
     /// Add components to entity, returns the reference to component.
@@ -73,7 +92,12 @@ impl World {
     pub fn assign<T>(&mut self, ent: Entity, value: T) -> Option<T>
         where T: Component
     {
-        self._fetch_s_mut::<T>().insert(ent.index(), value)
+        if self.is_alive(ent) {
+            self.masks[ent.index() as usize].insert(T::type_index());
+            self._fetch_s_mut::<T>().insert(ent.index(), value)
+        } else {
+            None
+        }
     }
 
     /// Remove component of entity from the world, returning the component at the `Index`.
@@ -81,7 +105,8 @@ impl World {
     pub fn remove<T>(&mut self, ent: Entity) -> Option<T>
         where T: Component
     {
-        if self.entities.is_alive(ent) {
+        if self.is_alive(ent) {
+            self.masks[ent.index() as usize].remove(T::type_index());
             self._fetch_s_mut::<T>().remove(ent.index())
         } else {
             None
@@ -89,20 +114,23 @@ impl World {
     }
 
     /// Returns true if we have componen in this `Entity`, otherwise false.
-    // #[inline]
-    // pub fn has<T>(&self, ent:Entity) -> bool {
-    //     if self.entities.is_alive(ent) {
-    //         self.masks
-    //     }
-    //
-    //     self.entities.is_alive(ent) && self.masks[ent.index()].contains()
-    // }
+    #[inline]
+    pub fn has<T>(&self, ent: Entity) -> bool
+        where T: Component
+    {
+        self.entities.is_alive(ent) && self.masks[ent.index() as usize].contains(T::type_index())
+    }
+
     /// Returns a reference to the component corresponding to the `Entity::index`.
     #[inline]
     pub fn fetch<T>(&self, ent: Entity) -> Option<&T>
         where T: Component
     {
-        self._fetch_s::<T>().get(ent.index())
+        if self.is_alive(ent) {
+            self._fetch_s::<T>().get(ent.index())
+        } else {
+            None
+        }
     }
 
     /// Returns a mutable reference to the component corresponding to the `Entity::index`.
@@ -110,7 +138,11 @@ impl World {
     pub fn fetch_mut<T>(&mut self, ent: Entity) -> Option<&mut T>
         where T: Component
     {
-        self._fetch_s_mut::<T>().get_mut(ent.index())
+        if self.is_alive(ent) {
+            self._fetch_s_mut::<T>().get_mut(ent.index())
+        } else {
+            None
+        }
     }
 
     #[inline]
@@ -118,7 +150,8 @@ impl World {
         where T: Component
     {
         self.storages
-            .get(&TypeId::of::<T>())
+            .index(T::type_index())
+            .as_ref()
             .expect("Tried to perform an operation on component type that not registered.")
             .downcast_ref::<T::Storage>()
             .unwrap()
@@ -129,7 +162,8 @@ impl World {
         where T: Component
     {
         self.storages
-            .get_mut(&TypeId::of::<T>())
+            .index_mut(T::type_index())
+            .as_mut()
             .expect("Tried to perform an operation on component type that not registered.")
             .downcast_mut::<T::Storage>()
             .unwrap()
@@ -139,49 +173,18 @@ impl World {
 #[cfg(test)]
 mod test {
     use super::*;
-    use super::super::component::*;
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-    struct Position {
-        x: i32,
-        y: i32,
-    }
-
-    impl Component for Position {
-        type Storage = HashMapStorage<Position>;
-    }
 
     #[test]
-    fn world_basic() {
+    fn basic() {
         let mut world = World::new();
-        world.register::<Position>();
+        assert_eq!(world.size(), 0);
 
-        let e1 = world.create();
-        world.assign::<Position>(e1, Position { x: 1, y: 2 });
+        let e = world.create();
+        assert!(world.is_alive(e));
+        assert_eq!(world.size(), 1);
 
-        {
-            let p = world.fetch::<Position>(e1).unwrap();
-            assert_eq!(*p, Position { x: 1, y: 2 });
-        }
-
-        world.remove::<Position>(e1);
-        assert_eq!(world.fetch::<Position>(e1), None);
-    }
-
-    #[test]
-    fn world_free() {
-        let mut world = World::new();
-        world.register::<Position>();
-
-        let e1 = world.create();
-        assert!(world.is_alive(e1));
-        assert_eq!(world.fetch::<Position>(e1), None);
-
-        world.assign::<Position>(e1, Position { x: 1, y: 2 });
-        world.fetch::<Position>(e1).unwrap();
-
-        world.free(e1);
-        assert!(!world.is_alive(e1));
-        assert_eq!(world.fetch::<Position>(e1), None);
+        world.free(e);
+        assert!(!world.is_alive(e));
+        assert_eq!(world.size(), 0);
     }
 }
