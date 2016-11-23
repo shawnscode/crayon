@@ -8,6 +8,6 @@ matrix:
 
 script:
 - cargo build --verbose
-- cargo test --verbose --ignored
+- cargo test --verbose -- --ignored
 - cargo build --verbose --no-default-features
-- cargo test --verbose --no-default-features --ignored
+- cargo test --verbose --no-default-features -- --ignored
