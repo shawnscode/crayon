@@ -4,9 +4,9 @@ use std::sync::atomic::AtomicUsize;
 
 use super::super::utils::handle::Index;
 
-/// Lazy initialized id of component. Which produces a continuous
-/// index address. Prefix splash is used to avoid annoying dead_code warning.
 lazy_static! {
+    /// Lazy initialized id of component. Which produces a continuous index address.
+    #[doc(hidden)]
     pub static ref INDEX: AtomicUsize = AtomicUsize::new(0);
 }
 
@@ -19,8 +19,8 @@ pub trait Component: Any + 'static
     fn type_index() -> usize;
 }
 
-/// Declare a struct as component. Internally, this macro will impl a
-/// internal trait `Component` to provide some useful methods and hints.
+/// Declare a struct as component, and specify the storage strategy. Internally, this
+/// macro will impl a internal trait `Component` to provide some useful methods and hints.
 #[macro_export]
 macro_rules! declare_component {
     ( $CMP:ident, $STORAGE:ident ) => {
@@ -37,7 +37,9 @@ macro_rules! declare_component {
     };
 }
 
-/// Traits used to implement a standart/basic storage for components.
+/// Traits used to implement a standart/basic storage for components. Choose your
+/// components storage layout and strategy by declaring different `ComponentStorage`
+/// with corresponding component.
 pub trait ComponentStorage<T>
     where T: Component
 {
@@ -56,7 +58,7 @@ pub trait ComponentStorage<T>
     fn remove(&mut self, Index) -> Option<T>;
 }
 
-/// HashMap based storage. Best suited for rare components.
+/// HashMap based storage which are best suited for rare components.
 pub struct HashMapStorage<T>
     where T: Component
 {

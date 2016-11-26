@@ -7,7 +7,7 @@ pub mod engine;
 
 pub use self::engine::Subsystem;
 pub use self::ecs::World;
-pub use self::ecs::component::HashMapStorage;
+pub use self::ecs::component::{Component, HashMapStorage};
 
 unsafe impl Send for World {}
 unsafe impl Sync for World {}

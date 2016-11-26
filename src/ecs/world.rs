@@ -7,9 +7,9 @@ use self::bit_set::BitSet;
 use super::*;
 use super::super::utils::*;
 
-/// The `World` struct contains all the data, which is entities and
-/// their components. All methods are supposed to be valid for any
-/// context they are available in.
+/// The `World` struct are used to manage the whole entity-component system, tt keeps
+/// tracks of the state of every created `Entity`s. All memthods are supposed to be
+/// valid for any context they are available in.
 pub struct World {
     entities: HandleSet,
     masks: Vec<BitSet>,
