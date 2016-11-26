@@ -10,7 +10,7 @@ pub type Index = u32;
 /// is recycled when an `Handle` is freed to save address. However, this
 /// means that you could end up with two different `Handle` with identical
 /// indices. We solve this by introducing `version`.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Handle {
     index: Index,
     version: Index,
@@ -159,7 +159,24 @@ mod test {
     }
 
     #[test]
-    fn set() {
+    fn container() {
+        use std::collections::HashSet;
+        let h1 = Handle::new(1, 1);
+        let h2 = Handle::new(1, 2);
+        let h3 = Handle::new(2, 2);
+        let h4 = Handle::new(1, 1);
+
+        let mut map = HashSet::new();
+        assert_eq!(map.insert(h1), true);
+        assert_eq!(map.contains(&h1), true);
+        assert_eq!(map.insert(h4), false);
+        assert_eq!(map.contains(&h4), true);
+        assert_eq!(map.insert(h2), true);
+        assert_eq!(map.insert(h3), true);
+    }
+
+    #[test]
+    fn handle_set() {
         let mut set = HandleSet::new();
         assert_eq!(set.size(), 0);
 

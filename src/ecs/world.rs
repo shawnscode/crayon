@@ -7,12 +7,13 @@ use self::bit_set::BitSet;
 use super::*;
 use super::super::utils::*;
 
-/// The `World` struct are used to manage the whole entity-component system, tt keeps
+/// The `World` struct are used to manage the whole entity-component system, It keeps
 /// tracks of the state of every created `Entity`s. All memthods are supposed to be
 /// valid for any context they are available in.
 pub struct World {
     entities: HandleSet,
     masks: Vec<BitSet>,
+    erasers: Vec<Box<FnMut(&mut Box<Any>, handle::Index) -> ()>>,
     storages: Vec<Option<Box<Any>>>,
 }
 
@@ -22,6 +23,7 @@ impl World {
         World {
             entities: HandleSet::new(),
             masks: Vec::new(),
+            erasers: Vec::new(),
             storages: Vec::new(),
         }
     }
@@ -56,8 +58,13 @@ impl World {
     #[inline]
     pub fn free(&mut self, ent: Entity) -> bool {
         if self.is_alive(ent) {
-            // for x in self.masks[ent.index() as usize].iter() {
-            // }
+            for x in self.masks[ent.index() as usize].iter() {
+                self.erasers.index_mut(x)(&mut self.storages
+                                              .index_mut(x)
+                                              .as_mut()
+                                              .unwrap(),
+                                          ent.index())
+            }
 
             self.masks[ent.index() as usize].clear();
             self.entities.free(ent)
@@ -72,8 +79,14 @@ impl World {
         where T: Component
     {
         if T::type_index() >= self.storages.len() {
-            for i in self.storages.len()..(T::type_index() + 1) {
-                self.storages.insert(i, None);
+            for _ in self.storages.len()..(T::type_index() + 1) {
+                // Keeps downcast type info in closure.
+                let eraser = Box::new(|any: &mut Box<Any>, id: handle::Index| {
+                    any.downcast_mut::<T::Storage>().unwrap().remove(id);
+                });
+
+                self.erasers.push(eraser);
+                self.storages.push(None);
             }
         }
 
@@ -82,7 +95,7 @@ impl World {
             return;
         }
 
-        self.storages.insert(T::type_index(), Some(Box::new(T::Storage::new())));
+        self.storages[T::type_index()] = Some(Box::new(T::Storage::new()));
     }
 
     /// Add components to entity, returns the reference to component.
