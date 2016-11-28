@@ -29,8 +29,7 @@ pub mod world;
 pub use self::component::{Component, ComponentStorage, HashMapStorage};
 pub use self::world::World;
 
-use super::utils::handle::*;
-pub type Entity = Handle;
+pub type Entity = super::utils::handle::Handle;
 
 #[cfg(test)]
 mod test {
@@ -38,7 +37,7 @@ mod test {
     use std::sync::{Arc, RwLock};
 
 
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Clone, Default, PartialEq, Eq)]
     struct Position {
         x: i32,
         y: i32,
@@ -75,7 +74,7 @@ mod test {
         assert_eq!(world.fetch::<Position>(e1), None);
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Default)]
     struct Reference {
         value: Arc<RwLock<usize>>,
     }
@@ -139,4 +138,33 @@ mod test {
 
         assert!(world.fetch::<Position>(e1) == Some(&Position { x: 2, y: 4 }))
     }
+
+    // #[test]
+    // fn iter_with() {
+    //     let mut world = World::new();
+    //     world.register::<Position>();
+    //     world.register::<Reference>();
+
+    //     let mut v = vec![];
+    //     for i in 0..100 {
+    //         let e = world.create();
+
+    //         if i % 2 == 0 {
+    //             world.assign_with_default::<Position>(e);
+    //         }
+
+    //         if i % 3 == 0 {
+    //             world.assign_with_default::<Reference>(e);
+    //         }
+
+    //         if i % 2 == 0 && i % 3 == 0 {
+    //             v.push(e);
+    //         }
+    //     }
+
+    //     let mut iterator = world.iter_with_r1::<Position>();
+    //     println!("{:?}", iterator.next());
+    //     println!("{:?}", iterator.next());
+    //     assert!(false);
+    // }
 }

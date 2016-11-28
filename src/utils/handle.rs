@@ -134,8 +134,46 @@ impl HandleSet {
     }
 
     /// Returns the total number of alive handle in this `HandleSet`.
+    #[inline]
     pub fn size(&self) -> usize {
         self.versions.len() - self.frees.len()
+    }
+
+    /// Returns an iterator over the `HandleSet`.
+    #[inline]
+    pub fn iter(&self) -> Iter {
+        Iter {
+            versions: &self.versions,
+            index: None,
+        }
+    }
+}
+
+/// Immutable `HandleSet` iterator, this struct is created by `iter` method on `HandleSet`.
+pub struct Iter<'a> {
+    versions: &'a Vec<Index>,
+    index: Option<Index>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = Handle;
+
+    fn next(&mut self) -> Option<Handle> {
+        unsafe {
+            let from = if let Some(i) = self.index { i + 1 } else { 0 };
+
+            for i in from..(self.versions.len() as u32) {
+                let v = self.versions.get_unchecked(i as usize);
+                if v & 0x1 == 1 {
+                    self.index = Some(i);
+                    return Some(Handle {
+                        index: i,
+                        version: *v,
+                    });
+                }
+            }
+        }
+        None
     }
 }
 
@@ -224,6 +262,32 @@ mod test {
             let e = set.create();
             assert!((*e as usize) < v.len());
             assert!(v[*e as usize].version() != e.version());
+        }
+    }
+
+    #[test]
+    fn iter() {
+        let mut set = HandleSet::new();
+        let mut v = vec![];
+
+        for m in 2..3 {
+            for _ in 0..10 {
+                v.push(set.create())
+            }
+
+            for i in 0..10 {
+                if i % m == 0 {
+                    let index = i % v.len();
+                    set.free(v[index]);
+                    v.remove(index);
+                }
+            }
+        }
+
+        v.sort_by(|lhs, rhs| lhs.index().cmp(&rhs.index()));
+        let mut iterator = set.iter();
+        for handle in &v {
+            assert_eq!(*handle, iterator.next().unwrap());
         }
     }
 }

@@ -1,11 +1,10 @@
 extern crate bit_set;
 
 use std::any::Any;
-use std::ops::{Index, IndexMut};
 use self::bit_set::BitSet;
 
 use super::*;
-use super::super::utils::*;
+use super::super::utils::handle::*;
 
 /// The `World` struct are used to manage the whole entity-component system, It keeps
 /// tracks of the state of every created `Entity`s. All memthods are supposed to be
@@ -13,7 +12,7 @@ use super::super::utils::*;
 pub struct World {
     entities: HandleSet,
     masks: Vec<BitSet>,
-    erasers: Vec<Box<FnMut(&mut Box<Any>, handle::Index) -> ()>>,
+    erasers: Vec<Box<FnMut(&mut Box<Any>, Index) -> ()>>,
     storages: Vec<Option<Box<Any>>>,
 }
 
@@ -29,7 +28,6 @@ impl World {
     }
 
     /// Creates and returns a unused Entity handle.
-    #[inline]
     pub fn create(&mut self) -> Entity {
         let ent = self.entities.create();
 
@@ -55,15 +53,11 @@ impl World {
 
     /// Recycles the `Entity` handle, free corresponding components.
     /// and mark its version as dead.
-    #[inline]
     pub fn free(&mut self, ent: Entity) -> bool {
         if self.is_alive(ent) {
             for x in self.masks[ent.index() as usize].iter() {
-                self.erasers.index_mut(x)(&mut self.storages
-                                              .index_mut(x)
-                                              .as_mut()
-                                              .unwrap(),
-                                          ent.index())
+                let erase = &mut self.erasers[x];
+                erase(&mut self.storages[x].as_mut().unwrap(), ent.index())
             }
 
             self.masks[ent.index() as usize].clear();
@@ -74,14 +68,13 @@ impl World {
     }
 
     /// Registers a new component type.
-    #[inline]
     pub fn register<T>(&mut self)
         where T: Component
     {
         if T::type_index() >= self.storages.len() {
             for _ in self.storages.len()..(T::type_index() + 1) {
                 // Keeps downcast type info in closure.
-                let eraser = Box::new(|any: &mut Box<Any>, id: handle::Index| {
+                let eraser = Box::new(|any: &mut Box<Any>, id: Index| {
                     any.downcast_mut::<T::Storage>().unwrap().remove(id);
                 });
 
@@ -101,7 +94,6 @@ impl World {
     /// Add components to entity, returns the reference to component.
     /// If the world did not have component with present `Index`, `None` is returned.
     /// Otherwise the value is updated, and the old value is returned.
-    #[inline]
     pub fn assign<T>(&mut self, ent: Entity, value: T) -> Option<T>
         where T: Component
     {
@@ -113,8 +105,13 @@ impl World {
         }
     }
 
+    pub fn assign_with_default<T>(&mut self, ent: Entity) -> Option<T>
+        where T: Component + Default
+    {
+        self.assign(ent, Default::default())
+    }
+
     /// Remove component of entity from the world, returning the component at the `Index`.
-    #[inline]
     pub fn remove<T>(&mut self, ent: Entity) -> Option<T>
         where T: Component
     {
@@ -162,8 +159,7 @@ impl World {
     fn _fetch_s<T>(&self) -> &T::Storage
         where T: Component
     {
-        self.storages
-            .index(T::type_index())
+        self.storages[T::type_index()]
             .as_ref()
             .expect("Tried to perform an operation on component type that not registered.")
             .downcast_ref::<T::Storage>()
@@ -174,14 +170,79 @@ impl World {
     fn _fetch_s_mut<T>(&mut self) -> &mut T::Storage
         where T: Component
     {
-        self.storages
-            .index_mut(T::type_index())
+        self.storages[T::type_index()]
             .as_mut()
             .expect("Tried to perform an operation on component type that not registered.")
             .downcast_mut::<T::Storage>()
             .unwrap()
     }
 }
+
+impl World {
+    /// Returns immutable `World` iterator into `Entity`s.
+    #[inline]
+    pub fn iter(&self) -> Iter {
+        self.entities.iter()
+    }
+}
+
+use std::marker::PhantomData;
+
+macro_rules! build_iter_with {
+    ($name:ident, $name_struct:ident, [$($component:ident), *]) => (
+
+        pub struct $name_struct<'a, $($component), *> where $($component:Component, )* {
+            world: &'a World,
+            mask: BitSet,
+            entities: Iter<'a>,
+            phantom: ( $(PhantomData<$component>), * ),
+        }
+
+        impl<'a, $($component), *> Iterator for $name_struct<'a, $($component), *>
+            where $($component:Component, )* {
+            type Item = ($(&'a $component), *);
+
+            fn next(&mut self) -> Option<Self::Item> {
+                let found = self.entities.find(|x| -> bool {
+// unsafe {
+//     let mut mask = self.world.masks.get_unchecked(x.index() as usize).clone();
+//     mask.intersect_with(&self.mask);
+//     mask == self.mask
+// }
+                    true
+                });
+
+                if let Some(ent) = found {
+// let tuple: Self::Item = Some(($(self.world.fetch::<$component>(ent)), *));
+                    Some(($(self.world.fetch::<$component>(ent).unwrap()), *))
+                } else {
+                        None
+                }
+            }
+        }
+
+        impl World {
+            pub fn $name<$($component), *>(&self) -> $name_struct<$($component), *>
+            where $($component:Component, )*  {
+
+                let mut mask = BitSet::new();
+                $(
+                    mask.insert($component::type_index());
+                ) *
+
+                $name_struct {
+                    world: self,
+                    entities: self.iter(),
+                    mask: mask,
+                    phantom: Default::default(),
+                }
+            }
+        }
+    )
+}
+
+build_iter_with!(iter_with, IterWith, [T1]);
+// build_iter_with!(iter_with_2, IterWith2, [T1, T2]);
 
 #[cfg(test)]
 mod test {
