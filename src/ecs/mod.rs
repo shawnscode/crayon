@@ -139,32 +139,42 @@ mod test {
         assert!(world.fetch::<Position>(e1) == Some(&Position { x: 2, y: 4 }))
     }
 
-    // #[test]
-    // fn iter_with() {
-    //     let mut world = World::new();
-    //     world.register::<Position>();
-    //     world.register::<Reference>();
+    #[test]
+    fn iter_with() {
+        let mut world = World::new();
+        world.register::<Position>();
+        world.register::<Reference>();
 
-    //     let mut v = vec![];
-    //     for i in 0..100 {
-    //         let e = world.create();
+        let mut v = vec![];
+        for i in 0..100 {
+            let e = world.create();
 
-    //         if i % 2 == 0 {
-    //             world.assign_with_default::<Position>(e);
-    //         }
+            if i % 2 == 0 {
+                world.assign::<Position>(e,
+                                         Position {
+                                             x: e.index() as i32,
+                                             y: e.version() as i32,
+                                         });
+            }
 
-    //         if i % 3 == 0 {
-    //             world.assign_with_default::<Reference>(e);
-    //         }
+            if i % 3 == 0 {
+                world.assign_with_default::<Reference>(e);
+            }
 
-    //         if i % 2 == 0 && i % 3 == 0 {
-    //             v.push(e);
-    //         }
-    //     }
+            if i % 2 == 0 && i % 3 == 0 {
+                v.push(e);
+            }
+        }
 
-    //     let mut iterator = world.iter_with_r1::<Position>();
-    //     println!("{:?}", iterator.next());
-    //     println!("{:?}", iterator.next());
-    //     assert!(false);
-    // }
+        let mut iterator = world.iter_with_2::<Position, Reference>();
+        for e in v {
+            let i = iterator.next().unwrap();
+            assert_eq!(i.0, e);
+            assert_eq!(*i.1,
+                       Position {
+                           x: e.index() as i32,
+                           y: e.version() as i32,
+                       });
+        }
+    }
 }

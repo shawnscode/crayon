@@ -194,37 +194,37 @@ macro_rules! build_iter_with {
         pub struct $name_struct<'a, $($component), *> where $($component:Component, )* {
             world: &'a World,
             mask: BitSet,
-            entities: Iter<'a>,
-            phantom: ( $(PhantomData<$component>), * ),
+            iterator: Iter<'a>,
+            _phantom: ( $(PhantomData<$component>), * ),
         }
 
         impl<'a, $($component), *> Iterator for $name_struct<'a, $($component), *>
             where $($component:Component, )* {
-            type Item = ($(&'a $component), *);
+            type Item = (Entity, $(&'a $component), *);
 
             fn next(&mut self) -> Option<Self::Item> {
-                let found = self.entities.find(|x| -> bool {
-// unsafe {
-//     let mut mask = self.world.masks.get_unchecked(x.index() as usize).clone();
-//     mask.intersect_with(&self.mask);
-//     mask == self.mask
-// }
-                    true
-                });
+                loop{
+                    match self.iterator.next() {
+                    Some(ent) => {
+                        let mut mask = unsafe {
+                            self.world.masks.get_unchecked(ent.index() as usize).clone()
+                        };
+                        mask.intersect_with(&self.mask);
 
-                if let Some(ent) = found {
-// let tuple: Self::Item = Some(($(self.world.fetch::<$component>(ent)), *));
-                    Some(($(self.world.fetch::<$component>(ent).unwrap()), *))
-                } else {
-                        None
+                        if mask == self.mask {
+                            return Some((ent, $(self.world.fetch::<$component>(ent).unwrap()), *))
+                        }
+                    },
+                    None => { return None; }
+                }
                 }
             }
         }
 
         impl World {
+            /// Returns iterator into alive entities with specified components.
             pub fn $name<$($component), *>(&self) -> $name_struct<$($component), *>
-            where $($component:Component, )*  {
-
+                where $($component:Component, )*  {
                 let mut mask = BitSet::new();
                 $(
                     mask.insert($component::type_index());
@@ -232,9 +232,9 @@ macro_rules! build_iter_with {
 
                 $name_struct {
                     world: self,
-                    entities: self.iter(),
                     mask: mask,
-                    phantom: Default::default(),
+                    iterator: self.iter(),
+                    _phantom: Default::default(),
                 }
             }
         }
@@ -242,7 +242,10 @@ macro_rules! build_iter_with {
 }
 
 build_iter_with!(iter_with, IterWith, [T1]);
-// build_iter_with!(iter_with_2, IterWith2, [T1, T2]);
+build_iter_with!(iter_with_2, IterWith2, [T1, T2]);
+build_iter_with!(iter_with_3, IterWith3, [T1, T2, T3]);
+build_iter_with!(iter_with_4, IterWith4, [T1, T2, T3, T4]);
+build_iter_with!(iter_with_5, IterWith5, [T1, T2, T3, T4, T5]);
 
 #[cfg(test)]
 mod test {
