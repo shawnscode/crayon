@@ -177,4 +177,15 @@ mod test {
                        });
         }
     }
+
+    #[test]
+    fn builder() {
+        let mut world = World::new();
+        world.register::<Position>();
+        world.register::<Reference>();
+
+        let e1 = world.build().with_default::<Position>().finish();
+        assert!(world.has::<Position>(e1));
+        assert!(!world.has::<Reference>(e1));
+    }
 }

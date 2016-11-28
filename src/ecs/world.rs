@@ -38,6 +38,13 @@ impl World {
         ent
     }
 
+    pub fn build(&mut self) -> EntityBuilder {
+        EntityBuilder {
+            entity: self.create(),
+            world: self,
+        }
+    }
+
     /// Returns true if this `Handle` was created by `HandleSet`, and
     /// has not been freed yet.
     #[inline]
@@ -178,6 +185,7 @@ impl World {
     }
 }
 
+/// All the implementations of various iterators.
 impl World {
     /// Returns immutable `World` iterator into `Entity`s.
     #[inline]
@@ -246,6 +254,32 @@ build_iter_with!(iter_with_2, IterWith2, [T1, T2]);
 build_iter_with!(iter_with_3, IterWith3, [T1, T2, T3]);
 build_iter_with!(iter_with_4, IterWith4, [T1, T2, T3, T4]);
 build_iter_with!(iter_with_5, IterWith5, [T1, T2, T3, T4, T5]);
+
+/// Help builder for entities.
+pub struct EntityBuilder<'a> {
+    entity: Entity,
+    world: &'a mut World,
+}
+
+impl<'a> EntityBuilder<'a> {
+    pub fn with<T>(&mut self, value: T) -> &mut Self
+        where T: Component
+    {
+        self.world.assign::<T>(self.entity, value);
+        self
+    }
+
+    pub fn with_default<T>(&mut self) -> &mut Self
+        where T: Component + Default
+    {
+        self.world.assign_with_default::<T>(self.entity);
+        self
+    }
+
+    pub fn finish(&self) -> Entity {
+        self.entity
+    }
+}
 
 #[cfg(test)]
 mod test {
