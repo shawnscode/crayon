@@ -2,6 +2,7 @@ extern crate bit_set;
 
 use std::any::Any;
 use self::bit_set::BitSet;
+use std::cell::{Ref, RefMut, RefCell};
 
 use super::*;
 use super::super::utils::handle::*;
@@ -82,7 +83,7 @@ impl World {
             for _ in self.storages.len()..(T::type_index() + 1) {
                 // Keeps downcast type info in closure.
                 let eraser = Box::new(|any: &mut Box<Any>, id: Index| {
-                    any.downcast_mut::<T::Storage>().unwrap().remove(id);
+                    any.downcast_mut::<RefCell<T::Storage>>().unwrap().borrow_mut().remove(id);
                 });
 
                 self.erasers.push(eraser);
@@ -95,7 +96,7 @@ impl World {
             return;
         }
 
-        self.storages[T::type_index()] = Some(Box::new(T::Storage::new()));
+        self.storages[T::type_index()] = Some(Box::new(RefCell::new(T::Storage::new())));
     }
 
     /// Add components to entity, returns the reference to component.
@@ -106,7 +107,7 @@ impl World {
     {
         if self.is_alive(ent) {
             self.masks[ent.index() as usize].insert(T::type_index());
-            self._fetch_s_mut::<T>().insert(ent.index(), value)
+            self._s::<T>().borrow_mut().insert(ent.index(), value)
         } else {
             None
         }
@@ -124,7 +125,7 @@ impl World {
     {
         if self.is_alive(ent) {
             self.masks[ent.index() as usize].remove(T::type_index());
-            self._fetch_s_mut::<T>().remove(ent.index())
+            self._s::<T>().borrow_mut().remove(ent.index())
         } else {
             None
         }
@@ -138,49 +139,41 @@ impl World {
         self.entities.is_alive(ent) && self.masks[ent.index() as usize].contains(T::type_index())
     }
 
-    /// Returns a reference to the component corresponding to the `Entity::index`.
-    #[inline]
-    pub fn fetch<T>(&self, ent: Entity) -> Option<&T>
+    /// Returns a reference to the component corresponding to the `Entity`.
+    /// # Panics
+    /// Panics if any T is currently mutably borrowed.
+    pub fn fetch<T>(&self, ent: Entity) -> Option<Ref<T>>
         where T: Component
     {
-        if self.is_alive(ent) {
-            self._fetch_s::<T>().get(ent.index())
+        if self.has::<T>(ent) {
+            Some(Ref::map(self._s::<T>().borrow(), |s| s.get(ent.index()).unwrap()))
         } else {
             None
         }
     }
 
-    /// Returns a mutable reference to the component corresponding to the `Entity::index`.
-    #[inline]
-    pub fn fetch_mut<T>(&mut self, ent: Entity) -> Option<&mut T>
+    /// Returns a mutable reference to the component corresponding to the `Entity`.
+    /// # Panics
+    /// Panics if any T is currently borrowed.
+    pub fn fetch_mut<T>(&self, ent: Entity) -> Option<RefMut<T>>
         where T: Component
     {
-        if self.is_alive(ent) {
-            self._fetch_s_mut::<T>().get_mut(ent.index())
+        if self.has::<T>(ent) {
+            Some(RefMut::map(self._s::<T>().borrow_mut(),
+                             |s| s.get_mut(ent.index()).unwrap()))
         } else {
             None
         }
     }
 
     #[inline]
-    fn _fetch_s<T>(&self) -> &T::Storage
+    fn _s<T>(&self) -> &RefCell<T::Storage>
         where T: Component
     {
         self.storages[T::type_index()]
             .as_ref()
             .expect("Tried to perform an operation on component type that not registered.")
-            .downcast_ref::<T::Storage>()
-            .unwrap()
-    }
-
-    #[inline]
-    fn _fetch_s_mut<T>(&mut self) -> &mut T::Storage
-        where T: Component
-    {
-        self.storages[T::type_index()]
-            .as_mut()
-            .expect("Tried to perform an operation on component type that not registered.")
-            .downcast_mut::<T::Storage>()
+            .downcast_ref::<RefCell<T::Storage>>()
             .unwrap()
     }
 }
@@ -208,7 +201,7 @@ macro_rules! build_iter_with {
 
         impl<'a, $($component), *> Iterator for $name_struct<'a, $($component), *>
             where $($component:Component, )* {
-            type Item = (Entity, $(&'a $component), *);
+            type Item = (Entity, $(Ref<'a, $component>), *);
 
             fn next(&mut self) -> Option<Self::Item> {
                 loop{

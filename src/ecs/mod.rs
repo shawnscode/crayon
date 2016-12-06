@@ -36,7 +36,6 @@ mod test {
     use super::*;
     use std::sync::{Arc, RwLock};
 
-
     #[derive(Debug, Clone, Default, PartialEq, Eq)]
     struct Position {
         x: i32,
@@ -53,6 +52,7 @@ mod test {
 
         let e1 = world.create();
         world.assign::<Position>(e1, Position { x: 1, y: 2 });
+        assert!(world.has::<Position>(e1));
 
         {
             let p = world.fetch::<Position>(e1).unwrap();
@@ -60,7 +60,7 @@ mod test {
         }
 
         {
-            let p = world.fetch_mut::<Position>(e1).unwrap();
+            let mut p = world.fetch_mut::<Position>(e1).unwrap();
             p.x = 2;
             p.y = 5;
         }
@@ -71,7 +71,8 @@ mod test {
         }
 
         world.remove::<Position>(e1);
-        assert_eq!(world.fetch::<Position>(e1), None);
+        assert!(!world.has::<Position>(e1));
+        assert!(world.fetch::<Position>(e1).is_none());
     }
 
     #[derive(Debug, Clone, Default)]
@@ -94,7 +95,7 @@ mod test {
         let e1 = world.create();
         assert!(world.is_alive(e1));
         assert!(!world.has::<Position>(e1));
-        assert_eq!(world.fetch::<Position>(e1), None);
+        assert!(world.fetch::<Position>(e1).is_none());
 
         world.assign::<Position>(e1, Position { x: 1, y: 2 });
         assert!(world.has::<Position>(e1));
@@ -103,7 +104,7 @@ mod test {
         world.free(e1);
         assert!(!world.is_alive(e1));
         assert!(!world.has::<Position>(e1));
-        assert_eq!(world.fetch::<Position>(e1), None);
+        assert!(world.fetch::<Position>(e1).is_none());
 
         let mut entities = Vec::new();
         let rc = Arc::new(RwLock::new(0));
@@ -136,7 +137,7 @@ mod test {
         assert!(world.assign::<Position>(e1, Position { x: 2, y: 4 }) ==
                 Some(Position { x: 1, y: 2 }));
 
-        assert!(world.fetch::<Position>(e1) == Some(&Position { x: 2, y: 4 }))
+        assert!(*world.fetch::<Position>(e1).unwrap() == Position { x: 2, y: 4 })
     }
 
     #[test]
@@ -187,5 +188,29 @@ mod test {
         let e1 = world.build().with_default::<Position>().finish();
         assert!(world.has::<Position>(e1));
         assert!(!world.has::<Reference>(e1));
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_fetch() {
+        let mut world = World::new();
+        world.register::<Position>();
+
+        let e1 = world.build().with_default::<Position>().finish();
+
+        let _p1 = world.fetch_mut::<Position>(e1);
+        world.fetch::<Position>(e1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_fetch_mut() {
+        let mut world = World::new();
+        world.register::<Position>();
+
+        let e1 = world.build().with_default::<Position>().finish();
+
+        let _p1 = world.fetch_mut::<Position>(e1);
+        world.fetch_mut::<Position>(e1);
     }
 }
