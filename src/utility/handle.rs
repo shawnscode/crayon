@@ -1,9 +1,8 @@
 use std::ops::Deref;
 
-/// `Index` type is arbitrary. Keeping it 32-bits allows for
+/// `HandleIndex` type is arbitrary. Keeping it 32-bits allows for
 /// a single 64-bits word per `Handle`.
-pub type Index = u32;
-
+pub type HandleIndex = u32;
 
 /// `Handle` is made up of two field, `index` and `version`. `index` are
 /// usually used to indicated address into some kind of space. This value
@@ -12,14 +11,14 @@ pub type Index = u32;
 /// indices. We solve this by introducing `version`.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Handle {
-    index: Index,
-    version: Index,
+    index: HandleIndex,
+    version: HandleIndex,
 }
 
 impl Handle {
     /// Constructs a new `Handle`.
     #[inline]
-    pub fn new(index: Index, version: Index) -> Self {
+    pub fn new(index: HandleIndex, version: HandleIndex) -> Self {
         Handle {
             index: index,
             version: version,
@@ -50,21 +49,21 @@ impl Handle {
 
     /// Returns index value.
     #[inline]
-    pub fn index(&self) -> Index {
+    pub fn index(&self) -> HandleIndex {
         self.index
     }
 
     /// Returns version value.
     #[inline]
-    pub fn version(&self) -> Index {
+    pub fn version(&self) -> HandleIndex {
         self.version
     }
 }
 
 impl Deref for Handle {
-    type Target = Index;
+    type Target = HandleIndex;
 
-    fn deref(&self) -> &Index {
+    fn deref(&self) -> &HandleIndex {
         &self.index
     }
 }
@@ -73,8 +72,8 @@ impl Deref for Handle {
 /// created with a continuous `index` field. It also have the ability to find
 /// out the current status of a specified `Handle`.
 pub struct HandleSet {
-    versions: Vec<Index>,
-    frees: Vec<Index>,
+    versions: Vec<HandleIndex>,
+    frees: Vec<HandleIndex>,
 }
 
 impl HandleSet {
@@ -91,7 +90,7 @@ impl HandleSet {
         let versions = Vec::with_capacity(capacity);
         let mut frees = Vec::with_capacity(capacity);
         for i in 0..versions.len() {
-            frees.push(i as Index);
+            frees.push(i as HandleIndex);
         }
 
         HandleSet {
@@ -106,11 +105,11 @@ impl HandleSet {
             // If we have available free slots.
             let index = self.frees.pop().unwrap() as usize;
             self.versions[index] += 1;
-            Handle::new(index as Index, self.versions[index])
+            Handle::new(index as HandleIndex, self.versions[index])
         } else {
             // Or we just spawn a new index and corresponding version.
             self.versions.push(1);
-            Handle::new(self.versions.len() as Index - 1, 1)
+            Handle::new(self.versions.len() as HandleIndex - 1, 1)
         }
     }
 
@@ -141,8 +140,8 @@ impl HandleSet {
 
     /// Returns an iterator over the `HandleSet`.
     #[inline]
-    pub fn iter(&self) -> Iter {
-        Iter {
+    pub fn iter(&self) -> HandleIter {
+        HandleIter {
             versions: &self.versions,
             index: None,
         }
@@ -150,12 +149,12 @@ impl HandleSet {
 }
 
 /// Immutable `HandleSet` iterator, this struct is created by `iter` method on `HandleSet`.
-pub struct Iter<'a> {
-    versions: &'a Vec<Index>,
-    index: Option<Index>,
+pub struct HandleIter<'a> {
+    versions: &'a Vec<HandleIndex>,
+    index: Option<HandleIndex>,
 }
 
-impl<'a> Iterator for Iter<'a> {
+impl<'a> Iterator for HandleIter<'a> {
     type Item = Handle;
 
     fn next(&mut self) -> Option<Handle> {

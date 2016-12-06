@@ -29,7 +29,8 @@ pub mod world;
 pub use self::component::{Component, ComponentStorage, HashMapStorage};
 pub use self::world::World;
 
-pub type Entity = super::utils::handle::Handle;
+use super::utility::handle::Handle;
+pub type Entity = Handle;
 
 #[cfg(test)]
 mod test {

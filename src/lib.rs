@@ -1,11 +1,12 @@
 #[macro_use]
 extern crate lazy_static;
+extern crate bit_set;
 
-pub mod utils;
+pub mod utility;
 pub mod ecs;
 pub mod engine;
 
-pub use self::engine::Subsystem;
+pub use self::engine::{Engine, Subsystem};
 pub use self::ecs::World;
 pub use self::ecs::component::{Component, HashMapStorage};
 

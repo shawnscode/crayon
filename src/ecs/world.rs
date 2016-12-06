@@ -1,11 +1,9 @@
-extern crate bit_set;
-
 use std::any::Any;
-use self::bit_set::BitSet;
 use std::cell::{Ref, RefMut, RefCell};
+use bit_set::BitSet;
 
 use super::*;
-use super::super::utils::handle::*;
+use super::super::utility::handle::*;
 
 /// The `World` struct are used to manage the whole entity-component system, It keeps
 /// tracks of the state of every created `Entity`s. All memthods are supposed to be
@@ -13,7 +11,7 @@ use super::super::utils::handle::*;
 pub struct World {
     entities: HandleSet,
     masks: Vec<BitSet>,
-    erasers: Vec<Box<FnMut(&mut Box<Any>, Index) -> ()>>,
+    erasers: Vec<Box<FnMut(&mut Box<Any>, HandleIndex) -> ()>>,
     storages: Vec<Option<Box<Any>>>,
 }
 
@@ -82,7 +80,7 @@ impl World {
         if T::type_index() >= self.storages.len() {
             for _ in self.storages.len()..(T::type_index() + 1) {
                 // Keeps downcast type info in closure.
-                let eraser = Box::new(|any: &mut Box<Any>, id: Index| {
+                let eraser = Box::new(|any: &mut Box<Any>, id: HandleIndex| {
                     any.downcast_mut::<RefCell<T::Storage>>().unwrap().borrow_mut().remove(id);
                 });
 
@@ -100,7 +98,7 @@ impl World {
     }
 
     /// Add components to entity, returns the reference to component.
-    /// If the world did not have component with present `Index`, `None` is returned.
+    /// If the world did not have component with present `HandleIndex`, `None` is returned.
     /// Otherwise the value is updated, and the old value is returned.
     pub fn assign<T>(&mut self, ent: Entity, value: T) -> Option<T>
         where T: Component
@@ -119,7 +117,7 @@ impl World {
         self.assign(ent, Default::default())
     }
 
-    /// Remove component of entity from the world, returning the component at the `Index`.
+    /// Remove component of entity from the world, returning the component at the `HandleIndex`.
     pub fn remove<T>(&mut self, ent: Entity) -> Option<T>
         where T: Component
     {
@@ -182,7 +180,7 @@ impl World {
 impl World {
     /// Returns immutable `World` iterator into `Entity`s.
     #[inline]
-    pub fn iter(&self) -> Iter {
+    pub fn iter(&self) -> HandleIter {
         self.entities.iter()
     }
 }
@@ -195,7 +193,7 @@ macro_rules! build_iter_with {
         pub struct $name_struct<'a, $($component), *> where $($component:Component, )* {
             world: &'a World,
             mask: BitSet,
-            iterator: Iter<'a>,
+            iterator: HandleIter<'a>,
             _phantom: ( $(PhantomData<$component>), * ),
         }
 
