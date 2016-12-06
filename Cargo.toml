@@ -6,3 +6,5 @@ authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 [dependencies]
 bit-set = "*"
 lazy_static = "*"
+deque = "*"
+rand = "*"
