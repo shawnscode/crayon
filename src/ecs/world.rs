@@ -176,6 +176,32 @@ impl World {
     }
 }
 
+/// Help builder for entities.
+pub struct EntityBuilder<'a> {
+    entity: Entity,
+    world: &'a mut World,
+}
+
+impl<'a> EntityBuilder<'a> {
+    pub fn with<T>(&mut self, value: T) -> &mut Self
+        where T: Component
+    {
+        self.world.assign::<T>(self.entity, value);
+        self
+    }
+
+    pub fn with_default<T>(&mut self) -> &mut Self
+        where T: Component + Default
+    {
+        self.world.assign_with_default::<T>(self.entity);
+        self
+    }
+
+    pub fn finish(&self) -> Entity {
+        self.entity
+    }
+}
+
 /// All the implementations of various iterators.
 impl World {
     /// Returns immutable `World` iterator into `Entity`s.
@@ -185,14 +211,14 @@ impl World {
     }
 }
 
-macro_rules! build_iter_with {
+macro_rules! build_read_iter_with {
     ($name: ident, $tuple:ident<$($cps: ident), *>) => (
 
         mod $name {
             use bit_set::BitSet;
             use super::*;
-            use super::{IterTupleHelper, $tuple};
             use super::super::{Component, Entity};
+            use super::super::iterator::{IterTupleHelper, $tuple};
             use super::super::super::utility::handle::HandleIter;
 
             pub struct Iter<'a, $($cps), *>
@@ -261,125 +287,91 @@ macro_rules! build_iter_with {
     )
 }
 
-trait IterTupleHelper {
-    type Item;
+build_read_iter_with!(iter_with, RTuple1<T1>);
+build_read_iter_with!(iter_with_2, RTuple2<T1, T2>);
+build_read_iter_with!(iter_with_3, RTuple3<T1, T2, T3>);
+build_read_iter_with!(iter_with_4, RTuple4<T1, T2, T3, T4>);
 
-    fn fetch(&self, index: HandleIndex) -> Self::Item;
-}
+macro_rules! build_write_iter_with {
+    ($name: ident, $tuple:ident<$($cps: ident), *>) => (
 
-unsafe fn _cast<'a, T>(value: &T::Storage) -> &'a T::Storage
-    where T: Component
-{
-    ::std::mem::transmute::<&T::Storage, &'a T::Storage>(&*value)
-}
+        mod $name {
+            use bit_set::BitSet;
+            use super::*;
+            use super::super::{Component, Entity};
+            use super::super::iterator::{IterMutTupleHelper, $tuple};
+            use super::super::super::utility::handle::HandleIter;
 
-struct RTuple1<'a, T1>(Ref<'a, T1::Storage>) where T1: Component;
+            pub struct Iter<'a, $($cps), *>
+                where $($cps:Component), *
+            {
+                world: &'a World,
+                mask: BitSet,
+                iterator: HandleIter<'a>,
+                writers: $tuple<'a, $($cps), *>,
+            }
 
-impl<'a, T1> IterTupleHelper for RTuple1<'a, T1>
-    where T1: Component
-{
-    type Item = (&'a T1);
+            pub struct IterItem<'a, $($cps), *>
+                where $($cps:Component), *
+            {
+                pub entity: Entity,
+                pub writables: ($(&'a mut $cps), *),
+            }
 
-    fn fetch(&self, index: HandleIndex) -> Self::Item {
-        unsafe { (_cast::<T1>(&*self.0).get(index).unwrap()) }
-    }
-}
+            impl<'a, $($cps), *> Iterator for Iter<'a, $($cps), *>
+                where $($cps:Component), *
+            {
+                type Item = IterItem<'a, $($cps), *>;
 
-struct RTuple2<'a, T1, T2>(Ref<'a, T1::Storage>, Ref<'a, T2::Storage>)
-    where T1: Component,
-          T2: Component;
+                fn next(&mut self) -> Option<Self::Item> {
+                    loop {
+                        match self.iterator.next() {
+                            Some(ent) => {
+                                let mut mask =
+                                    unsafe { self.world.masks.get_unchecked(ent.index() as usize).clone() };
+                                mask.intersect_with(&self.mask);
 
-impl<'a, T1, T2> IterTupleHelper for RTuple2<'a, T1, T2>
-    where T1: Component,
-          T2: Component
-{
-    type Item = (&'a T1, &'a T2);
+                                if mask == self.mask {
+                                    return Some(IterItem {
+                                        entity: ent,
+                                        writables: (self.writers.fetch(ent.index())),
+                                    });
+                                }
+                            }
+                            None => {
+                                return None;
+                            }
+                        }
+                    }
+                }
+            }
 
-    fn fetch(&self, index: HandleIndex) -> Self::Item {
-        unsafe {
-            (_cast::<T1>(&*self.0).get(index).unwrap(), _cast::<T2>(&*self.1).get(index).unwrap())
+            impl World {
+                /// Returns iterator into alive entities with specified components.
+                pub fn $name<$($cps), *>(&self) -> Iter<$($cps), *>
+                    where $($cps:Component, )*
+                {
+                    let mut mask = BitSet::new();
+                    $(
+                        mask.insert($cps::type_index());
+                    ) *
+
+                    Iter {
+                        world: self,
+                        mask: mask,
+                        iterator: self.iter(),
+                        writers: $tuple($(self._s::<$cps>().borrow_mut()), *),
+                    }
+                }
+            }
         }
-    }
+    )
 }
 
-struct RTuple3<'a, T1, T2, T3>(Ref<'a, T1::Storage>, Ref<'a, T2::Storage>, Ref<'a, T3::Storage>)
-    where T1: Component,
-          T2: Component,
-          T3: Component;
-
-impl<'a, T1, T2, T3> IterTupleHelper for RTuple3<'a, T1, T2, T3>
-    where T1: Component,
-          T2: Component,
-          T3: Component
-{
-    type Item = (&'a T1, &'a T2, &'a T3);
-
-    fn fetch(&self, index: HandleIndex) -> Self::Item {
-        unsafe {
-            (_cast::<T1>(&*self.0).get(index).unwrap(),
-             _cast::<T2>(&*self.1).get(index).unwrap(),
-             _cast::<T3>(&*self.2).get(index).unwrap())
-        }
-    }
-}
-
-struct RTuple4<'a, T1, T2, T3, T4>(Ref<'a, T1::Storage>,
-                                   Ref<'a, T2::Storage>,
-                                   Ref<'a, T3::Storage>,
-                                   Ref<'a, T4::Storage>)
-    where T1: Component,
-          T2: Component,
-          T3: Component,
-          T4: Component;
-
-impl<'a, T1, T2, T3, T4> IterTupleHelper for RTuple4<'a, T1, T2, T3, T4>
-    where T1: Component,
-          T2: Component,
-          T3: Component,
-          T4: Component
-{
-    type Item = (&'a T1, &'a T2, &'a T3, &'a T4);
-
-    fn fetch(&self, index: HandleIndex) -> Self::Item {
-        unsafe {
-            (_cast::<T1>(&*self.0).get(index).unwrap(),
-             _cast::<T2>(&*self.1).get(index).unwrap(),
-             _cast::<T3>(&*self.2).get(index).unwrap(),
-             _cast::<T4>(&*self.3).get(index).unwrap())
-        }
-    }
-}
-
-build_iter_with!(iter_with_r1, RTuple1<T1>);
-build_iter_with!(iter_with_r2, RTuple2<T1, T2>);
-build_iter_with!(iter_with_r3, RTuple3<T1, T2, T3>);
-build_iter_with!(iter_with_r4, RTuple4<T1, T2, T3, T4>);
-
-/// Help builder for entities.
-pub struct EntityBuilder<'a> {
-    entity: Entity,
-    world: &'a mut World,
-}
-
-impl<'a> EntityBuilder<'a> {
-    pub fn with<T>(&mut self, value: T) -> &mut Self
-        where T: Component
-    {
-        self.world.assign::<T>(self.entity, value);
-        self
-    }
-
-    pub fn with_default<T>(&mut self) -> &mut Self
-        where T: Component + Default
-    {
-        self.world.assign_with_default::<T>(self.entity);
-        self
-    }
-
-    pub fn finish(&self) -> Entity {
-        self.entity
-    }
-}
+build_write_iter_with!(iter_mut_with, WTuple1<T1>);
+build_write_iter_with!(iter_mut_with_2, WTuple2<T1, T2>);
+build_write_iter_with!(iter_mut_with_3, WTuple3<T1, T2, T3>);
+build_write_iter_with!(iter_mut_with_4, WTuple4<T1, T2, T3, T4>);
 
 #[cfg(test)]
 mod test {

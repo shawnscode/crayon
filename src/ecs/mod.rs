@@ -25,6 +25,7 @@
 #[macro_use]
 pub mod component;
 pub mod world;
+mod iterator;
 
 pub use self::component::{Component, ComponentStorage, HashMapStorage};
 pub use self::world::World;
@@ -168,16 +169,59 @@ mod test {
             }
         }
 
-        let mut iterator = world.iter_with_r2::<Position, Reference>();
-        for e in v {
-            let i = iterator.next().unwrap();
-            let p = Position {
-                x: e.index() as i32,
-                y: e.version() as i32,
-            };
-            assert_eq!(i.entity, e);
-            assert_eq!(*i.readables.0, p);
+        {
+            let mut iterator = world.iter_with_2::<Position, Reference>();
+            for e in &v {
+                let i = iterator.next().unwrap();
+                let p = Position {
+                    x: e.index() as i32,
+                    y: e.version() as i32,
+                };
+                assert_eq!(i.entity, *e);
+                assert_eq!(*i.readables.0, p);
+            }
         }
+
+        {
+            let mut iterator = world.iter_mut_with_2::<Position, Reference>();
+            for e in &v {
+                let i = iterator.next().unwrap();
+                i.writables.0.x += e.version() as i32;
+            }
+        }
+
+        {
+            let mut iterator = world.iter_with_2::<Position, Reference>();
+            for e in &v {
+                let i = iterator.next().unwrap();
+                let p = Position {
+                    x: e.index() as i32 + e.version() as i32,
+                    y: e.version() as i32,
+                };
+                assert_eq!(i.entity, *e);
+                assert_eq!(*i.readables.0, p);
+            }
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_iter() {
+        let mut world = World::new();
+        world.register::<Position>();
+
+        let _i1 = world.iter_with::<Position>();
+        world.iter_mut_with::<Position>();
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_iter_mut() {
+        let mut world = World::new();
+        world.register::<Position>();
+
+        let _i1 = world.iter_with::<Position>();
+        world.iter_mut_with::<Position>();
     }
 
     #[test]
