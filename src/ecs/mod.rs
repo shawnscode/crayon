@@ -168,15 +168,15 @@ mod test {
             }
         }
 
-        let mut iterator = world.iter_with_2::<Position, Reference>();
+        let mut iterator = world.iter_with_r2::<Position, Reference>();
         for e in v {
             let i = iterator.next().unwrap();
-            assert_eq!(i.0, e);
-            assert_eq!(*i.1,
-                       Position {
-                           x: e.index() as i32,
-                           y: e.version() as i32,
-                       });
+            let p = Position {
+                x: e.index() as i32,
+                y: e.version() as i32,
+            };
+            assert_eq!(i.entity, e);
+            assert_eq!(*i.readables.0, p);
         }
     }
 
