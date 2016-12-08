@@ -22,15 +22,17 @@
 //! addressed some data storage approaches in `ecs::component`, users could make their
 //! own decision based on different purposes.
 
+use super::utility::handle::Handle;
+
+#[macro_use]
+mod iterator;
 #[macro_use]
 pub mod component;
 pub mod world;
-mod iterator;
 
 pub use self::component::{Component, ComponentStorage, HashMapStorage};
 pub use self::world::World;
 
-use super::utility::handle::Handle;
 pub type Entity = Handle;
 
 #[cfg(test)]
@@ -187,6 +189,7 @@ mod test {
             for e in &v {
                 let i = iterator.next().unwrap();
                 i.writables.0.x += e.version() as i32;
+                *i.writables.1.value.write().unwrap() += 1;
             }
         }
 
@@ -200,6 +203,22 @@ mod test {
                 };
                 assert_eq!(i.entity, *e);
                 assert_eq!(*i.readables.0, p);
+                assert_eq!(*i.readables.1.value.read().unwrap(), 1);
+            }
+        }
+
+
+        {
+            let mut iterator = world.iter_with_r1w1::<Position, Reference>();
+            for e in &v {
+                let i = iterator.next().unwrap();
+                let p = Position {
+                    x: e.index() as i32 + e.version() as i32,
+                    y: e.version() as i32,
+                };
+                assert_eq!(i.entity, *e);
+                assert_eq!(*i.readables, p);
+                assert_eq!(*i.writables.value.read().unwrap(), 1);
             }
         }
     }
