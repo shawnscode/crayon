@@ -196,6 +196,7 @@ impl<'a> Iterator for HandleIter<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use rand::{Rng, SeedableRng, XorShiftRng};
 
     #[test]
     fn basic() {
@@ -278,6 +279,34 @@ mod test {
             let e = set.create();
             assert!((*e as usize) < v.len());
             assert!(v[*e as usize].version() != e.version());
+        }
+    }
+
+    #[test]
+    fn index_compact_reuse() {
+        let mut generator = XorShiftRng::from_seed([0, 1, 2, 3]);
+        let mut set = HandleSet::new();
+
+        let mut v = vec![];
+        for _ in 0..5 {
+            for _ in 0..50 {
+                v.push(set.create());
+            }
+
+            let size = v.len() / 2;
+            for _ in 0..size {
+                let len = v.len();
+                set.free(v.swap_remove(generator.next_u32() as usize % len));
+            }
+        }
+
+        for i in v {
+            set.free(i);
+        }
+
+        for index in 0..50 {
+            let handle = set.create();
+            assert_eq!(handle.index(), index);
         }
     }
 
