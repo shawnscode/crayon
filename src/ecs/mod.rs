@@ -22,29 +22,44 @@
 //! addressed some data storage approaches in `ecs::component`, users could make their
 //! own decision based on different purposes.
 
+use super::utility::handle::Handle;
+
+#[macro_use]
+mod iterator;
 #[macro_use]
 pub mod component;
 pub mod world;
-mod iterator;
 
-pub use self::component::{Component, ComponentStorage, HashMapStorage};
+pub use self::component::{Component, ComponentStorage, HashMapStorage, VecStorage};
 pub use self::world::World;
 
-use super::utility::handle::Handle;
 pub type Entity = Handle;
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use std::sync::{Arc, RwLock};
+
+    use super::*;
+    use rand::{Rng, SeedableRng, XorShiftRng};
 
     #[derive(Debug, Clone, Default, PartialEq, Eq)]
     struct Position {
-        x: i32,
-        y: i32,
+        x: u32,
+        y: u32,
     }
 
-    declare_component!(Position, HashMapStorage);
+    #[derive(Debug, Clone, Default)]
+    struct Reference {
+        value: Arc<RwLock<usize>>,
+    }
+
+    impl Drop for Reference {
+        fn drop(&mut self) {
+            *self.value.write().unwrap() += 1;
+        }
+    }
+
+    declare_component!(Position, VecStorage);
     declare_component!(Reference, HashMapStorage);
 
     #[test]
@@ -75,17 +90,6 @@ mod test {
         world.remove::<Position>(e1);
         assert!(!world.has::<Position>(e1));
         assert!(world.fetch::<Position>(e1).is_none());
-    }
-
-    #[derive(Debug, Clone, Default)]
-    struct Reference {
-        value: Arc<RwLock<usize>>,
-    }
-
-    impl Drop for Reference {
-        fn drop(&mut self) {
-            *self.value.write().unwrap() += 1;
-        }
     }
 
     #[test]
@@ -143,6 +147,48 @@ mod test {
     }
 
     #[test]
+    fn random_allocate() {
+        let mut generator = XorShiftRng::from_seed([0, 1, 2, 3]);
+        let mut world = World::new();
+        world.register::<Position>();
+        world.register::<Reference>();
+
+        let mut v = vec![];
+        for i in 3..10 {
+            let p = generator.next_u32() % i + 1;
+            let r = generator.next_u32() % i + 1;
+            for j in 0..100 {
+                if j % p == 0 {
+                    let e = world.create();
+                    world.assign::<Position>(e,
+                                             Position {
+                                                 x: e.index(),
+                                                 y: e.version(),
+                                             });
+                    if j % r == 0 {
+                        world.assign_with_default::<Reference>(e);
+                    }
+                    v.push(e);
+                }
+            }
+
+            let size = v.len() / 2;
+            for _ in 0..size {
+                let len = v.len();
+                world.free(v.swap_remove(generator.next_u32() as usize % len));
+            }
+        }
+
+        for i in v {
+            assert_eq!(*world.fetch::<Position>(i).unwrap(),
+                       Position {
+                           x: i.index(),
+                           y: i.version(),
+                       });
+        }
+    }
+
+    #[test]
     fn iter_with() {
         let mut world = World::new();
         world.register::<Position>();
@@ -155,8 +201,8 @@ mod test {
             if i % 2 == 0 {
                 world.assign::<Position>(e,
                                          Position {
-                                             x: e.index() as i32,
-                                             y: e.version() as i32,
+                                             x: e.index(),
+                                             y: e.version(),
                                          });
             }
 
@@ -174,8 +220,8 @@ mod test {
             for e in &v {
                 let i = iterator.next().unwrap();
                 let p = Position {
-                    x: e.index() as i32,
-                    y: e.version() as i32,
+                    x: e.index(),
+                    y: e.version(),
                 };
                 assert_eq!(i.entity, *e);
                 assert_eq!(*i.readables.0, p);
@@ -186,7 +232,8 @@ mod test {
             let mut iterator = world.iter_mut_with_2::<Position, Reference>();
             for e in &v {
                 let i = iterator.next().unwrap();
-                i.writables.0.x += e.version() as i32;
+                i.writables.0.x += e.version();
+                *i.writables.1.value.write().unwrap() += 1;
             }
         }
 
@@ -195,11 +242,27 @@ mod test {
             for e in &v {
                 let i = iterator.next().unwrap();
                 let p = Position {
-                    x: e.index() as i32 + e.version() as i32,
-                    y: e.version() as i32,
+                    x: e.index() + e.version(),
+                    y: e.version(),
                 };
                 assert_eq!(i.entity, *e);
                 assert_eq!(*i.readables.0, p);
+                assert_eq!(*i.readables.1.value.read().unwrap(), 1);
+            }
+        }
+
+
+        {
+            let mut iterator = world.iter_with_r1w1::<Position, Reference>();
+            for e in &v {
+                let i = iterator.next().unwrap();
+                let p = Position {
+                    x: e.index() + e.version(),
+                    y: e.version(),
+                };
+                assert_eq!(i.entity, *e);
+                assert_eq!(*i.readables, p);
+                assert_eq!(*i.writables.value.read().unwrap(), 1);
             }
         }
     }

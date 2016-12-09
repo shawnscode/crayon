@@ -81,7 +81,9 @@ impl World {
             for _ in self.storages.len()..(T::type_index() + 1) {
                 // Keeps downcast type info in closure.
                 let eraser = Box::new(|any: &mut Box<Any>, id: HandleIndex| {
-                    any.downcast_mut::<RefCell<T::Storage>>().unwrap().borrow_mut().remove(id);
+                    unsafe {
+                        any.downcast_mut::<RefCell<T::Storage>>().unwrap().borrow_mut().remove(id);
+                    }
                 });
 
                 self.erasers.push(eraser);
@@ -97,17 +99,24 @@ impl World {
         self.storages[T::type_index()] = Some(Box::new(RefCell::new(T::Storage::new())));
     }
 
-    /// Add components to entity, returns the reference to component.
-    /// If the world did not have component with present `HandleIndex`, `None` is returned.
-    /// Otherwise the value is updated, and the old value is returned.
+    /// Add components to entity, returns the old value if exists.
     pub fn assign<T>(&mut self, ent: Entity, value: T) -> Option<T>
         where T: Component
     {
-        if self.is_alive(ent) {
-            self.masks[ent.index() as usize].insert(T::type_index());
-            self._s::<T>().borrow_mut().insert(ent.index(), value)
-        } else {
-            None
+        unsafe {
+            if self.is_alive(ent) {
+                let result = if self.masks[ent.index() as usize].contains(T::type_index()) {
+                    Some(self._s::<T>().borrow_mut().remove(ent.index()))
+                } else {
+                    self.masks[ent.index() as usize].insert(T::type_index());
+                    None
+                };
+
+                self._s::<T>().borrow_mut().insert(ent.index(), value);
+                result
+            } else {
+                None
+            }
         }
     }
 
@@ -121,11 +130,13 @@ impl World {
     pub fn remove<T>(&mut self, ent: Entity) -> Option<T>
         where T: Component
     {
-        if self.is_alive(ent) {
-            self.masks[ent.index() as usize].remove(T::type_index());
-            self._s::<T>().borrow_mut().remove(ent.index())
-        } else {
-            None
+        unsafe {
+            if self.masks[ent.index() as usize].contains(T::type_index()) {
+                self.masks[ent.index() as usize].remove(T::type_index());
+                Some(self._s::<T>().borrow_mut().remove(ent.index()))
+            } else {
+                None
+            }
         }
     }
 
@@ -144,7 +155,7 @@ impl World {
         where T: Component
     {
         if self.has::<T>(ent) {
-            Some(Ref::map(self._s::<T>().borrow(), |s| s.get(ent.index()).unwrap()))
+            unsafe { Some(Ref::map(self._s::<T>().borrow(), |s| s.get(ent.index()))) }
         } else {
             None
         }
@@ -157,8 +168,7 @@ impl World {
         where T: Component
     {
         if self.has::<T>(ent) {
-            Some(RefMut::map(self._s::<T>().borrow_mut(),
-                             |s| s.get_mut(ent.index()).unwrap()))
+            unsafe { Some(RefMut::map(self._s::<T>().borrow_mut(), |s| s.get_mut(ent.index()))) }
         } else {
             None
         }
@@ -211,167 +221,32 @@ impl World {
     }
 }
 
-macro_rules! build_read_iter_with {
-    ($name: ident, $tuple:ident<$($cps: ident), *>) => (
-
-        mod $name {
-            use bit_set::BitSet;
-            use super::*;
-            use super::super::{Component, Entity};
-            use super::super::iterator::{IterTupleHelper, $tuple};
-            use super::super::super::utility::handle::HandleIter;
-
-            pub struct Iter<'a, $($cps), *>
-                where $($cps:Component), *
-            {
-                world: &'a World,
-                mask: BitSet,
-                iterator: HandleIter<'a>,
-                readers: $tuple<'a, $($cps), *>,
-            }
-
-            pub struct IterItem<'a, $($cps), *>
-                where $($cps:Component), *
-            {
-                pub entity: Entity,
-                pub readables: ($(&'a $cps), *),
-            }
-
-            impl<'a, $($cps), *> Iterator for Iter<'a, $($cps), *>
-                where $($cps:Component), *
-            {
-                type Item = IterItem<'a, $($cps), *>;
-
-                fn next(&mut self) -> Option<Self::Item> {
-                    loop {
-                        match self.iterator.next() {
-                            Some(ent) => {
-                                let mut mask =
-                                    unsafe { self.world.masks.get_unchecked(ent.index() as usize).clone() };
-                                mask.intersect_with(&self.mask);
-
-                                if mask == self.mask {
-                                    return Some(IterItem {
-                                        entity: ent,
-                                        readables: (self.readers.fetch(ent.index())),
-                                    });
-                                }
-                            }
-                            None => {
-                                return None;
-                            }
-                        }
-                    }
-                }
-            }
-
-            impl World {
-                /// Returns iterator into alive entities with specified components.
-                pub fn $name<$($cps), *>(&self) -> Iter<$($cps), *>
-                    where $($cps:Component, )*
-                {
-                    let mut mask = BitSet::new();
-                    $(
-                        mask.insert($cps::type_index());
-                    ) *
-
-                    Iter {
-                        world: self,
-                        mask: mask,
-                        iterator: self.iter(),
-                        readers: $tuple($(self._s::<$cps>().borrow()), *),
-                    }
-                }
-            }
-        }
-    )
-}
-
 build_read_iter_with!(iter_with, RTuple1<T1>);
 build_read_iter_with!(iter_with_2, RTuple2<T1, T2>);
 build_read_iter_with!(iter_with_3, RTuple3<T1, T2, T3>);
 build_read_iter_with!(iter_with_4, RTuple4<T1, T2, T3, T4>);
 
-macro_rules! build_write_iter_with {
-    ($name: ident, $tuple:ident<$($cps: ident), *>) => (
-
-        mod $name {
-            use bit_set::BitSet;
-            use super::*;
-            use super::super::{Component, Entity};
-            use super::super::iterator::{IterMutTupleHelper, $tuple};
-            use super::super::super::utility::handle::HandleIter;
-
-            pub struct Iter<'a, $($cps), *>
-                where $($cps:Component), *
-            {
-                world: &'a World,
-                mask: BitSet,
-                iterator: HandleIter<'a>,
-                writers: $tuple<'a, $($cps), *>,
-            }
-
-            pub struct IterItem<'a, $($cps), *>
-                where $($cps:Component), *
-            {
-                pub entity: Entity,
-                pub writables: ($(&'a mut $cps), *),
-            }
-
-            impl<'a, $($cps), *> Iterator for Iter<'a, $($cps), *>
-                where $($cps:Component), *
-            {
-                type Item = IterItem<'a, $($cps), *>;
-
-                fn next(&mut self) -> Option<Self::Item> {
-                    loop {
-                        match self.iterator.next() {
-                            Some(ent) => {
-                                let mut mask =
-                                    unsafe { self.world.masks.get_unchecked(ent.index() as usize).clone() };
-                                mask.intersect_with(&self.mask);
-
-                                if mask == self.mask {
-                                    return Some(IterItem {
-                                        entity: ent,
-                                        writables: (self.writers.fetch(ent.index())),
-                                    });
-                                }
-                            }
-                            None => {
-                                return None;
-                            }
-                        }
-                    }
-                }
-            }
-
-            impl World {
-                /// Returns iterator into alive entities with specified components.
-                pub fn $name<$($cps), *>(&self) -> Iter<$($cps), *>
-                    where $($cps:Component, )*
-                {
-                    let mut mask = BitSet::new();
-                    $(
-                        mask.insert($cps::type_index());
-                    ) *
-
-                    Iter {
-                        world: self,
-                        mask: mask,
-                        iterator: self.iter(),
-                        writers: $tuple($(self._s::<$cps>().borrow_mut()), *),
-                    }
-                }
-            }
-        }
-    )
-}
-
 build_write_iter_with!(iter_mut_with, WTuple1<T1>);
 build_write_iter_with!(iter_mut_with_2, WTuple2<T1, T2>);
 build_write_iter_with!(iter_mut_with_3, WTuple3<T1, T2, T3>);
 build_write_iter_with!(iter_mut_with_4, WTuple4<T1, T2, T3, T4>);
+
+build_iter_with!(iter_with_r1w1, RTuple1<T1>, WTuple1<T2>);
+build_iter_with!(iter_with_r1w2, RTuple1<T1>, WTuple2<T2, T3>);
+build_iter_with!(iter_with_r1w3, RTuple1<T1>, WTuple3<T2, T3, T4>);
+build_iter_with!(iter_with_r1w4, RTuple1<T1>, WTuple4<T2, T3, T4, T5>);
+build_iter_with!(iter_with_r2w1, RTuple2<T1, T2>, WTuple1<T3>);
+build_iter_with!(iter_with_r2w2, RTuple2<T1, T2>, WTuple2<T3, T4>);
+build_iter_with!(iter_with_r2w3, RTuple2<T1, T2>, WTuple3<T3, T4, T5>);
+build_iter_with!(iter_with_r2w4, RTuple2<T1, T2>, WTuple4<T3, T4, T5, T6>);
+build_iter_with!(iter_with_r3w1, RTuple3<T1, T2, T3>, WTuple1<T4>);
+build_iter_with!(iter_with_r3w2, RTuple3<T1, T2, T3>, WTuple2<T4, T5>);
+build_iter_with!(iter_with_r3w3, RTuple3<T1, T2, T3>, WTuple3<T4, T5, T6>);
+build_iter_with!(iter_with_r3w4, RTuple3<T1, T2, T3>, WTuple4<T4, T5, T6, T7>);
+build_iter_with!(iter_with_r4w1, RTuple4<T1, T2, T3, T4>, WTuple1<T5>);
+build_iter_with!(iter_with_r4w2, RTuple4<T1, T2, T3, T4>, WTuple2<T5, T6>);
+build_iter_with!(iter_with_r4w3, RTuple4<T1, T2, T3, T4>, WTuple3<T5, T6, T7>);
+build_iter_with!(iter_with_r4w4, RTuple4<T1, T2, T3, T4>, WTuple4<T5, T6, T7, T8>);
 
 #[cfg(test)]
 mod test {
