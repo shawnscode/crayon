@@ -1,4 +1,6 @@
 use std::ops::Deref;
+use std::cmp::Ordering;
+use std::collections::binary_heap::BinaryHeap;
 
 /// `HandleIndex` type is arbitrary. Keeping it 32-bits allows for
 /// a single 64-bits word per `Handle`.
@@ -68,12 +70,27 @@ impl Deref for Handle {
     }
 }
 
+#[derive(PartialEq, Eq)]
+struct InverseHandleIndex(HandleIndex);
+
+impl PartialOrd for InverseHandleIndex {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        other.0.partial_cmp(&self.0)
+    }
+}
+
+impl Ord for InverseHandleIndex {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
 /// `HandleSet` manages the manipulations of a `Handle` collection, which are
 /// created with a continuous `index` field. It also have the ability to find
 /// out the current status of a specified `Handle`.
 pub struct HandleSet {
     versions: Vec<HandleIndex>,
-    frees: Vec<HandleIndex>,
+    frees: BinaryHeap<InverseHandleIndex>,
 }
 
 impl HandleSet {
@@ -81,16 +98,16 @@ impl HandleSet {
     pub fn new() -> HandleSet {
         HandleSet {
             versions: Vec::new(),
-            frees: Vec::new(),
+            frees: BinaryHeap::new(),
         }
     }
 
     /// Constructs a new `HandleSet` with the specified capacity.
     pub fn with_capacity(capacity: usize) -> HandleSet {
         let versions = Vec::with_capacity(capacity);
-        let mut frees = Vec::with_capacity(capacity);
+        let mut frees = BinaryHeap::with_capacity(capacity);
         for i in 0..versions.len() {
-            frees.push(i as HandleIndex);
+            frees.push(InverseHandleIndex(i as HandleIndex));
         }
 
         HandleSet {
@@ -103,7 +120,7 @@ impl HandleSet {
     pub fn create(&mut self) -> Handle {
         if self.frees.len() > 0 {
             // If we have available free slots.
-            let index = self.frees.pop().unwrap() as usize;
+            let index = self.frees.pop().unwrap().0 as usize;
             self.versions[index] += 1;
             Handle::new(index as HandleIndex, self.versions[index])
         } else {
@@ -127,7 +144,7 @@ impl HandleSet {
             false
         } else {
             self.versions[handle.index as usize] += 1;
-            self.frees.push(handle.index);
+            self.frees.push(InverseHandleIndex(handle.index));
             true
         }
     }

@@ -179,16 +179,13 @@ mod test {
             }
         }
 
-        // println!("HAS LEN {:?}, {:?}", v.len(), world.size());
         for i in v {
-            // println!("{:?}", i);
             assert_eq!(*world.fetch::<Position>(i).unwrap(),
                        Position {
                            x: i.index(),
                            y: i.version(),
                        });
         }
-        // assert!(false);
     }
 
     #[test]
