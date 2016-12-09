@@ -1,7 +1,9 @@
+use std::ptr;
 use std::any::Any;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 
+use bit_set::BitSet;
 use super::super::utility::handle::HandleIndex;
 
 lazy_static! {
@@ -46,16 +48,16 @@ pub trait ComponentStorage<T>
     /// Creates a new `ComponentStorage<T>`. This is called when you register a
     /// new component type within the world.
     fn new() -> Self;
-    /// Returns a reference to the value corresponding to the `HandleIndex`.
-    fn get(&self, HandleIndex) -> Option<&T>;
-    /// Returns a mutable reference to the value corresponding to the `HandleIndex`.
-    fn get_mut(&mut self, HandleIndex) -> Option<&mut T>;
-    /// Inserts new data for a given `HandleIndex`.
-    /// If the storage did not have this `HandleIndex` present, `None` is returned.
-    /// Otherwise the value is updated, and the old value is returned.
-    fn insert(&mut self, HandleIndex, T) -> Option<T>;
+    /// Returns a reference to the value corresponding to the `HandleIndex`,
+    /// without doing bounds checking.
+    unsafe fn get(&self, HandleIndex) -> &T;
+    /// Returns a mutable reference to the value corresponding to the `HandleIndex`,
+    /// without doing bounds checking.
+    unsafe fn get_mut(&mut self, HandleIndex) -> &mut T;
+    /// Inserts new data for a given `HandleIndex`,
+    unsafe fn insert(&mut self, HandleIndex, T);
     /// Removes and returns the data associated with an `HandleIndex`.
-    fn remove(&mut self, HandleIndex) -> Option<T>;
+    unsafe fn remove(&mut self, HandleIndex) -> T;
 }
 
 /// HashMap based storage which are best suited for rare components.
@@ -72,20 +74,80 @@ impl<T> ComponentStorage<T> for HashMapStorage<T>
         HashMapStorage { values: HashMap::new() }
     }
 
-    fn get(&self, id: HandleIndex) -> Option<&T> {
-        self.values.get(&id)
+    unsafe fn get(&self, id: HandleIndex) -> &T {
+        self.values.get(&id).unwrap()
     }
 
-    fn get_mut(&mut self, id: HandleIndex) -> Option<&mut T> {
-        self.values.get_mut(&id)
+    unsafe fn get_mut(&mut self, id: HandleIndex) -> &mut T {
+        self.values.get_mut(&id).unwrap()
     }
 
-    fn insert(&mut self, id: HandleIndex, v: T) -> Option<T> {
-        self.values.insert(id, v)
+    unsafe fn insert(&mut self, id: HandleIndex, v: T) {
+        self.values.insert(id, v);
     }
 
-    fn remove(&mut self, id: HandleIndex) -> Option<T> {
-        self.values.remove(&id)
+    unsafe fn remove(&mut self, id: HandleIndex) -> T {
+        self.values.remove(&id).unwrap()
+    }
+}
+
+/// Vec based storage, supposed to have maximum performance
+/// for the components mostly present in entities.
+pub struct VecStorage<T>
+    where T: Component + ::std::fmt::Debug
+{
+    mask: BitSet,
+    values: Vec<T>,
+}
+
+impl<T> ComponentStorage<T> for VecStorage<T>
+    where T: Component + ::std::fmt::Debug
+{
+    fn new() -> Self {
+        VecStorage {
+            mask: BitSet::new(),
+            values: Vec::new(),
+        }
+    }
+
+    unsafe fn get(&self, id: HandleIndex) -> &T {
+        self.values.get_unchecked(id as usize)
+    }
+
+    unsafe fn get_mut(&mut self, id: HandleIndex) -> &mut T {
+        self.values.get_unchecked_mut(id as usize)
+    }
+
+    unsafe fn insert(&mut self, id: HandleIndex, v: T) {
+        let len = self.values.len();
+        if id as usize >= len {
+            self.values.reserve(id as usize + 1 - len);
+            self.values.set_len(id as usize + 1);
+        }
+
+        // Write the value without reading or dropping
+        // the (currently uninitialized) memory.
+        self.mask.insert(id as usize);
+        ptr::write(self.values.get_unchecked_mut(id as usize), v);
+    }
+
+    unsafe fn remove(&mut self, id: HandleIndex) -> T {
+        self.mask.remove(id as usize);
+        ptr::read(self.get(id))
+    }
+}
+
+impl<T> Drop for VecStorage<T>
+    where T: Component + ::std::fmt::Debug
+{
+    fn drop(&mut self) {
+        unsafe {
+            for i in self.mask.iter() {
+                ptr::read(self.values.get_unchecked(i));
+            }
+            self.values.set_len(0);
+            self.mask.clear();
+        }
     }
 }
 

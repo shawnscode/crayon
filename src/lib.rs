@@ -10,8 +10,7 @@ pub mod engine;
 pub mod multitask;
 
 pub use self::engine::{Engine, Subsystem};
-pub use self::ecs::World;
-pub use self::ecs::component::{Component, HashMapStorage};
+pub use self::ecs::*;
 
 unsafe impl Send for World {}
 unsafe impl Sync for World {}
