@@ -221,15 +221,15 @@ impl World {
     }
 }
 
-build_read_iter_with!(iter_with, RTuple1<T1>);
-build_read_iter_with!(iter_with_2, RTuple2<T1, T2>);
-build_read_iter_with!(iter_with_3, RTuple3<T1, T2, T3>);
-build_read_iter_with!(iter_with_4, RTuple4<T1, T2, T3, T4>);
+build_read_iter_with!(iter_with_r1, RTuple1<T1>);
+build_read_iter_with!(iter_with_r2, RTuple2<T1, T2>);
+build_read_iter_with!(iter_with_r3, RTuple3<T1, T2, T3>);
+build_read_iter_with!(iter_with_r4, RTuple4<T1, T2, T3, T4>);
 
-build_write_iter_with!(iter_mut_with, WTuple1<T1>);
-build_write_iter_with!(iter_mut_with_2, WTuple2<T1, T2>);
-build_write_iter_with!(iter_mut_with_3, WTuple3<T1, T2, T3>);
-build_write_iter_with!(iter_mut_with_4, WTuple4<T1, T2, T3, T4>);
+build_write_iter_with!(iter_with_w1, WTuple1<T1>);
+build_write_iter_with!(iter_with_w2, WTuple2<T1, T2>);
+build_write_iter_with!(iter_with_w3, WTuple3<T1, T2, T3>);
+build_write_iter_with!(iter_with_w4, WTuple4<T1, T2, T3, T4>);
 
 build_iter_with!(iter_with_r1w1, RTuple1<T1>, WTuple1<T2>);
 build_iter_with!(iter_with_r1w2, RTuple1<T1>, WTuple2<T2, T3>);
