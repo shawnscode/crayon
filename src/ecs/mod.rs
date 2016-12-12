@@ -216,7 +216,7 @@ mod test {
         }
 
         {
-            let mut iterator = world.iter_with_2::<Position, Reference>();
+            let mut iterator = world.iter_with_r2::<Position, Reference>();
             for e in &v {
                 let i = iterator.next().unwrap();
                 let p = Position {
@@ -229,7 +229,7 @@ mod test {
         }
 
         {
-            let mut iterator = world.iter_mut_with_2::<Position, Reference>();
+            let mut iterator = world.iter_with_w2::<Position, Reference>();
             for e in &v {
                 let i = iterator.next().unwrap();
                 i.writables.0.x += e.version();
@@ -238,7 +238,8 @@ mod test {
         }
 
         {
-            let mut iterator = world.iter_with_2::<Position, Reference>();
+            let mut iterator = world.iter_with_r2::<Position, Reference>();
+            let mut _iterator = world.iter_with_r2::<Position, Reference>();
             for e in &v {
                 let i = iterator.next().unwrap();
                 let p = Position {
@@ -273,8 +274,8 @@ mod test {
         let mut world = World::new();
         world.register::<Position>();
 
-        let _i1 = world.iter_with::<Position>();
-        world.iter_mut_with::<Position>();
+        let _i1 = world.iter_with_r1::<Position>();
+        world.iter_with_w1::<Position>();
     }
 
     #[test]
@@ -283,8 +284,8 @@ mod test {
         let mut world = World::new();
         world.register::<Position>();
 
-        let _i1 = world.iter_with::<Position>();
-        world.iter_mut_with::<Position>();
+        let _i1 = world.iter_with_w1::<Position>();
+        world.iter_with_w1::<Position>();
     }
 
     #[test]
