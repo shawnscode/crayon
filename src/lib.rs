@@ -3,6 +3,7 @@ extern crate lazy_static;
 extern crate bit_set;
 extern crate deque;
 extern crate rand;
+extern crate libc;
 
 pub mod utility;
 pub mod ecs;

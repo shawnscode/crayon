@@ -193,7 +193,7 @@ macro_rules! build_read_iter_with {
             use super::*;
             use super::super::{Component, Entity};
             use super::super::iterator::{IterTupleHelper, $tuple};
-            use super::super::super::utility::handle::HandleIter;
+            use super::super::super::utility::HandleIter;
 
             pub struct Iter<'a, $($cps), *>
                 where $($cps:Component), *
@@ -269,7 +269,7 @@ macro_rules! build_write_iter_with {
             use super::*;
             use super::super::{Component, Entity};
             use super::super::iterator::{IterMutTupleHelper, $tuple};
-            use super::super::super::utility::handle::HandleIter;
+            use super::super::super::utility::HandleIter;
 
             pub struct Iter<'a, $($cps), *>
                 where $($cps:Component), *
@@ -345,7 +345,7 @@ macro_rules! build_iter_with {
             use super::*;
             use super::super::{Component, Entity};
             use super::super::iterator::{IterMutTupleHelper, IterTupleHelper, $rtuple, $wtuple};
-            use super::super::super::utility::handle::HandleIter;
+            use super::super::super::utility::HandleIter;
 
             pub struct Iter<'a, $($rcps), *, $($wcps), *>
                 where $($rcps:Component), *,

@@ -3,6 +3,7 @@ use std::thread;
 use std::collections::VecDeque;
 use std::cell::Cell;
 
+use libc;
 use deque;
 use deque::{Worker, Stealer, Stolen};
 use rand::{self, Rng};
@@ -113,7 +114,7 @@ impl ThreadPool {
                 // execute task a; hopefully b gets stolen
                 let result_a;
                 {
-                    let guard = utility::finally(&task_b.latch, |latch| {
+                    let guard = utility::finally_with(&task_b.latch, |latch| {
                         // If another thread stole our job when we panic, we must halt unwinding
                         // until that thread is finished using it.
                         if (*ThreadSlave::current()).pop().is_none() {
@@ -394,7 +395,7 @@ impl ThreadSlave {
 
         // If another thread stole our task when we panic, we must halt unwinding
         // until that thread is finished using it.
-        let guard = utility::finally(&latch, |latch| latch.spin());
+        let guard = utility::finally_with(&latch, |latch| latch.spin());
         while !latch.probe() {
             if let Some(task) = self.steal_work() {
                 debug_assert!(self.spawn_count.get() == spawn_count);
@@ -453,7 +454,11 @@ pub unsafe fn main_loop(worker: Worker<TaskRef>, master: Arc<ThreadPool>, index:
     // Worker threads should not panic. If they do, just abort, as the
     // internal state of the threadpool is corrupted. Note that if
     // **user code** panics, we should catch that and redirect.
-    // let abort_guard = unwind::AbortIfPanic;
+    let guard = utility::finally(|| {
+        println!("Detected unexcepted panic.");
+        libc::abort();
+    });
+
     let mut was_active = false;
     loop {
         match master.wait_for_work(index, was_active) {
@@ -479,5 +484,5 @@ pub unsafe fn main_loop(worker: Worker<TaskRef>, master: Arc<ThreadPool>, index:
     }
 
     // Normal termination, do not abort.
-    // mem::forget(abort_guard);
+    guard.forget();
 }
