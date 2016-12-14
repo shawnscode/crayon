@@ -221,32 +221,32 @@ impl World {
     }
 }
 
-build_read_iter_with!(iter_with_r1, RTuple1<T1>);
-build_read_iter_with!(iter_with_r2, RTuple2<T1, T2>);
-build_read_iter_with!(iter_with_r3, RTuple3<T1, T2, T3>);
-build_read_iter_with!(iter_with_r4, RTuple4<T1, T2, T3, T4>);
+build_iter_with!(iter_with_r1; RTuple1[T1]; Tuple0[]; [T1]);
+build_iter_with!(iter_with_r2; RTuple2[T1, T2]; Tuple0[]; [T1, T2]);
+build_iter_with!(iter_with_r3; RTuple3[T1, T2, T3]; Tuple0[]; [T1, T2, T3]);
+build_iter_with!(iter_with_r4; RTuple4[T1, T2, T3, T4]; Tuple0[]; [T1, T2, T3, T4]);
 
-build_write_iter_with!(iter_with_w1, WTuple1<T1>);
-build_write_iter_with!(iter_with_w2, WTuple2<T1, T2>);
-build_write_iter_with!(iter_with_w3, WTuple3<T1, T2, T3>);
-build_write_iter_with!(iter_with_w4, WTuple4<T1, T2, T3, T4>);
+build_iter_with!(iter_with_w1; Tuple0[]; WTuple1[T1]; [T1]);
+build_iter_with!(iter_with_w2; Tuple0[]; WTuple2[T1, T2]; [T1, T2]);
+build_iter_with!(iter_with_w3; Tuple0[]; WTuple3[T1, T2, T3]; [T1, T2, T3]);
+build_iter_with!(iter_with_w4; Tuple0[]; WTuple4[T1, T2, T3, T4]; [T1, T2, T3, T4]);
 
-build_iter_with!(iter_with_r1w1, RTuple1<T1>, WTuple1<T2>);
-build_iter_with!(iter_with_r1w2, RTuple1<T1>, WTuple2<T2, T3>);
-build_iter_with!(iter_with_r1w3, RTuple1<T1>, WTuple3<T2, T3, T4>);
-build_iter_with!(iter_with_r1w4, RTuple1<T1>, WTuple4<T2, T3, T4, T5>);
-build_iter_with!(iter_with_r2w1, RTuple2<T1, T2>, WTuple1<T3>);
-build_iter_with!(iter_with_r2w2, RTuple2<T1, T2>, WTuple2<T3, T4>);
-build_iter_with!(iter_with_r2w3, RTuple2<T1, T2>, WTuple3<T3, T4, T5>);
-build_iter_with!(iter_with_r2w4, RTuple2<T1, T2>, WTuple4<T3, T4, T5, T6>);
-build_iter_with!(iter_with_r3w1, RTuple3<T1, T2, T3>, WTuple1<T4>);
-build_iter_with!(iter_with_r3w2, RTuple3<T1, T2, T3>, WTuple2<T4, T5>);
-build_iter_with!(iter_with_r3w3, RTuple3<T1, T2, T3>, WTuple3<T4, T5, T6>);
-build_iter_with!(iter_with_r3w4, RTuple3<T1, T2, T3>, WTuple4<T4, T5, T6, T7>);
-build_iter_with!(iter_with_r4w1, RTuple4<T1, T2, T3, T4>, WTuple1<T5>);
-build_iter_with!(iter_with_r4w2, RTuple4<T1, T2, T3, T4>, WTuple2<T5, T6>);
-build_iter_with!(iter_with_r4w3, RTuple4<T1, T2, T3, T4>, WTuple3<T5, T6, T7>);
-build_iter_with!(iter_with_r4w4, RTuple4<T1, T2, T3, T4>, WTuple4<T5, T6, T7, T8>);
+build_iter_with!(iter_with_r1w1; RTuple1[T1]; WTuple1[T2]; [T1, T2]);
+build_iter_with!(iter_with_r1w2; RTuple1[T1]; WTuple2[T2, T3]; [T1, T2, T3]);
+build_iter_with!(iter_with_r1w3; RTuple1[T1]; WTuple3[T2, T3, T4]; [T1, T2, T3, T4]);
+build_iter_with!(iter_with_r1w4; RTuple1[T1]; WTuple4[T2, T3, T4, T5]; [T1, T2, T3, T4, T5]);
+build_iter_with!(iter_with_r2w1; RTuple2[T1, T2]; WTuple1[T3]; [T1, T2, T3]);
+build_iter_with!(iter_with_r2w2; RTuple2[T1, T2]; WTuple2[T3, T4]; [T1, T2, T3, T4]);
+build_iter_with!(iter_with_r2w3; RTuple2[T1, T2]; WTuple3[T3, T4, T5]; [T1, T2, T3, T4, T5]);
+build_iter_with!(iter_with_r2w4; RTuple2[T1, T2]; WTuple4[T3, T4, T5, T6]; [T1, T2, T3, T4, T5, T6]);
+build_iter_with!(iter_with_r3w1; RTuple3[T1, T2, T3]; WTuple1[T4]; [T1, T2, T3, T4]);
+build_iter_with!(iter_with_r3w2; RTuple3[T1, T2, T3]; WTuple2[T4, T5]; [T1, T2, T3, T4, T5]);
+build_iter_with!(iter_with_r3w3; RTuple3[T1, T2, T3]; WTuple3[T4, T5, T6]; [T1, T2, T3, T4, T5, T6]);
+build_iter_with!(iter_with_r3w4; RTuple3[T1, T2, T3]; WTuple4[T4, T5, T6, T7]; [T1, T2, T3, T4, T5, T6, T7]);
+build_iter_with!(iter_with_r4w1; RTuple4[T1, T2, T3, T4]; WTuple1[T5]; [T1, T2, T3, T4, T5]);
+build_iter_with!(iter_with_r4w2; RTuple4[T1, T2, T3, T4]; WTuple2[T5, T6]; [T1, T2, T3, T4, T5, T6]);
+build_iter_with!(iter_with_r4w3; RTuple4[T1, T2, T3, T4]; WTuple3[T5, T6, T7]; [T1, T2, T3, T4, T5, T6, T7]);
+build_iter_with!(iter_with_r4w4; RTuple4[T1, T2, T3, T4]; WTuple4[T5, T6, T7, T8]; [T1, T2, T3, T4, T5, T6, T7, T8]);
 
 #[cfg(test)]
 mod test {
