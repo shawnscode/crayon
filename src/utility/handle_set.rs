@@ -100,6 +100,7 @@ impl HandleSet {
 }
 
 /// Immutable `HandleSet` iterator, this struct is created by `iter` method on `HandleSet`.
+#[derive(Copy, Clone)]
 pub struct HandleIter<'a> {
     versions: &'a Vec<HandleIndex>,
     start: HandleIndex,
@@ -109,7 +110,7 @@ pub struct HandleIter<'a> {
 impl<'a> HandleIter<'a> {
     /// Divides iterator into two with specified stripe in the first `HandleIter`.
     pub fn split_with(&self, len: usize) -> (HandleIter<'a>, HandleIter<'a>) {
-        let len = len as u32;
+        let len = len as HandleIndex;
         let mid = if self.start + len >= self.end {
             self.end
         } else {
@@ -130,6 +131,7 @@ impl<'a> HandleIter<'a> {
 
         (left, right)
     }
+
     /// Divides iterator into two at mid.
     /// The first will contain all indices from [start, mid) (excluding the index mid itself)
     /// and the second will contain all indices from [mid, end) (excluding the index end itself).

@@ -216,7 +216,7 @@ mod test {
         }
 
         {
-            let mut iterator = world.iter_with_r2::<Position, Reference>();
+            let mut iterator = world.view_with_r2::<Position, Reference>().into_iter();
             for e in &v {
                 let i = iterator.next().unwrap();
                 let p = Position {
@@ -229,7 +229,7 @@ mod test {
         }
 
         {
-            let mut iterator = world.iter_with_w2::<Position, Reference>();
+            let mut iterator = world.view_with_w2::<Position, Reference>().into_iter();
             for e in &v {
                 let i = iterator.next().unwrap();
                 i.writables.0.x += e.version();
@@ -238,8 +238,8 @@ mod test {
         }
 
         {
-            let mut iterator = world.iter_with_r2::<Position, Reference>();
-            let mut _iterator = world.iter_with_r2::<Position, Reference>();
+            let mut iterator = world.view_with_r2::<Position, Reference>().into_iter();
+            let mut _iterator = world.view_with_r2::<Position, Reference>().into_iter();
             for e in &v {
                 let i = iterator.next().unwrap();
                 let p = Position {
@@ -254,7 +254,7 @@ mod test {
 
 
         {
-            let mut iterator = world.iter_with_r1w1::<Position, Reference>();
+            let mut iterator = world.view_with_r1w1::<Position, Reference>().into_iter();
             for e in &v {
                 let i = iterator.next().unwrap();
                 let p = Position {
@@ -270,22 +270,22 @@ mod test {
 
     #[test]
     #[should_panic]
-    fn invalid_iter() {
+    fn invalid_view() {
         let mut world = World::new();
         world.register::<Position>();
 
-        let _i1 = world.iter_with_r1::<Position>();
-        world.iter_with_w1::<Position>();
+        let _i1 = world.view_with_r1::<Position>();
+        world.view_with_w1::<Position>();
     }
 
     #[test]
     #[should_panic]
-    fn invalid_iter_mut() {
+    fn invalid_view_mut() {
         let mut world = World::new();
         world.register::<Position>();
 
-        let _i1 = world.iter_with_w1::<Position>();
-        world.iter_with_w1::<Position>();
+        let _i1 = world.view_with_w1::<Position>();
+        world.view_with_w1::<Position>();
     }
 
     #[test]
