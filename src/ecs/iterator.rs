@@ -210,6 +210,7 @@ macro_rules! build_view_with {
         mod $name {
             use std::marker::PhantomData;
             use bit_set::BitSet;
+            use multitask::ThreadPool;
             use super::*;
             use super::super::{Component, Entity};
             use super::super::iterator::*;
@@ -241,15 +242,6 @@ macro_rules! build_view_with {
                 fn into_iter(self) -> Self::IntoIter {
                     let iter = self.world.iter();
                     IntoIter { view: self, iterator: iter }
-                }
-            }
-
-            impl<'a, $($cps), *> View<'a, $($cps), *>
-                where $($cps:Component), *
-            {
-                pub fn as_slice(&'a mut self) -> ViewSlice<'a, $($cps), *> {
-                    let iter = self.world.iter();
-                    ViewSlice { view: self, iterator: iter }
                 }
             }
 
@@ -299,11 +291,33 @@ macro_rules! build_view_with {
                 }
             }
 
+
+            impl<'a, $($cps), *> View<'a, $($cps), *>
+                where $($cps:Component), *
+            {
+                pub fn as_slice(&mut self) -> ViewSlice<$($cps), *> {
+                    let iter = self.world.iter();
+                    ViewSlice {
+                        iterator: iter,
+                        _marker: Default::default(),
+                        view: self as *mut View<$($cps), *> as * mut (),
+                    }
+                }
+
+                pub fn for_each<FUNC>(&mut self, tasks: &ThreadPool, stride: usize, func: &FUNC)
+                    where FUNC: Fn(ViewItem<$($cps), *>) + Sync,
+                          $($cps: Send), *
+                {
+                    self.as_slice().for_each(tasks, stride, func);
+                }
+            }
+
             pub struct ViewSlice<'a, $($cps), *>
                 where $($cps:Component), *
             {
-                view: &'a mut View<'a, $($cps), *>,
+                view: *mut (),
                 iterator: HandleIter<'a>,
+                _marker: ($(PhantomData<&'a $cps>), *),
             }
 
             impl<'a, $($cps), *> Iterator for ViewSlice<'a, $($cps), *>
@@ -314,29 +328,48 @@ macro_rules! build_view_with {
                 fn next(&mut self) -> Option<Self::Item> {
                     unsafe {
                         let iter = &mut self.iterator as *mut HandleIter;
-                        next_item(self.view, &mut *iter)
+                        let view = &mut *(self.view as *mut View<$($cps), *>);
+                        next_item(view, &mut *iter)
                     }
                 }
             }
 
+            unsafe impl<'a, $($cps), *> Send for ViewSlice<'a, $($cps), *>
+                where $($cps:Component), *
+            {}
+
+            unsafe impl<'a, $($cps), *> Sync for ViewSlice<'a, $($cps), *>
+                where $($cps:Component), *
+            {}
+
             impl<'a, $($cps), *> ViewSlice<'a, $($cps), *>
                 where $($cps:Component), *
             {
-                pub fn split_with(&'a mut self, len: usize) -> (ViewSlice<'a, $($cps), *>, ViewSlice<'a, $($cps), *>) {
-                    unsafe {
-                        let (lhs, rhs) = self.iterator.split_with(len);
-                        let view = self.view as *mut View<'a, $($cps), *>;
-                        (ViewSlice { view: &mut *view, iterator: lhs },
-                         ViewSlice { view: &mut *view, iterator: rhs })
-                    }
+                pub fn split_with(&mut self, len: usize) -> (ViewSlice<$($cps), *>, ViewSlice<$($cps), *>) {
+                    let (lhs, rhs) = self.iterator.split_with(len);
+                    (ViewSlice { view: self.view, iterator: lhs, _marker: Default::default() },
+                     ViewSlice { view: self.view, iterator: rhs, _marker: Default::default() })
                 }
 
-                pub fn split(&'a mut self) -> (ViewSlice<'a, $($cps), *>, ViewSlice<'a, $($cps), *>) {
-                    unsafe {
-                        let (lhs, rhs) = self.iterator.split();
-                        let view = self.view as *mut View<'a, $($cps), *>;
-                        (ViewSlice { view: &mut *view, iterator: lhs },
-                         ViewSlice { view: &mut *view, iterator: rhs })
+                pub fn split(&mut self) -> (ViewSlice<$($cps), *>, ViewSlice<$($cps), *>) {
+                    let (lhs, rhs) = self.iterator.split();
+                    (ViewSlice { view: self.view, iterator: lhs, _marker: Default::default() },
+                     ViewSlice { view: self.view, iterator: rhs, _marker: Default::default() })
+                }
+
+                pub fn for_each<FUNC>(mut self, tasks: &ThreadPool, stride: usize, func: &FUNC)
+                    where FUNC: Fn(ViewItem<$($cps), *>) + Sync,
+                          $($cps: Send), *
+                {
+                    if self.iterator.len() <= stride {
+                        for item in self {
+                            func(item);
+                        }
+                    } else {
+                        let (lhs, rhs) = self.split_with(stride);
+                        tasks.join(
+                            || lhs.for_each(tasks, stride, func),
+                            || rhs.for_each(tasks, stride, func) );
                     }
                 }
             }
