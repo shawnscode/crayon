@@ -1,10 +1,10 @@
 #### Build Status
-[![Build Status](https://travis-ci.org/drunkenme/lemon3d-rs.svg?branch=master)](https://travis-ci.org/drunkenme/lemon3d-rs)
+[![Build Status](https://travis-ci.org/kayak233/lemon3d.svg?branch=master)](https://travis-ci.org/kayak233/lemon3d)
 
 #### Introduction
 Lemon3d is an experimental purpose project, written with a minimalistic modular design philosophy. Its built from the ground up to focus on cache friendly data layouts in multicore environments with entity-component based architecture.
 
-Warning: Its far from a stable version right now.
+*Warning*: Its far from a stable version right now.
 
 #### Why Rust ?
 First of all, this is a part-time toy project of myself,  so i don't really care if we ever have a game engine written in Rust.
