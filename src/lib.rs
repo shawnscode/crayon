@@ -5,6 +5,7 @@ extern crate deque;
 extern crate rand;
 extern crate libc;
 extern crate zip;
+extern crate json;
 
 pub mod utility;
 pub mod core;
