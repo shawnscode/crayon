@@ -6,21 +6,13 @@ extern crate rand;
 extern crate libc;
 
 pub mod utility;
-
-//
-pub mod engine;
-pub use self::engine::{Engine, Subsystem};
-
-//
-// pub mod application;
-// pub use self::application::Application;
-
-//
+pub mod core;
 pub mod multitask;
-pub use self::multitask::ThreadPool;
-
-//
 pub mod ecs;
+pub mod resource;
+
+pub use core::engine::{Engine, Subsystem};
+pub use self::multitask::ThreadPool;
 pub use self::ecs::*;
 
 unsafe impl Send for World {}
