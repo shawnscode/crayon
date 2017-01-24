@@ -1,3 +1,3 @@
 pub mod archive;
 
-pub use self::archive::{Archive, FilesystemArchive, ArchiveCollection};
+pub use self::archive::{Read, Seek, Archive, FilesystemArchive, ZipArchive, ArchiveCollection};

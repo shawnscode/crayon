@@ -9,6 +9,7 @@ Lemon3d is an experimental purpose project, written with a minimalistic modular 
 #### Features
 - [x] \[ECS\] Entity component system with a data-driven designs.
 - [x] \[TSK\] Task based multi-thread system based on awesome crate [Rayon](https://github.com/nikomatsakis/rayon.git).
+- [x] \[RES\] Abstract archive with default supports for native filesystem and zip.
 
 #### Roadmap v0.0.2 (Basic Usages)
 
@@ -26,7 +27,6 @@ Lemon3d is an experimental purpose project, written with a minimalistic modular 
 - [] Easy tween and action facilicities.
 
 ##### Resource Subsystem
-- [] Abstract archive with default supports for native filesystem and zip package.
 - [] Assets load and cache machanism based on LRU(maybe).
 - [] Serilization/deserlization of entities and components in YAML or binary mode.
 
