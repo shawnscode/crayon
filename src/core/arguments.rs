@@ -3,12 +3,14 @@ use std::fs::File;
 use std::io::{Read, Result, Error, ErrorKind};
 use json;
 
-///
+/// Loads configuration into a tree based structure for easy usage.
 pub struct Arguments {
     value: json::JsonValue,
 }
 
 impl Arguments {
+    /// Creates and initialize a `Arguments` with file path. The file should
+    /// be a valid utf-8 encoded json.
     pub fn new<T>(path: T) -> Result<Arguments>
         where T: AsRef<Path>
     {
@@ -44,13 +46,13 @@ impl Arguments {
         Ok(Arguments { value: value })
     }
 
-    fn load<T>(&self, path: T) -> Option<&json::JsonValue>
+    fn load<T>(base: &json::JsonValue, path: T) -> Option<&json::JsonValue>
         where T: AsRef<Path>
     {
         let components = path.as_ref().components();
 
-        let mut value = &self.value;
-        let mut parent = &self.value;
+        let mut value = base;
+        let mut parent = base;
 
         for c in components {
             match c {
@@ -73,21 +75,66 @@ impl Arguments {
         Some(value)
     }
 
+    /// Try to load value at specified path as i32.
     pub fn load_as_i32<T>(&self, path: T) -> Option<i32>
         where T: AsRef<Path>
     {
-        self.load(path).and_then(|v| v.as_i32())
+        Arguments::load(&self.value, path).and_then(|v| v.as_i32())
     }
 
+    /// Try to load value at specified path as boolean.
     pub fn load_as_bool<T>(&self, path: T) -> Option<bool>
         where T: AsRef<Path>
     {
-        self.load(path).and_then(|v| v.as_bool())
+        Arguments::load(&self.value, path).and_then(|v| v.as_bool())
     }
 
+    /// Try to load value at specified path as str.
     pub fn load_as_str<T>(&self, path: T) -> Option<&str>
         where T: AsRef<Path>
     {
-        self.load(path).and_then(|v| v.as_str())
+        Arguments::load(&self.value, path).and_then(|v| v.as_str())
+    }
+
+    /// Try to load value at specified path as slice of `Arguments`.
+    pub fn load_as_slice<T>(&self, path: T) -> Option<Slice>
+        where T: AsRef<Path>
+    {
+        Arguments::load(&self.value, path).and_then(|v| Some(Slice { value: v }))
+    }
+}
+
+/// An slice of `Arguments`.
+pub struct Slice<'a> {
+    value: &'a json::JsonValue,
+}
+
+impl<'a> Slice<'a> {
+    /// Try to load value at specified path as i32.
+    pub fn load_as_i32<T>(&self, path: T) -> Option<i32>
+        where T: AsRef<Path>
+    {
+        Arguments::load(&self.value, path).and_then(|v| v.as_i32())
+    }
+
+    /// Try to load value at specified path as boolean.
+    pub fn load_as_bool<T>(&self, path: T) -> Option<bool>
+        where T: AsRef<Path>
+    {
+        Arguments::load(&self.value, path).and_then(|v| v.as_bool())
+    }
+
+    /// Try to load value at specified path as str.
+    pub fn load_as_str<T>(&self, path: T) -> Option<&str>
+        where T: AsRef<Path>
+    {
+        Arguments::load(&self.value, path).and_then(|v| v.as_str())
+    }
+
+    /// Try to load value at specified path as slice of `Arguments`.
+    pub fn load_as_slice<T>(&self, path: T) -> Option<Slice>
+        where T: AsRef<Path>
+    {
+        Arguments::load(&self.value, path).and_then(|v| Some(Slice { value: v }))
     }
 }
