@@ -14,7 +14,7 @@ Lemon3d is an experimental purpose project, written with a minimalistic modular 
 ### Roadmap v0.0.2 (Basic Usages)
 
 ##### Graphics Subsystem
-- [ ] Window and graphic context management based on SDL2.
+- [ ] Window and graphic context management based on [glutin](https://github.com/tomaka/glutin).
 - [ ] Stateless, layered, multi-threaded graphics subsystem based on OpenGL.
 - [ ] Graphics resource management.
 - [ ] TrueType font integrations.
@@ -38,6 +38,27 @@ Lemon3d is an experimental purpose project, written with a minimalistic modular 
 - [ ] Command-line interface for creating and deploying game projects.
 
 ### FAQ
+
+##### How to Build?
+In spite of the unstable status of this project, feel free to checkout and build to follow progress recently.
+
+First of all, checkout the repository by:
+``` sh
+git clone git@github.com:kayak233/lemon3d.git
+```
+
+And then you need to install some dependecies with your favourite pacakage management tool.
+If you are using MacOS and working with [homebrew](http://brew.sh/), you can follow instruction belows:
+``` sh
+// `SDL2` are used to handle platform specified details and context.
+brew install sdl2
+```
+
+Finally you can run test cases with:
+``` sh
+cargo test
+```
+
 ##### Why Rust ?
 
 First of all, this is a part-time toy project of myself,  so i don't really care if we ever have a game engine written in Rust.

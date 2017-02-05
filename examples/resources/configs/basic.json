@@ -1,0 +1,13 @@
+{
+    "Engine": {
+        "MinFPS": 20,
+        "MaxFPS": 60,
+        "MaxInactiveFPS": 20,
+        "TimeSmoothingStep": 10
+    },
+    "Window": {
+        "Name": "Lemon3D - Basic Window.",
+        "Width": 568,
+        "Height": 320
+    }
+}

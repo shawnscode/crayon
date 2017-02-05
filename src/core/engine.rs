@@ -61,9 +61,8 @@ impl Engine {
         // a timeslice to the OS scheduler.
         if self.max_fps > 0 {
             let td = Duration::from_millis((1000 / self.max_fps) as u64);
-
             while self.last_frame_timepoint.elapsed() <= td {
-                if (self.last_frame_timepoint.elapsed() - td) > Duration::from_millis(5) {
+                if (self.last_frame_timepoint.elapsed() + Duration::from_millis(5)) < td {
                     std::thread::sleep(Duration::from_millis(1));
                 } else {
                     std::thread::yield_now();
@@ -134,7 +133,7 @@ impl Engine {
         if self.timestep.subsec_nanos() == 0 {
             0
         } else {
-            1000000 / self.timestep.subsec_nanos()
+            (1000000000.0 / self.timestep.subsec_nanos() as f64) as u32
         }
     }
 }

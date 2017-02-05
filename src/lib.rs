@@ -6,6 +6,8 @@ extern crate rand;
 extern crate libc;
 extern crate zip;
 extern crate json;
+extern crate glutin;
+extern crate gl;
 
 pub mod utility;
 pub mod core;
@@ -13,9 +15,11 @@ pub mod multitask;
 pub mod ecs;
 pub mod resource;
 
-pub use core::engine::{Engine, Subsystem};
-pub use self::multitask::ThreadPool;
-pub use self::ecs::*;
+pub use core::Application;
+pub use ecs::*;
+pub use multitask::ThreadPool;
+
+use core::engine::Subsystem;
 
 unsafe impl Send for World {}
 unsafe impl Sync for World {}
