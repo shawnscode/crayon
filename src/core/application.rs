@@ -1,29 +1,33 @@
 use std::path::Path;
 use super::engine::Engine;
 use super::arguments::Arguments;
-use gl;
-use glutin;
+use super::window;
+use super::input;
 
 #[derive(Debug)]
 pub enum Error {
     ArgumentsBreak(::std::io::Error),
-    WindowContextBreak(glutin::CreationError),
+    IoBreak(::std::io::Error),
+    WindowCreation(String),
+    WindowContextLost,
 }
 
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// User-friendly facade for building applications.
 pub struct Application {
-    engine: Engine,
-    window: glutin::Window,
+    pub input: input::Input,
+    pub engine: Engine,
+    pub window: window::Window,
 }
 
 impl Application {
     /// Creates empty `Application`.
     pub fn new() -> Result<Self> {
         Ok(Application {
+            input: input::Input::new(),
             engine: Engine::new(),
-            window: glutin::Window::new().map_err(|e| Error::WindowContextBreak(e))?,
+            window: window::WindowBuilder::new().build()?,
         })
     }
 
@@ -48,22 +52,18 @@ impl Application {
             engine.set_time_smoothing_step(v);
         }
 
-        let window = if let Some(slice) = args.load_as_slice("Window") {
-                let name = slice.load_as_str("Title").unwrap_or("Lemon3D - Application");
-                let width = slice.load_as_i32("Width").unwrap_or(128) as u32;
-                let height = slice.load_as_i32("Height").unwrap_or(128) as u32;
-
-                glutin::WindowBuilder::new()
-                    .with_title(name)
-                    .with_dimensions(width, height)
-                    .build()
-            } else {
-                glutin::Window::new()
-            }.map_err(|e| Error::WindowContextBreak(e))?;
+        let mut wb = window::WindowBuilder::new();
+        if let Some(slice) = args.load_as_slice("Window") {
+            let name = slice.load_as_str("Title").unwrap_or("Lemon3D - Application");
+            let width = slice.load_as_i32("Width").unwrap_or(128) as u32;
+            let height = slice.load_as_i32("Height").unwrap_or(128) as u32;
+            wb.with_title(name.to_string()).with_dimensions(width, height);
+        }
 
         Ok(Application {
+            input: input::Input::new(),
             engine: engine,
-            window: window,
+            window: wb.build()?,
         })
     }
 
@@ -78,21 +78,25 @@ impl Application {
     /// Run the main loop of `Application`, this will block the working
     /// thread until we finished.
     pub fn run<F>(mut self, closure: F) -> Self
-        where F: Fn(&mut Engine) -> bool
+        where F: Fn(&mut Application) -> bool
     {
         println!("Launch Lemon3D.");
         println!("PWD: {:?}", ::std::env::current_dir());
 
-        unsafe {
-            self.window.make_current().unwrap();
-            gl::load_with(|symbol| self.window.get_proc_address(symbol) as *const _);
-        }
-
-        'main: while closure(&mut self.engine) {
-            for event in self.window.wait_events() {
+        'main: while closure(&mut self) {
+            // Poll any possible events first.
+            self.input.run_one_frame();
+            for event in self.window.poll_events() {
                 match event {
-                    glutin::Event::Closed => break 'main,
-                    _ => (),
+                    window::Event::Application(value) => {
+                        match value {
+                            window::ApplicationEvent::Closed => break 'main,
+                            other => println!("Drop {:?}.", other),
+                        };
+                    }
+                    window::Event::InputDevice(value) => self.input.process(value),
+                    other => println!("Drop {:?}.", other),
+                    // _ => (),
                 }
             }
 
@@ -100,5 +104,15 @@ impl Application {
             self.window.swap_buffers().unwrap();
         }
         self
+    }
+}
+
+impl From<window::Error> for Error {
+    fn from(error: window::Error) -> Error {
+        match error {
+            window::Error::CreationFailed(v) => Error::WindowCreation(v),
+            window::Error::ContextLost => Error::WindowContextLost,
+            window::Error::IoError(e) => Error::IoBreak(e),
+        }
     }
 }
