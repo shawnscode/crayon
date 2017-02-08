@@ -8,12 +8,16 @@ extern crate zip;
 extern crate json;
 extern crate glutin;
 extern crate gl;
+extern crate cgmath;
+
+// use cgmath as math;
 
 pub mod utility;
 pub mod core;
 pub mod multitask;
 pub mod ecs;
 pub mod resource;
+pub mod graphics;
 
 pub use core::Application;
 pub use ecs::*;
