@@ -1,9 +1,14 @@
 //! The backend of renderer, which should be responsible for only one
 //! thing: submitting draw-calls using low-level OpenGL graphics APIs.
+use utility::Handle;
 
-use super::Handle;
-use super::{Buffer, BufferHint, CullFace, FrontFaceOrder, Comparison, Equation, BlendFactor,
-            BlendValue, Primitive};
+use super::buffer;
+use super::buffer::*;
+
+use super::state;
+use super::state::*;
+
+use super::Primitive;
 
 pub mod cast;
 pub mod device;
@@ -86,7 +91,7 @@ pub trait ResourceState {
 
 pub trait RasterizationState {
     /// Clear any or all of rendertarget, depth buffer and stencil buffer.
-    unsafe fn clear(&self, color: Option<[f32; 4]>, depth: Option<f64>, stencil: Option<i32>);
+    unsafe fn clear(&self, color: Option<[f32; 4]>, depth: Option<f32>, stencil: Option<i32>);
 
     /// Bind a named buffer object.
     unsafe fn bind_buffer(&mut self, handle: Handle);

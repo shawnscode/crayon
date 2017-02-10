@@ -1,11 +1,29 @@
 use std::hash::{Hash, Hasher, SipHasher};
-use std::ops::Deref;
 use std::borrow::Borrow;
 
 use super::MAX_VERTEX_ATTRIBUTES;
 
+/// Specifies the target to which the buffer object is bound
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Buffer {
+    /// Vertex attributes.
+    Vertex,
+    /// Vertex array indices.
+    Index,
+}
+
+/// Hint abouts how this memory will be used.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BufferHint {
+    /// Full speed GPU access. Optimal for render targets and resourced memory.
+    Static,
+    /// CPU to GPU data flow with update commands.
+    /// Used for dynamic buffer data, typically constant buffers.
+    Dynamic,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum VertexAttributeFormat {
+pub enum VertexFormat {
     Byte,
     UByte,
     Short,
@@ -20,7 +38,7 @@ pub struct VertexAttribute {
     /// Hash value of the element name.
     pub name: u64,
     /// The data type of each component of this element.
-    pub format: VertexAttributeFormat,
+    pub format: VertexFormat,
     /// The number of components per generic vertex element.
     pub size: u8,
     /// Whether fixed-point data values should be normalized.
@@ -31,7 +49,7 @@ impl Default for VertexAttribute {
     fn default() -> Self {
         VertexAttribute {
             name: 0,
-            format: VertexAttributeFormat::Byte,
+            format: VertexFormat::Byte,
             size: 0,
             normalized: false,
         }
@@ -98,12 +116,12 @@ impl VertexLayoutBuilder {
         VertexLayoutBuilder { layout: Default::default() }
     }
 
-    pub fn set<T: Borrow<str>>(&mut self,
-                               name: T,
-                               format: VertexAttributeFormat,
-                               size: u8,
-                               normalized: bool)
-                               -> &mut Self {
+    pub fn with<T: Borrow<str>>(&mut self,
+                                name: T,
+                                format: VertexFormat,
+                                size: u8,
+                                normalized: bool)
+                                -> &mut Self {
         let h = hash(&name.borrow());
         for i in 0..self.layout.elements.len() {
             if self.layout.elements[i].name == h || self.layout.elements[i].name == 0 {
@@ -140,14 +158,11 @@ impl VertexLayoutBuilder {
     }
 }
 
-fn size(format: VertexAttributeFormat) -> u32 {
+fn size(format: VertexFormat) -> u32 {
     match format {
-        VertexAttributeFormat::Byte |
-        VertexAttributeFormat::UByte => 1,
-        VertexAttributeFormat::Short |
-        VertexAttributeFormat::UShort |
-        VertexAttributeFormat::Fixed => 2,
-        VertexAttributeFormat::Float => 4,
+        VertexFormat::Byte | VertexFormat::UByte => 1,
+        VertexFormat::Short | VertexFormat::UShort | VertexFormat::Fixed => 2,
+        VertexFormat::Float => 4,
     }
 }
 
@@ -164,8 +179,8 @@ mod test {
     #[test]
     fn basic() {
         let layout = VertexLayout::build()
-            .set("Position", VertexAttributeFormat::Float, 3, true)
-            .set("Texcoord", VertexAttributeFormat::Float, 2, true)
+            .with("Position", VertexFormat::Float, 3, true)
+            .with("Texcoord", VertexFormat::Float, 2, true)
             .finish();
 
         assert_eq!(layout.stride(), 20);
@@ -174,7 +189,7 @@ mod test {
         assert_eq!(layout.offset("Normal"), None);
 
         let element = layout.element("Position").unwrap();
-        assert_eq!(element.format, VertexAttributeFormat::Float);
+        assert_eq!(element.format, VertexFormat::Float);
         assert_eq!(element.size, 3);
         assert_eq!(element.normalized, true);
         assert_eq!(layout.element("Normal"), None);
@@ -183,9 +198,9 @@ mod test {
     #[test]
     fn rewrite() {
         let layout = VertexLayout::build()
-            .set("Position", VertexAttributeFormat::Fixed, 1, false)
-            .set("Texcoord", VertexAttributeFormat::Float, 2, true)
-            .set("Position", VertexAttributeFormat::Float, 3, true)
+            .with("Position", VertexFormat::Fixed, 1, false)
+            .with("Texcoord", VertexFormat::Float, 2, true)
+            .with("Position", VertexFormat::Float, 3, true)
             .finish();
 
         assert_eq!(layout.stride(), 20);
@@ -194,7 +209,7 @@ mod test {
         assert_eq!(layout.offset("Normal"), None);
 
         let element = layout.element("Position").unwrap();
-        assert_eq!(element.format, VertexAttributeFormat::Float);
+        assert_eq!(element.format, VertexFormat::Float);
         assert_eq!(element.size, 3);
         assert_eq!(element.normalized, true);
         assert_eq!(layout.element("Normal"), None);
@@ -205,10 +220,7 @@ mod test {
     fn too_many_elements() {
         let mut builder = VertexLayout::build();
         for i in 0..MAX_VERTEX_ATTRIBUTES + 1 {
-            builder.set(format!("Element_{}", i),
-                        VertexAttributeFormat::Byte,
-                        1,
-                        true);
+            builder.with(format!("Element_{}", i), VertexFormat::Byte, 1, true);
         }
         builder.finish();
     }

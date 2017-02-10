@@ -1,9 +1,7 @@
 use gl;
 use gl::types::*;
 
-use super::Error;
-use super::{Buffer, BufferHint, CullFace, FrontFaceOrder, Comparison, Equation, BlendFactor,
-            BlendValue, Primitive};
+use super::*;
 
 impl From<GLenum> for Error {
     fn from(error: GLenum) -> Self {

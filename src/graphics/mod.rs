@@ -39,12 +39,11 @@
 //! state we want should not affect any of the other draw calls, even in
 //! multi-thread environments.
 //!
-
-use super::utility::Handle;
-
-pub mod vertex;
+pub mod state;
+pub mod buffer;
 pub mod backend;
-// pub mod frontend;
+pub mod frame;
+pub mod frontend;
 
 const MAX_VERTEX_ATTRIBUTES: usize = 8;
 const MAX_UNIFORMS: usize = 32;
@@ -59,84 +58,4 @@ pub enum Primitive {
     Triangles,
     TriangleStrip,
     TriangleFan,
-}
-
-/// Specifies the target to which the buffer object is bound
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Buffer {
-    /// Vertex attributes.
-    Vertex,
-    /// Vertex array indices.
-    Index,
-}
-
-/// Hint abouts how this memory will be used.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BufferHint {
-    /// Full speed GPU access. Optimal for render targets and resourced memory.
-    Static,
-    /// CPU to GPU data flow with update commands.
-    /// Used for dynamic buffer data, typically constant buffers.
-    Dynamic,
-}
-
-/// Specify whether front- or back-facing polygons can be culled.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum CullFace {
-    Nothing,
-    Front,
-    Back,
-}
-
-/// Define front- and back-facing polygons.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum FrontFaceOrder {
-    Clockwise,
-    CounterClockwise,
-}
-
-/// A pixel-wise comparison function.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Comparison {
-    Never,
-    Less,
-    LessOrEqual,
-    Greater,
-    GreaterOrEqual,
-    Equal,
-    NotEqual,
-    Always,
-}
-
-/// Specifies how incoming RGBA values (source) and the RGBA in framebuffer (destination)
-/// are combined.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Equation {
-    /// Adds source and destination. Source and destination are multiplied
-    /// by blending parameters before addition.
-    Add,
-    /// Subtracts destination from source. Source and destination are
-    /// multiplied by blending parameters before subtraction.
-    Subtract,
-    /// Subtracts source from destination. Source and destination are
-    /// multiplied by blending parameters before subtraction.
-    ReverseSubtract,
-}
-
-/// Blend values.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum BlendValue {
-    SourceColor,
-    SourceAlpha,
-    DestinationColor,
-    DestinationAlpha,
-}
-
-/// Blend factors.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum BlendFactor {
-    Zero,
-    One,
-    Value(BlendValue),
-    OneMinusValue(BlendValue),
 }

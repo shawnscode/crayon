@@ -317,7 +317,6 @@ impl ResourceState for Device {
     }
 }
 
-
 unsafe fn compile(shader: GLenum, src: &str) -> GLuint {
     let shader = gl::CreateShader(shader);
     // Attempt to compile the shader
@@ -377,7 +376,7 @@ unsafe fn link(vs: GLuint, fs: GLuint, gs: Option<GLuint>) -> GLuint {
 
 impl RasterizationState for Device {
     /// Clear any or all of rendertarget, depth buffer and stencil buffer.
-    unsafe fn clear(&self, color: Option<[f32; 4]>, depth: Option<f64>, stencil: Option<i32>) {
+    unsafe fn clear(&self, color: Option<[f32; 4]>, depth: Option<f32>, stencil: Option<i32>) {
         let mut bits = 0;
         if let Some(v) = color {
             bits |= gl::COLOR_BUFFER_BIT;
@@ -386,7 +385,7 @@ impl RasterizationState for Device {
 
         if let Some(v) = depth {
             bits |= gl::DEPTH_BUFFER_BIT;
-            gl::ClearDepth(v);
+            gl::ClearDepth(v as f64);
         }
 
         if let Some(v) = stencil {
