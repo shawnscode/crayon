@@ -2,19 +2,11 @@
 //! thing: submitting draw-calls using low-level OpenGL graphics APIs.
 use utility::Handle;
 
-use super::buffer;
 use super::buffer::*;
-
-use super::state;
 use super::state::*;
-
-use super::Primitive;
 
 pub mod cast;
 pub mod device;
-
-const MAX_BUFFERS: usize = 1024;
-const MAX_PROGRAMS: usize = 64;
 
 /// OpenGL errors.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,7 +20,7 @@ pub enum Error {
 }
 
 /// Render state managements.
-pub trait RenderState {
+pub trait RenderStateVisitor {
     /// Set the viewport relative to the top-lef corner of th window, in pixels.
     unsafe fn set_viewport(&mut self, position: (u32, u32), size: (u32, u32));
 
@@ -47,31 +39,27 @@ pub trait RenderState {
     unsafe fn set_depth_write(&mut self, enable: bool, offset: Option<(f32, f32)>);
 
     // Specifies how source and destination are combined.
-    unsafe fn set_color_blend(&mut self,
-                              enable: bool,
-                              equation: Equation,
-                              src: BlendFactor,
-                              dst: BlendFactor);
+    unsafe fn set_color_blend(&mut self, blend: Option<(Equation, BlendFactor, BlendFactor)>);
 
     /// Enable or disable writing color elements into the color buffer.
     unsafe fn set_color_write(&mut self, red: bool, green: bool, blue: bool, alpha: bool);
 }
 
 /// Graphics resource managements.
-pub trait ResourceState {
+pub trait ResourceStateVisitor {
     /// Initialize buffer, named by `handle`, with optional initial data.
     unsafe fn create_buffer(&mut self,
-                            handle: Handle,
                             buffer: Buffer,
                             hint: BufferHint,
-                            size: usize,
-                            data: Option<&[u8]>);
+                            size: u32,
+                            data: Option<&[u8]>)
+                            -> Handle;
 
     /// Update named dynamic `MemoryHint::Dynamic` buffer.
     ///
     /// Optional `offset` to specifies the offset into the buffer object's data
     /// store where data replacement will begin, measured in bytes.
-    unsafe fn update_buffer(&mut self, handle: Handle, data: &[u8], offset: u32);
+    unsafe fn update_buffer(&mut self, handle: Handle, offset: u32, data: &[u8]);
 
     /// Free named buffer object.
     unsafe fn free_buffer(&mut self, handle: Handle);
@@ -80,16 +68,16 @@ pub trait ResourceState {
     /// which shader objects can be attached. Vertex and fragment shader
     /// are minimal requirement to build a proper program.
     unsafe fn create_program(&mut self,
-                             handle: Handle,
                              vs_src: &str,
                              fs_src: &str,
-                             gs_src: Option<&str>);
+                             gs_src: Option<&str>)
+                             -> Handle;
 
     /// Free named program object.
     unsafe fn free_program(&mut self, handle: Handle);
 }
 
-pub trait RasterizationState {
+pub trait RasterizationStateVisitor {
     /// Clear any or all of rendertarget, depth buffer and stencil buffer.
     unsafe fn clear(&self, color: Option<[f32; 4]>, depth: Option<f32>, stencil: Option<i32>);
 

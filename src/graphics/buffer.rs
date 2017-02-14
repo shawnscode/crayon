@@ -1,4 +1,5 @@
-use std::hash::{Hash, Hasher, SipHasher};
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 use std::borrow::Borrow;
 
 use super::MAX_VERTEX_ATTRIBUTES;
@@ -13,7 +14,7 @@ pub enum Buffer {
 }
 
 /// Hint abouts how this memory will be used.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BufferHint {
     /// Full speed GPU access. Optimal for render targets and resourced memory.
     Static,
@@ -21,6 +22,8 @@ pub enum BufferHint {
     /// Used for dynamic buffer data, typically constant buffers.
     Dynamic,
 }
+
+// pub trait VertexSerializer {}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum VertexFormat {
@@ -167,7 +170,7 @@ fn size(format: VertexFormat) -> u32 {
 }
 
 fn hash<T: Hash>(t: &T) -> u64 {
-    let mut s = SipHasher::new();
+    let mut s = DefaultHasher::new();
     t.hash(&mut s);
     s.finish()
 }

@@ -99,81 +99,6 @@ impl HandleSet {
     }
 }
 
-/// `HandleSet` with managed values `T`.
-pub struct HandleSetWith<T: Sized> {
-    handles: HandleSet,
-    values: Vec<Option<T>>,
-}
-
-impl<T: Sized> HandleSetWith<T> {
-    /// Constructs a new, empty `HandleSetWith`.
-    pub fn new() -> Self {
-        HandleSetWith {
-            handles: HandleSet::new(),
-            values: Vec::new(),
-        }
-    }
-
-    /// Constructs a new `HandleSetWith` with the specified capacity.
-    pub fn with_capacity(capacity: usize) -> Self {
-        HandleSetWith {
-            handles: HandleSet::with_capacity(capacity),
-            values: Vec::with_capacity(capacity),
-        }
-    }
-
-    /// Creates a `T` and named it with `Handle`.
-    pub fn create(&mut self, value: T) -> Handle {
-        let handle = self.handles.create();
-
-        if handle.index() >= self.values.len() as u32 {
-            self.values.push(Some(value));
-        } else {
-            self.values[handle.index() as usize] = Some(value);
-        }
-
-        handle
-    }
-
-    /// Returns mutable reference to internal value with name `Handle`.
-    #[inline]
-    pub fn get_mut(&mut self, handle: Handle) -> Option<&mut T> {
-        if self.handles.is_alive(handle) {
-            self.values[handle.index() as usize].as_mut()
-        } else {
-            None
-        }
-    }
-
-    /// Returns immutable reference to internal value with name `Handle`.
-    #[inline]
-    pub fn get(&self, handle: Handle) -> Option<&T> {
-        if self.handles.is_alive(handle) {
-            self.values[handle.index() as usize].as_ref()
-        } else {
-            None
-        }
-    }
-
-    /// Recycles the value with name `Handle`.
-    #[inline]
-    pub fn free(&mut self, handle: Handle) -> Option<T> {
-        if self.handles.is_alive(handle) {
-            let mut v = None;
-            ::std::mem::swap(&mut v, &mut self.values[handle.index() as usize]);
-            v
-        } else {
-            None
-        }
-    }
-
-    /// Returns the total number of alive handle in this `HandleSetWith`.
-    #[inline]
-    pub fn size(&self) -> usize {
-        self.handles.size()
-    }
-}
-
 /// Immutable `HandleSet` iterator, this struct is created by `iter` method on `HandleSet`.
 #[derive(Copy, Clone)]
 pub struct HandleIter<'a> {
@@ -272,17 +197,6 @@ mod test {
         assert!(!set.is_alive(e2));
         assert!(!set.is_alive(e1));
         assert_eq!(set.size(), 0);
-    }
-
-    #[test]
-    fn handle_set_with() {
-        let mut set = HandleSetWith::<i32>::new();
-
-        let e1 = set.create(3);
-        assert_eq!(set.get(e1), Some(&3));
-        assert_eq!(set.free(e1), Some(3));
-        assert_eq!(set.get(e1), None);
-        assert_eq!(set.free(e1), None)
     }
 
     #[test]

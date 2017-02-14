@@ -5,6 +5,7 @@ use std::ffi::CString;
 
 use gl;
 use gl::types::*;
+use utility::{Handle, HandleObjectSet};
 use super::*;
 
 pub struct Device {
@@ -13,11 +14,11 @@ pub struct Device {
     front_face_order: FrontFaceOrder,
     depth_test: Comparison,
     depth_mask: bool,
-    color_blend: (bool, Equation, BlendFactor, BlendFactor),
+    color_blend: Option<(Equation, BlendFactor, BlendFactor)>,
     color_mask: (bool, bool, bool, bool),
 
-    buffers: [BufferGL; MAX_BUFFERS],
-    programs: [ProgramGL; MAX_PROGRAMS],
+    buffers: HandleObjectSet<BufferGL>,
+    programs: HandleObjectSet<ProgramGL>,
 }
 
 impl Device {
@@ -28,10 +29,10 @@ impl Device {
             front_face_order: FrontFaceOrder::CounterClockwise,
             depth_test: Comparison::Always,
             depth_mask: false,
-            color_blend: (false, Equation::Add, BlendFactor::One, BlendFactor::Zero),
+            color_blend: None,
             color_mask: (true, true, true, true),
-            buffers: [Default::default(); MAX_BUFFERS],
-            programs: [Default::default(); MAX_PROGRAMS],
+            buffers: HandleObjectSet::new(),
+            programs: HandleObjectSet::new(),
         }
     }
 
@@ -45,7 +46,7 @@ impl Device {
     }
 }
 
-impl RenderState for Device {
+impl RenderStateVisitor for Device {
     /// Set the viewport relative to the top-lef corner of th window, in pixels.
     ///
     /// When a GL context is first attached to a window, size is set to the
@@ -139,28 +140,24 @@ impl RenderState for Device {
     }
 
     // Specifies how source and destination are combined.
-    unsafe fn set_color_blend(&mut self,
-                              enable: bool,
-                              equation: Equation,
-                              src: BlendFactor,
-                              dst: BlendFactor) {
-        if self.color_blend.0 != enable {
-            if enable {
+    unsafe fn set_color_blend(&mut self, blend: Option<(Equation, BlendFactor, BlendFactor)>) {
+        if let Some((equation, src, dst)) = blend {
+            if self.color_blend == None {
                 gl::Enable(gl::BLEND);
-            } else {
+            }
+
+            if self.color_blend != blend {
+                gl::BlendFunc(src.to_native(), dst.to_native());
+                gl::BlendEquation(equation.to_native());
+            }
+
+        } else {
+            if self.color_blend != None {
                 gl::Disable(gl::BLEND);
             }
         }
 
-        if enable &&
-           (self.color_blend.1 != equation || self.color_blend.2 != src ||
-            self.color_blend.3 != dst) {
-            gl::BlendFunc(src.to_native(), dst.to_native());
-            gl::BlendEquation(equation.to_native());
-        }
-
-        self.color_blend = (enable, equation, src, dst);
-
+        self.color_blend = blend;
         Device::check().unwrap();
     }
 
@@ -182,7 +179,7 @@ type ResourceID = GLuint;
 #[derive(Debug, Clone, Copy)]
 struct BufferGL {
     id: ResourceID,
-    size: usize,
+    size: u32,
     buffer: Buffer,
     hint: BufferHint,
 }
@@ -205,80 +202,79 @@ struct ProgramGL {
                      * textures: HashMap<String, GLsizei>, */
 }
 
-impl ResourceState for Device {
+impl ResourceStateVisitor for Device {
     /// Initialize buffer, named by `handle`, with optional initial data.
     unsafe fn create_buffer(&mut self,
-                            handle: Handle,
                             buffer: Buffer,
                             hint: BufferHint,
-                            size: usize,
-                            data: Option<&[u8]>) {
-        let mut bo = &mut self.buffers[handle.index() as usize];
-        assert!(bo.id == 0, "Try to double initialize a buffer object.");
+                            size: u32,
+                            data: Option<&[u8]>)
+                            -> Handle {
+        let mut id = 0;
+        gl::GenBuffers(1, &mut id);
+        assert!(id != 0, "Failed to generate buffer object.");
 
-        gl::GenBuffers(1, &mut bo.id);
-        assert!(bo.id != 0, "Failed to generate buffer object.");
-
-        bo.buffer = buffer;
-        bo.hint = hint;
-
-        gl::BindBuffer(buffer.to_native(), bo.id);
+        gl::BindBuffer(buffer.to_native(), id);
 
         let value = match data {
             Some(v) if v.len() > 0 => mem::transmute(&v[0]),
             _ => ptr::null(),
         };
 
-        gl::BufferData(buffer.to_native(),
-                       size as isize,
-                       value,
-                       bo.hint.to_native());
-
+        gl::BufferData(buffer.to_native(), size as isize, value, hint.to_native());
         Device::check().unwrap();
+
+        self.buffers.create(BufferGL {
+            id: id,
+            buffer: buffer,
+            hint: hint,
+            size: size,
+        })
     }
 
     /// Update named dynamic `MemoryHint::Dynamic` buffer.
     ///
     /// Optional `offset` to specifies the offset into the buffer object's data
     /// store where data replacement will begin, measured in bytes.
-    unsafe fn update_buffer(&mut self, handle: Handle, data: &[u8], offset: u32) {
-        let bo = &self.buffers[handle.index() as usize];
-        assert!(bo.id != 0, "Try to update un-initialized buffer.");
-        assert!(bo.hint == BufferHint::Dynamic,
-                "Try to update static buffer.");
-        assert!(offset as usize + data.len() <= bo.size, "Out of memory.");
+    unsafe fn update_buffer(&mut self, handle: Handle, offset: u32, data: &[u8]) {
+        if let Some(bo) = self.buffers.get(handle) {
+            if bo.id != 0 {
+                assert!(bo.hint == BufferHint::Dynamic,
+                        "Try to update static buffer.");
+                assert!(data.len() as u32 + offset >= bo.size, "Out of bounds.");
 
-        gl::BindBuffer(bo.buffer.to_native(), bo.id);
-        gl::BufferSubData(bo.buffer.to_native(),
-                          offset as isize,
-                          data.len() as isize,
-                          mem::transmute(&data[0]));
+                gl::BindBuffer(bo.buffer.to_native(), bo.id);
+                gl::BufferSubData(bo.buffer.to_native(),
+                                  offset as isize,
+                                  data.len() as isize,
+                                  mem::transmute(&data[0]));
 
-        Device::check().unwrap();
+                Device::check().unwrap();
+            }
+        }
     }
 
     /// Free named buffer object.
     unsafe fn free_buffer(&mut self, handle: Handle) {
-        let mut bo = &mut self.buffers[handle.index() as usize];
-        assert!(bo.id != 0, "Try to free un-initialized buffer.");
 
-        gl::DeleteBuffers(1, &bo.id);
-        bo.id = 0;
+        if let Some(bo) = self.buffers.get(handle) {
+            if bo.id != 0 {
+                gl::DeleteBuffers(1, &bo.id);
+                Device::check().unwrap();
+            }
+        }
 
-        Device::check().unwrap();
+        self.buffers.free(handle);
     }
 
     /// Initializes named program object. A program object is an object to
     /// which shader objects can be attached. Vertex and fragment shader
     /// are minimal requirement to build a proper program.
     unsafe fn create_program(&mut self,
-                             handle: Handle,
                              vs_src: &str,
                              fs_src: &str,
-                             gs_src: Option<&str>) {
-        let mut po = &mut self.programs[handle.index() as usize];
-        assert!(po.id == 0, "Try to double initialize a program object.");
-
+                             gs_src: Option<&str>)
+                             -> Handle {
         let vs = compile(gl::VERTEX_SHADER, vs_src);
         let fs = compile(gl::FRAGMENT_SHADER, fs_src);
         let gs = if let Some(v) = gs_src {
@@ -287,33 +283,34 @@ impl ResourceState for Device {
             None
         };
 
-        po.id = link(vs, fs, gs);
-        assert!(po.id != 0, "Failed to generate program object.");
+        let id = link(vs, fs, gs);
+        assert!(id != 0, "Failed to generate program object.");
 
-        gl::DetachShader(po.id, vs);
+        gl::DetachShader(id, vs);
         gl::DeleteShader(vs);
-        gl::DetachShader(po.id, fs);
+        gl::DetachShader(id, fs);
         gl::DeleteShader(fs);
 
         if let Some(v) = gs {
-            gl::DetachShader(po.id, v);
+            gl::DetachShader(id, v);
             gl::DeleteShader(v);
         }
 
         Device::check().unwrap();
+
+        self.programs.create(ProgramGL { id: id })
     }
 
     /// Free named program object.
     unsafe fn free_program(&mut self, handle: Handle) {
-        let mut po = &mut self.programs[handle.index() as usize];
-        assert!(po.id != 0, "Try to free un-initialized program object.");
+        if let Some(po) = self.programs.get(handle) {
+            if po.id != 0 {
+                gl::DeleteProgram(po.id);
+                Device::check().unwrap();
+            }
+        }
 
-        gl::DeleteProgram(po.id);
-        po.id = 0;
-        // po.attributes.clear();
-        // po.uniforms.clear();
-        // po.textures.clear();
-        Device::check().unwrap();
+        self.programs.free(handle);
     }
 }
 
@@ -374,7 +371,7 @@ unsafe fn link(vs: GLuint, fs: GLuint, gs: Option<GLuint>) -> GLuint {
     program
 }
 
-impl RasterizationState for Device {
+impl RasterizationStateVisitor for Device {
     /// Clear any or all of rendertarget, depth buffer and stencil buffer.
     unsafe fn clear(&self, color: Option<[f32; 4]>, depth: Option<f32>, stencil: Option<i32>) {
         let mut bits = 0;
@@ -398,23 +395,21 @@ impl RasterizationState for Device {
 
     /// Bind a named buffer object.
     unsafe fn bind_buffer(&mut self, handle: Handle) {
-        let mut bo = &mut self.buffers[handle.index() as usize];
-        assert!(bo.id != 0, "Try to bind un-initialized buffer object.");
-
-        gl::BindBuffer(bo.buffer.to_native(), bo.id);
+        if let Some(bo) = self.buffers.get(handle) {
+            gl::BindBuffer(bo.buffer.to_native(), bo.id);
+        }
     }
 
     /// Bind a named program object.
     unsafe fn bind_program(&mut self, handle: Handle) {
-        let mut po = &mut self.programs[handle.index() as usize];
-        assert!(po.id != 0, "Try to bind un-initialized program object.");
-
-        gl::UseProgram(po.id);
+        if let Some(po) = self.programs.get(handle) {
+            gl::UseProgram(po.id);
+        }
     }
 
     /// Bind a named texture object into sampler unit.
     unsafe fn bind_texture(&mut self, _: Handle, _: u32) {}
 
     /// Commit render primitives from binding data.
-    unsafe fn commit(primitive: Primitive, from: u32, len: u32) {}
+    unsafe fn commit(_: Primitive, _: u32, _: u32) {}
 }

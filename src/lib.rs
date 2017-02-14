@@ -9,8 +9,10 @@ extern crate json;
 extern crate glutin;
 extern crate gl;
 extern crate cgmath;
-
-// use cgmath as math;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate bincode;
 
 pub mod utility;
 pub mod core;
@@ -19,6 +21,7 @@ pub mod ecs;
 pub mod resource;
 pub mod graphics;
 
+pub use cgmath as math;
 pub use core::Application;
 pub use ecs::*;
 pub use multitask::ThreadPool;

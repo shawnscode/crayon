@@ -6,13 +6,13 @@ Lemon3d is an experimental purpose project, written with a minimalistic modular 
 
 *Warning*: Its far from a stable version right now.
 
-### Features v0.0.2
+### Features v0.0.1
 - [x] \[ECS\] Entity component system with a data-driven designs.
 - [x] \[TSK\] Task based multi-thread system based on awesome crate [Rayon](https://github.com/nikomatsakis/rayon.git).
 - [x] \[RES\] Abstract archive with default supports for native filesystem and zip.
 - [x] \[GFX\] Window and graphic context management based on [glutin](https://github.com/tomaka/glutin).
 
-### Roadmap v0.0.2 (Basic Usages)
+### Roadmap v0.1.0 (Basic Usages)
 
 ##### Graphics Subsystem
 - [ ] Stateless, layered, multi-threaded graphics subsystem based on OpenGL.
