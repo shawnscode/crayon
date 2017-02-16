@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use super::{Handle, HandleSet, HandleIter};
 
 /// A named object collections. Every time u create or free a handle, a
@@ -39,7 +40,10 @@ impl<T: Sized> HandleObjectSet<T> {
 
     /// Returns mutable reference to internal value with name `Handle`.
     #[inline]
-    pub fn get_mut(&mut self, handle: Handle) -> Option<&mut T> {
+    pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
+        where H: Borrow<Handle>
+    {
+        let handle = handle.borrow();
         if self.handles.is_alive(handle) {
             self.values[handle.index() as usize].as_mut()
         } else {
@@ -49,7 +53,10 @@ impl<T: Sized> HandleObjectSet<T> {
 
     /// Returns immutable reference to internal value with name `Handle`.
     #[inline]
-    pub fn get(&self, handle: Handle) -> Option<&T> {
+    pub fn get<H>(&self, handle: H) -> Option<&T>
+        where H: Borrow<Handle>
+    {
+        let handle = handle.borrow();
         if self.handles.is_alive(handle) {
             self.values[handle.index() as usize].as_ref()
         } else {
@@ -57,9 +64,19 @@ impl<T: Sized> HandleObjectSet<T> {
         }
     }
 
+    #[inline]
+    pub fn is_alive<H>(&self, handle: H) -> bool
+        where H: Borrow<Handle>
+    {
+        self.handles.is_alive(handle)
+    }
+
     /// Recycles the value with name `Handle`.
     #[inline]
-    pub fn free(&mut self, handle: Handle) -> Option<T> {
+    pub fn free<H>(&mut self, handle: H) -> Option<T>
+        where H: Borrow<Handle>
+    {
+        let handle = handle.borrow();
         if self.handles.is_alive(handle) {
             let mut v = None;
             ::std::mem::swap(&mut v, &mut self.values[handle.index() as usize]);

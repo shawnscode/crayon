@@ -73,6 +73,8 @@ pub trait ResourceStateVisitor {
                              gs_src: Option<&str>)
                              -> Handle;
 
+    unsafe fn create_uniform(&mut self, name: &str, num: u8, format: VertexFormat);
+
     /// Free named program object.
     unsafe fn free_program(&mut self, handle: Handle);
 }

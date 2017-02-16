@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::binary_heap::BinaryHeap;
+use std::borrow::Borrow;
 
 use super::{Handle, HandleIndex};
 
@@ -65,14 +66,20 @@ impl HandleSet {
 
     /// Returns true if this `Handle` was created by `HandleSet`, and has not been
     /// freed yet.
-    pub fn is_alive(&self, handle: Handle) -> bool {
+    pub fn is_alive<T>(&self, handle: T) -> bool
+        where T: Borrow<Handle>
+    {
+        let handle = handle.borrow();
         let index = handle.index() as usize;
         (index < self.versions.len()) && ((self.versions[index] & 0x1) == 1) &&
         (self.versions[index] == handle.version())
     }
 
     /// Recycles the `Handle` index, and mark its version as dead.
-    pub fn free(&mut self, handle: Handle) -> bool {
+    pub fn free<T>(&mut self, handle: T) -> bool
+        where T: Borrow<Handle>
+    {
+        let handle = handle.borrow();
         if !self.is_alive(handle) {
             false
         } else {

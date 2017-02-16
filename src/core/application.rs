@@ -4,8 +4,6 @@ use super::arguments::Arguments;
 use super::window;
 use super::input;
 
-use graphics::Graphics;
-
 #[derive(Debug)]
 pub enum Error {
     ArgumentsBreak(::std::io::Error),
@@ -21,7 +19,6 @@ pub struct Application {
     pub input: input::Input,
     pub engine: Engine,
     pub window: window::Window,
-    pub renderer: Graphics,
 }
 
 impl Application {
@@ -31,7 +28,6 @@ impl Application {
             input: input::Input::new(),
             engine: Engine::new(),
             window: window::WindowBuilder::new().build()?,
-            renderer: Graphics::new(),
         })
     }
 
@@ -68,7 +64,6 @@ impl Application {
             input: input::Input::new(),
             engine: engine,
             window: wb.build()?,
-            renderer: Graphics::new(),
         })
     }
 
@@ -106,7 +101,6 @@ impl Application {
             }
 
             self.engine.run_one_frame();
-            self.renderer.run_one_frame();
             self.window.swap_buffers().unwrap();
         }
         self

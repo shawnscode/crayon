@@ -1,5 +1,5 @@
 /// Specifies what kind of primitives to render.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Primitive {
     Points,
     Lines,
@@ -81,6 +81,7 @@ pub struct RenderState {
     pub depth_write_offset: Option<(f32, f32)>,
     pub color_blend: Option<(Equation, BlendFactor, BlendFactor)>,
     pub color_write: (bool, bool, bool, bool), // pub program: Handle,
+    pub primitive: Primitive,
 }
 
 impl Default for RenderState {
@@ -93,51 +94,7 @@ impl Default for RenderState {
             depth_write_offset: None,
             color_blend: None,
             color_write: (false, false, false, false),
+            primitive: Primitive::Triangles,
         }
-    }
-}
-
-impl RenderState {
-    #[inline]
-    pub fn with_cull_face(&mut self, cull_face: CullFace) -> &mut Self {
-        self.cull_face = cull_face;
-        self
-    }
-
-    #[inline]
-    pub fn with_front_face_order(&mut self, front_face_order: FrontFaceOrder) -> &mut Self {
-        self.front_face_order = front_face_order;
-        self
-    }
-
-    #[inline]
-    pub fn with_depth_write(&mut self, write: bool) -> &mut Self {
-        self.depth_write = write;
-        self
-    }
-
-    #[inline]
-    pub fn with_depth_test(&mut self, test: Comparison) -> &mut Self {
-        self.depth_test = test;
-        self
-    }
-
-    #[inline]
-    pub fn with_color_blend(&mut self,
-                            blend: Option<(Equation, BlendFactor, BlendFactor)>)
-                            -> &mut Self {
-        self.color_blend = blend;
-        self
-    }
-
-    #[inline]
-    pub fn with_color_write(&mut self,
-                            red: bool,
-                            green: bool,
-                            blue: bool,
-                            alpha: bool)
-                            -> &mut Self {
-        self.color_write = (red, green, blue, alpha);
-        self
     }
 }

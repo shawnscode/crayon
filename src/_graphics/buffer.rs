@@ -1,7 +1,7 @@
-use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
 use std::borrow::Borrow;
 
+use utility::hash::*;
+use utility::memory::*;
 use super::MAX_VERTEX_ATTRIBUTES;
 
 /// Specifies the target to which the buffer object is bound
@@ -22,8 +22,6 @@ pub enum BufferHint {
     /// Used for dynamic buffer data, typically constant buffers.
     Dynamic,
 }
-
-// pub trait VertexSerializer {}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum VertexFormat {
@@ -167,12 +165,6 @@ fn size(format: VertexFormat) -> u32 {
         VertexFormat::Short | VertexFormat::UShort | VertexFormat::Fixed => 2,
         VertexFormat::Float => 4,
     }
-}
-
-fn hash<T: Hash>(t: &T) -> u64 {
-    let mut s = DefaultHasher::new();
-    t.hash(&mut s);
-    s.finish()
 }
 
 #[cfg(test)]
