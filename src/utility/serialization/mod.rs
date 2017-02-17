@@ -105,31 +105,25 @@ mod test {
         let vs1 = variant::VariantStr::from("u_Position");
         let vs1_bytes = serialize(&vs1).unwrap();
         assert_eq!(vs1_bytes.len(), 16);
-        assert_eq!(deserialize::<variant::VariantStr>(&vs1_bytes).unwrap().as_str().unwrap(),
+        assert_eq!(deserialize::<variant::VariantStr>(&vs1_bytes).unwrap().as_str(),
                    "u_Position");
-        unsafe {
-            assert_eq!(deserialize::<variant::VariantStr>(&vs1_bytes).unwrap().as_str_unchecked(),
-                       "u_Position");
-        }
+        assert_eq!(deserialize::<variant::VariantStr>(&vs1_bytes).unwrap().as_str(),
+                   "u_Position");
 
         let vs2 = variant::VariantStr::from("u_Texture_Diffuse");
         let vs2_bytes = serialize(&vs2).unwrap();
         assert_eq!(vs2_bytes.len(), 32);
-        assert_eq!(deserialize::<variant::VariantStr>(&vs2_bytes).unwrap().as_str().unwrap(),
+        assert_eq!(deserialize::<variant::VariantStr>(&vs2_bytes).unwrap().as_str(),
                    "u_Texture_Diffuse");
-        unsafe {
-            assert_eq!(deserialize::<variant::VariantStr>(&vs2_bytes).unwrap().as_str_unchecked(),
-                       "u_Texture_Diffuse");
-        }
+        assert_eq!(deserialize::<variant::VariantStr>(&vs2_bytes).unwrap().as_str(),
+                   "u_Texture_Diffuse");
 
         let vs3 = variant::VariantStr::from("u_MainTexture");
         let vs3_bytes = serialize(&vs3).unwrap();
         assert_eq!(vs3_bytes.len(), 16);
-        assert_eq!(deserialize::<variant::VariantStr>(&vs3_bytes).unwrap().as_str().unwrap(),
+        assert_eq!(deserialize::<variant::VariantStr>(&vs3_bytes).unwrap().as_str(),
                    "u_MainTexture");
-        unsafe {
-            assert_eq!(deserialize::<variant::VariantStr>(&vs3_bytes).unwrap().as_str_unchecked(),
-                       "u_MainTexture");
-        }
+        assert_eq!(deserialize::<variant::VariantStr>(&vs3_bytes).unwrap().as_str(),
+                   "u_MainTexture");
     }
 }
