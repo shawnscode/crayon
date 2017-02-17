@@ -2,7 +2,6 @@
 //! that use the `serde` crate for the serializable and deserializable
 //! implementation.
 
-pub mod variant;
 pub mod encode;
 pub mod decode;
 pub mod error;
@@ -69,6 +68,7 @@ pub fn deserialize<T>(bytes: &[u8]) -> error::Result<T>
 #[cfg(test)]
 mod test {
     use super::*;
+    use utility::memory::variant;
 
     #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
     enum Enum {

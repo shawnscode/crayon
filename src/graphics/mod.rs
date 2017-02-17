@@ -1,8 +1,8 @@
-#[macro_use]
 use utility::Handle;
 
 pub mod color;
 pub mod pipeline;
+pub mod resource;
 pub mod frame;
 
 pub use self::color::Color;
@@ -13,3 +13,5 @@ impl_handle!(PipelineHandle);
 impl_handle!(FrameBufferHandle);
 impl_handle!(VertexBufferHandle);
 impl_handle!(IndexBufferHandle);
+
+const MAX_ATTRIBUTES: usize = 16;

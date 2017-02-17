@@ -5,176 +5,115 @@ use std::slice;
 use std::mem;
 
 use super::*;
+use super::resource::{ResourceHint, VertexLayout};
+use super::pipeline::UniformVariable;
 
 #[derive(Debug, Clone, Copy)]
-pub enum FrameTask {
-    CreateView(DataSlice<CreateView>),
-    UpdateViewRect(DataSlice<UpdateViewRect>),
-    UpdateViewScissor(DataSlice<UpdateViewRect>),
-    UpdateViewClear(DataSlice<UpdateViewClear>),
-    DeleteView(DataSlice<DeleteView>),
+pub enum PreFrameTask {
+    CreateView(ViewHandle),
+    UpdateViewRect(ViewHandle, (u16, u16), (u16, u16)),
+    UpdateViewScissor(ViewHandle, (u16, u16), (u16, u16)),
+    UpdateViewClear(ViewHandle, Option<u32>, Option<f32>, Option<i32>),
 
-    CreatePipeline(DataSlice<CreatePipeline>),
-    UpdatePipelineState(DataSlice<UpdatePipelineState>),
+    CreatePipeline(PipelineHandle, TaskBufferPtr<str>, TaskBufferPtr<str>),
+    UpdatePipelineState(PipelineHandle, TaskBufferPtr<RenderState>),
+    UpdatePipelineUniform(PipelineHandle, TaskBufferPtr<str>, TaskBufferPtr<UniformVariable>),
+
+    CreateVertexBuffer(VertexBufferHandle, TaskBufferPtr<VertexBufferDescriptor>),
+    UpdateVertexBuffer(VertexBufferHandle, TaskBufferPtr<[u8]>),
+
+    CreateIndexBuffer(IndexBufferHandle, TaskBufferPtr<IndexBufferDescriptor>),
+    UpdateIndexBuffer(IndexBufferHandle, TaskBufferPtr<[u8]>),
 }
 
-#[derive(Debug, Default, Clone, Copy)]
-pub struct CreateView {
-    handle: ViewHandle,
+#[derive(Debug, Clone, Copy)]
+pub enum PostFrameTask {
+    DeleteView(ViewHandle),
+    DeletePipeline(PipelineHandle),
+    DeleteVertexBuffer(VertexBufferHandle),
+    DeleteIndexBuffer(IndexBufferHandle),
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct UpdateViewRect {
-    handle: ViewHandle,
-    position: (u16, u16),
-    size: (u16, u16),
+#[derive(Debug, Clone, Copy)]
+pub struct VertexBufferDescriptor {
+    layout: VertexLayout,
+    size: u32,
+    hint: ResourceHint,
+    data: Option<TaskBufferPtr<[u8]>>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
-pub struct UpdateViewClear {
-    handle: ViewHandle,
-    color: Option<u32>,
-    depth: Option<f32>,
-    stencil: Option<i32>,
+#[derive(Debug, Clone, Copy)]
+pub struct IndexBufferDescriptor {
+    data: Option<TaskBufferPtr<[u8]>>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
-pub struct DeleteView {
-    handle: ViewHandle,
+pub struct Frame {
+    pub pre: Vec<PreFrameTask>,
+    pub post: Vec<PostFrameTask>,
+    pub buf: TaskBuffer,
 }
 
-#[derive(Debug, Default, Copy, Clone)]
-pub struct CreatePipeline {
-    handle: PipelineHandle,
-    vs: DataSlice<str>,
-    fs: DataSlice<str>,
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct UpdatePipelineState {
-    handle: PipelineHandle,
-    state: RenderState,
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct UpdatePipelineUniforms {
-    handle: PipelineHandle,
-    uniforms: DataSlice<[UpdateUniform]>,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum UniformVariable {
-    Vector1([f32; 1]),
-    Vector2([f32; 2]),
-    Vector3([f32; 3]),
-    Vector4([f32; 4]),
-    Matrix2([f32; 4]),
-    Matrix3([f32; 9]),
-    Matrix4([f32; 16]),
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct UpdateUniform {
-    name: [u8; 32],
-    format: u8,
-    data: DataSlice<[f32]>,
-}
-
-impl UpdateUniform {
-    pub fn encode<T>(buf: &mut DataBuffer, name: T, variable: &UniformVariable) -> UpdateUniform
-        where T: Borrow<str>
-    {
-        let (format, data) = variable.encode();
-        UpdateUniform {
-            name: buf.extend_from_str(name.borrow()),
-            format: format,
-            data: buf.extend_from_slice(data),
+impl Frame {
+    /// Creates a new frame with specified capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
+        Frame {
+            pre: Vec::with_capacity(capacity),
+            post: Vec::with_capacity(capacity),
+            buf: TaskBuffer::with_capacity(capacity),
         }
     }
 }
 
 /// Where we store all the intermediate bytes.
-#[derive(Debug, Default)]
-pub struct DataBuffer(Vec<u8>);
+pub struct TaskBuffer(Vec<u8>);
 
-/// A view into our `DataBuffer`, indicates where the object `T` stored.
-#[derive(Debug)]
-pub struct DataSlice<T> where T : ?Sized {
-    offset: u32,
-    size: u32,
-    phantom: PhantomData<T>,
-}
-
-impl<T> Clone for DataSlice<T> where T: ?Sized {
-    fn clone(&self) -> Self {
-        DataSlice {
-            offset: self.offset,
-            size: self.size,
-            phantom: Default::default(),
-        }
-    }
-}
-
-impl<T> Copy for DataSlice<T> where T: ?Sized {}
-
-impl<T> Default for DataSlice<T> where T: ?Sized {
-    fn default() -> Self {
-        DataSlice {
-            offset: 0, size: 0, phantom: Default::default()
-        }
-    }
-}
-
-impl DataBuffer {
-    /// Creates a new data buffer with specified capacity.
-    pub fn with_capacity(capacity: usize) -> DataBuffer {
-        DataBuffer(Vec::with_capacity(capacity))
+impl TaskBuffer {
+    /// Creates a new task buffer with specified capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
+        TaskBuffer(Vec::with_capacity(capacity))
     }
 
-    /// Extend data buffer with specified copyable value, which implicates that
-    /// types whose values can be duplicated simply by copying bits.
-    pub fn extend<T>(&mut self, value: &T) -> DataSlice<T>
-        where T: Copy
-    {
-        let data =
-            unsafe { slice::from_raw_parts(value as *const T as *const u8, mem::size_of::<T>()) };
+    pub fn extend<T>(&mut self, value: &T) -> TaskBufferPtr<T> where T: Copy {
+        let data = unsafe {
+            slice::from_raw_parts(value as *const T as *const u8, mem::size_of::<T>())  
+        };
 
         self.0.extend_from_slice(data);
-        DataSlice {
-            offset: (self.0.len() - data.len()) as u32,
+        TaskBufferPtr {
+            position: (self.0.len() - data.len()) as u32,
             size: data.len() as u32,
-            phantom: PhantomData::default(),
+            _phantom: PhantomData,
         }
     }
 
     /// Clones and appends all elements in a slice to the buffer.
-    pub fn extend_from_slice<T>(&mut self, slice: &[T]) -> DataSlice<[T]>
+    pub fn extend_from_slice<T>(&mut self, slice: &[T]) -> TaskBufferPtr<[T]>
         where T: Copy
     {
         let len = mem::size_of::<T>().wrapping_mul(slice.len());
         let u8_slice = unsafe { slice::from_raw_parts(slice.as_ptr() as *const u8, len) };
         self.0.extend_from_slice(u8_slice);
-        DataSlice {
-            offset: (self.0.len() - len) as u32,
+        TaskBufferPtr {
+            position: (self.0.len() - len) as u32,
             size: len as u32,
-            phantom: PhantomData::default(),
+            _phantom: PhantomData,
         }
     }
 
-    /// CLones and append all bytes in a string slice to the buffer.
-    pub fn extend_from_str<T>(&mut self, value: T) -> DataSlice<str> where T: Borrow<str>
+    /// Clones and append all bytes in a string slice to the buffer.
+    pub fn extend_from_str<T>(&mut self, value: T) -> TaskBufferPtr<str> where T: Borrow<str>
     {
         let slice = self.extend_from_slice(value.borrow().as_bytes());
-        DataSlice {
-            offset: slice.offset,
+        TaskBufferPtr {
+            position: slice.position,
             size: slice.size,
-            phantom: PhantomData::default(),
+            _phantom: PhantomData,
         }
     }
 
-    /// Returns reference to object indicated by `DataSlice`.
+    /// Returns reference to object indicated by `TaskBufferPtr`.
     #[inline]
-    pub fn as_ref<T>(&self, ptr: DataSlice<T>) -> &T
+    pub fn as_ref<T>(&self, ptr: TaskBufferPtr<T>) -> &T
         where T: Copy
     {
         let slice = self.as_u8_slice(ptr);
@@ -182,9 +121,9 @@ impl DataBuffer {
         unsafe { &*(slice.as_ptr() as *const _) }
     }
 
-    /// Returns a object slice indicated by `DataSlice.
+    /// Returns a object slice indicated by `TaskBufferPtr.
     #[inline]
-    pub fn as_slice<T>(&self, ptr: DataSlice<[T]>) -> &[T]
+    pub fn as_slice<T>(&self, ptr: TaskBufferPtr<[T]>) -> &[T]
         where T: Copy
     {
         let slice = self.as_u8_slice(ptr);
@@ -193,25 +132,51 @@ impl DataBuffer {
         unsafe { slice::from_raw_parts(slice.as_ptr() as *const T, len) }
     }
 
-    /// Returns string slice indicated by `DataSlice`.
+    /// Returns string slice indicated by `TaskBufferPtr`.
     #[inline]
-    pub fn as_str(&self, ptr: DataSlice<str>) -> &str {
+    pub fn as_str(&self, ptr: TaskBufferPtr<str>) -> &str {
         str::from_utf8(self.as_u8_slice(ptr)).unwrap()
     }
 
     #[inline]
-    fn as_u8_slice<T>(&self, slice:DataSlice<T>) -> &[u8] where T: ?Sized {
-        &self.0[slice.offset as usize..(slice.offset + slice.size) as usize]
+    fn as_u8_slice<T>(&self, slice:TaskBufferPtr<T>) -> &[u8] where T: ?Sized {
+        &self.0[slice.position as usize..(slice.position + slice.size) as usize]
     }
 }
+
+/// A view into our `DataBuffer`, indicates where the object `T` stored.
+#[derive(Debug)]
+pub struct TaskBufferPtr<T> where T: ?Sized {
+    position: u32,
+    size: u32,
+    _phantom: PhantomData<T>,
+}
+
+impl<T> Clone for TaskBufferPtr<T> where T: ?Sized {
+    fn clone(&self) -> Self {
+        TaskBufferPtr {
+            position: self.position,
+            size: self.size,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<T> Copy for TaskBufferPtr<T> where T: ?Sized {}
 
 #[cfg(test)]
 mod test {
     use super::*;
 
+    #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+    struct UpdateViewRect {
+        position: (u16, u16),
+        size: (u16, u16),
+    }
+
     #[test]
-    fn buffer() {
-        let mut buffer = DataBuffer::with_capacity(128);
+    fn buf() {
+        let mut buffer = TaskBuffer::with_capacity(128);
 
         let mut uvp = UpdateViewRect::default();
         uvp.position = (256, 128);

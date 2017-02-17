@@ -6,8 +6,8 @@ use std::u32;
 use serde;
 use byteorder;
 
+use utility::memory::variant::VariantChar;
 use super::error::{Result, Error, ErrorKind};
-use super::variant::VariantChar;
 
 /// An Serializer that encodes values directly into a Writer.
 ///

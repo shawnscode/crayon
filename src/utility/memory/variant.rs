@@ -1,5 +1,6 @@
 use std::ptr;
 use std::str;
+use std::ops::Deref;
 
 /// UTF-8 encoded owned str with varient length. It will store short string in place
 /// instead of another heap space.
@@ -33,7 +34,30 @@ impl<'a> From<&'a str> for VariantStr {
     }
 }
 
+impl Deref for VariantStr {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        unsafe { self.as_str_unchecked() }
+    }
+}
+
+impl Default for VariantStr {
+    fn default() -> Self {
+        VariantStr::Size8(0, [0; 6])
+    }
+}
+
 impl VariantStr {
+    pub fn len(&self) -> usize {
+        match *self {
+            VariantStr::Size8(len, _) => len as usize,
+            VariantStr::Size16(len, _) => len as usize,
+            VariantStr::Size32(len, _) => len as usize,
+            VariantStr::Unconstraint(ref v) => v.len(),
+        }
+    }
+
     /// Converts a slice of bytes to a string slice.
     pub fn as_str(&self) -> Result<&str, str::Utf8Error> {
         match *self {
