@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate error_chain;
 extern crate bit_set;
 extern crate deque;
 extern crate rand;

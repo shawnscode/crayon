@@ -14,7 +14,7 @@ json = "*"
 glutin = "*"
 gl = "*"
 cgmath = "*"
-
 serde = "*"
 serde_derive = "*"
 byteorder = "*"
+error-chain = "*"

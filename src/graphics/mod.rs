@@ -4,6 +4,7 @@ pub mod color;
 pub mod pipeline;
 pub mod resource;
 pub mod frame;
+pub mod backend;
 
 pub use self::color::Color;
 pub use self::pipeline::RenderState;
