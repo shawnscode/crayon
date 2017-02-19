@@ -5,7 +5,7 @@ use std::slice;
 use std::mem;
 
 use super::*;
-use super::resource::{ResourceHint, VertexLayout};
+use super::resource::{ResourceHint, VertexLayout, VertexAttributeDesc, MAX_ATTRIBUTES};
 use super::pipeline::UniformVariable;
 
 #[derive(Debug, Clone, Copy)]
@@ -15,7 +15,7 @@ pub enum PreFrameTask {
     UpdateViewScissor(ViewHandle, (u16, u16), (u16, u16)),
     UpdateViewClear(ViewHandle, Option<u32>, Option<f32>, Option<i32>),
 
-    CreatePipeline(PipelineHandle, TaskBufferPtr<str>, TaskBufferPtr<str>),
+    CreatePipeline(PipelineHandle, TaskBufferPtr<PipelineDescriptor>),
     UpdatePipelineState(PipelineHandle, TaskBufferPtr<RenderState>),
     UpdatePipelineUniform(PipelineHandle, TaskBufferPtr<str>, TaskBufferPtr<UniformVariable>),
 
@@ -32,6 +32,13 @@ pub enum PostFrameTask {
     DeletePipeline(PipelineHandle),
     DeleteVertexBuffer(VertexBufferHandle),
     DeleteIndexBuffer(IndexBufferHandle),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct PipelineDescriptor {
+    vs: TaskBufferPtr<str>,
+    fs: TaskBufferPtr<str>,
+    attributes: (u8, [VertexAttributeDesc; MAX_ATTRIBUTES]),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -116,7 +123,7 @@ impl TaskBuffer {
     pub fn as_ref<T>(&self, ptr: TaskBufferPtr<T>) -> &T
         where T: Copy
     {
-        let slice = self.as_u8_slice(ptr);
+        let slice = self.as_bytes(ptr);
         assert_eq!(slice.len(), mem::size_of::<T>());
         unsafe { &*(slice.as_ptr() as *const _) }
     }
@@ -126,7 +133,7 @@ impl TaskBuffer {
     pub fn as_slice<T>(&self, ptr: TaskBufferPtr<[T]>) -> &[T]
         where T: Copy
     {
-        let slice = self.as_u8_slice(ptr);
+        let slice = self.as_bytes(ptr);
         let len = slice.len() / mem::size_of::<T>();
         assert_eq!(slice.len(), mem::size_of::<T>().wrapping_mul(len));
         unsafe { slice::from_raw_parts(slice.as_ptr() as *const T, len) }
@@ -135,11 +142,11 @@ impl TaskBuffer {
     /// Returns string slice indicated by `TaskBufferPtr`.
     #[inline]
     pub fn as_str(&self, ptr: TaskBufferPtr<str>) -> &str {
-        str::from_utf8(self.as_u8_slice(ptr)).unwrap()
+        str::from_utf8(self.as_bytes(ptr)).unwrap()
     }
 
     #[inline]
-    fn as_u8_slice<T>(&self, slice:TaskBufferPtr<T>) -> &[u8] where T: ?Sized {
+    pub fn as_bytes<T>(&self, slice:TaskBufferPtr<T>) -> &[u8] where T: ?Sized {
         &self.0[slice.position as usize..(slice.position + slice.size) as usize]
     }
 }

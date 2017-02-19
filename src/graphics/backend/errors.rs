@@ -14,7 +14,14 @@ error_chain!{
         InvalidValue
         InvalidOperation
         InvalidFramebufferOperation
+        InvalidHandle
+        InvalidUpdateStaticResource
+        DuplicatedHandle
         OutOfBounds
+        FailedCompilePipeline(t: String) {
+            description("failed compile pipeline")
+            display("Failed compile pipeline: '{}'", t)
+        }
         Unknown
     }
 }

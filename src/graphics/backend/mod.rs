@@ -62,54 +62,83 @@ pub trait RenderStateVisitor {
 
 /// Graphics resource managements.
 pub trait ResourceStateVisitor {
-    /// Initialize buffer, named by `handle`, with optional initial data.
-    fn create_vertex_buffer(&mut self,
-                            handle: VertexBufferHandle,
-                            buffer: Resource,
-                            hint: ResourceHint,
-                            size: u32,
-                            data: Option<&[u8]>)
-                            -> Result<()>;
+    /// Initialize vertex buffer, named by `handle`, with optional initial data.
+    unsafe fn create_vertex_buffer(&mut self,
+                                   handle: VertexBufferHandle,
+                                   layout: &VertexLayout,
+                                   hint: ResourceHint,
+                                   size: u32,
+                                   data: Option<&[u8]>)
+                                   -> Result<()>;
 
-    /// Update named dynamic `MemoryHint::Dynamic` buffer.
+    /// Update named vertex buffer with `ResourceHint::Dynamic` hint.
     ///
     /// Optional `offset` to specifies the offset into the buffer object's data
     /// store where data replacement will begin, measured in bytes.
-    fn update_vertex_buffer(&mut self,
-                            handle: VertexBufferHandle,
-                            offset: u32,
-                            data: &[u8])
-                            -> Result<()>;
+    unsafe fn update_vertex_buffer(&mut self,
+                                   handle: VertexBufferHandle,
+                                   offset: u32,
+                                   data: &[u8])
+                                   -> Result<()>;
 
+    unsafe fn free_vertex_buffer(&mut self, handle: VertexBufferHandle) -> Result<()>;
+
+    /// Initialize index buffer, named by `handle`, with optional initial data.
+    unsafe fn create_index_buffer(&mut self,
+                                  handle: IndexBufferHandle,
+                                  format: IndexFormat,
+                                  hint: ResourceHint,
+                                  size: u32,
+                                  data: Option<&[u8]>)
+                                  -> Result<()>;
+
+    /// Update named vertex buffer with `ResourceHint::Dynamic` hint.
+    ///
+    /// Optional `offset` to specifies the offset into the buffer object's data
+    /// store where data replacement will begin, measured in bytes.
     /// Free named buffer object.
-    fn free_vertex_buffer(&mut self, handle: VertexBufferHandle) -> Result<()>;
+    unsafe fn update_index_buffer(&self,
+                                  handle: IndexBufferHandle,
+                                  offset: u32,
+                                  data: &[u8])
+                                  -> Result<()>;
+
+    unsafe fn free_index_buffer(&mut self, handle: IndexBufferHandle) -> Result<()>;
 
     /// Initializes named program object. A program object is an object to
     /// which shader objects can be attached. Vertex and fragment shader
     /// are minimal requirement to build a proper program.
-    fn create_program(&mut self, handle: PipelineHandle, vs_src: &str, fs_src: &str) -> Result<()>;
+    unsafe fn create_pipeline(&mut self,
+                              handle: PipelineHandle,
+                              vs_src: &str,
+                              fs_src: &str,
+                              attributes: (u8, [VertexAttributeDesc; MAX_ATTRIBUTES]))
+                              -> Result<()>;
 
     /// Free named program object.
-    fn free_program(&mut self, handle: PipelineHandle) -> Result<()>;
+    unsafe fn free_pipeline(&mut self, handle: PipelineHandle) -> Result<()>;
 }
 
 pub trait RasterizationStateVisitor {
     /// Clear any or all of rendertarget, depth buffer and stencil buffer.
-    fn clear(&self,
-             color: Option<[f32; 4]>,
-             depth: Option<f32>,
-             stencil: Option<i32>)
-             -> Result<()>;
+    unsafe fn clear(&self,
+                    color: Option<[f32; 4]>,
+                    depth: Option<f32>,
+                    stencil: Option<i32>)
+                    -> Result<()>;
 
     /// Bind a named vertex buffer object.
-    fn set_vertex_buffer(&mut self, handle: VertexBufferHandle) -> Result<()>;
+    unsafe fn set_vertex_buffer(&mut self, handle: VertexBufferHandle) -> Result<()>;
+
+    /// Bind a named index buffer object.
+    unsafe fn set_index_buffer(&mut self, handle: IndexBufferHandle) -> Result<()>;
 
     /// Bind a named program object.
-    fn set_program(&mut self, handle: PipelineHandle) -> Result<()>;
+    unsafe fn set_program(&mut self, handle: PipelineHandle) -> Result<()>;
 
     /// Bind a named uniform.
-    fn set_uniform(&mut self, name: u64, variable: &UniformVariable) -> Result<()>;
+    unsafe fn set_uniform(&mut self, name: &str, variable: &UniformVariable) -> Result<()>;
 
     /// Commit render primitives from binding data.
-    fn commit(primitive: Primitive, from: u32, len: u32) -> Result<()>;
+    unsafe fn commit(&mut self, primitive: Primitive, from: u32, len: u32) -> Result<()>;
 }

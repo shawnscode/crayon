@@ -1,8 +1,3 @@
-use std::borrow::Borrow;
-
-use utility::hash::*;
-use super::MAX_ATTRIBUTES;
-
 /// Specifies the target to which the buffer object is bound
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Resource {
@@ -13,13 +8,19 @@ pub enum Resource {
 }
 
 /// Hint abouts how this memory will be used.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ResourceHint {
     /// Full speed GPU access. Optimal for render targets and resourced memory.
     Static,
     /// CPU to GPU data flow with update commands.
     /// Used for dynamic buffer data, typically constant buffers.
     Dynamic,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum IndexFormat {
+    UByte,
+    UShort,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -32,11 +33,48 @@ pub enum VertexFormat {
     Float,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum VertexAttribute {
+    Position = 0,
+    Normal = 1,
+    Tangent = 2,
+    Bitangent = 3,
+    Color0 = 4,
+    Color1 = 5,
+    Indices = 6,
+    Weight = 7,
+    Texcoord0 = 8,
+    Texcoord1 = 9,
+    Texcoord2 = 10,
+    Texcoord3 = 11,
+}
+
+pub const MAX_ATTRIBUTES: usize = 12;
+
+impl Into<&'static str> for VertexAttribute {
+    fn into(self) -> &'static str {
+        match self {
+            VertexAttribute::Position => "Position",
+            VertexAttribute::Normal => "Normal",
+            VertexAttribute::Tangent => "Tangent",
+            VertexAttribute::Bitangent => "Bitangent",
+            VertexAttribute::Color0 => "Color0",
+            VertexAttribute::Color1 => "Color1",
+            VertexAttribute::Indices => "Indices",
+            VertexAttribute::Weight => "Weight",
+            VertexAttribute::Texcoord0 => "Texcoord0",
+            VertexAttribute::Texcoord1 => "Texcoord1",
+            VertexAttribute::Texcoord2 => "Texcoord2",
+            VertexAttribute::Texcoord3 => "Texcoord3",
+        }
+    }
+}
+
 // VertexAttribute defines an generic vertex element data.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct VertexAttribute {
-    /// Hash value of the element name.
-    pub name: u64,
+pub struct VertexAttributeDesc {
+    /// The name of this description.
+    pub name: VertexAttribute,
     /// The data type of each component of this element.
     pub format: VertexFormat,
     /// The number of components per generic vertex element.
@@ -45,10 +83,10 @@ pub struct VertexAttribute {
     pub normalized: bool,
 }
 
-impl Default for VertexAttribute {
+impl Default for VertexAttributeDesc {
     fn default() -> Self {
-        VertexAttribute {
-            name: 0,
+        VertexAttributeDesc {
+            name: VertexAttribute::Position,
             format: VertexFormat::Byte,
             size: 0,
             normalized: false,
@@ -59,9 +97,10 @@ impl Default for VertexAttribute {
 // VertexLayout defines an layout of vertex structure.
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub struct VertexLayout {
-    stride: u32,
-    offset: [u32; MAX_ATTRIBUTES],
-    elements: [VertexAttribute; MAX_ATTRIBUTES],
+    stride: u8,
+    len: u8,
+    offset: [u8; MAX_ATTRIBUTES],
+    elements: [VertexAttributeDesc; MAX_ATTRIBUTES],
 }
 
 impl VertexLayout {
@@ -72,18 +111,22 @@ impl VertexLayout {
     }
 
     /// Stride of single vertex structure.
-    pub fn stride(&self) -> u32 {
+    #[inline]
+    pub fn stride(&self) -> u8 {
         self.stride
     }
 
-    /// Relative element offset from the layout.
-    pub fn offset<T: Borrow<str>>(&self, name: T) -> Option<u32> {
-        let h = hash(&name.borrow());
+    /// Returns the number of elements in the layout.
+    #[inline]
+    pub fn len(&self) -> u8 {
+        self.len
+    }
 
+    /// Relative element offset from the layout.
+    pub fn offset(&self, name: VertexAttribute) -> Option<u8> {
         for i in 0..self.elements.len() {
             match self.elements[i].name {
-                0 => break,
-                v if v == h => return Some(self.offset[i]),
+                v if v == name => return Some(self.offset[i]),
                 _ => (),
             }
         }
@@ -92,12 +135,10 @@ impl VertexLayout {
     }
 
     /// Returns named `VertexAttribute` from the layout.
-    pub fn element<T: Borrow<str>>(&self, name: T) -> Option<VertexAttribute> {
-        let h = hash(&name.borrow());
+    pub fn element(&self, name: VertexAttribute) -> Option<VertexAttributeDesc> {
         for i in 0..self.elements.len() {
             match self.elements[i].name {
-                0 => break,
-                v if v == h => return Some(self.elements[i]),
+                v if v == name => return Some(self.elements[i]),
                 _ => (),
             }
         }
@@ -106,59 +147,59 @@ impl VertexLayout {
     }
 }
 
-pub struct VertexLayoutBuilder {
-    layout: VertexLayout,
-}
+#[derive(Default)]
+pub struct VertexLayoutBuilder(VertexLayout);
 
 impl VertexLayoutBuilder {
     #[inline]
     pub fn new() -> Self {
-        VertexLayoutBuilder { layout: Default::default() }
+        Default::default()
     }
 
-    pub fn with<T: Borrow<str>>(&mut self,
-                                name: T,
-                                format: VertexFormat,
-                                size: u8,
-                                normalized: bool)
-                                -> &mut Self {
-        let h = hash(&name.borrow());
-        for i in 0..self.layout.elements.len() {
-            if self.layout.elements[i].name == h || self.layout.elements[i].name == 0 {
-                {
-                    let mut element = &mut self.layout.elements[i];
-                    element.name = h;
-                    element.format = format;
-                    element.size = size;
-                    element.normalized = normalized;
-                }
+    pub fn with(&mut self,
+                attribute: VertexAttribute,
+                format: VertexFormat,
+                size: u8,
+                normalized: bool)
+                -> &mut Self {
+        assert!(size > 0 && size <= 4);
 
+        let desc = VertexAttributeDesc {
+            name: attribute,
+            format: format,
+            size: size,
+            normalized: normalized,
+        };
+
+        for i in 0..self.0.len {
+            let i = i as usize;
+            if self.0.elements[i].name == attribute {
+                self.0.elements[i] = desc;
                 return self;
             }
         }
 
-        unreachable!("Out of layout bounds.");
+        assert!((self.0.len as usize) < MAX_ATTRIBUTES);
+        self.0.elements[self.0.len as usize] = desc;
+        self.0.len += 1;
+
+        self
     }
 
     #[inline]
     pub fn finish(&mut self) -> VertexLayout {
-        self.layout.stride = 0;
-        for i in 0..self.layout.elements.len() {
-            let v = &self.layout.elements[i];
-            if v.name == 0 {
-                break;
-            }
-
-            let len = v.size as u32 * size(v.format);
-            self.layout.offset[i] = self.layout.stride;
-            self.layout.stride += len;
+        self.0.stride = 0;
+        for i in 0..self.0.len {
+            let i = i as usize;
+            let len = self.0.elements[i].size * size(self.0.elements[i].format);
+            self.0.offset[i] = self.0.stride;
+            self.0.stride += len;
         }
-
-        self.layout
+        self.0
     }
 }
 
-fn size(format: VertexFormat) -> u32 {
+fn size(format: VertexFormat) -> u8 {
     match format {
         VertexFormat::Byte | VertexFormat::UByte => 1,
         VertexFormat::Short | VertexFormat::UShort | VertexFormat::Fixed => 2,
@@ -173,49 +214,39 @@ mod test {
     #[test]
     fn basic() {
         let layout = VertexLayout::build()
-            .with("Position", VertexFormat::Float, 3, true)
-            .with("Texcoord", VertexFormat::Float, 2, true)
+            .with(VertexAttribute::Position, VertexFormat::Float, 3, true)
+            .with(VertexAttribute::Texcoord0, VertexFormat::Float, 2, true)
             .finish();
 
         assert_eq!(layout.stride(), 20);
-        assert_eq!(layout.offset("Position"), Some(0));
-        assert_eq!(layout.offset("Texcoord"), Some(12));
-        assert_eq!(layout.offset("Normal"), None);
+        assert_eq!(layout.offset(VertexAttribute::Position), Some(0));
+        assert_eq!(layout.offset(VertexAttribute::Texcoord0), Some(12));
+        assert_eq!(layout.offset(VertexAttribute::Normal), None);
 
-        let element = layout.element("Position").unwrap();
+        let element = layout.element(VertexAttribute::Position).unwrap();
         assert_eq!(element.format, VertexFormat::Float);
         assert_eq!(element.size, 3);
         assert_eq!(element.normalized, true);
-        assert_eq!(layout.element("Normal"), None);
+        assert_eq!(layout.element(VertexAttribute::Normal), None);
     }
 
     #[test]
     fn rewrite() {
         let layout = VertexLayout::build()
-            .with("Position", VertexFormat::Fixed, 1, false)
-            .with("Texcoord", VertexFormat::Float, 2, true)
-            .with("Position", VertexFormat::Float, 3, true)
+            .with(VertexAttribute::Position, VertexFormat::Fixed, 1, false)
+            .with(VertexAttribute::Texcoord0, VertexFormat::Float, 2, true)
+            .with(VertexAttribute::Position, VertexFormat::Float, 3, true)
             .finish();
 
         assert_eq!(layout.stride(), 20);
-        assert_eq!(layout.offset("Position"), Some(0));
-        assert_eq!(layout.offset("Texcoord"), Some(12));
-        assert_eq!(layout.offset("Normal"), None);
+        assert_eq!(layout.offset(VertexAttribute::Position), Some(0));
+        assert_eq!(layout.offset(VertexAttribute::Texcoord0), Some(12));
+        assert_eq!(layout.offset(VertexAttribute::Normal), None);
 
-        let element = layout.element("Position").unwrap();
+        let element = layout.element(VertexAttribute::Position).unwrap();
         assert_eq!(element.format, VertexFormat::Float);
         assert_eq!(element.size, 3);
         assert_eq!(element.normalized, true);
-        assert_eq!(layout.element("Normal"), None);
-    }
-
-    #[test]
-    #[should_panic]
-    fn too_many_elements() {
-        let mut builder = VertexLayout::build();
-        for i in 0..MAX_ATTRIBUTES + 1 {
-            builder.with(format!("Element_{}", i), VertexFormat::Byte, 1, true);
-        }
-        builder.finish();
+        assert_eq!(layout.element(VertexAttribute::Normal), None);
     }
 }

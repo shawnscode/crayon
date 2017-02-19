@@ -14,5 +14,3 @@ impl_handle!(PipelineHandle);
 impl_handle!(FrameBufferHandle);
 impl_handle!(VertexBufferHandle);
 impl_handle!(IndexBufferHandle);
-
-const MAX_ATTRIBUTES: usize = 16;
