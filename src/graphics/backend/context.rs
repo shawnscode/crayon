@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use glutin;
 use gl;
 
@@ -8,6 +8,7 @@ use super::capabilities::{Capabilities, Version};
 pub struct Context {
     window: Arc<glutin::Window>,
     capabilities: Capabilities,
+    context_lost: RwLock<bool>,
 }
 
 impl Context {
@@ -22,6 +23,7 @@ impl Context {
             let context = Context {
                 window: window,
                 capabilities: capabilities,
+                context_lost: RwLock::new(false),
             };
 
             Ok(context)
@@ -69,9 +71,19 @@ impl Context {
 }
 
 impl Context {
+    /// TODO
+    pub fn rebuild(_: Arc<glutin::Window>) -> Result<()> {
+        Ok(())
+    }
+
     /// Returns the capabilities of this OpenGL implementation.
     pub fn capabilities(&self) -> &Capabilities {
         &self.capabilities
+    }
+
+    /// Returns true if the context has been lost and needs to be rebuild.
+    pub fn is_context_lost(&self) -> bool {
+        *self.context_lost.read().unwrap()
     }
 
     /// Returns true if this context is the current one in this thread.
@@ -91,6 +103,16 @@ impl Context {
     /// override your vsync settings, which means that you can't know in advance
     /// whether swap_buffers will block or not.
     pub fn swap_buffers(&self) -> Result<()> {
-        self.window.swap_buffers().chain_err(|| "unable to swap buffers.")
+        if *self.context_lost.read().unwrap() {
+            bail!(ErrorKind::ContextLost);
+        }
+
+        match self.window.swap_buffers() {
+            Err(glutin::ContextError::ContextLost) => {
+                *self.context_lost.write().unwrap() = true;
+                bail!(ErrorKind::ContextLost);
+            }
+            other => other.chain_err(|| "unable to swap buffers."),
+        }
     }
 }

@@ -22,6 +22,7 @@ error_chain!{
             description("failed compile pipeline")
             display("Failed compile pipeline: '{}'", t)
         }
+        ContextLost
         Unknown
     }
 }
