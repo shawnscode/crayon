@@ -4,28 +4,13 @@
 pub mod errors;
 pub mod context;
 pub mod backend;
+pub mod capabilities;
 
 pub use self::errors::*;
 
 use super::*;
 use super::resource::*;
 use super::pipeline::*;
-
-pub trait Context {
-    /// Swaps the buffers in case of double or triple buffering.
-    ///
-    /// **Warning**: if you enabled vsync, this function will block until the
-    /// next time the screen is refreshed. However drivers can choose to
-    /// override your vsync settings, which means that you can't know in advance
-    /// whether swap_buffers will block or not.
-    fn swap_buffers(&self) -> Result<()>;
-
-    /// Returns true if this context is the current one in this thread.
-    fn is_current(&self) -> bool;
-
-    /// Set the context as the active context in this thread.
-    unsafe fn make_current(&self) -> Result<()>;
-}
 
 /// Render state managements.
 pub trait RenderStateVisitor {

@@ -80,7 +80,7 @@ pub struct RenderState {
     pub depth_write: bool,
     pub depth_write_offset: Option<(f32, f32)>,
     pub color_blend: Option<(Equation, BlendFactor, BlendFactor)>,
-    pub color_write: (bool, bool, bool, bool), // pub program: Handle,
+    pub color_write: (bool, bool, bool, bool),
     pub primitive: Primitive,
 }
 
