@@ -68,6 +68,33 @@ impl Deref for Handle {
     }
 }
 
+macro_rules! impl_handle {
+    ($name: ident) => (
+        #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+
+        pub struct $name (Handle);
+
+        impl From<Handle> for $name {
+            fn from(handle: Handle) -> Self {
+                $name(handle)
+            }
+        }
+
+        impl ::std::ops::Deref for $name {
+            type Target = Handle;
+            fn deref(&self) -> &Handle {
+                &self.0
+            }
+        }
+
+        impl ::std::borrow::Borrow<Handle> for $name {
+            fn borrow(&self) -> &Handle {
+                &self.0
+            }
+        }
+    )
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -102,5 +129,15 @@ mod test {
         assert_eq!(map.contains(&h4), true);
         assert_eq!(map.insert(h2), true);
         assert_eq!(map.insert(h3), true);
+    }
+
+    impl_handle!(TypeSafeHandle);
+    #[test]
+    fn type_safe_handle() {
+        let h1 = TypeSafeHandle::default();
+        assert_eq!(h1, TypeSafeHandle::from(Handle::default()));
+
+        let h2 = TypeSafeHandle(Handle::default());
+        assert_eq!(*h2, Handle::default());
     }
 }

@@ -3,31 +3,26 @@ use super::engine::Engine;
 use super::arguments::Arguments;
 use super::window;
 use super::input;
-
-#[derive(Debug)]
-pub enum Error {
-    ArgumentsBreak(::std::io::Error),
-    IoBreak(::std::io::Error),
-    WindowCreation(String),
-    WindowContextLost,
-}
-
-pub type Result<T> = ::std::result::Result<T, Error>;
+use super::errors::*;
+use graphics;
 
 /// User-friendly facade for building applications.
 pub struct Application {
     pub input: input::Input,
     pub engine: Engine,
     pub window: window::Window,
+    pub graphics: graphics::Graphics,
 }
 
 impl Application {
     /// Creates empty `Application`.
     pub fn new() -> Result<Self> {
+        let window = window::WindowBuilder::new().build()?;
         Ok(Application {
             input: input::Input::new(),
             engine: Engine::new(),
-            window: window::WindowBuilder::new().build()?,
+            graphics: graphics::Graphics::new(window.underlaying())?,
+            window: window,
         })
     }
 
@@ -35,7 +30,7 @@ impl Application {
     pub fn setup<T>(path: T) -> Result<Self>
         where T: AsRef<Path>
     {
-        let args = Arguments::new(path).map_err(|e| Error::ArgumentsBreak(e))?;
+        let args = Arguments::new(path).chain_err(|| "failed to parse arguments.")?;
 
         let mut engine = Engine::new();
         if let Some(slice) = args.load_as_slice("Engine") {
@@ -60,18 +55,20 @@ impl Application {
             wb.with_title(name.to_string()).with_dimensions(width, height);
         }
 
+        let window = wb.build()?;
         Ok(Application {
             input: input::Input::new(),
             engine: engine,
-            window: wb.build()?,
+            graphics: graphics::Graphics::new(window.underlaying())?,
+            window: window,
         })
     }
 
     /// Perform custom logics after engine initialization.
     pub fn perform<F>(mut self, closure: F) -> Self
-        where F: FnOnce(&mut Engine)
+        where F: FnOnce(&mut Application)
     {
-        closure(&mut self.engine);
+        closure(&mut self);
         self
     }
 
@@ -101,18 +98,18 @@ impl Application {
             }
 
             self.engine.run_one_frame();
-            self.window.swap_buffers().unwrap();
+            self.graphics.run_one_frame().unwrap();
         }
         self
     }
 }
 
-impl From<window::Error> for Error {
-    fn from(error: window::Error) -> Error {
-        match error {
-            window::Error::CreationFailed(v) => Error::WindowCreation(v),
-            window::Error::ContextLost => Error::WindowContextLost,
-            window::Error::IoError(e) => Error::IoBreak(e),
-        }
-    }
-}
+// impl From<window::Error> for Error {
+//     fn from(error: window::Error) -> Error {
+//         match error {
+//             window::Error::CreationFailed(v) => Error::WindowCreation(v),
+//             window::Error::ContextLost => Error::WindowContextLost,
+//             window::Error::IoError(e) => Error::IoBreak(e),
+//         }
+//     }
+// }
