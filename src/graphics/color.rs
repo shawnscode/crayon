@@ -1,4 +1,4 @@
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct Color(pub f32, pub f32, pub f32, pub f32);
 
 impl From<u32> for Color {
@@ -14,9 +14,9 @@ impl Into<u32> for Color {
     fn into(self) -> u32 {
         let color = self.clip();
         let mut encoded = ((color.0 / 1.0 * 255.0) as u32) << 24;
-        encoded &= ((color.1 / 1.0 * 255.0) as u32) << 16;
-        encoded &= ((color.2 / 1.0 * 255.0) as u32) << 8;
-        encoded &= ((color.3 / 1.0 * 255.0) as u32) << 0;
+        encoded |= ((color.1 / 1.0 * 255.0) as u32) << 16;
+        encoded |= ((color.2 / 1.0 * 255.0) as u32) << 8;
+        encoded |= ((color.3 / 1.0 * 255.0) as u32) << 0;
         encoded
     }
 }
@@ -92,4 +92,16 @@ fn clamp(v: f32, min: f32, max: f32) -> f32 {
     }
 
     v
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn basic() {
+        let color = Color::gray();
+        let v: u32 = color.into();
+        assert_eq!(Color::from(v), color);
+    }
 }

@@ -1,15 +1,9 @@
 use std::default::Default;
+use std::sync::Arc;
 use gl;
 use glutin;
 
-#[derive(Debug)]
-pub enum Error {
-    CreationFailed(String),
-    ContextLost,
-    IoError(::std::io::Error),
-}
-
-pub type Result<T> = ::std::result::Result<T, Error>;
+use super::errors::*;
 
 /// The status of application.
 #[derive(Debug)]
@@ -69,7 +63,7 @@ pub enum Event {
 /// Represents an OpenGL context and the Window or environment around it, its just
 /// simple wrappers to [glutin](https://github.com/tomaka/glutin) right now.
 pub struct Window {
-    window: glutin::Window,
+    window: Arc<glutin::Window>,
 }
 
 impl Window {
@@ -77,6 +71,10 @@ impl Window {
     /// where this is appropriate.
     pub fn build() -> WindowBuilder {
         WindowBuilder::new()
+    }
+
+    pub fn underlaying(&self) -> Arc<glutin::Window> {
+        self.window.clone()
     }
 
     /// Shows the window if it was hidden.
@@ -160,14 +158,14 @@ impl Window {
     }
 }
 
-impl From<glutin::ContextError> for Error {
-    fn from(err: glutin::ContextError) -> Error {
-        match err {
-            glutin::ContextError::ContextLost => Error::ContextLost,
-            glutin::ContextError::IoError(v) => Error::IoError(v),
-        }
-    }
-}
+// impl From<glutin::ContextError> for Error {
+//     fn from(err: glutin::ContextError) -> Error {
+//         match err {
+//             glutin::ContextError::ContextLost => Error::ContextLost,
+//             glutin::ContextError::IoError(v) => Error::IoError(v),
+//         }
+//     }
+// }
 
 /// An iterator for the `poll_events` function.
 pub struct EventIterator<'a> {
@@ -284,14 +282,14 @@ impl WindowBuilder {
             builder = builder.with_vsync();
         }
 
-        let window = builder.build().map_err(|e| Error::CreationFailed(format!("{:?}", e)))?;
+        let window = builder.build()?;
 
         unsafe {
             window.make_current()?;
             gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
         }
 
-        Ok(Window { window: window })
+        Ok(Window { window: Arc::new(window) })
     }
 
     /// Requests a specific title for the window.

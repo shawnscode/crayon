@@ -13,7 +13,7 @@ pub use self::capabilities::{Capabilities, Version, Profile};
 use std::sync::{Arc, RwLock};
 use gl;
 use glutin;
-use super::*;
+use super::{ViewHandle, PipelineHandle, FrameBufferHandle, VertexBufferHandle, IndexBufferHandle};
 
 pub struct Context {
     window: Arc<glutin::Window>,

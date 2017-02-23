@@ -4,10 +4,15 @@ pub mod color;
 pub mod pipeline;
 pub mod resource;
 pub mod frame;
+pub mod graphics;
+pub mod errors;
 pub mod backend;
 
+pub use self::errors::*;
+pub use self::resource::*;
+pub use self::pipeline::*;
 pub use self::color::Color;
-pub use self::pipeline::RenderState;
+pub use self::graphics::Graphics;
 
 impl_handle!(ViewHandle);
 impl_handle!(PipelineHandle);

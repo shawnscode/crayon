@@ -113,6 +113,7 @@ impl OpenGLVisitor {
 
                 let offset = layout.offset(desc.name)
                     .unwrap() as *const u8 as *const c_void;
+
                 gl::EnableVertexAttribArray(location as GLuint);
                 gl::VertexAttribPointer(location as GLuint,
                                         element.size as GLsizei,

@@ -81,7 +81,6 @@ pub struct RenderState {
     pub depth_write_offset: Option<(f32, f32)>,
     pub color_blend: Option<(Equation, BlendFactor, BlendFactor)>,
     pub color_write: (bool, bool, bool, bool),
-    pub primitive: Primitive,
 }
 
 impl Default for RenderState {
@@ -94,7 +93,6 @@ impl Default for RenderState {
             depth_write_offset: None,
             color_blend: None,
             color_write: (false, false, false, false),
-            primitive: Primitive::Triangles,
         }
     }
 }

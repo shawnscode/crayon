@@ -10,6 +10,7 @@ use utility::Handle;
 
 use super::*;
 use super::visitor::*;
+use super::super::color::Color;
 use super::super::pipeline::*;
 use super::super::resource::*;
 
@@ -43,7 +44,7 @@ struct GLPipeline {
 struct GLView {
     viewport: Option<((u16, u16), (u16, u16))>,
     scissor: Option<((u16, u16), (u16, u16))>,
-    clear_color: Option<u32>,
+    clear_color: Option<Color>,
     clear_depth: Option<f32>,
     clear_stencil: Option<i32>,
 }
@@ -75,6 +76,11 @@ impl Device {
 }
 
 impl Device {
+    pub fn run_one_frame(&self) {
+        self.active_view.set(None);
+        self.active_pipeline.set(None);
+    }
+
     pub unsafe fn bind_view(&self, view: ViewHandle) -> Result<()> {
         if let Some(v) = self.active_view.get() {
             if v == view {
@@ -84,11 +90,7 @@ impl Device {
 
         let vo = self.views.get(view).ok_or(ErrorKind::InvalidHandle)?;
         // TODO set_viewport/ set_scissor
-        self.visitor
-            .clear(vo.clear_color.map(|v| v.into()),
-                   vo.clear_depth,
-                   vo.clear_stencil)?;
-
+        self.visitor.clear(vo.clear_color, vo.clear_depth, vo.clear_stencil)?;
         self.active_view.set(Some(view));
         Ok(())
     }
@@ -262,7 +264,7 @@ impl Device {
 
     pub fn create_view(&mut self,
                        handle: ViewHandle,
-                       clear_color: Option<u32>,
+                       clear_color: Option<Color>,
                        clear_depth: Option<f32>,
                        clear_stencil: Option<i32>)
                        -> Result<()> {
@@ -306,7 +308,7 @@ impl Device {
 
     pub fn update_view_clear(&mut self,
                              handle: ViewHandle,
-                             clear_color: Option<u32>,
+                             clear_color: Option<Color>,
                              clear_depth: Option<f32>,
                              clear_stencil: Option<i32>)
                              -> Result<()> {
@@ -349,6 +351,10 @@ impl Device {
             let i = i as usize;
             let name: &'static str = attributes.1[i].name.into();
             let location = self.visitor.get_attribute_location(pipeline.id, name)?;
+            if location == -1 {
+                bail!(format!("failed to locate attribute {:?}", name));
+            }
+
             pipeline.attributes.push((location, attributes.1[i]));
         }
 
