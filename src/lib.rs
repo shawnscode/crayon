@@ -15,6 +15,8 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate byteorder;
+#[macro_use]
+extern crate derive_builder;
 
 #[macro_use]
 pub mod utility;

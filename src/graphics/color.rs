@@ -93,15 +93,3 @@ fn clamp(v: f32, min: f32, max: f32) -> f32 {
 
     v
 }
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn basic() {
-        let color = Color::gray();
-        let v: u32 = color.into();
-        assert_eq!(Color::from(v), color);
-    }
-}
