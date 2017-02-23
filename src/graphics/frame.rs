@@ -5,12 +5,13 @@ use std::slice;
 use std::mem;
 
 use super::*;
-use super::resource::{ResourceHint, VertexLayout, VertexAttributeDesc, MAX_ATTRIBUTES};
-use super::pipeline::UniformVariable;
+use super::resource::{ResourceHint, IndexFormat, VertexLayout, VertexAttributeDesc, MAX_ATTRIBUTES};
+use super::pipeline::{UniformVariable, Primitive};
+use super::backend::Context;
 
 #[derive(Debug, Clone, Copy)]
 pub enum PreFrameTask {
-    CreateView(ViewHandle),
+    CreateView(ViewHandle, TaskBufferPtr<ViewDescriptor>),
     UpdateViewRect(ViewHandle, (u16, u16), (u16, u16)),
     UpdateViewScissor(ViewHandle, (u16, u16), (u16, u16)),
     UpdateViewClear(ViewHandle, Option<u32>, Option<f32>, Option<i32>),
@@ -20,10 +21,22 @@ pub enum PreFrameTask {
     UpdatePipelineUniform(PipelineHandle, TaskBufferPtr<str>, TaskBufferPtr<UniformVariable>),
 
     CreateVertexBuffer(VertexBufferHandle, TaskBufferPtr<VertexBufferDescriptor>),
-    UpdateVertexBuffer(VertexBufferHandle, TaskBufferPtr<[u8]>),
+    UpdateVertexBuffer(VertexBufferHandle, u32, TaskBufferPtr<[u8]>),
 
     CreateIndexBuffer(IndexBufferHandle, TaskBufferPtr<IndexBufferDescriptor>),
-    UpdateIndexBuffer(IndexBufferHandle, TaskBufferPtr<[u8]>),
+    UpdateIndexBuffer(IndexBufferHandle, u32, TaskBufferPtr<[u8]>),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct FrameTask {
+    view: ViewHandle,
+    pipeline: PipelineHandle,
+    vb: VertexBufferHandle,
+    ib: Option<IndexBufferHandle>,
+    primitive: Primitive,
+    from: u32,
+    len: u32,
+    uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -35,27 +48,39 @@ pub enum PostFrameTask {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub struct ViewDescriptor {
+    clear_color: Option<u32>,
+    clear_depth: Option<f32>,
+    clear_stencil: Option<i32>,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct PipelineDescriptor {
     vs: TaskBufferPtr<str>,
     fs: TaskBufferPtr<str>,
+    state: RenderState,
     attributes: (u8, [VertexAttributeDesc; MAX_ATTRIBUTES]),
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct VertexBufferDescriptor {
     layout: VertexLayout,
-    size: u32,
     hint: ResourceHint,
+    size: u32,
     data: Option<TaskBufferPtr<[u8]>>,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct IndexBufferDescriptor {
+    format: IndexFormat,
+    hint: ResourceHint,
+    size: u32,
     data: Option<TaskBufferPtr<[u8]>>,
 }
 
 pub struct Frame {
     pub pre: Vec<PreFrameTask>,
+    pub drawcalls: Vec<FrameTask>,
     pub post: Vec<PostFrameTask>,
     pub buf: TaskBuffer,
 }
@@ -66,7 +91,101 @@ impl Frame {
         Frame {
             pre: Vec::with_capacity(capacity),
             post: Vec::with_capacity(capacity),
+            drawcalls: Vec::with_capacity(capacity),
             buf: TaskBuffer::with_capacity(capacity),
+        }
+    }
+
+    pub unsafe fn clear(&mut self) {
+        self.pre.clear();
+        self.drawcalls.clear();
+        self.post.clear();
+        self.buf.clear();
+    }
+
+    pub unsafe fn dispatch(&mut self, context: &mut Context) {
+        let mut device = &mut context.device();
+
+        for v in &self.pre {
+            match *v {
+                PreFrameTask::CreateView(handle, desc) => {
+                    let desc = &self.buf.as_ref(desc);
+                    device.create_view(handle, desc.clear_color, desc.clear_depth, desc.clear_stencil).unwrap();
+                },
+                PreFrameTask::UpdateViewRect(handle, position, size) => {
+                    device.update_view_rect(handle, position, size).unwrap();
+                },
+                PreFrameTask::UpdateViewScissor(handle, position, size) => {
+                    device.update_view_scissor(handle, position, size).unwrap();
+                },
+                PreFrameTask::UpdateViewClear(handle, clear_color, clear_depth, clear_stencil) => {
+                    device.update_view_clear(handle, clear_color, clear_depth, clear_stencil).unwrap();
+                },
+                PreFrameTask::CreatePipeline(handle, desc) => {
+                    let desc = &self.buf.as_ref(desc);
+                    device.create_pipeline(handle, &desc.state, self.buf.as_str(desc.vs), self.buf.as_str(desc.fs), desc.attributes).unwrap();
+                },
+                PreFrameTask::UpdatePipelineState(handle, state) => {
+                    let state = &self.buf.as_ref(state);
+                    device.update_pipeline_state(handle, &state).unwrap();
+                },
+                PreFrameTask::UpdatePipelineUniform(handle, name, variable) => {
+                    let name = &self.buf.as_str(name);
+                    let variable = &self.buf.as_ref(variable);
+                    device.update_pipeline_uniform(handle, name, &variable).unwrap();
+                },
+                PreFrameTask::CreateVertexBuffer(handle, desc) => {
+                    let desc = &self.buf.as_ref(desc);
+                    let data = desc.data.map(|ptr| self.buf.as_bytes(ptr));
+                    device.create_vertex_buffer(handle, &desc.layout, desc.hint, desc.size, data).unwrap();
+                },
+                PreFrameTask::UpdateVertexBuffer(handle, offset, data) => {
+                    let data = &self.buf.as_bytes(data);
+                    device.update_vertex_buffer(handle, offset, &data).unwrap();
+                },
+                PreFrameTask::CreateIndexBuffer(handle, desc) => {
+                    let desc = &self.buf.as_ref(desc);
+                    let data = desc.data.map(|ptr| self.buf.as_bytes(ptr));
+                    device.create_index_buffer(handle, desc.format, desc.hint, desc.size, data).unwrap();
+                },
+                PreFrameTask::UpdateIndexBuffer(handle, offset, data) => {
+                    let data = &self.buf.as_bytes(data);
+                    device.update_index_buffer(handle, offset, &data).unwrap();
+                },
+            }
+        }
+
+        {
+            let mut uniforms = vec![];
+            self.drawcalls.sort_by_key(|dc| dc.view);
+
+            for dc in &self.drawcalls {
+                uniforms.clear();
+                for &(name, variable) in self.buf.as_slice(dc.uniforms) {
+                    let name = self.buf.as_str(name);
+                    uniforms.push((name, variable));
+                }
+
+                device.bind_view(dc.view).unwrap();
+                device.draw(dc.primitive, dc.pipeline, dc.vb, dc.ib, dc.from, dc.len, uniforms.as_slice()).unwrap();
+            }
+        }
+
+        for v in &self.post {
+            match *v {
+                PostFrameTask::DeleteView(handle) => {
+                    device.delete_view(handle).unwrap();
+                },
+                PostFrameTask::DeletePipeline(handle) => {
+                    device.delete_pipeline(handle).unwrap();
+                },
+                PostFrameTask::DeleteVertexBuffer(handle) => {
+                    device.delete_vertex_buffer(handle).unwrap();
+                },
+                PostFrameTask::DeleteIndexBuffer(handle) => {
+                    device.delete_index_buffer(handle).unwrap();
+                }
+            }
         }
     }
 }
@@ -78,6 +197,10 @@ impl TaskBuffer {
     /// Creates a new task buffer with specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         TaskBuffer(Vec::with_capacity(capacity))
+    }
+
+    pub fn clear(&mut self) {
+        self.0.clear();
     }
 
     pub fn extend<T>(&mut self, value: &T) -> TaskBufferPtr<T> where T: Copy {

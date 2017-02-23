@@ -1,5 +1,5 @@
 #[derive(Debug, Default, Copy, Clone)]
-pub struct Color(f32, f32, f32, f32);
+pub struct Color(pub f32, pub f32, pub f32, pub f32);
 
 impl From<u32> for Color {
     fn from(encoded: u32) -> Self {

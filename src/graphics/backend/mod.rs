@@ -2,128 +2,134 @@
 //! thing: submitting draw-calls using low-level OpenGL graphics APIs.
 
 pub mod errors;
-pub mod context;
-pub mod backend;
 pub mod capabilities;
+pub mod device;
+pub mod visitor;
 
 pub use self::errors::*;
+pub use self::device::Device;
+pub use self::capabilities::{Capabilities, Version, Profile};
 
+use std::sync::{Arc, RwLock};
+use gl;
+use glutin;
 use super::*;
-use super::resource::*;
-use super::pipeline::*;
 
-/// Render state managements.
-pub trait RenderStateVisitor {
-    /// Set the viewport relative to the top-lef corner of th window, in pixels.
-    unsafe fn set_viewport(&mut self, position: (u16, u16), size: (u16, u16)) -> Result<()>;
-
-    /// Specify whether front- or back-facing polygons can be culled.
-    unsafe fn set_face_cull(&mut self, face: CullFace) -> Result<()>;
-
-    /// Define front- and back-facing polygons.
-    unsafe fn set_front_face(&mut self, front: FrontFaceOrder) -> Result<()>;
-
-    /// Specify the value used for depth buffer comparisons.
-    unsafe fn set_depth_test(&mut self, comparsion: Comparison) -> Result<()>;
-
-    /// Enable or disable writing into the depth buffer.
-    ///
-    /// Optional `offset` to address the scale and units used to calculate depth values.
-    unsafe fn set_depth_write(&mut self, enable: bool, offset: Option<(f32, f32)>) -> Result<()>;
-
-    // Specifies how source and destination are combined.
-    unsafe fn set_color_blend(&mut self,
-                              blend: Option<(Equation, BlendFactor, BlendFactor)>)
-                              -> Result<()>;
-
-    /// Enable or disable writing color elements into the color buffer.
-    unsafe fn set_color_write(&mut self,
-                              red: bool,
-                              green: bool,
-                              blue: bool,
-                              alpha: bool)
-                              -> Result<()>;
+pub struct Context {
+    window: Arc<glutin::Window>,
+    context_lost: RwLock<bool>,
+    capabilities: Capabilities,
+    device: device::Device,
 }
 
-/// Graphics resource managements.
-pub trait ResourceStateVisitor {
-    /// Initialize vertex buffer, named by `handle`, with optional initial data.
-    unsafe fn create_vertex_buffer(&mut self,
-                                   handle: VertexBufferHandle,
-                                   layout: &VertexLayout,
-                                   hint: ResourceHint,
-                                   size: u32,
-                                   data: Option<&[u8]>)
-                                   -> Result<()>;
+impl Context {
+    pub fn new(window: Arc<glutin::Window>) -> Result<Self> {
+        unsafe {
+            window.make_current()?;
+            gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
-    /// Update named vertex buffer with `ResourceHint::Dynamic` hint.
-    ///
-    /// Optional `offset` to specifies the offset into the buffer object's data
-    /// store where data replacement will begin, measured in bytes.
-    unsafe fn update_vertex_buffer(&mut self,
-                                   handle: VertexBufferHandle,
-                                   offset: u32,
-                                   data: &[u8])
-                                   -> Result<()>;
+            let capabilities = Capabilities::parse()?;
+            Context::check_minimal_requirements(&capabilities)?;
 
-    unsafe fn free_vertex_buffer(&mut self, handle: VertexBufferHandle) -> Result<()>;
+            let context = Context {
+                window: window,
+                context_lost: RwLock::new(false),
+                capabilities: capabilities,
+                device: device::Device::new(),
+            };
 
-    /// Initialize index buffer, named by `handle`, with optional initial data.
-    unsafe fn create_index_buffer(&mut self,
-                                  handle: IndexBufferHandle,
-                                  format: IndexFormat,
-                                  hint: ResourceHint,
-                                  size: u32,
-                                  data: Option<&[u8]>)
-                                  -> Result<()>;
+            Ok(context)
+        }
+    }
 
-    /// Update named vertex buffer with `ResourceHint::Dynamic` hint.
-    ///
-    /// Optional `offset` to specifies the offset into the buffer object's data
-    /// store where data replacement will begin, measured in bytes.
-    /// Free named buffer object.
-    unsafe fn update_index_buffer(&self,
-                                  handle: IndexBufferHandle,
-                                  offset: u32,
-                                  data: &[u8])
-                                  -> Result<()>;
+    fn check_minimal_requirements(caps: &Capabilities) -> Result<()> {
+        if caps.version < Version::GL(1, 5) && caps.version < Version::ES(2, 0) &&
+           (!caps.extensions.gl_arb_vertex_buffer_object ||
+            !caps.extensions.gl_arb_map_buffer_range) {
+            bail!("OpenGL implementation doesn't support vertex buffer objects.");
+        }
 
-    unsafe fn free_index_buffer(&mut self, handle: IndexBufferHandle) -> Result<()>;
+        if caps.version < Version::GL(2, 0) && caps.version < Version::ES(2, 0) &&
+           (!caps.extensions.gl_arb_shader_objects || !caps.extensions.gl_arb_vertex_shader ||
+            !caps.extensions.gl_arb_fragment_shader) {
+            bail!("OpenGL implementation doesn't support vertex/fragment shaders.");
+        }
 
-    /// Initializes named program object. A program object is an object to
-    /// which shader objects can be attached. Vertex and fragment shader
-    /// are minimal requirement to build a proper program.
-    unsafe fn create_pipeline(&mut self,
-                              handle: PipelineHandle,
-                              vs_src: &str,
-                              fs_src: &str,
-                              attributes: (u8, [VertexAttributeDesc; MAX_ATTRIBUTES]))
-                              -> Result<()>;
+        if caps.version < Version::GL(3, 0) && caps.version < Version::ES(2, 0) &&
+           !caps.extensions.gl_ext_framebuffer_object &&
+           !caps.extensions.gl_arb_framebuffer_object {
+            bail!("OpenGL implementation doesn't support framebuffers.");
+        }
 
-    /// Free named program object.
-    unsafe fn free_pipeline(&mut self, handle: PipelineHandle) -> Result<()>;
+        if caps.version < Version::ES(2, 0) && caps.version < Version::GL(3, 0) &&
+           !caps.extensions.gl_ext_framebuffer_blit {
+            bail!("OpenGL implementation doesn't support blitting framebuffers.");
+        }
+
+        if caps.version < Version::GL(3, 1) && caps.version < Version::ES(3, 0) &&
+           !caps.extensions.gl_arb_uniform_buffer_object {
+            bail!("OpenGL implementation doesn't support uniform buffer object.");
+        }
+
+        if caps.version < Version::GL(3, 0) && caps.version < Version::ES(3, 0) &&
+           !caps.extensions.gl_arb_vertex_array_object &&
+           !caps.extensions.gl_apple_vertex_array_object &&
+           !caps.extensions.gl_oes_vertex_array_object {
+            bail!("OpenGL implementation doesn't support vertex array object.");
+        }
+
+        Ok(())
+    }
 }
 
-pub trait RasterizationStateVisitor {
-    /// Clear any or all of rendertarget, depth buffer and stencil buffer.
-    unsafe fn clear(&self,
-                    color: Option<[f32; 4]>,
-                    depth: Option<f32>,
-                    stencil: Option<i32>)
-                    -> Result<()>;
+impl Context {
+    /// TODO
+    pub fn rebuild(_: Arc<glutin::Window>) -> Result<()> {
+        Ok(())
+    }
 
-    /// Bind a named vertex buffer object.
-    unsafe fn set_vertex_buffer(&mut self, handle: VertexBufferHandle) -> Result<()>;
+    /// Returns the implementation of device.
+    pub fn device(&mut self) -> &mut Device {
+        &mut self.device
+    }
 
-    /// Bind a named index buffer object.
-    unsafe fn set_index_buffer(&mut self, handle: IndexBufferHandle) -> Result<()>;
+    /// Returns the capabilities of this OpenGL implementation.
+    pub fn capabilities(&self) -> &Capabilities {
+        &self.capabilities
+    }
 
-    /// Bind a named program object.
-    unsafe fn set_program(&mut self, handle: PipelineHandle) -> Result<()>;
+    /// Returns true if the context has been lost and needs to be rebuild.
+    pub fn is_context_lost(&self) -> bool {
+        *self.context_lost.read().unwrap()
+    }
 
-    /// Bind a named uniform.
-    unsafe fn set_uniform(&mut self, name: &str, variable: &UniformVariable) -> Result<()>;
+    /// Returns true if this context is the current one in this thread.
+    pub fn is_current(&self) -> bool {
+        self.window.is_current()
+    }
 
-    /// Commit render primitives from binding data.
-    unsafe fn commit(&mut self, primitive: Primitive, from: u32, len: u32) -> Result<()>;
+    /// Set the context as the active context in this thread.
+    pub fn make_current(&self) -> Result<()> {
+        unsafe { self.window.make_current().chain_err(|| "unable to make context current.") }
+    }
+
+    /// Swaps the buffers in case of double or triple buffering.
+    ///
+    /// **Warning**: if you enabled vsync, this function will block until the
+    /// next time the screen is refreshed. However drivers can choose to
+    /// override your vsync settings, which means that you can't know in advance
+    /// whether swap_buffers will block or not.
+    pub fn swap_buffers(&self) -> Result<()> {
+        if *self.context_lost.read().unwrap() {
+            bail!(ErrorKind::ContextLost);
+        }
+
+        match self.window.swap_buffers() {
+            Err(glutin::ContextError::ContextLost) => {
+                *self.context_lost.write().unwrap() = true;
+                bail!(ErrorKind::ContextLost);
+            }
+            other => other.chain_err(|| "unable to swap buffers."),
+        }
+    }
 }
