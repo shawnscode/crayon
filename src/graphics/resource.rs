@@ -191,7 +191,7 @@ impl VertexLayoutBuilder {
         self.0.stride = 0;
         for i in 0..self.0.len {
             let i = i as usize;
-            let len = self.0.elements[i].size * size(self.0.elements[i].format);
+            let len = self.0.elements[i].size * size_of_vertex(self.0.elements[i].format);
             self.0.offset[i] = self.0.stride;
             self.0.stride += len;
         }
@@ -199,13 +199,107 @@ impl VertexLayoutBuilder {
     }
 }
 
-fn size(format: VertexFormat) -> u8 {
+fn size_of_vertex(format: VertexFormat) -> u8 {
     match format {
         VertexFormat::Byte | VertexFormat::UByte => 1,
         VertexFormat::Short | VertexFormat::UShort | VertexFormat::Fixed => 2,
         VertexFormat::Float => 4,
     }
 }
+
+/// Specify how the texture is used whenever the pixel being sampled.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum TextureFilter {
+    /// Returns the value of the texture element that is nearest (in Manhattan distance)
+    /// to the center of the pixel being textured.
+    Nearest,
+    /// Returns the weighted average of the four texture elements that are closest to the
+    /// center of the pixel being textured.
+    Linear,
+}
+
+/// Sets the wrap parameter for texture.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum TextureAddress {
+    /// Samples at coord x + 1 map to coord x.
+    Repeat,
+    /// Samples at coord x + 1 map to coord 1 - x.
+    Mirror,
+    /// Samples at coord x + 1 map to coord 1.
+    Clamp,
+    /// Same as Mirror, but only for one repetition.
+    MirrorClamp,
+}
+
+/// List of all the possible formats of input data when uploading to a color
+/// renderable texture.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum ColorTextureFormat {
+    U8,
+    U8U8,
+    U8U8U8,
+    U8U8U8U8,
+    U5U6U5,
+    U4U4U4U4,
+    U5U5U5U1,
+    U10U10U10U2,
+    F16,
+    F16F16,
+    F16F16F16,
+    F16F16F16F16,
+    F32,
+    F32F32,
+    F32F32F32,
+    F32F32F32F32,
+}
+
+impl ColorTextureFormat {
+    /// Returns the number of components of this client format.
+    pub fn components(&self) -> u8 {
+        match *self {
+            ColorTextureFormat::U8 => 1,
+            ColorTextureFormat::U8U8 => 2,
+            ColorTextureFormat::U8U8U8 => 3,
+            ColorTextureFormat::U8U8U8U8 => 4,
+            ColorTextureFormat::U5U6U5 => 3,
+            ColorTextureFormat::U4U4U4U4 => 4,
+            ColorTextureFormat::U5U5U5U1 => 4,
+            ColorTextureFormat::U10U10U10U2 => 4,
+            ColorTextureFormat::F16 => 1,
+            ColorTextureFormat::F16F16 => 2,
+            ColorTextureFormat::F16F16F16 => 3,
+            ColorTextureFormat::F16F16F16F16 => 4,
+            ColorTextureFormat::F32 => 1,
+            ColorTextureFormat::F32F32 => 2,
+            ColorTextureFormat::F32F32F32 => 3,
+            ColorTextureFormat::F32F32F32F32 => 4,
+        }
+    }
+
+    /// Returns the size in bytes of a pixel of this type.
+    pub fn size(&self) -> u8 {
+        match *self {
+            ColorTextureFormat::U8 => 1,
+            ColorTextureFormat::U8U8 => 2,
+            ColorTextureFormat::U8U8U8 => 3,
+            ColorTextureFormat::U8U8U8U8 => 4,
+            ColorTextureFormat::U5U6U5 => 2,
+            ColorTextureFormat::U4U4U4U4 => 2,
+            ColorTextureFormat::U5U5U5U1 => 2,
+            ColorTextureFormat::U10U10U10U2 => 4,
+            ColorTextureFormat::F16 => 2,
+            ColorTextureFormat::F16F16 => 4,
+            ColorTextureFormat::F16F16F16 => 6,
+            ColorTextureFormat::F16F16F16F16 => 8,
+            ColorTextureFormat::F32 => 4,
+            ColorTextureFormat::F32F32 => 8,
+            ColorTextureFormat::F32F32F32 => 12,
+            ColorTextureFormat::F32F32F32F32 => 16,
+        }
+    }
+}
+
+pub const MAX_TEXTURE_SLOTS: usize = 16;
 
 #[cfg(test)]
 mod test {

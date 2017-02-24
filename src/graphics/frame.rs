@@ -11,32 +11,36 @@ use super::backend::Context;
 
 #[derive(Debug, Clone, Copy)]
 pub enum PreFrameTask {
-    CreateView(ViewHandle, TaskBufferPtr<ViewDescriptor>),
+    CreateView(ViewHandle, TaskBufferPtr<ViewDesc>),
     UpdateViewRect(ViewHandle, (u16, u16), (u16, u16)),
     UpdateViewScissor(ViewHandle, (u16, u16), (u16, u16)),
     UpdateViewClear(ViewHandle, Option<Color>, Option<f32>, Option<i32>),
 
-    CreatePipeline(PipelineHandle, TaskBufferPtr<PipelineDescriptor>),
+    CreatePipeline(PipelineHandle, TaskBufferPtr<PipelineDesc>),
     UpdatePipelineState(PipelineHandle, TaskBufferPtr<RenderState>),
     UpdatePipelineUniform(PipelineHandle, TaskBufferPtr<str>, TaskBufferPtr<UniformVariable>),
 
-    CreateVertexBuffer(VertexBufferHandle, TaskBufferPtr<VertexBufferDescriptor>),
+    CreateVertexBuffer(VertexBufferHandle, TaskBufferPtr<VertexBufferDesc>),
     UpdateVertexBuffer(VertexBufferHandle, u32, TaskBufferPtr<[u8]>),
 
-    CreateIndexBuffer(IndexBufferHandle, TaskBufferPtr<IndexBufferDescriptor>),
+    CreateIndexBuffer(IndexBufferHandle, TaskBufferPtr<IndexBufferDesc>),
     UpdateIndexBuffer(IndexBufferHandle, u32, TaskBufferPtr<[u8]>),
+
+    CreateTexture(TextureHandle, TaskBufferPtr<TextureDesc>),
+    UpdateTextureParameters(TextureHandle, TaskBufferPtr<TextureParametersDesc>),
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct FrameTask {
     pub view: ViewHandle,
     pub pipeline: PipelineHandle,
+    pub uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
+    pub textures: TaskBufferPtr<[(TaskBufferPtr<str>, TextureHandle)]>,
     pub vb: VertexBufferHandle,
     pub ib: Option<IndexBufferHandle>,
     pub primitive: Primitive,
     pub from: u32,
     pub len: u32,
-    pub uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -45,17 +49,18 @@ pub enum PostFrameTask {
     DeletePipeline(PipelineHandle),
     DeleteVertexBuffer(VertexBufferHandle),
     DeleteIndexBuffer(IndexBufferHandle),
+    DeleteTexture(TextureHandle),
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct ViewDescriptor {
+pub struct ViewDesc {
     pub clear_color: Option<Color>,
     pub clear_depth: Option<f32>,
     pub clear_stencil: Option<i32>,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct PipelineDescriptor {
+pub struct PipelineDesc {
     pub vs: TaskBufferPtr<str>,
     pub fs: TaskBufferPtr<str>,
     pub state: RenderState,
@@ -63,7 +68,7 @@ pub struct PipelineDescriptor {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct VertexBufferDescriptor {
+pub struct VertexBufferDesc {
     pub layout: VertexLayout,
     pub hint: ResourceHint,
     pub size: u32,
@@ -71,11 +76,28 @@ pub struct VertexBufferDescriptor {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct IndexBufferDescriptor {
+pub struct IndexBufferDesc {
     pub format: IndexFormat,
     pub hint: ResourceHint,
     pub size: u32,
     pub data: Option<TaskBufferPtr<[u8]>>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TextureDesc {
+    pub format: ColorTextureFormat,
+    pub address: TextureAddress,
+    pub filter: TextureFilter,
+    pub mipmap: bool,
+    pub width: u32,
+    pub height: u32,
+    pub data: TaskBufferPtr<[u8]>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TextureParametersDesc {
+    pub address: TextureAddress,
+    pub filter: TextureFilter,
 }
 
 pub struct Frame {
@@ -152,11 +174,21 @@ impl Frame {
                     let data = &self.buf.as_bytes(data);
                     device.update_index_buffer(handle, offset, &data)?;
                 },
+                PreFrameTask::CreateTexture(handle, desc) => {
+                    let desc = &self.buf.as_ref(desc);
+                    let data = &self.buf.as_bytes(desc.data);
+                    device.create_texture(handle, desc.format, desc.address, desc.filter, desc.mipmap, desc.width, desc.height, &data)?;
+                },
+                PreFrameTask::UpdateTextureParameters(handle, desc) => {
+                    let desc = &self.buf.as_ref(desc);
+                    device.update_texture_parameters(handle, desc.address, desc.filter)?;
+                }
             }
         }
 
         {
             let mut uniforms = vec![];
+            let mut textures = vec![];
             self.drawcalls.sort_by_key(|dc| dc.view);
 
             for dc in &self.drawcalls {
@@ -166,8 +198,14 @@ impl Frame {
                     uniforms.push((name, variable));
                 }
 
+                textures.clear();
+                for &(name, texture) in self.buf.as_slice(dc.textures) {
+                    let name = self.buf.as_str(name);
+                    textures.push((name, texture));
+                }
+
                 device.bind_view(dc.view)?;
-                device.draw(dc.primitive, dc.pipeline, dc.vb, dc.ib, dc.from, dc.len, uniforms.as_slice())?;
+                device.draw(dc.pipeline, textures.as_slice(), uniforms.as_slice(), dc.vb, dc.ib, dc.primitive, dc.from, dc.len)?;
             }
         }
 
@@ -184,6 +222,9 @@ impl Frame {
                 },
                 PostFrameTask::DeleteIndexBuffer(handle) => {
                     device.delete_index_buffer(handle)?;
+                },
+                PostFrameTask::DeleteTexture(handle) => {
+                    device.delete_texture(handle)?;
                 }
             }
         }

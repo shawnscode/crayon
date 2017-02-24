@@ -17,6 +17,7 @@ pub struct Graphics {
     pipelines: HandleSet,
     vertex_buffers: HandleSet,
     index_buffers: HandleSet,
+    textures: HandleSet,
 
     frames: DoubleFrame,
     multithread: bool,
@@ -30,6 +31,7 @@ impl Graphics {
             pipelines: HandleSet::new(),
             vertex_buffers: HandleSet::new(),
             index_buffers: HandleSet::new(),
+            textures: HandleSet::new(),
             frames: DoubleFrame::with_capacity(64 * 1024), // 64 kbs
             multithread: false,
         })
@@ -70,7 +72,7 @@ impl Graphics {
                        -> Result<ViewHandle> {
         let mut frame = self.frames.front();
         let handle = self.views.create().into();
-        let ptr = frame.buf.extend(&ViewDescriptor {
+        let ptr = frame.buf.extend(&ViewDesc {
             clear_color: clear_color.map(|v| v.into()),
             clear_depth: clear_depth,
             clear_stencil: clear_stencil,
@@ -119,7 +121,7 @@ impl Graphics {
             (attributes.len() as u8, descs)
         };
 
-        let ptr = frame.buf.extend(&PipelineDescriptor {
+        let ptr = frame.buf.extend(&PipelineDesc {
             vs: vs,
             fs: fs,
             state: *state,
@@ -167,7 +169,7 @@ impl Graphics {
         let handle = self.vertex_buffers.create().into();
 
         let data = data.map(|v| frame.buf.extend_from_slice(v));
-        let ptr = frame.buf.extend(&VertexBufferDescriptor {
+        let ptr = frame.buf.extend(&VertexBufferDesc {
             layout: *layout,
             hint: hint,
             size: size,
@@ -218,7 +220,7 @@ impl Graphics {
         let handle = self.index_buffers.create().into();
 
         let data = data.map(|v| frame.buf.extend_from_slice(v));
-        let ptr = frame.buf.extend(&IndexBufferDescriptor {
+        let ptr = frame.buf.extend(&IndexBufferDesc {
             format: format,
             hint: hint,
             size: size,
@@ -258,25 +260,96 @@ impl Graphics {
         }
     }
 
+    /// A texture is an image loaded in video memory, which can be sampled in shaders.
+    pub fn create_texture(&mut self,
+                          format: ColorTextureFormat,
+                          address: TextureAddress,
+                          filter: TextureFilter,
+                          mipmap: bool,
+                          width: u32,
+                          height: u32,
+                          data: &[u8])
+                          -> Result<TextureHandle> {
+        let mut frame = self.frames.front();
+        let handle = self.textures.create().into();
+
+        let data = frame.buf.extend_from_slice(data);
+        let ptr = frame.buf.extend(&TextureDesc {
+            format: format,
+            address: address,
+            filter: filter,
+            mipmap: mipmap,
+            width: width,
+            height: height,
+            data: data,
+        });
+
+        frame.pre.push(PreFrameTask::CreateTexture(handle, ptr));
+        Ok(handle)
+    }
+
+    /// Update texture parameters.
+    pub fn update_texture_parameters(&mut self,
+                                     handle: TextureHandle,
+                                     address: TextureAddress,
+                                     filter: TextureFilter)
+                                     -> Result<()> {
+        if self.textures.is_alive(handle) {
+            let mut frame = self.frames.front();
+            let ptr = frame.buf.extend(&TextureParametersDesc {
+                address: address,
+                filter: filter,
+            });
+            frame.pre.push(PreFrameTask::UpdateTextureParameters(handle, ptr));
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    /// Destroy named texture object.
+    pub fn delete_texture(&mut self, handle: TextureHandle) -> Result<()> {
+        if self.textures.free(handle) {
+            let mut frame = self.frames.front();
+            frame.post.push(PostFrameTask::DeleteTexture(handle));
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+}
+
+impl Graphics {
     /// Submit primitive for drawing, within view all draw commands are executed after
     /// resource manipulation, such like `create_vertex_buffer`, `update_vertex_buffer`, etc.
     pub fn draw(&mut self,
                 view: ViewHandle,
                 pipeline: PipelineHandle,
+                textures: &[(&str, TextureHandle)],
+                uniforms: &[(&str, UniformVariable)],
                 vb: VertexBufferHandle,
                 ib: Option<IndexBufferHandle>,
                 primitive: Primitive,
                 from: u32,
-                len: u32,
-                uniforms: &[(&str, UniformVariable)])
+                len: u32)
                 -> Result<()> {
         let mut frame = self.frames.front();
 
-        let mut variables = vec![];
-        for &(name, variable) in uniforms {
-            variables.push((frame.buf.extend_from_str(name), variable));
-        }
-        let ptr = frame.buf.extend_from_slice(variables.as_slice());
+        let uniforms = {
+            let mut variables = vec![];
+            for &(name, variable) in uniforms {
+                variables.push((frame.buf.extend_from_str(name), variable));
+            }
+            frame.buf.extend_from_slice(variables.as_slice())
+        };
+
+        let textures = {
+            let mut variables = vec![];
+            for &(name, variable) in textures {
+                variables.push((frame.buf.extend_from_str(name), variable));
+            }
+            frame.buf.extend_from_slice(variables.as_slice())
+        };
 
         frame.drawcalls.push(FrameTask {
             view: view,
@@ -286,7 +359,8 @@ impl Graphics {
             ib: ib,
             from: from,
             len: len,
-            uniforms: ptr,
+            textures: textures,
+            uniforms: uniforms,
         });
 
         Ok(())

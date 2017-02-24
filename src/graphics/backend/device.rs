@@ -49,6 +49,16 @@ struct GLView {
     clear_stencil: Option<i32>,
 }
 
+#[derive(Debug, Copy, Clone)]
+struct GLTexture {
+    id: ResourceID,
+    address: TextureAddress,
+    filter: TextureFilter,
+    mipmap: bool,
+    width: u32,
+    height: u32,
+}
+
 pub struct Device {
     visitor: OpenGLVisitor,
 
@@ -56,6 +66,7 @@ pub struct Device {
     index_buffers: DataVec<GLIndexBuffer>,
     pipelines: DataVec<GLPipeline>,
     views: DataVec<GLView>,
+    textures: DataVec<GLTexture>,
 
     active_view: Cell<Option<ViewHandle>>,
     active_pipeline: Cell<Option<PipelineHandle>>,
@@ -69,6 +80,7 @@ impl Device {
             index_buffers: DataVec::new(),
             pipelines: DataVec::new(),
             views: DataVec::new(),
+            textures: DataVec::new(),
             active_view: Cell::new(None),
             active_pipeline: Cell::new(None),
         }
@@ -125,21 +137,37 @@ impl Device {
     }
 
     pub unsafe fn draw(&mut self,
-                       primitive: Primitive,
                        pipeline: PipelineHandle,
+                       textures: &[(&str, TextureHandle)],
+                       uniforms: &[(&str, UniformVariable)],
                        vb: VertexBufferHandle,
                        ib: Option<IndexBufferHandle>,
+                       primitive: Primitive,
                        from: u32,
-                       len: u32,
-                       uniforms: &[(&str, UniformVariable)])
+                       len: u32)
                        -> Result<()> {
         let vbo = self.vertex_buffers.get(vb).ok_or(ErrorKind::InvalidHandle)?;
         let pso = self.bind_pipeline(pipeline)?;
 
         for &(name, variable) in uniforms {
             let location = self.visitor.get_uniform_location(pso.id, &name)?;
-            if location != -1 {
-                self.visitor.bind_uniform(location, &variable)?;
+            if location == -1 {
+                bail!(format!("failed to locate uniform {}.", &name));
+            }
+            self.visitor.bind_uniform(location, &variable)?;
+        }
+
+        for (i, &(name, texture)) in textures.iter().enumerate() {
+            if let Some(to) = self.textures.get(texture) {
+                let location = self.visitor.get_uniform_location(pso.id, &name)?;
+                if location == -1 {
+                    bail!(format!("failed to locate texture {}.", &name));
+                }
+
+                self.visitor.bind_uniform(location, &UniformVariable::I32(i as i32))?;
+                self.visitor.bind_texture(i as u32, to.id)?;
+            } else {
+                bail!(format!("use invalid texture handle {:?} at {}", texture, name));
             }
         }
 
@@ -257,6 +285,63 @@ impl Device {
     pub unsafe fn delete_index_buffer(&mut self, handle: IndexBufferHandle) -> Result<()> {
         if let Some(ibo) = self.index_buffers.remove(handle) {
             self.visitor.delete_buffer(ibo.id)
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    pub unsafe fn create_texture(&mut self,
+                                 handle: TextureHandle,
+                                 format: ColorTextureFormat,
+                                 address: TextureAddress,
+                                 filter: TextureFilter,
+                                 mipmap: bool,
+                                 width: u32,
+                                 height: u32,
+                                 data: &[u8])
+                                 -> Result<()> {
+        let (internal_format, format, pixel_type) = format.into();
+        let id = self.visitor
+            .create_texture(internal_format,
+                            format,
+                            pixel_type,
+                            address,
+                            filter,
+                            mipmap,
+                            width,
+                            height,
+                            &data)?;
+
+        self.textures.set(handle,
+                          GLTexture {
+                              id: id,
+                              address: address,
+                              filter: filter,
+                              mipmap: mipmap,
+                              width: width,
+                              height: height,
+                          });
+        Ok(())
+    }
+
+    pub unsafe fn update_texture_parameters(&mut self,
+                                            handle: TextureHandle,
+                                            address: TextureAddress,
+                                            filter: TextureFilter)
+                                            -> Result<()> {
+        if let Some(texture) = self.textures.get_mut(handle) {
+            self.visitor.bind_texture(0, texture.id)?;
+            self.visitor.update_texture_parameters(address, filter, texture.mipmap)?;
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    pub unsafe fn delete_texture(&mut self, handle: TextureHandle) -> Result<()> {
+        if let Some(texture) = self.textures.remove(handle) {
+            self.visitor.delete_texture(texture.id)?;
+            Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
         }

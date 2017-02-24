@@ -49,15 +49,17 @@ fn main() {
         })
         .run(|app| {
             let uniforms = vec![];
+            let textures = vec![];
             app.graphics
                 .draw(view,
                       pipeline,
+                      textures.as_slice(),
+                      uniforms.as_slice(),
                       vbo,
                       None,
                       Primitive::Triangles,
                       0,
-                      6,
-                      uniforms.as_slice())
+                      6)
                 .unwrap();
             return true;
         })

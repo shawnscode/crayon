@@ -26,6 +26,8 @@ pub struct OpenGLVisitor {
     active_bufs: RefCell<HashMap<GLenum, GLuint>>,
     active_program: Cell<Option<GLuint>>,
     active_vao: Cell<Option<GLuint>>,
+    active_textures: RefCell<[GLuint; MAX_TEXTURE_SLOTS]>,
+    active_framebuffer: Cell<GLuint>,
     program_attribute_locations: RefCell<HashMap<GLuint, HashMap<String, GLint>>>,
     program_uniform_locations: RefCell<HashMap<GLuint, HashMap<String, GLint>>>,
     vertex_array_objects: RefCell<HashMap<VAOPair, GLuint>>,
@@ -46,6 +48,8 @@ impl OpenGLVisitor {
             active_bufs: RefCell::new(HashMap::new()),
             active_program: Cell::new(None),
             active_vao: Cell::new(None),
+            active_textures: RefCell::new([0; MAX_TEXTURE_SLOTS]),
+            active_framebuffer: Cell::new(0), /* 0 makes sense here, for window's default frame buffer. */
             program_attribute_locations: RefCell::new(HashMap::new()),
             program_uniform_locations: RefCell::new(HashMap::new()),
             vertex_array_objects: RefCell::new(HashMap::new()),
@@ -135,6 +139,7 @@ impl OpenGLVisitor {
 
     pub unsafe fn bind_uniform(&self, location: GLint, variable: &UniformVariable) -> Result<()> {
         match *variable {
+            UniformVariable::I32(v) => gl::Uniform1i(location, v),
             UniformVariable::Vector1(v) => gl::Uniform1f(location, v[0]),
             UniformVariable::Vector2(v) => gl::Uniform2f(location, v[0], v[1]),
             UniformVariable::Vector3(v) => gl::Uniform3f(location, v[0], v[1], v[2]),
@@ -361,18 +366,12 @@ impl OpenGLVisitor {
         check()?;
 
         let mut cache = self.program_uniform_locations.borrow_mut();
-        if cache.contains_key(&id) {
-            cache.get_mut(&id).unwrap().clear();
-        } else {
-            cache.insert(id, HashMap::new());
-        }
+        assert!(!cache.contains_key(&id));
+        cache.insert(id, HashMap::new());
 
         let mut cache = self.program_attribute_locations.borrow_mut();
-        if cache.contains_key(&id) {
-            cache.get_mut(&id).unwrap().clear();
-        } else {
-            cache.insert(id, HashMap::new());
-        }
+        assert!(!cache.contains_key(&id));
+        cache.insert(id, HashMap::new());
 
         Ok(id)
     }
@@ -383,18 +382,168 @@ impl OpenGLVisitor {
                 self.active_program.set(None);
             }
         }
+
+        let mut vao_cache = &mut self.vertex_array_objects.borrow_mut();
+        let mut removes = vec![];
+
+        for pair in vao_cache.keys() {
+            if pair.0 == id {
+                removes.push(*pair);
+            }
+        }
+
+        for pair in removes {
+            if let Some(v) = vao_cache.remove(&pair) {
+                gl::DeleteVertexArrays(1, &v);
+                if let Some(vao) = self.active_vao.get() {
+                    if v == vao {
+                        self.active_vao.set(None);
+                    }
+                }
+            }
+        }
+
         gl::DeleteProgram(id);
 
-        let mut cache = self.program_uniform_locations.borrow_mut();
-        if let Some(v) = cache.get_mut(&id) {
-            v.clear();
+        self.program_uniform_locations.borrow_mut().remove(&id);
+        self.program_attribute_locations.borrow_mut().remove(&id);
+        check()
+    }
+
+    pub unsafe fn bind_texture(&self, slot: GLuint, id: GLuint) -> Result<()> {
+        if id == 0 {
+            bail!("failed to bind texture with 0.");
         }
 
-        let mut cache = self.program_attribute_locations.borrow_mut();
-        if let Some(v) = cache.get_mut(&id) {
-            v.clear();
+        if slot as usize >= MAX_TEXTURE_SLOTS {
+            bail!("out of max texture slots.");
         }
 
+        let mut cache = &mut self.active_textures.borrow_mut();
+        if cache[slot as usize] != id {
+            gl::ActiveTexture(gl::TEXTURE0 + slot);
+            gl::BindTexture(gl::TEXTURE_2D, id);
+            cache[slot as usize] = id;
+            check()?;
+        }
+
+        Ok(())
+    }
+
+    pub unsafe fn create_texture(&self,
+                                 internal_format: GLuint,
+                                 format: GLenum,
+                                 pixel_type: GLenum,
+                                 address: TextureAddress,
+                                 filter: TextureFilter,
+                                 mipmap: bool,
+                                 width: u32,
+                                 height: u32,
+                                 data: &[u8])
+                                 -> Result<(GLuint)> {
+        let mut id = 0;
+        gl::GenTextures(1, &mut id);
+        assert!(id != 0);
+
+        self.bind_texture(0, id)?;
+        self.update_texture_parameters(address, filter, mipmap)?;
+
+        let data = ::std::mem::transmute(&data[0]);
+        gl::TexImage2D(gl::TEXTURE_2D,
+                       0,
+                       internal_format as GLint,
+                       width as GLsizei,
+                       height as GLsizei,
+                       0,
+                       format,
+                       pixel_type,
+                       data);
+
+        if mipmap {
+            // TODO ca
+            gl::GenerateMipmap(gl::TEXTURE_2D);
+        }
+
+        check()?;
+        Ok(id)
+    }
+
+    pub unsafe fn update_texture_parameters(&self,
+                                            address: TextureAddress,
+                                            filter: TextureFilter,
+                                            mipmap: bool)
+                                            -> Result<()> {
+
+        let address: GLenum = address.into();
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, address as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, address as GLint);
+
+        match filter {
+            TextureFilter::Nearest => {
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+            }
+            TextureFilter::Linear => {
+                if mipmap {
+                    gl::TexParameteri(gl::TEXTURE_2D,
+                                      gl::TEXTURE_MIN_FILTER,
+                                      gl::LINEAR_MIPMAP_NEAREST as GLint);
+                } else {
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
+                }
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
+            }
+        }
+
+        check()
+    }
+
+    pub unsafe fn delete_texture(&self, id: GLuint) -> Result<()> {
+        let mut cache = &mut self.active_textures.borrow_mut();
+        for i in 0..MAX_TEXTURE_SLOTS {
+            if cache[i] == id {
+                cache[i] = id;
+            }
+        }
+
+        gl::DeleteTextures(1, &id);
+        check()
+    }
+
+    pub unsafe fn bind_framebuffer(&self, id: GLuint) -> Result<()> {
+        if id == 0 {
+            bail!("failed to bind framebuffer with 0.");
+        }
+
+        if self.active_framebuffer.get() == id {
+            return Ok(());
+        }
+
+        gl::BindFramebuffer(gl::FRAMEBUFFER, id);
+        self.active_framebuffer.set(id);
+        check()
+    }
+
+    pub unsafe fn create_framebuffer(&self) -> Result<GLuint> {
+        let mut id = 0;
+        gl::GenFramebuffers(1, &mut id);
+        assert!(id != 0);
+
+        self.bind_framebuffer(id)?;
+        check()?;
+        Ok(id)
+    }
+
+    pub unsafe fn delete_framebuffer(&self, id: GLuint) -> Result<()> {
+        if id == 0 {
+            bail!("try to delete default frame buffer with id 0.");
+        }
+
+        if self.active_framebuffer.get() == id {
+            self.bind_framebuffer(0)?;
+        }
+
+        gl::DeleteFramebuffers(1, &id);
         check()
     }
 
@@ -406,9 +555,7 @@ impl OpenGLVisitor {
                                 -> Result<GLuint> {
         let mut id = 0;
         gl::GenBuffers(1, &mut id);
-        if id == 0 {
-            bail!("failed to create vertex buffer object.");
-        }
+        assert!(id != 0);
 
         self.bind_buffer(buf.into(), id)?;
 
@@ -437,6 +584,32 @@ impl OpenGLVisitor {
     }
 
     pub unsafe fn delete_buffer(&self, id: GLuint) -> Result<()> {
+        for (_, v) in self.active_bufs.borrow_mut().iter_mut() {
+            if *v == id {
+                *v = 0;
+            }
+        }
+
+        let mut vao_cache = &mut self.vertex_array_objects.borrow_mut();
+        let mut removes = vec![];
+
+        for pair in vao_cache.keys() {
+            if pair.1 == id {
+                removes.push(*pair);
+            }
+        }
+
+        for pair in removes {
+            if let Some(v) = vao_cache.remove(&pair) {
+                gl::DeleteVertexArrays(1, &v);
+                if let Some(vao) = self.active_vao.get() {
+                    if v == vao {
+                        self.active_vao.set(None);
+                    }
+                }
+            }
+        }
+
         gl::DeleteBuffers(1, &id);
         check()
     }
@@ -601,6 +774,42 @@ impl From<IndexFormat> for GLenum {
         match format {
             IndexFormat::UByte => gl::UNSIGNED_BYTE,
             IndexFormat::UShort => gl::UNSIGNED_SHORT,
+        }
+    }
+}
+
+impl From<ColorTextureFormat> for (GLenum, GLenum, GLenum) {
+    fn from(format: ColorTextureFormat) -> Self {
+        match format {
+            ColorTextureFormat::U8 => (gl::R8, gl::RED, gl::UNSIGNED_BYTE),
+            ColorTextureFormat::U8U8 => (gl::RG8, gl::RG, gl::UNSIGNED_BYTE),
+            ColorTextureFormat::U8U8U8 => (gl::RGB8, gl::RGB, gl::UNSIGNED_BYTE),
+            ColorTextureFormat::U8U8U8U8 => (gl::RGBA8, gl::RGBA, gl::UNSIGNED_BYTE),
+            ColorTextureFormat::U5U6U5 => (gl::RGB565, gl::RGB, gl::UNSIGNED_SHORT_5_6_5),
+            ColorTextureFormat::U4U4U4U4 => (gl::RGBA4, gl::RGBA, gl::UNSIGNED_SHORT_4_4_4_4),
+            ColorTextureFormat::U5U5U5U1 => (gl::RGB5_A1, gl::RGBA, gl::UNSIGNED_SHORT_5_5_5_1),
+            ColorTextureFormat::U10U10U10U2 => {
+                (gl::RGB10_A2, gl::RGBA, gl::UNSIGNED_INT_2_10_10_10_REV)
+            }
+            ColorTextureFormat::F16 => (gl::R16F, gl::RED, gl::HALF_FLOAT),
+            ColorTextureFormat::F16F16 => (gl::RG16F, gl::RG, gl::HALF_FLOAT),
+            ColorTextureFormat::F16F16F16 => (gl::RGB16F, gl::RGB, gl::HALF_FLOAT),
+            ColorTextureFormat::F16F16F16F16 => (gl::RGBA16F, gl::RGBA, gl::HALF_FLOAT),
+            ColorTextureFormat::F32 => (gl::R32F, gl::RED, gl::FLOAT),
+            ColorTextureFormat::F32F32 => (gl::RG32F, gl::RG, gl::FLOAT),
+            ColorTextureFormat::F32F32F32 => (gl::RGB32F, gl::RGB, gl::FLOAT),
+            ColorTextureFormat::F32F32F32F32 => (gl::RGBA32F, gl::RGBA, gl::FLOAT),
+        }
+    }
+}
+
+impl From<TextureAddress> for GLenum {
+    fn from(address: TextureAddress) -> Self {
+        match address {
+            TextureAddress::Repeat => gl::REPEAT,
+            TextureAddress::Mirror => gl::MIRRORED_REPEAT,
+            TextureAddress::Clamp => gl::CLAMP_TO_EDGE,
+            TextureAddress::MirrorClamp => gl::MIRROR_CLAMP_TO_EDGE,
         }
     }
 }
