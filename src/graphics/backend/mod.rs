@@ -14,7 +14,7 @@ use std::sync::{Arc, RwLock};
 use gl;
 use glutin;
 use super::{ViewHandle, PipelineHandle, FrameBufferHandle, VertexBufferHandle, IndexBufferHandle,
-            TextureHandle};
+            TextureHandle, RenderBufferHandle};
 
 pub struct Context {
     window: Arc<glutin::Window>,

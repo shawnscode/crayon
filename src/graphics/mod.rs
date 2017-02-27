@@ -19,4 +19,5 @@ impl_handle!(PipelineHandle);
 impl_handle!(VertexBufferHandle);
 impl_handle!(IndexBufferHandle);
 impl_handle!(TextureHandle);
+impl_handle!(RenderBufferHandle);
 impl_handle!(FrameBufferHandle);

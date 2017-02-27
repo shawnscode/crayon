@@ -28,6 +28,7 @@ pub struct OpenGLVisitor {
     active_vao: Cell<Option<GLuint>>,
     active_textures: RefCell<[GLuint; MAX_TEXTURE_SLOTS]>,
     active_framebuffer: Cell<GLuint>,
+    active_renderbuffer: Cell<Option<GLuint>>,
     program_attribute_locations: RefCell<HashMap<GLuint, HashMap<String, GLint>>>,
     program_uniform_locations: RefCell<HashMap<GLuint, HashMap<String, GLint>>>,
     vertex_array_objects: RefCell<HashMap<VAOPair, GLuint>>,
@@ -50,6 +51,7 @@ impl OpenGLVisitor {
             active_vao: Cell::new(None),
             active_textures: RefCell::new([0; MAX_TEXTURE_SLOTS]),
             active_framebuffer: Cell::new(0), /* 0 makes sense here, for window's default frame buffer. */
+            active_renderbuffer: Cell::new(None),
             program_attribute_locations: RefCell::new(HashMap::new()),
             program_uniform_locations: RefCell::new(HashMap::new()),
             vertex_array_objects: RefCell::new(HashMap::new()),
@@ -410,6 +412,42 @@ impl OpenGLVisitor {
         check()
     }
 
+    pub unsafe fn bind_render_buffer(&self, id: GLuint) -> Result<()> {
+        if id == 0 {
+            bail!("failed to bind render buffer with 0.");
+        }
+
+        if let Some(v) = self.active_renderbuffer.get() {
+            if v == id {
+                return Ok(());
+            }
+        }
+
+        gl::BindRenderbuffer(gl::RENDERBUFFER, id);
+        self.active_renderbuffer.set(Some(id));
+        check()
+    }
+
+    pub unsafe fn create_render_buffer(&self,
+                                       format: GLenum,
+                                       width: u32,
+                                       height: u32)
+                                       -> Result<GLuint> {
+        let mut id = 0;
+        gl::GenRenderbuffers(1, &mut id);
+        assert!(id != 0);
+
+        self.bind_render_buffer(id)?;
+        gl::RenderbufferStorage(gl::RENDERBUFFER, format, width as GLint, height as GLint);
+        check()?;
+        Ok(id)
+    }
+
+    pub unsafe fn delete_render_buffer(&self, id: GLuint) -> Result<()> {
+        gl::DeleteRenderbuffers(1, &id);
+        check()
+    }
+
     pub unsafe fn bind_texture(&self, slot: GLuint, id: GLuint) -> Result<()> {
         if id == 0 {
             bail!("failed to bind texture with 0.");
@@ -439,7 +477,7 @@ impl OpenGLVisitor {
                                  mipmap: bool,
                                  width: u32,
                                  height: u32,
-                                 data: &[u8])
+                                 data: Option<&[u8]>)
                                  -> Result<(GLuint)> {
         let mut id = 0;
         gl::GenTextures(1, &mut id);
@@ -448,7 +486,11 @@ impl OpenGLVisitor {
         self.bind_texture(0, id)?;
         self.update_texture_parameters(address, filter, mipmap)?;
 
-        let data = ::std::mem::transmute(&data[0]);
+        let value = match data {
+            Some(v) if v.len() > 0 => ::std::mem::transmute(&v[0]),
+            _ => ::std::ptr::null(),
+        };
+
         gl::TexImage2D(gl::TEXTURE_2D,
                        0,
                        internal_format as GLint,
@@ -457,7 +499,7 @@ impl OpenGLVisitor {
                        0,
                        format,
                        pixel_type,
-                       data);
+                       value);
 
         if mipmap {
             // TODO ca
@@ -520,7 +562,32 @@ impl OpenGLVisitor {
         }
 
         gl::BindFramebuffer(gl::FRAMEBUFFER, id);
-        self.active_framebuffer.set(id);
+
+        if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) == gl::FRAMEBUFFER_COMPLETE {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+            self.active_framebuffer.set(0);
+            bail!("framebuffer is not complete, fallback the to default framebuffer.");
+        } else {
+            self.active_framebuffer.set(id);
+            check()
+        }
+    }
+
+    pub unsafe fn bind_framebuffer_with_texture(&self, tp: GLenum, id: GLuint) -> Result<()> {
+        if self.active_framebuffer.get() == 0 {
+            bail!("cann't attach texture to default framebuffer.");
+        }
+
+        gl::FramebufferTexture2D(gl::FRAMEBUFFER, tp, gl::TEXTURE_2D, id, 0);
+        check()
+    }
+
+    pub unsafe fn bind_framebuffer_with_renderbuffer(&self, tp: GLenum, id: GLuint) -> Result<()> {
+        if self.active_framebuffer.get() == 0 {
+            bail!("cann't attach render buffer to default framebuffer.");
+        }
+
+        gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, tp, gl::RENDERBUFFER, id);
         check()
     }
 
@@ -778,27 +845,25 @@ impl From<IndexFormat> for GLenum {
     }
 }
 
-impl From<ColorTextureFormat> for (GLenum, GLenum, GLenum) {
-    fn from(format: ColorTextureFormat) -> Self {
+impl From<TextureFormat> for (GLenum, GLenum, GLenum) {
+    fn from(format: TextureFormat) -> Self {
         match format {
-            ColorTextureFormat::U8 => (gl::R8, gl::RED, gl::UNSIGNED_BYTE),
-            ColorTextureFormat::U8U8 => (gl::RG8, gl::RG, gl::UNSIGNED_BYTE),
-            ColorTextureFormat::U8U8U8 => (gl::RGB8, gl::RGB, gl::UNSIGNED_BYTE),
-            ColorTextureFormat::U8U8U8U8 => (gl::RGBA8, gl::RGBA, gl::UNSIGNED_BYTE),
-            ColorTextureFormat::U5U6U5 => (gl::RGB565, gl::RGB, gl::UNSIGNED_SHORT_5_6_5),
-            ColorTextureFormat::U4U4U4U4 => (gl::RGBA4, gl::RGBA, gl::UNSIGNED_SHORT_4_4_4_4),
-            ColorTextureFormat::U5U5U5U1 => (gl::RGB5_A1, gl::RGBA, gl::UNSIGNED_SHORT_5_5_5_1),
-            ColorTextureFormat::U10U10U10U2 => {
-                (gl::RGB10_A2, gl::RGBA, gl::UNSIGNED_INT_2_10_10_10_REV)
-            }
-            ColorTextureFormat::F16 => (gl::R16F, gl::RED, gl::HALF_FLOAT),
-            ColorTextureFormat::F16F16 => (gl::RG16F, gl::RG, gl::HALF_FLOAT),
-            ColorTextureFormat::F16F16F16 => (gl::RGB16F, gl::RGB, gl::HALF_FLOAT),
-            ColorTextureFormat::F16F16F16F16 => (gl::RGBA16F, gl::RGBA, gl::HALF_FLOAT),
-            ColorTextureFormat::F32 => (gl::R32F, gl::RED, gl::FLOAT),
-            ColorTextureFormat::F32F32 => (gl::RG32F, gl::RG, gl::FLOAT),
-            ColorTextureFormat::F32F32F32 => (gl::RGB32F, gl::RGB, gl::FLOAT),
-            ColorTextureFormat::F32F32F32F32 => (gl::RGBA32F, gl::RGBA, gl::FLOAT),
+            TextureFormat::U8 => (gl::R8, gl::RED, gl::UNSIGNED_BYTE),
+            TextureFormat::U8U8 => (gl::RG8, gl::RG, gl::UNSIGNED_BYTE),
+            TextureFormat::U8U8U8 => (gl::RGB8, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::U8U8U8U8 => (gl::RGBA8, gl::RGBA, gl::UNSIGNED_BYTE),
+            TextureFormat::U5U6U5 => (gl::RGB565, gl::RGB, gl::UNSIGNED_SHORT_5_6_5),
+            TextureFormat::U4U4U4U4 => (gl::RGBA4, gl::RGBA, gl::UNSIGNED_SHORT_4_4_4_4),
+            TextureFormat::U5U5U5U1 => (gl::RGB5_A1, gl::RGBA, gl::UNSIGNED_SHORT_5_5_5_1),
+            TextureFormat::U10U10U10U2 => (gl::RGB10_A2, gl::RGBA, gl::UNSIGNED_INT_2_10_10_10_REV),
+            TextureFormat::F16 => (gl::R16F, gl::RED, gl::HALF_FLOAT),
+            TextureFormat::F16F16 => (gl::RG16F, gl::RG, gl::HALF_FLOAT),
+            TextureFormat::F16F16F16 => (gl::RGB16F, gl::RGB, gl::HALF_FLOAT),
+            TextureFormat::F16F16F16F16 => (gl::RGBA16F, gl::RGBA, gl::HALF_FLOAT),
+            TextureFormat::F32 => (gl::R32F, gl::RED, gl::FLOAT),
+            TextureFormat::F32F32 => (gl::RG32F, gl::RG, gl::FLOAT),
+            TextureFormat::F32F32F32 => (gl::RGB32F, gl::RGB, gl::FLOAT),
+            TextureFormat::F32F32F32F32 => (gl::RGBA32F, gl::RGBA, gl::FLOAT),
         }
     }
 }
@@ -810,6 +875,21 @@ impl From<TextureAddress> for GLenum {
             TextureAddress::Mirror => gl::MIRRORED_REPEAT,
             TextureAddress::Clamp => gl::CLAMP_TO_EDGE,
             TextureAddress::MirrorClamp => gl::MIRROR_CLAMP_TO_EDGE,
+        }
+    }
+}
+
+impl From<RenderTextureFormat> for GLenum {
+    fn from(format: RenderTextureFormat) -> Self {
+        match format {
+            RenderTextureFormat::RGB8 => gl::RGB8,
+            RenderTextureFormat::RGBA4 => gl::RGBA4,
+            RenderTextureFormat::RGBA8 => gl::RGBA8,
+            RenderTextureFormat::Depth16 => gl::DEPTH_COMPONENT16,
+            RenderTextureFormat::Depth24 => gl::DEPTH_COMPONENT24,
+            RenderTextureFormat::Depth32 => gl::DEPTH_COMPONENT32,
+            RenderTextureFormat::Stencil8 => gl::STENCIL_INDEX8,
+            RenderTextureFormat::Depth24Stencil8 => gl::DEPTH24_STENCIL8,
         }
     }
 }

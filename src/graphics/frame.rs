@@ -5,7 +5,7 @@ use std::slice;
 use std::mem;
 
 use super::*;
-use super::resource::{ResourceHint, IndexFormat, VertexLayout, VertexAttributeDesc, MAX_ATTRIBUTES};
+use super::resource::{ResourceHint, IndexFormat, VertexLayout, VertexAttributeDesc, FrameBufferAttachment, MAX_ATTRIBUTES};
 use super::pipeline::{UniformVariable, Primitive};
 use super::backend::Context;
 
@@ -27,7 +27,13 @@ pub enum PreFrameTask {
     UpdateIndexBuffer(IndexBufferHandle, u32, TaskBufferPtr<[u8]>),
 
     CreateTexture(TextureHandle, TaskBufferPtr<TextureDesc>),
+    CreateRenderTexture(TextureHandle, TaskBufferPtr<RenderTextureDesc>),
     UpdateTextureParameters(TextureHandle, TaskBufferPtr<TextureParametersDesc>),
+
+    CreateRenderBuffer(RenderBufferHandle, TaskBufferPtr<RenderTextureDesc>),
+
+    CreateFrameBuffer(FrameBufferHandle),
+    UpdateFrameBufferAttachment(FrameBufferHandle, u32, FrameBufferAttachment),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -50,10 +56,13 @@ pub enum PostFrameTask {
     DeleteVertexBuffer(VertexBufferHandle),
     DeleteIndexBuffer(IndexBufferHandle),
     DeleteTexture(TextureHandle),
+    DeleteRenderBuffer(RenderBufferHandle),
+    DeleteFrameBuffer(FrameBufferHandle),
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct ViewDesc {
+    pub framebuffer: Option<FrameBufferHandle>,
     pub clear_color: Option<Color>,
     pub clear_depth: Option<f32>,
     pub clear_stencil: Option<i32>,
@@ -85,13 +94,20 @@ pub struct IndexBufferDesc {
 
 #[derive(Debug, Clone, Copy)]
 pub struct TextureDesc {
-    pub format: ColorTextureFormat,
+    pub format: TextureFormat,
     pub address: TextureAddress,
     pub filter: TextureFilter,
     pub mipmap: bool,
     pub width: u32,
     pub height: u32,
     pub data: TaskBufferPtr<[u8]>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RenderTextureDesc {
+    pub format: RenderTextureFormat,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -179,10 +195,31 @@ impl Frame {
                     let data = &self.buf.as_bytes(desc.data);
                     device.create_texture(handle, desc.format, desc.address, desc.filter, desc.mipmap, desc.width, desc.height, &data)?;
                 },
+                PreFrameTask::CreateRenderTexture(handle, desc) => {
+                    let desc = &self.buf.as_ref(desc);
+                    device.create_render_texture(handle, desc.format, desc.width, desc.height)?;
+                },
                 PreFrameTask::UpdateTextureParameters(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
                     device.update_texture_parameters(handle, desc.address, desc.filter)?;
+                },
+                PreFrameTask::CreateRenderBuffer(handle, desc) => {
+                    let desc = &self.buf.as_ref(desc);
+                    device.create_render_buffer(handle, desc.format, desc.width, desc.height)?;
                 }
+                PreFrameTask::CreateFrameBuffer(handle) => {
+                    device.create_framebuffer(handle)?;
+                },
+                PreFrameTask::UpdateFrameBufferAttachment(handle, slot, attachment) => {
+                    match attachment {
+                        FrameBufferAttachment::RenderBuffer(rb) => {
+                            device.update_framebuffer_with_renderbuffer(handle, rb, slot)?;
+                        }
+                        FrameBufferAttachment::Texture(texture) => {
+                            device.update_framebuffer_with_texture(handle, texture, slot)?;
+                        }
+                    };
+                },
             }
         }
 
@@ -225,6 +262,12 @@ impl Frame {
                 },
                 PostFrameTask::DeleteTexture(handle) => {
                     device.delete_texture(handle)?;
+                },
+                PostFrameTask::DeleteRenderBuffer(handle) => {
+                    device.delete_render_buffer(handle)?;
+                },
+                PostFrameTask::DeleteFrameBuffer(handle) => {
+                    device.delete_framebuffer(handle)?;
                 }
             }
         }

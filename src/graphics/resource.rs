@@ -1,3 +1,8 @@
+use super::{TextureHandle, RenderBufferHandle};
+
+pub const MAX_ATTRIBUTES: usize = 12;
+pub const MAX_TEXTURE_SLOTS: usize = 16;
+
 /// Specifies the target to which the buffer object is bound
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Resource {
@@ -48,8 +53,6 @@ pub enum VertexAttribute {
     Texcoord2 = 10,
     Texcoord3 = 11,
 }
-
-pub const MAX_ATTRIBUTES: usize = 12;
 
 impl Into<&'static str> for VertexAttribute {
     fn into(self) -> &'static str {
@@ -231,10 +234,23 @@ pub enum TextureAddress {
     MirrorClamp,
 }
 
-/// List of all the possible formats of input data when uploading to a color
-/// renderable texture.
+/// List of all the possible formats of renderable texture which could be use as
+/// attachment of framebuffer.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ColorTextureFormat {
+pub enum RenderTextureFormat {
+    RGB8,
+    RGBA4,
+    RGBA8,
+    Depth16,
+    Depth24,
+    Depth32,
+    Stencil8,
+    Depth24Stencil8,
+}
+
+/// List of all the possible formats of input data when uploading to texture.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum TextureFormat {
     U8,
     U8U8,
     U8U8U8,
@@ -253,53 +269,57 @@ pub enum ColorTextureFormat {
     F32F32F32F32,
 }
 
-impl ColorTextureFormat {
+impl TextureFormat {
     /// Returns the number of components of this client format.
     pub fn components(&self) -> u8 {
         match *self {
-            ColorTextureFormat::U8 => 1,
-            ColorTextureFormat::U8U8 => 2,
-            ColorTextureFormat::U8U8U8 => 3,
-            ColorTextureFormat::U8U8U8U8 => 4,
-            ColorTextureFormat::U5U6U5 => 3,
-            ColorTextureFormat::U4U4U4U4 => 4,
-            ColorTextureFormat::U5U5U5U1 => 4,
-            ColorTextureFormat::U10U10U10U2 => 4,
-            ColorTextureFormat::F16 => 1,
-            ColorTextureFormat::F16F16 => 2,
-            ColorTextureFormat::F16F16F16 => 3,
-            ColorTextureFormat::F16F16F16F16 => 4,
-            ColorTextureFormat::F32 => 1,
-            ColorTextureFormat::F32F32 => 2,
-            ColorTextureFormat::F32F32F32 => 3,
-            ColorTextureFormat::F32F32F32F32 => 4,
+            TextureFormat::U8 => 1,
+            TextureFormat::U8U8 => 2,
+            TextureFormat::U8U8U8 => 3,
+            TextureFormat::U8U8U8U8 => 4,
+            TextureFormat::U5U6U5 => 3,
+            TextureFormat::U4U4U4U4 => 4,
+            TextureFormat::U5U5U5U1 => 4,
+            TextureFormat::U10U10U10U2 => 4,
+            TextureFormat::F16 => 1,
+            TextureFormat::F16F16 => 2,
+            TextureFormat::F16F16F16 => 3,
+            TextureFormat::F16F16F16F16 => 4,
+            TextureFormat::F32 => 1,
+            TextureFormat::F32F32 => 2,
+            TextureFormat::F32F32F32 => 3,
+            TextureFormat::F32F32F32F32 => 4,
         }
     }
 
     /// Returns the size in bytes of a pixel of this type.
     pub fn size(&self) -> u8 {
         match *self {
-            ColorTextureFormat::U8 => 1,
-            ColorTextureFormat::U8U8 => 2,
-            ColorTextureFormat::U8U8U8 => 3,
-            ColorTextureFormat::U8U8U8U8 => 4,
-            ColorTextureFormat::U5U6U5 => 2,
-            ColorTextureFormat::U4U4U4U4 => 2,
-            ColorTextureFormat::U5U5U5U1 => 2,
-            ColorTextureFormat::U10U10U10U2 => 4,
-            ColorTextureFormat::F16 => 2,
-            ColorTextureFormat::F16F16 => 4,
-            ColorTextureFormat::F16F16F16 => 6,
-            ColorTextureFormat::F16F16F16F16 => 8,
-            ColorTextureFormat::F32 => 4,
-            ColorTextureFormat::F32F32 => 8,
-            ColorTextureFormat::F32F32F32 => 12,
-            ColorTextureFormat::F32F32F32F32 => 16,
+            TextureFormat::U8 => 1,
+            TextureFormat::U8U8 => 2,
+            TextureFormat::U8U8U8 => 3,
+            TextureFormat::U8U8U8U8 => 4,
+            TextureFormat::U5U6U5 => 2,
+            TextureFormat::U4U4U4U4 => 2,
+            TextureFormat::U5U5U5U1 => 2,
+            TextureFormat::U10U10U10U2 => 4,
+            TextureFormat::F16 => 2,
+            TextureFormat::F16F16 => 4,
+            TextureFormat::F16F16F16 => 6,
+            TextureFormat::F16F16F16F16 => 8,
+            TextureFormat::F32 => 4,
+            TextureFormat::F32F32 => 8,
+            TextureFormat::F32F32F32 => 12,
+            TextureFormat::F32F32F32F32 => 16,
         }
     }
 }
 
-pub const MAX_TEXTURE_SLOTS: usize = 16;
+#[derive(Debug, Clone, Copy)]
+pub enum FrameBufferAttachment {
+    Texture(TextureHandle),
+    RenderBuffer(RenderBufferHandle),
+}
 
 #[cfg(test)]
 mod test {

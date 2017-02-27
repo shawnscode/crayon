@@ -18,6 +18,8 @@ pub struct Graphics {
     vertex_buffers: HandleSet,
     index_buffers: HandleSet,
     textures: HandleSet,
+    renderbuffers: HandleSet,
+    framebuffers: HandleSet,
 
     frames: DoubleFrame,
     multithread: bool,
@@ -32,6 +34,8 @@ impl Graphics {
             vertex_buffers: HandleSet::new(),
             index_buffers: HandleSet::new(),
             textures: HandleSet::new(),
+            renderbuffers: HandleSet::new(),
+            framebuffers: HandleSet::new(),
             frames: DoubleFrame::with_capacity(64 * 1024), // 64 kbs
             multithread: false,
         })
@@ -73,6 +77,7 @@ impl Graphics {
         let mut frame = self.frames.front();
         let handle = self.views.create().into();
         let ptr = frame.buf.extend(&ViewDesc {
+            framebuffer: None,
             clear_color: clear_color.map(|v| v.into()),
             clear_depth: clear_depth,
             clear_stencil: clear_stencil,
@@ -83,11 +88,12 @@ impl Graphics {
     }
 
     /// TODO
+    pub fn update_view_framebuffer(&self) {}
     pub fn update_view_rect(&self) {}
-    pub fn update_view_clear() {}
-    pub fn update_view_sequential_mode() {}
-    pub fn update_view_scissor() {}
-    pub fn update_view_order() {}
+    pub fn update_view_clear(&self) {}
+    pub fn update_view_sequential_mode(&self) {}
+    pub fn update_view_scissor(&self) {}
+    pub fn update_view_order(&self) {}
 
     /// Destroy named view object.
     pub fn delete_view(&mut self, handle: ViewHandle) -> Result<()> {
@@ -152,6 +158,115 @@ impl Graphics {
         if self.pipelines.free(handle) {
             let mut frame = self.frames.front();
             frame.post.push(PostFrameTask::DeletePipeline(handle));
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    /// Create a render buffer object, which could be attached to framebuffer.
+    pub fn create_render_buffer(&mut self,
+                                format: RenderTextureFormat,
+                                width: u32,
+                                height: u32)
+                                -> Result<RenderBufferHandle> {
+        let mut frame = self.frames.front();
+        let handle = self.renderbuffers.create().into();
+
+        let ptr = frame.buf.extend(&RenderTextureDesc {
+            format: format,
+            width: width,
+            height: height,
+        });
+
+        frame.pre.push(PreFrameTask::CreateRenderBuffer(handle, ptr));
+        Ok(handle)
+    }
+
+    /// Destroy named render buffer object.
+    pub fn delete_render_buffer(&mut self, handle: RenderBufferHandle) -> Result<()> {
+        if self.renderbuffers.free(handle) {
+            let mut frame = self.frames.front();
+            frame.post.push(PostFrameTask::DeleteRenderBuffer(handle));
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    /// Create a framebuffer object. A framebuffer allows you to render primitives directly to a texture,
+    /// which can then be used in other rendering operations.
+    ///
+    /// At least one color attachment has been attached before you can use it.
+    pub fn create_framebuffer(&mut self,
+                              attachment: FrameBufferAttachment)
+                              -> Result<FrameBufferHandle> {
+        let handle = self.framebuffers.create().into();
+        {
+            let mut frame = self.frames.front();
+            frame.pre.push(PreFrameTask::CreateFrameBuffer(handle));
+        }
+        self.update_framebuffer_color_attachment(handle, 0, attachment)?;
+        Ok(handle)
+    }
+
+    pub fn update_framebuffer_color_attachment(&mut self,
+                                               handle: FrameBufferHandle,
+                                               slot: u32,
+                                               attachment: FrameBufferAttachment)
+                                               -> Result<()> {
+        if self.framebuffers.is_alive(handle) {
+            match attachment {
+                FrameBufferAttachment::Texture(handle) => {
+                    if !self.textures.is_alive(handle) {
+                        bail!(ErrorKind::InvalidHandle);
+                    }
+                }
+                FrameBufferAttachment::RenderBuffer(handle) => {
+                    if !self.renderbuffers.is_alive(handle) {
+                        bail!(ErrorKind::InvalidHandle);
+                    }
+                }
+            };
+
+            let mut frame = self.frames.front();
+            frame.pre.push(PreFrameTask::UpdateFrameBufferAttachment(handle, slot, attachment));
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    pub fn update_framebuffer_attachment(&mut self,
+                                         handle: FrameBufferHandle,
+                                         attachment: FrameBufferAttachment)
+                                         -> Result<()> {
+        if self.framebuffers.is_alive(handle) {
+            match attachment {
+                FrameBufferAttachment::Texture(handle) => {
+                    if !self.textures.is_alive(handle) {
+                        bail!(ErrorKind::InvalidHandle);
+                    }
+                }
+                FrameBufferAttachment::RenderBuffer(handle) => {
+                    if !self.renderbuffers.is_alive(handle) {
+                        bail!(ErrorKind::InvalidHandle);
+                    }
+                }
+            };
+
+            let mut frame = self.frames.front();
+            frame.pre.push(PreFrameTask::UpdateFrameBufferAttachment(handle, 0, attachment));
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    pub fn delete_framebuffer(&mut self, handle: FrameBufferHandle) -> Result<()> {
+        if self.framebuffers.free(handle) {
+            let mut frame = self.frames.front();
+            frame.post.push(PostFrameTask::DeleteFrameBuffer(handle));
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -260,9 +375,10 @@ impl Graphics {
         }
     }
 
-    /// A texture is an image loaded in video memory, which can be sampled in shaders.
+    /// Create texture object. A texture is an image loaded in video memory,
+    /// which can be sampled in shaders.
     pub fn create_texture(&mut self,
-                          format: ColorTextureFormat,
+                          format: TextureFormat,
                           address: TextureAddress,
                           filter: TextureFilter,
                           mipmap: bool,
@@ -285,6 +401,25 @@ impl Graphics {
         });
 
         frame.pre.push(PreFrameTask::CreateTexture(handle, ptr));
+        Ok(handle)
+    }
+
+    /// Create render texture object, which could be attached with a framebuffer.
+    pub fn create_render_texture(&mut self,
+                                 format: RenderTextureFormat,
+                                 width: u32,
+                                 height: u32)
+                                 -> Result<TextureHandle> {
+        let mut frame = self.frames.front();
+        let handle = self.textures.create().into();
+
+        let ptr = frame.buf.extend(&RenderTextureDesc {
+            format: format,
+            width: width,
+            height: height,
+        });
+
+        frame.pre.push(PreFrameTask::CreateRenderTexture(handle, ptr));
         Ok(handle)
     }
 

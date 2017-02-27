@@ -50,6 +50,12 @@ struct GLView {
 }
 
 #[derive(Debug, Copy, Clone)]
+enum GLTextureFormat {
+    Normal(TextureFormat),
+    Render(RenderTextureFormat),
+}
+
+#[derive(Debug, Copy, Clone)]
 struct GLTexture {
     id: ResourceID,
     address: TextureAddress,
@@ -57,6 +63,18 @@ struct GLTexture {
     mipmap: bool,
     width: u32,
     height: u32,
+    format: GLTextureFormat,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct GLRenderTexture {
+    id: ResourceID,
+    format: GLTextureFormat,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct GLFrameBuffer {
+    id: ResourceID,
 }
 
 pub struct Device {
@@ -67,6 +85,8 @@ pub struct Device {
     pipelines: DataVec<GLPipeline>,
     views: DataVec<GLView>,
     textures: DataVec<GLTexture>,
+    render_textures: DataVec<GLRenderTexture>,
+    framebuffers: DataVec<GLFrameBuffer>,
 
     active_view: Cell<Option<ViewHandle>>,
     active_pipeline: Cell<Option<PipelineHandle>>,
@@ -81,6 +101,8 @@ impl Device {
             pipelines: DataVec::new(),
             views: DataVec::new(),
             textures: DataVec::new(),
+            render_textures: DataVec::new(),
+            framebuffers: DataVec::new(),
             active_view: Cell::new(None),
             active_pipeline: Cell::new(None),
         }
@@ -290,9 +312,157 @@ impl Device {
         }
     }
 
+    pub unsafe fn create_render_buffer(&mut self,
+                                       handle: RenderBufferHandle,
+                                       format: RenderTextureFormat,
+                                       width: u32,
+                                       height: u32)
+                                       -> Result<()> {
+        let internal_format = format.into();
+        let id = self.visitor.create_render_buffer(internal_format, width, height)?;
+        self.render_textures.set(handle,
+                                 GLRenderTexture {
+                                     id: id,
+                                     format: GLTextureFormat::Render(format),
+                                 });
+        Ok(())
+    }
+
+    pub unsafe fn delete_render_buffer(&mut self, handle: RenderBufferHandle) -> Result<()> {
+        if let Some(rto) = self.render_textures.remove(handle) {
+            self.visitor.delete_render_buffer(rto.id)
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    pub unsafe fn create_framebuffer(&mut self, handle: FrameBufferHandle) -> Result<()> {
+        if self.framebuffers.get(handle).is_some() {
+            bail!(ErrorKind::DuplicatedHandle)
+        }
+
+        let fbo = GLFrameBuffer { id: self.visitor.create_framebuffer()? };
+
+        self.framebuffers.set(handle, fbo);
+        Ok(())
+    }
+
+    pub unsafe fn update_framebuffer_with_texture(&mut self,
+                                                  handle: FrameBufferHandle,
+                                                  texture: TextureHandle,
+                                                  slot: u32)
+                                                  -> Result<()> {
+        let fbo = self.framebuffers.get(handle).ok_or(ErrorKind::InvalidHandle)?;
+        let tex = self.textures.get(texture).ok_or(ErrorKind::InvalidHandle)?;
+
+        if let GLTextureFormat::Render(format) = tex.format {
+            self.visitor.bind_framebuffer(fbo.id)?;
+            match format {
+                RenderTextureFormat::RGB8 |
+                RenderTextureFormat::RGBA4 |
+                RenderTextureFormat::RGBA8 => {
+                    let location = gl::COLOR_ATTACHMENT0 + slot;
+                    self.visitor.bind_framebuffer_with_texture(location, tex.id)
+                }
+                RenderTextureFormat::Depth16 |
+                RenderTextureFormat::Depth24 |
+                RenderTextureFormat::Depth32 => {
+                    self.visitor
+                        .bind_framebuffer_with_texture(gl::DEPTH_ATTACHMENT, tex.id)
+                }
+                RenderTextureFormat::Stencil8 => {
+                    self.visitor
+                        .bind_framebuffer_with_texture(gl::STENCIL_ATTACHMENT, tex.id)
+                }
+                RenderTextureFormat::Depth24Stencil8 => {
+                    self.visitor
+                        .bind_framebuffer_with_texture(gl::DEPTH_STENCIL_ATTACHMENT, tex.id)
+                }
+            }
+        } else {
+            bail!("can't attach normal texture to framebuffer.");
+        }
+    }
+
+    pub unsafe fn update_framebuffer_with_renderbuffer(&mut self,
+                                                       handle: FrameBufferHandle,
+                                                       texture: RenderBufferHandle,
+                                                       slot: u32)
+                                                       -> Result<()> {
+        let fbo = self.framebuffers.get(handle).ok_or(ErrorKind::InvalidHandle)?;
+        let tex = self.render_textures.get(texture).ok_or(ErrorKind::InvalidHandle)?;
+
+        if let GLTextureFormat::Render(format) = tex.format {
+            self.visitor.bind_framebuffer(fbo.id)?;
+            match format {
+                RenderTextureFormat::RGB8 |
+                RenderTextureFormat::RGBA4 |
+                RenderTextureFormat::RGBA8 => {
+                    let location = gl::COLOR_ATTACHMENT0 + slot;
+                    self.visitor.bind_framebuffer_with_renderbuffer(location, tex.id)
+                }
+                RenderTextureFormat::Depth16 |
+                RenderTextureFormat::Depth24 |
+                RenderTextureFormat::Depth32 => {
+                    self.visitor
+                        .bind_framebuffer_with_renderbuffer(gl::DEPTH_ATTACHMENT, tex.id)
+                }
+                RenderTextureFormat::Stencil8 => {
+                    self.visitor
+                        .bind_framebuffer_with_renderbuffer(gl::STENCIL_ATTACHMENT, tex.id)
+                }
+                RenderTextureFormat::Depth24Stencil8 => {
+                    self.visitor
+                        .bind_framebuffer_with_renderbuffer(gl::DEPTH_STENCIL_ATTACHMENT, tex.id)
+                }
+            }
+        } else {
+            bail!("can't attach normal texture to framebuffer.");
+        }
+    }
+
+    pub unsafe fn delete_framebuffer(&mut self, handle: FrameBufferHandle) -> Result<()> {
+        if let Some(fbo) = self.framebuffers.remove(handle) {
+            self.visitor.delete_framebuffer(fbo.id)
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    pub unsafe fn create_render_texture(&mut self,
+                                        handle: TextureHandle,
+                                        format: RenderTextureFormat,
+                                        width: u32,
+                                        height: u32)
+                                        -> Result<()> {
+        let internal_format = format.into();
+        let id = self.visitor
+            .create_texture(internal_format,
+                            internal_format,
+                            gl::UNSIGNED_BYTE,
+                            TextureAddress::Repeat,
+                            TextureFilter::Linear,
+                            false,
+                            width,
+                            height,
+                            None)?;
+
+        self.textures.set(handle,
+                          GLTexture {
+                              id: id,
+                              address: TextureAddress::Repeat,
+                              filter: TextureFilter::Linear,
+                              mipmap: false,
+                              width: width,
+                              height: height,
+                              format: GLTextureFormat::Render(format),
+                          });
+        Ok(())
+    }
+
     pub unsafe fn create_texture(&mut self,
                                  handle: TextureHandle,
-                                 format: ColorTextureFormat,
+                                 format: TextureFormat,
                                  address: TextureAddress,
                                  filter: TextureFilter,
                                  mipmap: bool,
@@ -300,17 +470,17 @@ impl Device {
                                  height: u32,
                                  data: &[u8])
                                  -> Result<()> {
-        let (internal_format, format, pixel_type) = format.into();
+        let (internal_format, in_format, pixel_type) = format.into();
         let id = self.visitor
             .create_texture(internal_format,
-                            format,
+                            in_format,
                             pixel_type,
                             address,
                             filter,
                             mipmap,
                             width,
                             height,
-                            &data)?;
+                            Some(&data))?;
 
         self.textures.set(handle,
                           GLTexture {
@@ -320,6 +490,7 @@ impl Device {
                               mipmap: mipmap,
                               width: width,
                               height: height,
+                              format: GLTextureFormat::Normal(format),
                           });
         Ok(())
     }
@@ -346,6 +517,8 @@ impl Device {
             bail!(ErrorKind::InvalidHandle);
         }
     }
+
+    // pub fn create_framebuffer(&mut self, ) -> Result<FrameBufferHandle> {}
 
     pub fn create_view(&mut self,
                        handle: ViewHandle,
