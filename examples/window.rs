@@ -105,7 +105,8 @@ fn main() {
             let mut uniforms = vec![];
             let mut textures = vec![];
             app.graphics
-                .draw(view_fb,
+                .draw(0,
+                      view_fb,
                       pipeline_fb,
                       textures.as_slice(),
                       uniforms.as_slice(),
@@ -119,7 +120,8 @@ fn main() {
             textures.push(("renderedTexture", rendered_texture));
             uniforms.push(("time", UniformVariable::F32(time)));
             app.graphics
-                .draw(view,
+                .draw(0,
+                      view,
                       pipeline,
                       textures.as_slice(),
                       uniforms.as_slice(),

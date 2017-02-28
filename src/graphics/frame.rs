@@ -12,8 +12,10 @@ use super::backend::Context;
 #[derive(Debug, Clone, Copy)]
 pub enum PreFrameTask {
     CreateView(ViewHandle, Option<FrameBufferHandle>),
-    UpdateViewRect(ViewHandle, (u16, u16), (u16, u16)),
-    UpdateViewScissor(ViewHandle, (u16, u16), (u16, u16)),
+    UpdateViewRect(ViewHandle, TaskBufferPtr<ViewRectDesc>),
+    UpdateViewOrder(ViewHandle, u32),
+    UpdateViewSequential(ViewHandle, bool),
+    UpdateViewFrameBuffer(ViewHandle, Option<FrameBufferHandle>),
 
     CreatePipeline(PipelineHandle, TaskBufferPtr<PipelineDesc>),
     UpdatePipelineState(PipelineHandle, TaskBufferPtr<RenderState>),
@@ -37,6 +39,7 @@ pub enum PreFrameTask {
 
 #[derive(Debug, Clone, Copy)]
 pub struct FrameTask {
+    pub priority: u64,
     pub view: ViewHandle,
     pub pipeline: PipelineHandle,
     pub uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
@@ -57,6 +60,12 @@ pub enum PostFrameTask {
     DeleteTexture(TextureHandle),
     DeleteRenderBuffer(RenderBufferHandle),
     DeleteFrameBuffer(FrameBufferHandle),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ViewRectDesc {
+    pub position: (u16, u16),
+    pub size: Option<(u16, u16)>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -147,12 +156,19 @@ impl Frame {
                 PreFrameTask::CreateView(handle, framebuffer) => {
                     device.create_view(handle, framebuffer)?;
                 },
-                PreFrameTask::UpdateViewRect(handle, position, size) => {
-                    device.update_view_rect(handle, position, size)?;
+                PreFrameTask::UpdateViewRect(handle, desc) => {
+                    let desc = &self.buf.as_ref(desc);
+                    device.update_view_rect(handle, desc.position, desc.size)?;
                 },
-                PreFrameTask::UpdateViewScissor(handle, position, size) => {
-                    device.update_view_scissor(handle, position, size)?;
+                PreFrameTask::UpdateViewOrder(handle, priority) => {
+                    device.update_view_order(handle, priority)?;
                 },
+                PreFrameTask::UpdateViewSequential(handle, seq) => {
+                    device.update_view_sequential_mode(handle, seq)?;
+                },
+                PreFrameTask::UpdateViewFrameBuffer(handle, framebuffer) => {
+                    device.update_view_framebuffer(handle, framebuffer)?;
+                }
                 PreFrameTask::CreatePipeline(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
                     device.create_pipeline(handle, &desc.state, self.buf.as_str(desc.vs), self.buf.as_str(desc.fs), desc.attributes)?;
@@ -218,28 +234,10 @@ impl Frame {
             }
         }
 
-        {
-            let mut uniforms = vec![];
-            let mut textures = vec![];
-            self.drawcalls.sort_by_key(|dc| dc.view);
-
-            for dc in &self.drawcalls {
-                uniforms.clear();
-                for &(name, variable) in self.buf.as_slice(dc.uniforms) {
-                    let name = self.buf.as_str(name);
-                    uniforms.push((name, variable));
-                }
-
-                textures.clear();
-                for &(name, texture) in self.buf.as_slice(dc.textures) {
-                    let name = self.buf.as_str(name);
-                    textures.push((name, texture));
-                }
-
-                device.bind_view(dc.view)?;
-                device.draw(dc.pipeline, textures.as_slice(), uniforms.as_slice(), dc.vb, dc.ib, dc.primitive, dc.from, dc.len)?;
-            }
+        for dc in &self.drawcalls {
+            device.submit(dc.priority, dc.view, dc.pipeline, dc.textures, dc.uniforms, dc.vb, dc.ib, dc.primitive, dc.from, dc.len)?;
         }
+        device.flush(&self.buf)?;
 
         for v in &self.post {
             match *v {

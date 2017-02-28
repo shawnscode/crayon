@@ -26,6 +26,7 @@ pub struct Graphics {
 }
 
 impl Graphics {
+    /// Create a new `Graphics` with `glutin::Window`.
     pub fn new(window: Arc<glutin::Window>) -> Result<Self> {
         Ok(Graphics {
             context: Context::new(window)?,
@@ -58,7 +59,8 @@ impl Graphics {
         }
     }
 
-    /// Creates an view with clear flags.
+    /// Creates an view with optional `FrameBuffer`. If `FrameBuffer` is none, default
+    /// framebuffer will be used as render target.
     ///
     /// View represent bucket of draw calls. Drawcalls inside bucket are sorted before
     /// submitting to underlaying OpenGL. In case where order has to be preserved (for
@@ -76,12 +78,66 @@ impl Graphics {
         Ok(handle)
     }
 
-    /// TODO
-    // pub fn update_view_framebuffer(&self, frame) {`}
-    pub fn update_view_rect(&self) {}
-    pub fn update_view_sequential_mode(&self) {}
-    pub fn update_view_scissor(&self) {}
-    pub fn update_view_order(&self) {}
+    /// Update the render target of named view.
+    pub fn update_view_framebuffer(&self,
+                                   handle: ViewHandle,
+                                   framebuffer: Option<FrameBufferHandle>)
+                                   -> Result<()> {
+        if self.views.is_alive(handle) {
+            let mut frame = self.frames.front();
+            frame.pre.push(PreFrameTask::UpdateViewFrameBuffer(handle, framebuffer));
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    /// By defaults view are sorted in ascending oreder by ids when rendering. For dynamic renderers
+    /// where order might not be known until the last moment, view ids can be remaped to arbitrary
+    /// order by calling `update_view_order`.
+    pub fn update_view_order(&self, handle: ViewHandle, priority: u32) -> Result<()> {
+        if self.views.is_alive(handle) {
+            let mut frame = self.frames.front();
+            frame.pre.push(PreFrameTask::UpdateViewOrder(handle, priority));
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    /// Set view into sequential mode. Drawcalls will be sorted in the same order in which submit calls
+    /// were called.
+    pub fn update_view_sequential_mode(&self, handle: ViewHandle, seq: bool) -> Result<()> {
+        if self.views.is_alive(handle) {
+            let mut frame = self.frames.front();
+            frame.pre.push(PreFrameTask::UpdateViewSequential(handle, seq));
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    /// Set the viewport of view. This specifies the affine transformation of (x, y) from
+    /// NDC(normalized device coordinates) to window coordinates.
+    ///
+    /// If `size` is none, the dimensions of framebuffer will be used as size.
+    pub fn update_view_port(&self,
+                            handle: ViewHandle,
+                            position: (u16, u16),
+                            size: Option<(u16, u16)>)
+                            -> Result<()> {
+        if self.views.is_alive(handle) {
+            let mut frame = self.frames.front();
+            let ptr = frame.buf.extend(&ViewRectDesc {
+                position: position,
+                size: size,
+            });
+            frame.pre.push(PreFrameTask::UpdateViewRect(handle, ptr));
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
 
     /// Destroy named view object.
     pub fn delete_view(&mut self, handle: ViewHandle) -> Result<()> {
@@ -206,9 +262,7 @@ impl Graphics {
         Ok(handle)
     }
 
-    // pub fn update_framebuffer_clear(&mut self) -> Result<()> {
-    // }
-
+    /// Update framebuffer's color attachment.
     pub fn update_framebuffer_color_attachment(&mut self,
                                                handle: FrameBufferHandle,
                                                slot: u32,
@@ -236,6 +290,7 @@ impl Graphics {
         }
     }
 
+    /// Update framebuffer's depth/stencil attachment.
     pub fn update_framebuffer_attachment(&mut self,
                                          handle: FrameBufferHandle,
                                          attachment: FrameBufferAttachment)
@@ -262,6 +317,7 @@ impl Graphics {
         }
     }
 
+    /// Destroy named frame buffer object.
     pub fn delete_framebuffer(&mut self, handle: FrameBufferHandle) -> Result<()> {
         if self.framebuffers.free(handle) {
             let mut frame = self.frames.front();
@@ -457,6 +513,7 @@ impl Graphics {
     /// Submit primitive for drawing, within view all draw commands are executed after
     /// resource manipulation, such like `create_vertex_buffer`, `update_vertex_buffer`, etc.
     pub fn draw(&mut self,
+                priority: u64,
                 view: ViewHandle,
                 pipeline: PipelineHandle,
                 textures: &[(&str, TextureHandle)],
@@ -486,6 +543,7 @@ impl Graphics {
         };
 
         frame.drawcalls.push(FrameTask {
+            priority: priority,
             view: view,
             pipeline: pipeline,
             primitive: primitive,
