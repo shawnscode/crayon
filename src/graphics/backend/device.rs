@@ -1,7 +1,7 @@
 use std::str;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::borrow::Borrow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use gl;
 use gl::types::*;
@@ -42,11 +42,9 @@ struct GLPipeline {
 
 #[derive(Debug, Copy, Clone)]
 struct GLView {
+    framebuffer: Option<FrameBufferHandle>,
     viewport: Option<((u16, u16), (u16, u16))>,
     scissor: Option<((u16, u16), (u16, u16))>,
-    clear_color: Option<Color>,
-    clear_depth: Option<f32>,
-    clear_stencil: Option<i32>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -75,6 +73,9 @@ struct GLRenderTexture {
 #[derive(Debug, Copy, Clone)]
 struct GLFrameBuffer {
     id: ResourceID,
+    clear_color: Option<Color>,
+    clear_depth: Option<f32>,
+    clear_stencil: Option<i32>,
 }
 
 pub struct Device {
@@ -90,6 +91,7 @@ pub struct Device {
 
     active_view: Cell<Option<ViewHandle>>,
     active_pipeline: Cell<Option<PipelineHandle>>,
+    cleared_framebuffer: RefCell<HashSet<GLuint>>,
 }
 
 impl Device {
@@ -103,16 +105,22 @@ impl Device {
             textures: DataVec::new(),
             render_textures: DataVec::new(),
             framebuffers: DataVec::new(),
+
             active_view: Cell::new(None),
             active_pipeline: Cell::new(None),
+            cleared_framebuffer: RefCell::new(HashSet::new()),
         }
     }
 }
 
 impl Device {
-    pub fn run_one_frame(&self) {
+    pub unsafe fn run_one_frame(&self) -> Result<()> {
         self.active_view.set(None);
         self.active_pipeline.set(None);
+        self.cleared_framebuffer.borrow_mut().clear();
+
+        self.visitor.bind_framebuffer(0, false)?;
+        self.visitor.clear(Some(Color::gray()), None, None)
     }
 
     pub unsafe fn bind_view(&self, view: ViewHandle) -> Result<()> {
@@ -123,8 +131,20 @@ impl Device {
         }
 
         let vo = self.views.get(view).ok_or(ErrorKind::InvalidHandle)?;
-        // TODO set_viewport/ set_scissor
-        self.visitor.clear(vo.clear_color, vo.clear_depth, vo.clear_stencil)?;
+        if let Some(fbo) = vo.framebuffer {
+            if let Some(fbo) = self.framebuffers.get(fbo) {
+                self.visitor.bind_framebuffer(fbo.id, true)?;
+                if !self.cleared_framebuffer.borrow_mut().contains(&fbo.id) {
+                    self.cleared_framebuffer.borrow_mut().insert(fbo.id);
+                    self.visitor.clear(fbo.clear_color, fbo.clear_depth, fbo.clear_stencil)?;
+                }
+            } else {
+                bail!(ErrorKind::InvalidHandle);
+            }
+        } else {
+            self.visitor.bind_framebuffer(0, false)?;
+        }
+
         self.active_view.set(Some(view));
         Ok(())
     }
@@ -168,7 +188,6 @@ impl Device {
                        from: u32,
                        len: u32)
                        -> Result<()> {
-        let vbo = self.vertex_buffers.get(vb).ok_or(ErrorKind::InvalidHandle)?;
         let pso = self.bind_pipeline(pipeline)?;
 
         for &(name, variable) in uniforms {
@@ -193,6 +212,9 @@ impl Device {
             }
         }
 
+        let vbo = self.vertex_buffers.get(vb).ok_or(ErrorKind::InvalidHandle)?;
+
+        self.visitor.bind_buffer(gl::ARRAY_BUFFER, vbo.id)?;
         self.visitor.bind_attribute_layout(&pso.attributes, &vbo.layout)?;
 
         if let Some(v) = ib {
@@ -318,7 +340,7 @@ impl Device {
                                        width: u32,
                                        height: u32)
                                        -> Result<()> {
-        let internal_format = format.into();
+        let (internal_format, _, _) = format.into();
         let id = self.visitor.create_render_buffer(internal_format, width, height)?;
         self.render_textures.set(handle,
                                  GLRenderTexture {
@@ -336,12 +358,22 @@ impl Device {
         }
     }
 
-    pub unsafe fn create_framebuffer(&mut self, handle: FrameBufferHandle) -> Result<()> {
+    pub unsafe fn create_framebuffer(&mut self,
+                                     handle: FrameBufferHandle,
+                                     clear_color: Option<Color>,
+                                     clear_depth: Option<f32>,
+                                     clear_stencil: Option<i32>)
+                                     -> Result<()> {
         if self.framebuffers.get(handle).is_some() {
             bail!(ErrorKind::DuplicatedHandle)
         }
 
-        let fbo = GLFrameBuffer { id: self.visitor.create_framebuffer()? };
+        let fbo = GLFrameBuffer {
+            id: self.visitor.create_framebuffer()?,
+            clear_color: clear_color,
+            clear_depth: clear_depth,
+            clear_stencil: clear_stencil,
+        };
 
         self.framebuffers.set(handle, fbo);
         Ok(())
@@ -356,7 +388,7 @@ impl Device {
         let tex = self.textures.get(texture).ok_or(ErrorKind::InvalidHandle)?;
 
         if let GLTextureFormat::Render(format) = tex.format {
-            self.visitor.bind_framebuffer(fbo.id)?;
+            self.visitor.bind_framebuffer(fbo.id, false)?;
             match format {
                 RenderTextureFormat::RGB8 |
                 RenderTextureFormat::RGBA4 |
@@ -369,10 +401,6 @@ impl Device {
                 RenderTextureFormat::Depth32 => {
                     self.visitor
                         .bind_framebuffer_with_texture(gl::DEPTH_ATTACHMENT, tex.id)
-                }
-                RenderTextureFormat::Stencil8 => {
-                    self.visitor
-                        .bind_framebuffer_with_texture(gl::STENCIL_ATTACHMENT, tex.id)
                 }
                 RenderTextureFormat::Depth24Stencil8 => {
                     self.visitor
@@ -393,7 +421,7 @@ impl Device {
         let tex = self.render_textures.get(texture).ok_or(ErrorKind::InvalidHandle)?;
 
         if let GLTextureFormat::Render(format) = tex.format {
-            self.visitor.bind_framebuffer(fbo.id)?;
+            self.visitor.bind_framebuffer(fbo.id, false)?;
             match format {
                 RenderTextureFormat::RGB8 |
                 RenderTextureFormat::RGBA4 |
@@ -406,10 +434,6 @@ impl Device {
                 RenderTextureFormat::Depth32 => {
                     self.visitor
                         .bind_framebuffer_with_renderbuffer(gl::DEPTH_ATTACHMENT, tex.id)
-                }
-                RenderTextureFormat::Stencil8 => {
-                    self.visitor
-                        .bind_framebuffer_with_renderbuffer(gl::STENCIL_ATTACHMENT, tex.id)
                 }
                 RenderTextureFormat::Depth24Stencil8 => {
                     self.visitor
@@ -435,11 +459,11 @@ impl Device {
                                         width: u32,
                                         height: u32)
                                         -> Result<()> {
-        let internal_format = format.into();
+        let (internal_format, in_format, pixel_type) = format.into();
         let id = self.visitor
             .create_texture(internal_format,
-                            internal_format,
-                            gl::UNSIGNED_BYTE,
+                            in_format,
+                            pixel_type,
                             TextureAddress::Repeat,
                             TextureFilter::Linear,
                             false,
@@ -518,20 +542,14 @@ impl Device {
         }
     }
 
-    // pub fn create_framebuffer(&mut self, ) -> Result<FrameBufferHandle> {}
-
     pub fn create_view(&mut self,
                        handle: ViewHandle,
-                       clear_color: Option<Color>,
-                       clear_depth: Option<f32>,
-                       clear_stencil: Option<i32>)
+                       framebuffer: Option<FrameBufferHandle>)
                        -> Result<()> {
         let view = GLView {
             viewport: None,
             scissor: None,
-            clear_color: clear_color,
-            clear_depth: clear_depth,
-            clear_stencil: clear_stencil,
+            framebuffer: framebuffer,
         };
 
         self.views.set(handle, view);
@@ -558,22 +576,6 @@ impl Device {
                                -> Result<()> {
         if let Some(view) = self.views.get_mut(handle) {
             view.scissor = Some((position, size));
-            Ok(())
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
-    }
-
-    pub fn update_view_clear(&mut self,
-                             handle: ViewHandle,
-                             clear_color: Option<Color>,
-                             clear_depth: Option<f32>,
-                             clear_stencil: Option<i32>)
-                             -> Result<()> {
-        if let Some(view) = self.views.get_mut(handle) {
-            view.clear_color = clear_color;
-            view.clear_depth = clear_depth;
-            view.clear_stencil = clear_stencil;
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);

@@ -47,7 +47,7 @@ impl Graphics {
     pub fn run_one_frame(&mut self) -> Result<()> {
         unsafe {
             if !self.multithread {
-                self.context.device().run_one_frame();
+                self.context.device().run_one_frame()?;
                 self.frames.swap_frames();
                 self.frames.back().dispatch(&mut self.context)?;
                 self.frames.back().clear();
@@ -69,28 +69,16 @@ impl Graphics {
     /// By default, views handles are ordered in ascending order. For dynamic renderers where
     /// order might not be known until the last moment, view handles can be remaped to arbitrary
     /// order by calling `update_view_order`.
-    pub fn create_view(&mut self,
-                       clear_color: Option<Color>,
-                       clear_depth: Option<f32>,
-                       clear_stencil: Option<i32>)
-                       -> Result<ViewHandle> {
+    pub fn create_view(&mut self, framebuffer: Option<FrameBufferHandle>) -> Result<ViewHandle> {
         let mut frame = self.frames.front();
         let handle = self.views.create().into();
-        let ptr = frame.buf.extend(&ViewDesc {
-            framebuffer: None,
-            clear_color: clear_color.map(|v| v.into()),
-            clear_depth: clear_depth,
-            clear_stencil: clear_stencil,
-        });
-
-        frame.pre.push(PreFrameTask::CreateView(handle, ptr));
+        frame.pre.push(PreFrameTask::CreateView(handle, framebuffer));
         Ok(handle)
     }
 
     /// TODO
-    pub fn update_view_framebuffer(&self) {}
+    // pub fn update_view_framebuffer(&self, frame) {`}
     pub fn update_view_rect(&self) {}
-    pub fn update_view_clear(&self) {}
     pub fn update_view_sequential_mode(&self) {}
     pub fn update_view_scissor(&self) {}
     pub fn update_view_order(&self) {}
@@ -199,16 +187,27 @@ impl Graphics {
     ///
     /// At least one color attachment has been attached before you can use it.
     pub fn create_framebuffer(&mut self,
-                              attachment: FrameBufferAttachment)
+                              attachment: FrameBufferAttachment,
+                              clear_color: Option<Color>,
+                              clear_depth: Option<f32>,
+                              clear_stencil: Option<i32>)
                               -> Result<FrameBufferHandle> {
         let handle = self.framebuffers.create().into();
         {
             let mut frame = self.frames.front();
-            frame.pre.push(PreFrameTask::CreateFrameBuffer(handle));
+            let ptr = frame.buf.extend(&FrameBufferDesc {
+                clear_color: clear_color.map(|v| v.into()),
+                clear_depth: clear_depth,
+                clear_stencil: clear_stencil,
+            });
+            frame.pre.push(PreFrameTask::CreateFrameBuffer(handle, ptr));
         }
         self.update_framebuffer_color_attachment(handle, 0, attachment)?;
         Ok(handle)
     }
+
+    // pub fn update_framebuffer_clear(&mut self) -> Result<()> {
+    // }
 
     pub fn update_framebuffer_color_attachment(&mut self,
                                                handle: FrameBufferHandle,

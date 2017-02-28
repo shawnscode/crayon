@@ -74,8 +74,8 @@ impl Application {
 
     /// Run the main loop of `Application`, this will block the working
     /// thread until we finished.
-    pub fn run<F>(mut self, closure: F) -> Self
-        where F: Fn(&mut Application) -> bool
+    pub fn run<F>(mut self, mut closure: F) -> Self
+        where F: FnMut(&mut Application) -> bool
     {
         println!("Launch Lemon3D.");
         println!("PWD: {:?}", ::std::env::current_dir());

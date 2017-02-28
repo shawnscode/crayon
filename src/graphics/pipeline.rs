@@ -100,11 +100,11 @@ impl Default for RenderState {
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum UniformVariable {
     I32(i32),
-    Vector1([f32; 1]),
-    Vector2([f32; 2]),
-    Vector3([f32; 3]),
-    Vector4([f32; 4]),
-    Matrix2([f32; 4]),
-    Matrix3([f32; 9]),
-    Matrix4([f32; 16]),
+    F32(f32),
+    Vector2f([f32; 2]),
+    Vector3f([f32; 3]),
+    Vector4f([f32; 4]),
+    Matrix2f([f32; 4]),
+    Matrix3f([f32; 9]),
+    Matrix4f([f32; 16]),
 }

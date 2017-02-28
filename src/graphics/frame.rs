@@ -11,10 +11,9 @@ use super::backend::Context;
 
 #[derive(Debug, Clone, Copy)]
 pub enum PreFrameTask {
-    CreateView(ViewHandle, TaskBufferPtr<ViewDesc>),
+    CreateView(ViewHandle, Option<FrameBufferHandle>),
     UpdateViewRect(ViewHandle, (u16, u16), (u16, u16)),
     UpdateViewScissor(ViewHandle, (u16, u16), (u16, u16)),
-    UpdateViewClear(ViewHandle, Option<Color>, Option<f32>, Option<i32>),
 
     CreatePipeline(PipelineHandle, TaskBufferPtr<PipelineDesc>),
     UpdatePipelineState(PipelineHandle, TaskBufferPtr<RenderState>),
@@ -32,7 +31,7 @@ pub enum PreFrameTask {
 
     CreateRenderBuffer(RenderBufferHandle, TaskBufferPtr<RenderTextureDesc>),
 
-    CreateFrameBuffer(FrameBufferHandle),
+    CreateFrameBuffer(FrameBufferHandle, TaskBufferPtr<FrameBufferDesc>),
     UpdateFrameBufferAttachment(FrameBufferHandle, u32, FrameBufferAttachment),
 }
 
@@ -58,14 +57,6 @@ pub enum PostFrameTask {
     DeleteTexture(TextureHandle),
     DeleteRenderBuffer(RenderBufferHandle),
     DeleteFrameBuffer(FrameBufferHandle),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ViewDesc {
-    pub framebuffer: Option<FrameBufferHandle>,
-    pub clear_color: Option<Color>,
-    pub clear_depth: Option<f32>,
-    pub clear_stencil: Option<i32>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -116,6 +107,13 @@ pub struct TextureParametersDesc {
     pub filter: TextureFilter,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct FrameBufferDesc {
+    pub clear_color: Option<Color>,
+    pub clear_depth: Option<f32>,
+    pub clear_stencil: Option<i32>,
+}
+
 pub struct Frame {
     pub pre: Vec<PreFrameTask>,
     pub drawcalls: Vec<FrameTask>,
@@ -146,18 +144,14 @@ impl Frame {
 
         for v in &self.pre {
             match *v {
-                PreFrameTask::CreateView(handle, desc) => {
-                    let desc = &self.buf.as_ref(desc);
-                    device.create_view(handle, desc.clear_color, desc.clear_depth, desc.clear_stencil)?;
+                PreFrameTask::CreateView(handle, framebuffer) => {
+                    device.create_view(handle, framebuffer)?;
                 },
                 PreFrameTask::UpdateViewRect(handle, position, size) => {
                     device.update_view_rect(handle, position, size)?;
                 },
                 PreFrameTask::UpdateViewScissor(handle, position, size) => {
                     device.update_view_scissor(handle, position, size)?;
-                },
-                PreFrameTask::UpdateViewClear(handle, clear_color, clear_depth, clear_stencil) => {
-                    device.update_view_clear(handle, clear_color, clear_depth, clear_stencil)?;
                 },
                 PreFrameTask::CreatePipeline(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
@@ -207,8 +201,9 @@ impl Frame {
                     let desc = &self.buf.as_ref(desc);
                     device.create_render_buffer(handle, desc.format, desc.width, desc.height)?;
                 }
-                PreFrameTask::CreateFrameBuffer(handle) => {
-                    device.create_framebuffer(handle)?;
+                PreFrameTask::CreateFrameBuffer(handle, desc) => {
+                    let desc = &self.buf.as_ref(desc);
+                    device.create_framebuffer(handle, desc.clear_color, desc.clear_depth, desc.clear_stencil)?;
                 },
                 PreFrameTask::UpdateFrameBufferAttachment(handle, slot, attachment) => {
                     match attachment {

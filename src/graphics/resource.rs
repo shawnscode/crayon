@@ -244,7 +244,6 @@ pub enum RenderTextureFormat {
     Depth16,
     Depth24,
     Depth32,
-    Stencil8,
     Depth24Stencil8,
 }
 

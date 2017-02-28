@@ -142,11 +142,19 @@ impl OpenGLVisitor {
     pub unsafe fn bind_uniform(&self, location: GLint, variable: &UniformVariable) -> Result<()> {
         match *variable {
             UniformVariable::I32(v) => gl::Uniform1i(location, v),
-            UniformVariable::Vector1(v) => gl::Uniform1f(location, v[0]),
-            UniformVariable::Vector2(v) => gl::Uniform2f(location, v[0], v[1]),
-            UniformVariable::Vector3(v) => gl::Uniform3f(location, v[0], v[1], v[2]),
-            UniformVariable::Vector4(v) => gl::Uniform4f(location, v[0], v[1], v[2], v[3]),
-            _ => (),
+            UniformVariable::F32(v) => gl::Uniform1f(location, v),
+            UniformVariable::Vector2f(v) => gl::Uniform2f(location, v[0], v[1]),
+            UniformVariable::Vector3f(v) => gl::Uniform3f(location, v[0], v[1], v[2]),
+            UniformVariable::Vector4f(v) => gl::Uniform4f(location, v[0], v[1], v[2], v[3]),
+            UniformVariable::Matrix2f(v) => {
+                gl::UniformMatrix2fv(location, 1, gl::FALSE, v.as_ptr())
+            }
+            UniformVariable::Matrix3f(v) => {
+                gl::UniformMatrix3fv(location, 1, gl::FALSE, v.as_ptr())
+            }
+            UniformVariable::Matrix4f(v) => {
+                gl::UniformMatrix4fv(location, 1, gl::FALSE, v.as_ptr())
+            }
         }
 
         check()
@@ -552,18 +560,14 @@ impl OpenGLVisitor {
         check()
     }
 
-    pub unsafe fn bind_framebuffer(&self, id: GLuint) -> Result<()> {
-        if id == 0 {
-            bail!("failed to bind framebuffer with 0.");
-        }
-
+    pub unsafe fn bind_framebuffer(&self, id: GLuint, check_status: bool) -> Result<()> {
         if self.active_framebuffer.get() == id {
             return Ok(());
         }
 
         gl::BindFramebuffer(gl::FRAMEBUFFER, id);
 
-        if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) == gl::FRAMEBUFFER_COMPLETE {
+        if check_status && gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
             self.active_framebuffer.set(0);
             bail!("framebuffer is not complete, fallback the to default framebuffer.");
@@ -596,7 +600,7 @@ impl OpenGLVisitor {
         gl::GenFramebuffers(1, &mut id);
         assert!(id != 0);
 
-        self.bind_framebuffer(id)?;
+        self.bind_framebuffer(id, false)?;
         check()?;
         Ok(id)
     }
@@ -607,7 +611,7 @@ impl OpenGLVisitor {
         }
 
         if self.active_framebuffer.get() == id {
-            self.bind_framebuffer(0)?;
+            self.bind_framebuffer(0, false)?;
         }
 
         gl::DeleteFramebuffers(1, &id);
@@ -879,17 +883,25 @@ impl From<TextureAddress> for GLenum {
     }
 }
 
-impl From<RenderTextureFormat> for GLenum {
+impl From<RenderTextureFormat> for (GLenum, GLenum, GLenum) {
     fn from(format: RenderTextureFormat) -> Self {
         match format {
-            RenderTextureFormat::RGB8 => gl::RGB8,
-            RenderTextureFormat::RGBA4 => gl::RGBA4,
-            RenderTextureFormat::RGBA8 => gl::RGBA8,
-            RenderTextureFormat::Depth16 => gl::DEPTH_COMPONENT16,
-            RenderTextureFormat::Depth24 => gl::DEPTH_COMPONENT24,
-            RenderTextureFormat::Depth32 => gl::DEPTH_COMPONENT32,
-            RenderTextureFormat::Stencil8 => gl::STENCIL_INDEX8,
-            RenderTextureFormat::Depth24Stencil8 => gl::DEPTH24_STENCIL8,
+            RenderTextureFormat::RGB8 => (gl::RGB8, gl::RGB, gl::UNSIGNED_BYTE),
+            RenderTextureFormat::RGBA4 => (gl::RGBA4, gl::RGBA, gl::UNSIGNED_SHORT_4_4_4_4),
+            RenderTextureFormat::RGBA8 => (gl::RGBA8, gl::RGBA, gl::UNSIGNED_BYTE),
+            RenderTextureFormat::Depth16 => {
+                (gl::DEPTH_COMPONENT16, gl::DEPTH_COMPONENT, gl::UNSIGNED_BYTE)
+            }
+            RenderTextureFormat::Depth24 => {
+                (gl::DEPTH_COMPONENT24, gl::DEPTH_COMPONENT, gl::UNSIGNED_BYTE)
+            }
+            RenderTextureFormat::Depth32 => {
+                (gl::DEPTH_COMPONENT32, gl::DEPTH_COMPONENT, gl::UNSIGNED_BYTE)
+            }
+            RenderTextureFormat::Depth24Stencil8 => {
+                (gl::DEPTH24_STENCIL8, gl::DEPTH_STENCIL, gl::UNSIGNED_BYTE)
+            }
+
         }
     }
 }
