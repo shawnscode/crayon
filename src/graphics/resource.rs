@@ -34,7 +34,6 @@ pub enum VertexFormat {
     UByte,
     Short,
     UShort,
-    Fixed,
     Float,
 }
 
@@ -205,7 +204,7 @@ impl VertexLayoutBuilder {
 fn size_of_vertex(format: VertexFormat) -> u8 {
     match format {
         VertexFormat::Byte | VertexFormat::UByte => 1,
-        VertexFormat::Short | VertexFormat::UShort | VertexFormat::Fixed => 2,
+        VertexFormat::Short | VertexFormat::UShort => 2,
         VertexFormat::Float => 4,
     }
 }
@@ -346,7 +345,7 @@ mod test {
     #[test]
     fn rewrite() {
         let layout = VertexLayout::build()
-            .with(VertexAttribute::Position, VertexFormat::Fixed, 1, false)
+            .with(VertexAttribute::Position, VertexFormat::Byte, 1, false)
             .with(VertexAttribute::Texcoord0, VertexFormat::Float, 2, true)
             .with(VertexAttribute::Position, VertexFormat::Float, 3, true)
             .finish();

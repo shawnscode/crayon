@@ -1,11 +1,7 @@
+#[macro_use]
 extern crate lemon3d;
 
-use std::slice;
-use std::mem;
 use lemon3d::graphics::*;
-use lemon3d::graphics::resource::*;
-use lemon3d::graphics::pipeline::*;
-// use lemon3d::graphics::Graphics;
 
 // Shader sources
 static VS: &'static str = "#version 150\nin vec2 Position; out vec2 f_Color;\nvoid main() \
@@ -35,10 +31,12 @@ void main(){
                              sin(time+1024.0*UV.x),cos(time+768.0*UV.y)) ).xyz;
 }";
 
-// Vertex data
-static VERTEX_DATA: [f32; 6] = [0.0, 0.5, 0.5, -0.5, -0.5, -0.5];
-static QUAD_VERTEX_DATA: [f32; 12] = [-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0,
-                                      1.0];
+impl_vertex!{
+    Vertex {
+        position => [Position; Float; 2; false],
+    }
+}
+
 
 fn main() {
     let mut rendered_texture = TextureHandle::default();
@@ -54,6 +52,16 @@ fn main() {
     lemon3d::Application::setup("examples/resources/configs/basic.json")
         .unwrap()
         .perform(|app| {
+            let vertices: [Vertex; 3] =
+                [Vertex::new([0.0, 0.5]), Vertex::new([0.5, -0.5]), Vertex::new([-0.5, -0.5])];
+
+            let quad_vertices: [Vertex; 6] = [Vertex::new([-1.0, -1.0]),
+                                              Vertex::new([1.0, -1.0]),
+                                              Vertex::new([-1.0, 1.0]),
+                                              Vertex::new([-1.0, 1.0]),
+                                              Vertex::new([1.0, -1.0]),
+                                              Vertex::new([1.0, 1.0])];
+
             let mut attributes = vec![];
             attributes.push(VertexAttributeDesc {
                 name: VertexAttribute::Position,
@@ -62,19 +70,15 @@ fn main() {
                 normalized: false,
             });
 
-            let layout = VertexLayout::build()
-                .with(VertexAttribute::Position, VertexFormat::Float, 2, false)
-                .finish();
+            let layout = Vertex::layout();
 
             //
             vbo_fb = app.graphics
                 .create_vertex_buffer(&layout,
                                       ResourceHint::Static,
                                       24,
-                                      Some(as_bytes(&VERTEX_DATA[..])))
+                                      Some(Vertex::as_bytes(&vertices[..])))
                 .unwrap();
-
-
 
             let state = RenderState::default();
             rendered_texture =
@@ -94,12 +98,11 @@ fn main() {
                 .create_vertex_buffer(&layout,
                                       ResourceHint::Static,
                                       48,
-                                      Some(as_bytes(&QUAD_VERTEX_DATA[..])))
+                                      Some(Vertex::as_bytes(&quad_vertices[..])))
                 .unwrap();
             view = app.graphics.create_view(None).unwrap();
             pipeline =
                 app.graphics.create_pipeline(VS_2, FS_2, &state, attributes.as_slice()).unwrap();
-
         })
         .run(move |app| {
             let mut uniforms = vec![];
@@ -136,11 +139,4 @@ fn main() {
             return true;
         })
         .perform(|_| println!("hello world."));
-}
-
-fn as_bytes<T>(values: &[T]) -> &[u8]
-    where T: Copy
-{
-    let len = values.len() * mem::size_of::<T>();
-    unsafe { slice::from_raw_parts(values.as_ptr() as *const u8, len) }
 }

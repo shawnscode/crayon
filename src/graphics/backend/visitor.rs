@@ -820,7 +820,6 @@ impl From<VertexFormat> for GLenum {
             VertexFormat::UByte => gl::UNSIGNED_BYTE,
             VertexFormat::Short => gl::SHORT,
             VertexFormat::UShort => gl::UNSIGNED_SHORT,
-            VertexFormat::Fixed => gl::FIXED,
             VertexFormat::Float => gl::FLOAT,
         }
     }
