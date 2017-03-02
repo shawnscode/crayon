@@ -31,7 +31,7 @@ pub mod component;
 pub mod world;
 
 pub use self::component::{Component, ComponentStorage, HashMapStorage, VecStorage};
-pub use self::world::World;
+pub use self::world::{World, ArenaGetter, ArenaGetterMut};
 
 pub type Entity = Handle;
 

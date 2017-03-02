@@ -33,7 +33,7 @@ impl<'a, T1> IterTupleHelper for RTuple1<'a, T1>
     type Item = (&'a T1);
 
     fn fetch(&self, index: HandleIndex) -> Self::Item {
-        unsafe { (_cast::<T1>(&*self.1).get(index)) }
+        unsafe { (_cast::<T1>(&*self.1).get_unchecked(index)) }
     }
 }
 
@@ -50,7 +50,9 @@ impl<'a, T1, T2> IterTupleHelper for RTuple2<'a, T1, T2>
     type Item = (&'a T1, &'a T2);
 
     fn fetch(&self, index: HandleIndex) -> Self::Item {
-        unsafe { (_cast::<T1>(&*self.1).get(index), _cast::<T2>(&*self.2).get(index)) }
+        unsafe {
+            (_cast::<T1>(&*self.1).get_unchecked(index), _cast::<T2>(&*self.2).get_unchecked(index))
+        }
     }
 }
 
@@ -71,9 +73,9 @@ impl<'a, T1, T2, T3> IterTupleHelper for RTuple3<'a, T1, T2, T3>
 
     fn fetch(&self, index: HandleIndex) -> Self::Item {
         unsafe {
-            (_cast::<T1>(&*self.1).get(index),
-             _cast::<T2>(&*self.2).get(index),
-             _cast::<T3>(&*self.3).get(index))
+            (_cast::<T1>(&*self.1).get_unchecked(index),
+             _cast::<T2>(&*self.2).get_unchecked(index),
+             _cast::<T3>(&*self.3).get_unchecked(index))
         }
     }
 }
@@ -98,10 +100,10 @@ impl<'a, T1, T2, T3, T4> IterTupleHelper for RTuple4<'a, T1, T2, T3, T4>
 
     fn fetch(&self, index: HandleIndex) -> Self::Item {
         unsafe {
-            (_cast::<T1>(&*self.1).get(index),
-             _cast::<T2>(&*self.2).get(index),
-             _cast::<T3>(&*self.3).get(index),
-             _cast::<T4>(&*self.4).get(index))
+            (_cast::<T1>(&*self.1).get_unchecked(index),
+             _cast::<T2>(&*self.2).get_unchecked(index),
+             _cast::<T3>(&*self.3).get_unchecked(index),
+             _cast::<T4>(&*self.4).get_unchecked(index))
         }
     }
 }
@@ -128,7 +130,7 @@ impl<'a, T1> IterMutTupleHelper for WTuple1<'a, T1>
     type Item = (&'a mut T1);
 
     fn fetch(&mut self, index: HandleIndex) -> Self::Item {
-        unsafe { (_cast_mut::<T1>(&mut *self.1).get_mut(index)) }
+        unsafe { (_cast_mut::<T1>(&mut *self.1).get_unchecked_mut(index)) }
     }
 }
 
@@ -146,8 +148,8 @@ impl<'a, T1, T2> IterMutTupleHelper for WTuple2<'a, T1, T2>
 
     fn fetch(&mut self, index: HandleIndex) -> Self::Item {
         unsafe {
-            (_cast_mut::<T1>(&mut *self.1).get_mut(index),
-             _cast_mut::<T2>(&mut *self.2).get_mut(index))
+            (_cast_mut::<T1>(&mut *self.1).get_unchecked_mut(index),
+             _cast_mut::<T2>(&mut *self.2).get_unchecked_mut(index))
         }
     }
 }
@@ -169,9 +171,9 @@ impl<'a, T1, T2, T3> IterMutTupleHelper for WTuple3<'a, T1, T2, T3>
 
     fn fetch(&mut self, index: HandleIndex) -> Self::Item {
         unsafe {
-            (_cast_mut::<T1>(&mut *self.1).get_mut(index),
-             _cast_mut::<T2>(&mut *self.2).get_mut(index),
-             _cast_mut::<T3>(&mut *self.3).get_mut(index))
+            (_cast_mut::<T1>(&mut *self.1).get_unchecked_mut(index),
+             _cast_mut::<T2>(&mut *self.2).get_unchecked_mut(index),
+             _cast_mut::<T3>(&mut *self.3).get_unchecked_mut(index))
         }
     }
 }
@@ -196,10 +198,10 @@ impl<'a, T1, T2, T3, T4> IterMutTupleHelper for WTuple4<'a, T1, T2, T3, T4>
 
     fn fetch(&mut self, index: HandleIndex) -> Self::Item {
         unsafe {
-            (_cast_mut::<T1>(&mut *self.1).get_mut(index),
-             _cast_mut::<T2>(&mut *self.2).get_mut(index),
-             _cast_mut::<T3>(&mut *self.3).get_mut(index),
-             _cast_mut::<T4>(&mut *self.4).get_mut(index))
+            (_cast_mut::<T1>(&mut *self.1).get_unchecked_mut(index),
+             _cast_mut::<T2>(&mut *self.2).get_unchecked_mut(index),
+             _cast_mut::<T3>(&mut *self.3).get_unchecked_mut(index),
+             _cast_mut::<T4>(&mut *self.4).get_unchecked_mut(index))
         }
     }
 }
@@ -238,7 +240,7 @@ macro_rules! build_view_with {
             {
                 type Item = ViewItem<'a, $($cps), *>;
                 type IntoIter = IntoIter<'a, $($cps), *>;
-                 
+
                 fn into_iter(self) -> Self::IntoIter {
                     let iter = self.world.iter();
                     IntoIter { view: self, iterator: iter }
@@ -275,7 +277,7 @@ macro_rules! build_view_with {
                             return None;
                         }
                     }
-                }                   
+                }
             }
 
             impl<'a, $($cps), *> Iterator for IntoIter<'a, $($cps), *>
