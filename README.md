@@ -4,38 +4,14 @@
 ### Introduction
 Lemon3d is an experimental purpose project, written with a minimalistic modular design philosophy. Its built from the ground up to focus on cache friendly data layouts in multicore environments with entity-component based architecture.
 
-*Warning*: Its far from a stable version right now.
+*Warning*: Its far from a stable version right now. You can checkout the [Roadmap](https://trello.com/b/vDqw6L0x/lemon3d-roadmap) for more details.
 
 ### Features v0.0.1
 - [x] \[ECS\] Entity component system with a data-driven designs.
 - [x] \[TSK\] Task based multi-thread system based on awesome crate [Rayon](https://github.com/nikomatsakis/rayon.git).
 - [x] \[RES\] Abstract archive with default supports for native filesystem and zip.
 - [x] \[GFX\] Window and graphic context management based on [glutin](https://github.com/tomaka/glutin).
-
-### Roadmap v0.1.0 (Basic Usages)
-
-##### Graphics Subsystem
-- [ ] Stateless, layered, multi-threaded graphics subsystem based on OpenGL.
-- [ ] Graphics resource management.
-- [ ] TrueType font integrations.
-- [ ] Vector drawing library for ui and visualizations.
-- [ ] Bloat-free immediate mode graphics user interface.
-
-##### Scene Subsystem
-- [ ] Hierachy-based transformation of position/rotaion/scale etc.
-- [ ] 2D Layout facilities like anchor, pivot in Unity3D.
-- [ ] Easy tween and action facilicities.
-
-##### Resource Subsystem
-- [ ] Assets load and cache machanism based on LRU(maybe).
-- [ ] Serilization/deserlization of entities and components in YAML or binary mode.
-
-##### Script Subsystem
-- [ ] High-level Lua 5.3 integration to Rust.
-- [ ] Exports Rust codes to lua with macros.
-
-##### Tools
-- [ ] Command-line interface for creating and deploying game projects.
+- [x] \[SCE\] Hierachy-based transformation of position/rotaion/scale etc.
 
 ### FAQ
 
