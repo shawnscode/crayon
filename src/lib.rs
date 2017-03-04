@@ -11,6 +11,8 @@ extern crate json;
 extern crate glutin;
 extern crate gl;
 extern crate cgmath;
+#[macro_use]
+extern crate approx;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
@@ -22,15 +24,17 @@ extern crate derive_builder;
 pub mod utility;
 pub mod core;
 pub mod multitask;
+#[macro_use]
 pub mod ecs;
 pub mod resource;
 pub mod graphics;
+pub mod scene;
 
 pub use core::Application;
 pub use ecs::*;
 pub use multitask::ThreadPool;
 
-// use cgmath as math;
+use cgmath as math;
 use core::engine::Subsystem;
 
 unsafe impl Send for World {}
