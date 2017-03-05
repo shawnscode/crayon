@@ -35,6 +35,7 @@ pub enum PreFrameTask {
 
     CreateFrameBuffer(FrameBufferHandle, TaskBufferPtr<FrameBufferDesc>),
     UpdateFrameBufferAttachment(FrameBufferHandle, u32, FrameBufferAttachment),
+    UpdateFrameBufferClear(FrameBufferHandle, TaskBufferPtr<FrameBufferDesc>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -149,6 +150,7 @@ impl Frame {
     }
 
     pub unsafe fn dispatch(&mut self, context: &mut Context)  -> Result<()> {
+        let dimensions = context.dimensions().ok_or(ErrorKind::WindowNotExist)?;
         let mut device = &mut context.device();
 
         for v in &self.pre {
@@ -231,13 +233,17 @@ impl Frame {
                         }
                     };
                 },
+                PreFrameTask::UpdateFrameBufferClear(handle, desc) => {
+                    let desc = &self.buf.as_ref(desc);
+                    device.update_framebuffer_clear(handle, desc.clear_color, desc.clear_depth, desc.clear_stencil)?;
+                }
             }
         }
 
         for dc in &self.drawcalls {
             device.submit(dc.priority, dc.view, dc.pipeline, dc.textures, dc.uniforms, dc.vb, dc.ib, dc.primitive, dc.from, dc.len)?;
         }
-        device.flush(&self.buf)?;
+        device.flush(&self.buf, dimensions)?;
 
         for v in &self.post {
             match *v {

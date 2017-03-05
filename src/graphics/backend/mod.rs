@@ -90,26 +90,37 @@ impl Context {
     }
 
     /// Returns the implementation of device.
+    #[inline]
     pub fn device(&mut self) -> &mut Device {
         &mut self.device
     }
 
     /// Returns the capabilities of this OpenGL implementation.
+    #[inline]
     pub fn capabilities(&self) -> &Capabilities {
         &self.capabilities
     }
 
+    /// Returns the dimensions of the default frame buffer.
+    #[inline]
+    pub fn dimensions(&self) -> Option<(u32, u32)> {
+        self.window.get_inner_size_pixels()
+    }
+
     /// Returns true if the context has been lost and needs to be rebuild.
+    #[inline]
     pub fn is_context_lost(&self) -> bool {
         *self.context_lost.read().unwrap()
     }
 
     /// Returns true if this context is the current one in this thread.
+    #[inline]
     pub fn is_current(&self) -> bool {
         self.window.is_current()
     }
 
     /// Set the context as the active context in this thread.
+    #[inline]
     pub fn make_current(&self) -> Result<()> {
         unsafe { self.window.make_current().chain_err(|| "unable to make context current.") }
     }

@@ -227,6 +227,7 @@ macro_rules! build_view_with {
                 writers: $wtuple<'a, $($wcps), *>,
             }
 
+            #[derive(Debug)]
             pub struct ViewItem<'a, $($cps), *>
                 where $($cps:Component), *
             {
@@ -292,7 +293,6 @@ macro_rules! build_view_with {
                     }
                 }
             }
-
 
             impl<'a, $($cps), *> View<'a, $($cps), *>
                 where $($cps:Component), *

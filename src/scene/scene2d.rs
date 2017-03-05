@@ -1,0 +1,181 @@
+use core::Application;
+use ecs;
+use graphics;
+use math;
+use math::EuclideanSpace;
+
+use super::errors::*;
+use super::transform::Transform;
+use super::rect::Rect;
+use super::sprite::Sprite;
+use super::camera::Camera;
+
+impl_vertex! {
+    Vertex {
+        position => [Position; Float; 2; false],
+        color => [Color0; UByte; 4; true],
+    }
+}
+
+const MAX_BATCH_VERTICES: usize = 1024;
+
+pub struct Scene2d {
+    view: graphics::ViewHandle,
+    pso: graphics::PipelineHandle,
+    vertices: Vec<Vertex>,
+    world: ecs::World,
+    camera: Option<ecs::Entity>,
+}
+
+impl Scene2d {
+    pub fn new(application: &mut Application) -> Result<Self> {
+        let view = application.graphics.create_view(None)?;
+        let state = graphics::RenderState::default();
+        let pso = application.graphics
+            .create_pipeline(include_str!("../../resources/shaders/scene2d.vs"),
+                             include_str!("../../resources/shaders/scene2d.fs"),
+                             &state,
+                             &[graphics::VertexAttributeDesc {
+                                   name: graphics::VertexAttribute::Position,
+                                   format: graphics::VertexFormat::Float,
+                                   size: 2,
+                                   normalized: false,
+                               },
+                               graphics::VertexAttributeDesc {
+                                   name: graphics::VertexAttribute::Color0,
+                                   format: graphics::VertexFormat::UByte,
+                                   size: 4,
+                                   normalized: true,
+                               }])?;
+
+        let mut world = ecs::World::new();
+        world.register::<Transform>();
+        world.register::<Rect>();
+        world.register::<Sprite>();
+        world.register::<Camera>();
+
+        Ok(Scene2d {
+            world: world,
+            view: view,
+            pso: pso,
+            camera: None,
+            vertices: Vec::with_capacity(MAX_BATCH_VERTICES),
+        })
+    }
+
+    pub fn world(&self) -> &ecs::World {
+        &self.world
+    }
+
+    pub fn world_mut(&mut self) -> &mut ecs::World {
+        &mut self.world
+    }
+
+    pub fn main_camera(&self) -> Option<ecs::Entity> {
+        self.camera
+    }
+
+    pub fn set_main_camera(&mut self, camera: ecs::Entity) {
+        self.camera = Some(camera)
+    }
+
+    pub fn run_one_frame(&mut self, mut application: &mut Application) -> Result<()> {
+        let (view_mat, proj_mat) = if let Some(id) = self.camera {
+            let view_mat = {
+                let arena = self.world.arena_mut::<Transform>().unwrap();
+                let dir = math::Vector3::new(0.0, 0.0, 1.0);
+                let forward = Transform::transform_point(&arena, id, dir)?;
+                let center = Transform::world_position(&arena, id)?;
+                let up = Transform::up(&arena, id)?;
+                math::Matrix4::<f32>::look_at(math::Point3::from_vec(forward),
+                                              math::Point3::from_vec(center),
+                                              up)
+            };
+
+            let camera = self.world.fetch::<Camera>(id).ok_or(ErrorKind::CanNotDrawWithoutCamera)?;
+            let proj_mat = camera.projection_matrix();
+            (view_mat, proj_mat)
+        } else {
+            bail!(ErrorKind::CanNotDrawWithoutCamera);
+        };
+
+        let view = self.world.view_with_r3::<Transform, Rect, Sprite>();
+        for v in view.into_iter() {
+            let disp = v.readables.0.position();
+
+            self.vertices.push(Vertex {
+                position: [disp[0] - 5., disp[1] + 5.],
+                color: v.readables.2.color().into(),
+            });
+
+            self.vertices.push(Vertex {
+                position: [disp[0] + 5., disp[1] + 5.],
+                color: v.readables.2.color().into(),
+            });
+
+            self.vertices.push(Vertex {
+                position: [disp[0] - 5., disp[1] - 5.],
+                color: v.readables.2.color().into(),
+            });
+
+            if self.vertices.len() >= MAX_BATCH_VERTICES {
+                self.consume_vertices(&mut application, &view_mat, &proj_mat)?;
+                self.vertices.clear();
+            }
+        }
+
+        self.consume_vertices(&mut application, &view_mat, &proj_mat)?;
+        self.vertices.clear();
+        Ok(())
+    }
+
+    fn consume_vertices(&self,
+                        mut application: &mut Application,
+                        view_mat: &math::Matrix4<f32>,
+                        proj_mat: &math::Matrix4<f32>)
+                        -> Result<()> {
+
+        let uniforms = [("u_View", graphics::UniformVariable::Matrix4f(*view_mat.as_ref(), true)),
+                        ("u_Projection",
+                         graphics::UniformVariable::Matrix4f(*proj_mat.as_ref(), true))];
+
+        let layout = Vertex::layout();
+        let vbo = application.graphics
+            .create_vertex_buffer(&layout,
+                                  graphics::ResourceHint::Dynamic,
+                                  (self.vertices.len() * layout.stride() as usize) as u32,
+                                  Some(Vertex::as_bytes(self.vertices.as_slice())))?;
+        application.graphics
+            .draw(0,
+                  self.view,
+                  self.pso,
+                  &[],
+                  &uniforms,
+                  vbo,
+                  None,
+                  graphics::Primitive::Triangles,
+                  0,
+                  self.vertices.len() as u32)?;
+
+        application.graphics.delete_vertex_buffer(vbo)?;
+        Ok(())
+    }
+}
+
+impl Scene2d {
+    /// Create a empty sprite.
+    pub fn sprite(world: &mut ecs::World) -> ecs::Entity {
+        world.build()
+            .with_default::<Transform>()
+            .with_default::<Rect>()
+            .with_default::<Sprite>()
+            .finish()
+    }
+
+    pub fn camera(world: &mut ecs::World) -> ecs::Entity {
+        world.build()
+            .with_default::<Transform>()
+            .with_default::<Camera>()
+            .finish()
+    }
+}

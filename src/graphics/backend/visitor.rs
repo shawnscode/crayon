@@ -113,8 +113,7 @@ impl OpenGLVisitor {
             if let Some(element) = layout.element(desc.name) {
                 if element.format != desc.format || element.size != desc.size {
                     let name: &'static str = desc.name.into();
-                    bail!(format!("vertex buffer has incompatible attribute {:?} format.",
-                                  name));
+                    bail!(format!("vertex buffer has incompatible attribute {:?}.", name));
                 }
 
                 let offset = layout.offset(desc.name)
@@ -146,14 +145,17 @@ impl OpenGLVisitor {
             UniformVariable::Vector2f(v) => gl::Uniform2f(location, v[0], v[1]),
             UniformVariable::Vector3f(v) => gl::Uniform3f(location, v[0], v[1], v[2]),
             UniformVariable::Vector4f(v) => gl::Uniform4f(location, v[0], v[1], v[2], v[3]),
-            UniformVariable::Matrix2f(v) => {
-                gl::UniformMatrix2fv(location, 1, gl::FALSE, v.as_ptr())
+            UniformVariable::Matrix2f(v, transpose) => {
+                let transpose = if transpose { gl::TRUE } else { gl::FALSE };
+                gl::UniformMatrix2fv(location, 1, transpose, v[0].as_ptr())
             }
-            UniformVariable::Matrix3f(v) => {
-                gl::UniformMatrix3fv(location, 1, gl::FALSE, v.as_ptr())
+            UniformVariable::Matrix3f(v, transpose) => {
+                let transpose = if transpose { gl::TRUE } else { gl::FALSE };
+                gl::UniformMatrix3fv(location, 1, transpose, v[0].as_ptr())
             }
-            UniformVariable::Matrix4f(v) => {
-                gl::UniformMatrix4fv(location, 1, gl::FALSE, v.as_ptr())
+            UniformVariable::Matrix4f(v, transpose) => {
+                let transpose = if transpose { gl::TRUE } else { gl::FALSE };
+                gl::UniformMatrix4fv(location, 1, transpose, v[0].as_ptr())
             }
         }
 
@@ -594,6 +596,8 @@ impl OpenGLVisitor {
         gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, tp, gl::RENDERBUFFER, id);
         check()
     }
+
+    // pub unsafe fn get_renderbuffer_dimensions
 
     pub unsafe fn create_framebuffer(&self) -> Result<GLuint> {
         let mut id = 0;

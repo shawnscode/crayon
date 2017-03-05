@@ -97,6 +97,8 @@ impl Default for RenderState {
     }
 }
 
+/// Uniform variable for graphics program object. Each matrix based `UniformVariable`
+/// is assumed to be supplied in row major order with a optional transpose.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum UniformVariable {
     I32(i32),
@@ -104,7 +106,7 @@ pub enum UniformVariable {
     Vector2f([f32; 2]),
     Vector3f([f32; 3]),
     Vector4f([f32; 4]),
-    Matrix2f([f32; 4]),
-    Matrix3f([f32; 9]),
-    Matrix4f([f32; 16]),
+    Matrix2f([[f32; 2]; 2], bool),
+    Matrix3f([[f32; 3]; 3], bool),
+    Matrix4f([[f32; 4]; 4], bool),
 }

@@ -9,5 +9,6 @@ error_chain!{
 
     errors {
         InvalidHandle
+        WindowNotExist
     }
 }

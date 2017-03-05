@@ -175,7 +175,7 @@ impl Device {
         }
     }
 
-    pub unsafe fn flush(&self, buf: &TaskBuffer) -> Result<()> {
+    pub unsafe fn flush(&self, buf: &TaskBuffer, dimensions: (u32, u32)) -> Result<()> {
         // Collects avaiable views.
         let (mut views, mut ordered_views) = (vec![], vec![]);
         for (i, v) in self.views.buf.iter().enumerate() {
@@ -199,6 +199,7 @@ impl Device {
         let mut textures = vec![];
         ordered_views.append(&mut views);
 
+        let dimensions = (dimensions.0 as u16, dimensions.1 as u16);
         for i in ordered_views {
             let vo = self.views.buf[i].as_ref().unwrap();
 
@@ -215,6 +216,12 @@ impl Device {
                 }
             } else {
                 self.visitor.bind_framebuffer(0, false)?;
+            }
+
+            if let Some(viewport) = vo.viewport {
+                self.visitor.set_viewport(viewport.0, viewport.1.unwrap_or(dimensions))?;
+            } else {
+                self.visitor.set_viewport((0, 0), dimensions)?;
             }
 
             // Sort bucket drawcalls.
@@ -461,6 +468,22 @@ impl Device {
 
         self.framebuffers.set(handle, fbo);
         Ok(())
+    }
+
+    pub fn update_framebuffer_clear(&mut self,
+                                    handle: FrameBufferHandle,
+                                    clear_color: Option<Color>,
+                                    clear_depth: Option<f32>,
+                                    clear_stencil: Option<i32>)
+                                    -> Result<()> {
+        if let Some(fbo) = self.framebuffers.get_mut(handle) {
+            fbo.clear_color = clear_color;
+            fbo.clear_depth = clear_depth;
+            fbo.clear_stencil = clear_stencil;
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
     }
 
     pub unsafe fn update_framebuffer_with_texture(&mut self,

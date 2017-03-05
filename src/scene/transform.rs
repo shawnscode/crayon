@@ -362,6 +362,18 @@ impl Transform {
         }
     }
 
+    /// Return the up direction in world space.
+    pub fn up(arena: &ArenaGetterMut<Transform>, handle: Entity) -> Result<math::Vector3<f32>> {
+        Transform::transform_direction(&arena, handle, math::Vector3::new(0.0, 1.0, 0.0))
+    }
+
+    /// Return the forward direction in world space.
+    pub fn forward(arena: &ArenaGetterMut<Transform>,
+                   handle: Entity)
+                   -> Result<math::Vector3<f32>> {
+        Transform::transform_direction(&arena, handle, math::Vector3::new(0.0, 0.0, 1.0))
+    }
+
     unsafe fn set_world_decomposed(arena: &mut ArenaGetterMut<Transform>,
                                    handle: Entity,
                                    decomposed: &math::Decomposed<math::Vector3<f32>,

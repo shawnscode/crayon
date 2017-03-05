@@ -21,6 +21,15 @@ impl Into<u32> for Color {
     }
 }
 
+impl Into<[u8; 4]> for Color {
+    fn into(self) -> [u8; 4] {
+        [(self.0 / 1.0 * 255.0) as u8,
+         (self.1 / 1.0 * 255.0) as u8,
+         (self.2 / 1.0 * 255.0) as u8,
+         (self.3 / 1.0 * 255.0) as u8]
+    }
+}
+
 impl Color {
     /// Returns the `grayscale` representation of RGB values.
     pub fn grayscale(&self) -> f32 {

@@ -27,6 +27,7 @@ pub mod multitask;
 #[macro_use]
 pub mod ecs;
 pub mod resource;
+#[macro_use]
 pub mod graphics;
 pub mod scene;
 
