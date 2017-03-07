@@ -1,12 +1,12 @@
-extern crate lemon3d;
+extern crate crayon;
 extern crate cgmath;
 #[macro_use]
 extern crate approx;
 extern crate rand;
 
 use cgmath as math;
-use lemon3d::scene::transform::*;
-use lemon3d::ecs::World;
+use crayon::scene::transform::*;
+use crayon::ecs::World;
 use math::Zero;
 use rand::{Rng, SeedableRng, XorShiftRng};
 

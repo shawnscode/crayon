@@ -1,7 +1,7 @@
 #[macro_use]
-extern crate lemon3d;
+extern crate crayon;
 
-use lemon3d::graphics::*;
+use crayon::graphics::*;
 
 // Shader sources
 static VS: &'static str = "#version 150\nin vec2 Position; out vec2 f_Color;\nvoid main() \
@@ -49,7 +49,7 @@ fn main() {
     let mut vbo = VertexBufferHandle::default();
     let mut time = 0.0;
 
-    lemon3d::Application::setup("examples/resources/configs/basic.json")
+    crayon::Application::setup("examples/resources/configs/basic.json")
         .unwrap()
         .perform(|app| {
             let vertices: [Vertex; 3] =

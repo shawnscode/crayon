@@ -1,6 +1,6 @@
-extern crate lemon3d;
+extern crate crayon;
 
-use lemon3d::core::arguments::*;
+use crayon::core::arguments::*;
 
 #[test]
 fn arguments() {

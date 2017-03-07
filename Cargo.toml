@@ -1,7 +1,16 @@
 [package]
-name = "lemon3d"
+name = "crayon"
 version = "0.0.1"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
+description = "Crayon is an experimental purpose project, written with a minimalistic modular design philosophy. Its built from the ground up to focus on cache friendly data layouts in multicore environments with entity-component based architecture."
+repository = "https://github.com/kayak233/crayon"
+readme = "README.md"
+license = "Apache-2.0"
+keywords = ["ecs", "entity-component", "game-dev", "multithread"]
+categories = ["game-engines", "multimedia"]
+
+[badges]
+travis-ci = { repository = "https://github.com/kayak233/crayo", branch = "master" }
 
 [dependencies]
 bit-set = "*"

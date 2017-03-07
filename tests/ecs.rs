@@ -1,9 +1,9 @@
 #[macro_use]
-extern crate lemon3d;
+extern crate crayon;
 #[macro_use]
 extern crate lazy_static;
 
-use lemon3d::*;
+use crayon::*;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct Position {

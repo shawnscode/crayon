@@ -1,6 +1,6 @@
-extern crate lemon3d;
+extern crate crayon;
 
-use lemon3d::resource::*;
+use crayon::resource::*;
 
 #[test]
 fn collection() {

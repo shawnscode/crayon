@@ -1,10 +1,11 @@
 ### Build Status
-[![Build Status](https://travis-ci.org/kayak233/lemon3d.svg?branch=master)](https://travis-ci.org/kayak233/lemon3d)
+[![Build Status](https://travis-ci.org/kayak233/crayon.svg?branch=master)](https://travis-ci.org/kayak233/crayon)
+[![Crate Status](http://meritbadge.herokuapp.com/crayon)](https://crates.io/crates/crayon)
 
 ### Introduction
-Lemon3d is an experimental purpose project, written with a minimalistic modular design philosophy. Its built from the ground up to focus on cache friendly data layouts in multicore environments with entity-component based architecture.
+Crayon is an experimental purpose project, written with a minimalistic modular design philosophy. Its built from the ground up to focus on cache friendly data layouts in multicore environments with entity-component based architecture.
 
-*Warning*: Its far from a stable version right now. You can checkout the [Roadmap](https://trello.com/b/vDqw6L0x/lemon3d-roadmap) for more details.
+*Warning*: Its far from a stable version right now. You can checkout the [Roadmap](https://trello.com/b/vDqw6L0x/crayon-roadmap) for more details.
 
 ### Features v0.0.1
 - [x] \[ECS\] Entity component system with a data-driven designs.
@@ -22,7 +23,7 @@ In spite of the unstable status of this project, feel free to checkout and build
 
 First of all, checkout the repository by:
 ``` sh
-git clone git@github.com:kayak233/lemon3d.git
+git clone git@github.com:kayak233/crayon.git
 ```
 
 And then you can run test cases with:

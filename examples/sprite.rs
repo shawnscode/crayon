@@ -1,14 +1,14 @@
-extern crate lemon3d;
+extern crate crayon;
 extern crate cgmath;
 extern crate rand;
 
-use lemon3d::scene::camera::{Camera, Projection};
-use lemon3d::scene::scene2d::Scene2d;
+use crayon::scene::camera::{Camera, Projection};
+use crayon::scene::scene2d::Scene2d;
 use cgmath as math;
 use rand::{Rng, SeedableRng, XorShiftRng};
 
-use lemon3d::graphics::Color;
-use lemon3d::scene::{Sprite, Transform, Rect};
+use crayon::graphics::Color;
+use crayon::scene::{Sprite, Transform, Rect};
 
 #[derive(Debug)]
 struct SpriteParticle {
@@ -17,7 +17,7 @@ struct SpriteParticle {
     acceleration: math::Vector3<f32>,
     color: Color,
     size: math::Vector2<f32>,
-    handle: lemon3d::ecs::Entity,
+    handle: crayon::ecs::Entity,
 }
 
 fn main() {
@@ -25,7 +25,7 @@ fn main() {
     let mut particles = vec![];
     let mut cal = XorShiftRng::from_seed([0, 1, 2, 3]);
 
-    lemon3d::Application::setup("examples/resources/configs/basic.json")
+    crayon::Application::setup("examples/resources/configs/basic.json")
         .unwrap()
         .perform(|mut app| {
             scene = {
