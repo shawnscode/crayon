@@ -20,11 +20,11 @@ extern crate byteorder;
 #[macro_use]
 extern crate derive_builder;
 extern crate image;
+extern crate rayon;
 
 #[macro_use]
 pub mod utility;
 pub mod core;
-pub mod multitask;
 #[macro_use]
 pub mod ecs;
 pub mod resource;
@@ -34,7 +34,6 @@ pub mod scene;
 
 pub use core::Application;
 pub use ecs::*;
-pub use multitask::ThreadPool;
 
 use cgmath as math;
 use core::engine::Subsystem;
