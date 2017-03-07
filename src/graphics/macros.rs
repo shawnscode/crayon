@@ -1,4 +1,11 @@
 #[macro_export]
+macro_rules! offset_of {
+    ($ty:ty, $field:ident) => {
+        unsafe { &(*(0 as *const $ty)).$field as *const _ as usize }
+    }
+}
+
+#[macro_export]
 macro_rules! impl_vertex {
     ($name: ident { $($field: ident => [$attribute: tt; $format: tt; $size: tt; $normalized: tt],)* }) => (
         #[repr(C)]
@@ -15,13 +22,16 @@ macro_rules! impl_vertex {
             }
 
             pub fn layout() -> $crate::graphics::resource::VertexLayout {
-                let mut builder = $crate::graphics::resource::VertexLayoutBuilder::new();
+                let mut builder = $crate::graphics::resource::CustomVertexLayoutBuilder::new();
+
                 $( builder.with(
                     $crate::graphics::resource::VertexAttribute::$attribute,
                     $crate::graphics::resource::VertexFormat::$format,
                     $size,
-                    $normalized); ) *
-                builder.finish()
+                    $normalized,
+                    offset_of!($name, $field) as u8); ) *
+
+                builder.finish(::std::mem::size_of::<$name>() as u8)
             }
 
             pub fn as_bytes(values: &[Self]) -> &[u8] {
@@ -62,6 +72,13 @@ mod test {
         }
     }
 
+    impl_vertex! {
+        Vertex2 {
+            position => [Position; Float; 2; false],
+            color => [Color0; UByte; 4; true],
+            texcoord => [Texcoord0; Byte; 2; false],
+        }
+    }
 
     fn as_bytes<T>(values: &[T]) -> &[u8]
         where T: Copy
@@ -88,5 +105,16 @@ mod test {
         assert_eq!(bytes,
                    Vertex::as_bytes(&[Vertex::new([1.0, 1.0, 1.0], [0.0, 0.0]),
                                       Vertex::new([2.0, 2.0, 2.0], [3.0, 3.0])]));
+    }
+
+    #[test]
+    fn representation() {
+        let layout = Vertex::layout();
+        assert_eq!(layout.stride() as usize, ::std::mem::size_of::<Vertex>());
+
+        let layout = Vertex2::layout();
+        let _v = Vertex2::new([1.0, 1.0], [0, 0, 0, 0], [0, 0]);
+        let _b = Vertex2::as_bytes(&[]);
+        assert_eq!(layout.stride() as usize, ::std::mem::size_of::<Vertex2>());
     }
 }

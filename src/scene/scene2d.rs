@@ -3,6 +3,7 @@ use ecs;
 use graphics;
 use math;
 use math::EuclideanSpace;
+use resource;
 
 use super::errors::*;
 use super::transform::Transform;
@@ -14,6 +15,7 @@ impl_vertex! {
     Vertex {
         position => [Position; Float; 2; false],
         color => [Color0; UByte; 4; true],
+        texcoord => [Texcoord0; UByte; 2; true],
     }
 }
 
@@ -29,24 +31,32 @@ pub struct Scene2d {
 
 impl Scene2d {
     pub fn new(application: &mut Application) -> Result<Self> {
+        let attributes = [graphics::VertexAttributeDesc {
+                              name: graphics::VertexAttribute::Position,
+                              format: graphics::VertexFormat::Float,
+                              size: 2,
+                              normalized: false,
+                          },
+                          graphics::VertexAttributeDesc {
+                              name: graphics::VertexAttribute::Color0,
+                              format: graphics::VertexFormat::UByte,
+                              size: 4,
+                              normalized: true,
+                          },
+                          graphics::VertexAttributeDesc {
+                              name: graphics::VertexAttribute::Texcoord0,
+                              format: graphics::VertexFormat::UByte,
+                              size: 2,
+                              normalized: true,
+                          }];
+
         let view = application.graphics.create_view(None)?;
         let state = graphics::RenderState::default();
         let pso = application.graphics
             .create_pipeline(include_str!("../../resources/shaders/scene2d.vs"),
                              include_str!("../../resources/shaders/scene2d.fs"),
                              &state,
-                             &[graphics::VertexAttributeDesc {
-                                   name: graphics::VertexAttribute::Position,
-                                   format: graphics::VertexFormat::Float,
-                                   size: 2,
-                                   normalized: false,
-                               },
-                               graphics::VertexAttributeDesc {
-                                   name: graphics::VertexAttribute::Color0,
-                                   format: graphics::VertexFormat::UByte,
-                                   size: 4,
-                                   normalized: true,
-                               }])?;
+                             &attributes)?;
 
         let mut world = ecs::World::new();
         world.register::<Transform>();
@@ -82,7 +92,7 @@ impl Scene2d {
     pub fn run_one_frame(&mut self, mut application: &mut Application) -> Result<()> {
         let (view_mat, proj_mat) = if let Some(id) = self.camera {
             let view_mat = {
-                let arena = self.world.arena_mut::<Transform>().unwrap();
+                let arena = self.world.arena::<Transform>().unwrap();
                 let dir = math::Vector3::new(0.0, 0.0, 1.0);
                 let forward = Transform::transform_point(&arena, id, dir)?;
                 let center = Transform::world_position(&arena, id)?;
@@ -99,32 +109,29 @@ impl Scene2d {
             bail!(ErrorKind::CanNotDrawWithoutCamera);
         };
 
-        let view = self.world.view_with_r3::<Transform, Rect, Sprite>();
-        for v in view.into_iter() {
-            let disp = v.readables.0.position();
+        let mut main_texture = None;
+        let (view, arenas) = self.world.view_with_3::<Transform, Rect, Sprite>();
+        for v in view {
+            let coners = Rect::world_corners(&arenas.0, &arenas.1, v).unwrap();
+            let sprite = arenas.2.get(*v).unwrap();
+            let color = sprite.color().into();
 
-            self.vertices.push(Vertex {
-                position: [disp[0] - 5., disp[1] + 5.],
-                color: v.readables.2.color().into(),
-            });
+            self.vertices.push(Vertex::new(coners[0].into(), color, [0, 0]));
+            self.vertices.push(Vertex::new(coners[3].into(), color, [0, 255]));
+            self.vertices.push(Vertex::new(coners[2].into(), color, [255, 255]));
+            self.vertices.push(Vertex::new(coners[0].into(), color, [0, 0]));
+            self.vertices.push(Vertex::new(coners[2].into(), color, [255, 255]));
+            self.vertices.push(Vertex::new(coners[1].into(), color, [255, 0]));
 
-            self.vertices.push(Vertex {
-                position: [disp[0] + 5., disp[1] + 5.],
-                color: v.readables.2.color().into(),
-            });
-
-            self.vertices.push(Vertex {
-                position: [disp[0] - 5., disp[1] - 5.],
-                color: v.readables.2.color().into(),
-            });
-
-            if self.vertices.len() >= MAX_BATCH_VERTICES {
-                self.consume_vertices(&mut application, &view_mat, &proj_mat)?;
+            let texture = sprite.texture();
+            if main_texture != texture || self.vertices.len() >= MAX_BATCH_VERTICES {
+                main_texture = texture;
+                self.consume_vertices(&mut application, &view_mat, &proj_mat, texture)?;
                 self.vertices.clear();
             }
         }
 
-        self.consume_vertices(&mut application, &view_mat, &proj_mat)?;
+        self.consume_vertices(&mut application, &view_mat, &proj_mat, main_texture)?;
         self.vertices.clear();
         Ok(())
     }
@@ -132,12 +139,12 @@ impl Scene2d {
     fn consume_vertices(&self,
                         mut application: &mut Application,
                         view_mat: &math::Matrix4<f32>,
-                        proj_mat: &math::Matrix4<f32>)
+                        proj_mat: &math::Matrix4<f32>,
+                        texture: Option<resource::ResourceHandle>)
                         -> Result<()> {
 
         let uniforms = [("u_View", graphics::UniformVariable::Matrix4f(*view_mat.as_ref(), true)),
-                        ("u_Projection",
-                         graphics::UniformVariable::Matrix4f(*proj_mat.as_ref(), true))];
+                        ("u_Proj", graphics::UniformVariable::Matrix4f(*proj_mat.as_ref(), true))];
 
         let layout = Vertex::layout();
         let vbo = application.graphics
@@ -145,17 +152,35 @@ impl Scene2d {
                                   graphics::ResourceHint::Dynamic,
                                   (self.vertices.len() * layout.stride() as usize) as u32,
                                   Some(Vertex::as_bytes(self.vertices.as_slice())))?;
-        application.graphics
-            .draw(0,
-                  self.view,
-                  self.pso,
-                  &[],
-                  &uniforms,
-                  vbo,
-                  None,
-                  graphics::Primitive::Triangles,
-                  0,
-                  self.vertices.len() as u32)?;
+
+        if let Some(texture) =
+               texture.and_then(|v| application.resource.get::<resource::Texture>(v))
+            .and_then(|v| v.video_object()) {
+            application.graphics
+                .draw(0,
+                      self.view,
+                      self.pso,
+                      &[("u_MainTex", texture)],
+                      &uniforms,
+                      vbo,
+                      None,
+                      graphics::Primitive::Triangles,
+                      0,
+                      self.vertices.len() as u32)?;
+        } else {
+            application.graphics
+                .draw(0,
+                      self.view,
+                      self.pso,
+                      &[],
+                      &uniforms,
+                      vbo,
+                      None,
+                      graphics::Primitive::Triangles,
+                      0,
+                      self.vertices.len() as u32)?;
+
+        }
 
         application.graphics.delete_vertex_buffer(vbo)?;
         Ok(())

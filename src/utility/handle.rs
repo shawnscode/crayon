@@ -1,4 +1,5 @@
 use std::ops::Deref;
+use std::borrow::Borrow;
 
 /// `HandleIndex` type is arbitrary. Keeping it 32-bits allows for
 /// a single 64-bits word per `Handle`.
@@ -68,6 +69,18 @@ impl Deref for Handle {
     }
 }
 
+impl Borrow<HandleIndex> for Handle {
+    fn borrow(&self) -> &HandleIndex {
+        &self.index
+    }
+}
+
+impl<'a> Borrow<HandleIndex> for &'a Handle {
+    fn borrow(&self) -> &HandleIndex {
+        &self.index
+    }
+}
+
 macro_rules! impl_handle {
     ($name: ident) => (
         #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -80,14 +93,14 @@ macro_rules! impl_handle {
             }
         }
 
-        impl ::std::ops::Deref for $name {
+        impl $crate::std::ops::Deref for $name {
             type Target = Handle;
             fn deref(&self) -> &Handle {
                 &self.0
             }
         }
 
-        impl ::std::borrow::Borrow<Handle> for $name {
+        impl $crate::std::borrow::Borrow<Handle> for $name {
             fn borrow(&self) -> &Handle {
                 &self.0
             }
