@@ -156,26 +156,19 @@ impl Graphics {
                            vs: &str,
                            fs: &str,
                            state: &RenderState,
-                           attributes: &[VertexAttributeDesc])
+                           attributes: &AttributeLayout)
                            -> Result<PipelineHandle> {
         let mut frame = self.frames.front();
         let handle = self.pipelines.create().into();
 
         let vs = frame.buf.extend_from_str(vs);
         let fs = frame.buf.extend_from_str(fs);
-        let attributes = {
-            let mut descs = [VertexAttributeDesc::default(); MAX_ATTRIBUTES];
-            for (i, v) in attributes.iter().enumerate() {
-                descs[i] = *v;
-            }
-            (attributes.len() as u8, descs)
-        };
 
         let ptr = frame.buf.extend(&PipelineDesc {
             vs: vs,
             fs: fs,
             state: *state,
-            attributes: attributes,
+            attributes: *attributes,
         });
 
         frame.pre.push(PreFrameTask::CreatePipeline(handle, ptr));

@@ -96,6 +96,81 @@ impl Default for VertexAttributeDesc {
     }
 }
 
+// AttributeLayout defines an layout of attributes into program.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct AttributeLayout {
+    len: u8,
+    elements: [(VertexAttribute, u8); MAX_ATTRIBUTES],
+}
+
+impl Default for AttributeLayout {
+    fn default() -> Self {
+        AttributeLayout {
+            len: 0,
+            elements: [(VertexAttribute::Position, 0); MAX_ATTRIBUTES],
+        }
+    }
+}
+
+impl AttributeLayout {
+    pub fn iter(&self) -> AttributeLayoutIter {
+        AttributeLayoutIter {
+            pos: 0,
+            layout: &self,
+        }
+    }
+}
+
+pub struct AttributeLayoutIter<'a> {
+    pos: u8,
+    layout: &'a AttributeLayout,
+}
+
+impl<'a> Iterator for AttributeLayoutIter<'a> {
+    type Item = (VertexAttribute, u8);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos >= self.layout.len {
+            None
+        } else {
+            self.pos += 1;
+            Some(self.layout.elements[self.pos as usize - 1])
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct AttributeLayoutBuilder(AttributeLayout);
+
+impl AttributeLayoutBuilder {
+    #[inline]
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn with(&mut self, attribute: VertexAttribute, size: u8) -> &mut Self {
+        assert!(size > 0 && size <= 4);
+
+        for i in 0..self.0.len {
+            let i = i as usize;
+            if self.0.elements[i].0 == attribute {
+                self.0.elements[i] = (attribute, size);
+                return self;
+            }
+        }
+
+        assert!((self.0.len as usize) < MAX_ATTRIBUTES);
+        self.0.len += 1;
+        self
+    }
+
+    #[inline]
+    pub fn finish(&mut self) -> AttributeLayout {
+        self.0
+    }
+}
+
+
 // VertexLayout defines an layout of vertex structure.
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub struct VertexLayout {

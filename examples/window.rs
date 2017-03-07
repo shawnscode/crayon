@@ -62,13 +62,8 @@ fn main() {
                                               Vertex::new([1.0, -1.0]),
                                               Vertex::new([1.0, 1.0])];
 
-            let mut attributes = vec![];
-            attributes.push(VertexAttributeDesc {
-                name: VertexAttribute::Position,
-                format: VertexFormat::Float,
-                size: 2,
-                normalized: false,
-            });
+            let attributes =
+                AttributeLayoutBuilder::new().with(VertexAttribute::Position, 2).finish();
 
             let layout = Vertex::layout();
 
@@ -91,8 +86,7 @@ fn main() {
                                     None)
                 .unwrap();
             view_fb = app.graphics.create_view(Some(fbo)).unwrap();
-            pipeline_fb =
-                app.graphics.create_pipeline(VS, FS, &state, attributes.as_slice()).unwrap();
+            pipeline_fb = app.graphics.create_pipeline(VS, FS, &state, &attributes).unwrap();
 
             vbo = app.graphics
                 .create_vertex_buffer(&layout,
@@ -101,8 +95,7 @@ fn main() {
                                       Some(Vertex::as_bytes(&quad_vertices[..])))
                 .unwrap();
             view = app.graphics.create_view(None).unwrap();
-            pipeline =
-                app.graphics.create_pipeline(VS_2, FS_2, &state, attributes.as_slice()).unwrap();
+            pipeline = app.graphics.create_pipeline(VS_2, FS_2, &state, &attributes).unwrap();
         })
         .run(move |app| {
             let mut uniforms = vec![];

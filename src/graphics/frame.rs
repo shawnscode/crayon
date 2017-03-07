@@ -5,7 +5,7 @@ use std::slice;
 use std::mem;
 
 use super::*;
-use super::resource::{ResourceHint, IndexFormat, VertexLayout, VertexAttributeDesc, FrameBufferAttachment, MAX_ATTRIBUTES};
+use super::resource::{ResourceHint, IndexFormat, VertexLayout, AttributeLayout, FrameBufferAttachment};
 use super::pipeline::{UniformVariable, Primitive};
 use super::backend::Context;
 
@@ -74,7 +74,7 @@ pub struct PipelineDesc {
     pub vs: TaskBufferPtr<str>,
     pub fs: TaskBufferPtr<str>,
     pub state: RenderState,
-    pub attributes: (u8, [VertexAttributeDesc; MAX_ATTRIBUTES]),
+    pub attributes: AttributeLayout,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -173,7 +173,7 @@ impl Frame {
                 }
                 PreFrameTask::CreatePipeline(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
-                    device.create_pipeline(handle, &desc.state, self.buf.as_str(desc.vs), self.buf.as_str(desc.fs), desc.attributes)?;
+                    device.create_pipeline(handle, &desc.state, self.buf.as_str(desc.vs), self.buf.as_str(desc.fs), &desc.attributes)?;
                 },
                 PreFrameTask::UpdatePipelineState(handle, state) => {
                     let state = &self.buf.as_ref(state);

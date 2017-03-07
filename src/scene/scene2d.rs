@@ -31,24 +31,11 @@ pub struct Scene2d {
 
 impl Scene2d {
     pub fn new(application: &mut Application) -> Result<Self> {
-        let attributes = [graphics::VertexAttributeDesc {
-                              name: graphics::VertexAttribute::Position,
-                              format: graphics::VertexFormat::Float,
-                              size: 2,
-                              normalized: false,
-                          },
-                          graphics::VertexAttributeDesc {
-                              name: graphics::VertexAttribute::Color0,
-                              format: graphics::VertexFormat::UByte,
-                              size: 4,
-                              normalized: true,
-                          },
-                          graphics::VertexAttributeDesc {
-                              name: graphics::VertexAttribute::Texcoord0,
-                              format: graphics::VertexFormat::UByte,
-                              size: 2,
-                              normalized: true,
-                          }];
+        let attributes = graphics::AttributeLayoutBuilder::new()
+            .with(graphics::VertexAttribute::Position, 2)
+            .with(graphics::VertexAttribute::Color0, 4)
+            .with(graphics::VertexAttribute::Texcoord0, 2)
+            .finish();
 
         let view = application.graphics.create_view(None)?;
         let state = graphics::RenderState::default();

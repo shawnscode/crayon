@@ -37,7 +37,7 @@ struct GLIndexBuffer {
 struct GLPipeline {
     id: ResourceID,
     state: RenderState,
-    attributes: Vec<(GLint, VertexAttributeDesc)>,
+    attributes: AttributeLayout,
     uniforms: HashMap<String, UniformVariable>,
 }
 
@@ -738,27 +738,26 @@ impl Device {
                                   state: &RenderState,
                                   vs_src: &str,
                                   fs_src: &str,
-                                  attributes: (u8, [VertexAttributeDesc; MAX_ATTRIBUTES]))
+                                  attributes: &AttributeLayout)
                                   -> Result<()> {
-        let mut pipeline = GLPipeline {
-            id: self.visitor.create_program(vs_src, fs_src)?,
-            state: *state,
-            attributes: Vec::new(),
-            uniforms: HashMap::new(),
-        };
 
-        for i in 0..attributes.0 {
-            let i = i as usize;
-            let name: &'static str = attributes.1[i].name.into();
-            let location = self.visitor.get_attribute_location(pipeline.id, name)?;
+        let pid = self.visitor.create_program(vs_src, fs_src)?;
+
+        for (name, _) in attributes.iter() {
+            let name: &'static str = name.into();
+            let location = self.visitor.get_attribute_location(pid, name)?;
             if location == -1 {
                 bail!(format!("failed to locate attribute {:?}", name));
             }
-
-            pipeline.attributes.push((location, attributes.1[i]));
         }
 
-        self.pipelines.set(handle, pipeline);
+        self.pipelines.set(handle,
+                           GLPipeline {
+                               id: pid,
+                               state: *state,
+                               attributes: *attributes,
+                               uniforms: HashMap::new(),
+                           });
         check()
     }
 

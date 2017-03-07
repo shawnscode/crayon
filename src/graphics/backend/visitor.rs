@@ -85,7 +85,7 @@ impl OpenGLVisitor {
     }
 
     pub unsafe fn bind_attribute_layout(&self,
-                                        attributes: &[(GLint, VertexAttributeDesc)],
+                                        attributes: &AttributeLayout,
                                         layout: &VertexLayout)
                                         -> Result<()> {
         let pid = self.active_program.get().ok_or(ErrorKind::InvalidHandle)?;
@@ -109,16 +109,16 @@ impl OpenGLVisitor {
         gl::BindVertexArray(vao);
         self.active_vao.set(Some(vao));
 
-        for &(location, desc) in attributes {
-            if let Some(element) = layout.element(desc.name) {
-                if element.format != desc.format || element.size != desc.size {
-                    let name: &'static str = desc.name.into();
+        for (name, size) in attributes.iter() {
+            if let Some(element) = layout.element(name) {
+                if element.size != size {
                     bail!(format!("vertex buffer has incompatible attribute {:?}.", name));
                 }
 
-                let offset = layout.offset(desc.name)
+                let offset = layout.offset(name)
                     .unwrap() as *const u8 as *const c_void;
 
+                let location = self.get_uniform_location(pid, name.into())?;
                 gl::EnableVertexAttribArray(location as GLuint);
                 gl::VertexAttribPointer(location as GLuint,
                                         element.size as GLsizei,
@@ -127,7 +127,6 @@ impl OpenGLVisitor {
                                         layout.stride() as GLsizei,
                                         offset);
             } else {
-                let name: &'static str = desc.name.into();
                 bail!(format!("can't find attribute {:?} description in vertex buffer.",
                               name));
             }
