@@ -31,7 +31,7 @@ pub mod component;
 pub mod world;
 
 pub use self::component::{Component, ComponentStorage, HashMapStorage, VecStorage};
-pub use self::world::{World, ArenaGetter, ArenaGetterMut};
+pub use self::world::{World, ArenaGetter};
 
 pub type Entity = Handle;
 
@@ -216,54 +216,38 @@ mod test {
         }
 
         {
-            let mut iterator = world.view_with_r2::<Position, Reference>().into_iter();
-            for e in &v {
-                let i = iterator.next().unwrap();
+            let (view, arenas) = world.view_with_2::<Position, Reference>();
+            for e in view {
                 let p = Position {
                     x: e.index(),
                     y: e.version(),
                 };
-                assert_eq!(i.entity, *e);
-                assert_eq!(*i.readables.0, p);
+
+                assert_eq!(*arenas.0.get(e).unwrap(), p);
             }
         }
 
         {
-            let mut iterator = world.view_with_w2::<Position, Reference>().into_iter();
-            for e in &v {
-                let i = iterator.next().unwrap();
-                i.writables.0.x += e.version();
-                *i.writables.1.value.write().unwrap() += 1;
+            let (view, mut arenas) = world.view_with_2::<Position, Reference>();
+            for e in view {
+                arenas.0.get_mut(e).unwrap().x += e.version();
+                *arenas.1.get_mut(e).unwrap().value.write().unwrap() += 1;
             }
         }
 
         {
-            let mut iterator = world.view_with_r2::<Position, Reference>().into_iter();
-            let mut _iterator = world.view_with_r2::<Position, Reference>().into_iter();
-            for e in &v {
-                let i = iterator.next().unwrap();
-                let p = Position {
-                    x: e.index() + e.version(),
-                    y: e.version(),
-                };
-                assert_eq!(i.entity, *e);
-                assert_eq!(*i.readables.0, p);
-                assert_eq!(*i.readables.1.value.read().unwrap(), 1);
-            }
-        }
-
-
-        {
-            let mut iterator = world.view_with_r1w1::<Position, Reference>().into_iter();
+            let (view, arenas) = world.view_with_2::<Position, Reference>();
+            let mut iterator = view.into_iter();
             for e in &v {
                 let i = iterator.next().unwrap();
                 let p = Position {
                     x: e.index() + e.version(),
                     y: e.version(),
                 };
-                assert_eq!(i.entity, *e);
-                assert_eq!(*i.readables, p);
-                assert_eq!(*i.writables.value.read().unwrap(), 1);
+
+                assert_eq!(i, *e);
+                assert_eq!(*arenas.0.get(e).unwrap(), p);
+                assert_eq!(*arenas.1.get(e).unwrap().value.read().unwrap(), 1);
             }
         }
     }
@@ -274,18 +258,8 @@ mod test {
         let mut world = World::new();
         world.register::<Position>();
 
-        let _i1 = world.view_with_r1::<Position>();
-        world.view_with_w1::<Position>();
-    }
-
-    #[test]
-    #[should_panic]
-    fn invalid_view_mut() {
-        let mut world = World::new();
-        world.register::<Position>();
-
-        let _i1 = world.view_with_w1::<Position>();
-        world.view_with_w1::<Position>();
+        let _i1 = world.view_with::<Position>();
+        world.view_with::<Position>();
     }
 
     #[test]

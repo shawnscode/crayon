@@ -22,7 +22,7 @@ declare_component!(Velocity, VecStorage);
 
 #[test]
 fn iterate() {
-    let master = ThreadPool::new(4);
+    // let master = ThreadPool::new(4);
     let mut world = World::new();
     world.register::<Position>();
     world.register::<Velocity>();
@@ -40,10 +40,10 @@ fn iterate() {
         }
     }
 
-    world.view_with_r1w1::<Velocity, Position>().for_each(&master,
-                                                          100,
-                                                          &|item| {
-                                                              item.writables.x += item.readables.x;
-                                                              item.writables.y += item.readables.y;
-                                                          });
+    // world.view_with_r1w1::<Velocity, Position>().for_each(&master,
+    //                                                       100,
+    //                                                       &|item| {
+    //                                                           item.writables.x += item.readables.x;
+    //                                                           item.writables.y += item.readables.y;
+    //                                                       });
 }

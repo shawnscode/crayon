@@ -21,7 +21,7 @@ pub fn space() {
     let e4 = world.build().with_default::<Transform>().finish();
 
     {
-        let mut arena = world.arena_mut::<Transform>().unwrap();
+        let mut arena = world.arena::<Transform>().unwrap();
         Transform::set_parent(&mut arena, e4, Some(e3), false).unwrap();
         Transform::set_parent(&mut arena, e3, Some(e1), false).unwrap();
         Transform::set_parent(&mut arena, e2, Some(e1), false).unwrap();
@@ -72,7 +72,7 @@ pub fn hierachy() {
     let e4 = world.build().with_default::<Transform>().finish();
 
     {
-        let mut arena = world.arena_mut::<Transform>().unwrap();
+        let mut arena = world.arena::<Transform>().unwrap();
         Transform::set_parent(&mut arena, e4, Some(e3), false).unwrap();
         Transform::set_parent(&mut arena, e3, Some(e1), false).unwrap();
         Transform::set_parent(&mut arena, e2, Some(e1), false).unwrap();
@@ -120,7 +120,7 @@ fn iteration() {
     let e6 = world.build().with_default::<Transform>().finish();
     // e1 <- (e2, e3 <- e4 <- (e5, e6))
 
-    let mut arena = world.arena_mut::<Transform>().unwrap();
+    let mut arena = world.arena::<Transform>().unwrap();
     Transform::set_parent(&mut arena, e4, Some(e3), false).unwrap();
     Transform::set_parent(&mut arena, e3, Some(e1), false).unwrap();
     Transform::set_parent(&mut arena, e2, Some(e1), false).unwrap();
@@ -153,7 +153,7 @@ fn random_iteration() {
     let mut constructed = vec![];
     constructed.push(transforms.pop().unwrap());
 
-    let mut arena = world.arena_mut::<Transform>().unwrap();
+    let mut arena = world.arena::<Transform>().unwrap();
     let mut count = 0;
     for i in 0..254 {
         let idx = generator.next_u32() as usize % transforms.len();
