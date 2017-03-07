@@ -262,6 +262,27 @@ impl Graphics {
         Ok(handle)
     }
 
+    /// Update framebuffer's clear option.
+    pub fn update_framebuffer_clear(&mut self,
+                                    handle: FrameBufferHandle,
+                                    clear_color: Option<Color>,
+                                    clear_depth: Option<f32>,
+                                    clear_stencil: Option<i32>)
+                                    -> Result<()> {
+        if self.framebuffers.is_alive(handle) {
+            let mut frame = self.frames.front();
+            let ptr = frame.buf.extend(&FrameBufferDesc {
+                clear_color: clear_color.map(|v| v.into()),
+                clear_depth: clear_depth,
+                clear_stencil: clear_stencil,
+            });
+            frame.pre.push(PreFrameTask::UpdateFrameBufferClear(handle, ptr));
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
     /// Update framebuffer's color attachment.
     pub fn update_framebuffer_color_attachment(&mut self,
                                                handle: FrameBufferHandle,
@@ -370,7 +391,7 @@ impl Graphics {
 
     /// Delete named vertex buffer.
     pub fn delete_vertex_buffer(&mut self, handle: VertexBufferHandle) -> Result<()> {
-        if self.pipelines.free(handle) {
+        if self.vertex_buffers.free(handle) {
             let mut frame = self.frames.front();
             frame.post.push(PostFrameTask::DeleteVertexBuffer(handle));
             Ok(())

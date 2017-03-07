@@ -136,6 +136,14 @@ impl Engine {
             (1000000000.0 / self.timestep.subsec_nanos() as f64) as u32
         }
     }
+
+    /// Returns timestep of last frame.
+    #[inline]
+    pub fn timestep_in_seconds(&self) -> f32 {
+        let sec = self.timestep.as_secs();
+        let nansec = self.timestep.subsec_nanos() as u64;
+        (sec + nansec) as f32 / (1000.0 * 1000.0 * 1000.0)
+    }
 }
 
 #[cfg(test)]

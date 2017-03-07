@@ -150,6 +150,54 @@ impl VertexLayout {
 }
 
 #[derive(Default)]
+pub struct CustomVertexLayoutBuilder(VertexLayout);
+
+impl CustomVertexLayoutBuilder {
+    #[inline]
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn with(&mut self,
+                attribute: VertexAttribute,
+                format: VertexFormat,
+                size: u8,
+                normalized: bool,
+                offset_of_field: u8)
+                -> &mut Self {
+        assert!(size > 0 && size <= 4);
+
+        let desc = VertexAttributeDesc {
+            name: attribute,
+            format: format,
+            size: size,
+            normalized: normalized,
+        };
+
+        for i in 0..self.0.len {
+            let i = i as usize;
+            if self.0.elements[i].name == attribute {
+                self.0.elements[i] = desc;
+                return self;
+            }
+        }
+
+        assert!((self.0.len as usize) < MAX_ATTRIBUTES);
+        self.0.offset[self.0.len as usize] = offset_of_field;
+        self.0.elements[self.0.len as usize] = desc;
+        self.0.len += 1;
+
+        self
+    }
+
+    #[inline]
+    pub fn finish(&mut self, stride: u8) -> VertexLayout {
+        self.0.stride = stride;
+        self.0
+    }
+}
+
+#[derive(Default)]
 pub struct VertexLayoutBuilder(VertexLayout);
 
 impl VertexLayoutBuilder {

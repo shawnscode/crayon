@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::borrow::Borrow;
 use std::cell::{Ref, RefMut, RefCell};
 use bit_set::BitSet;
 
@@ -179,21 +180,7 @@ impl World {
         if let Some(element) = self.storages.get(T::type_index()) {
             if let Some(ref s) = *element {
                 let v = s.downcast_ref::<RefCell<T::Storage>>().unwrap();
-                return Some(ArenaGetter { storage: v.borrow() });
-            }
-        }
-
-        None
-    }
-
-    #[inline]
-    pub fn arena_mut<T>(&self) -> Option<ArenaGetterMut<T>>
-        where T: Component
-    {
-        if let Some(element) = self.storages.get(T::type_index()) {
-            if let Some(ref s) = *element {
-                let v = s.downcast_ref::<RefCell<T::Storage>>().unwrap();
-                return Some(ArenaGetterMut { storage: v.borrow_mut() });
+                return Some(ArenaGetter { storage: v.borrow_mut() });
             }
         }
 
@@ -215,12 +202,6 @@ impl World {
 pub struct ArenaGetter<'a, T>
     where T: Component
 {
-    storage: Ref<'a, T::Storage>,
-}
-
-pub struct ArenaGetterMut<'a, T>
-    where T: Component
-{
     storage: RefMut<'a, T::Storage>,
 }
 
@@ -228,37 +209,31 @@ impl<'a, T> ArenaGetter<'a, T>
     where T: Component
 {
     #[inline]
-    pub fn get(&self, index: HandleIndex) -> Option<&T> {
-        self.storage.get(index)
+    pub fn get<U>(&self, index: U) -> Option<&T>
+        where U: Borrow<HandleIndex>
+    {
+        self.storage.get(*index.borrow())
     }
 
     #[inline]
-    pub unsafe fn get_unchecked(&self, index: HandleIndex) -> &T {
-        self.storage.get_unchecked(index)
-    }
-}
-
-impl<'a, T> ArenaGetterMut<'a, T>
-    where T: Component
-{
-    #[inline]
-    pub fn get(&self, index: HandleIndex) -> Option<&T> {
-        self.storage.get(index)
+    pub unsafe fn get_unchecked<U>(&self, index: U) -> &T
+        where U: Borrow<HandleIndex>
+    {
+        self.storage.get_unchecked(*index.borrow())
     }
 
     #[inline]
-    pub unsafe fn get_unchecked(&self, index: HandleIndex) -> &T {
-        self.storage.get_unchecked(index)
+    pub fn get_mut<U>(&mut self, index: U) -> Option<&mut T>
+        where U: Borrow<HandleIndex>
+    {
+        self.storage.get_mut(*index.borrow())
     }
 
     #[inline]
-    pub fn get_mut(&mut self, index: HandleIndex) -> Option<&mut T> {
-        self.storage.get_mut(index)
-    }
-
-    #[inline]
-    pub unsafe fn get_unchecked_mut(&mut self, index: HandleIndex) -> &mut T {
-        self.storage.get_unchecked_mut(index)
+    pub unsafe fn get_unchecked_mut<U>(&mut self, index: U) -> &mut T
+        where U: Borrow<HandleIndex>
+    {
+        self.storage.get_unchecked_mut(*index.borrow())
     }
 }
 
@@ -297,32 +272,14 @@ impl World {
     }
 }
 
-build_view_with!(view_with_r1; RTuple1[T1]; Tuple0[]; [T1]);
-build_view_with!(view_with_r2; RTuple2[T1, T2]; Tuple0[]; [T1, T2]);
-build_view_with!(view_with_r3; RTuple3[T1, T2, T3]; Tuple0[]; [T1, T2, T3]);
-build_view_with!(view_with_r4; RTuple4[T1, T2, T3, T4]; Tuple0[]; [T1, T2, T3, T4]);
-
-build_view_with!(view_with_w1; Tuple0[]; WTuple1[T1]; [T1]);
-build_view_with!(view_with_w2; Tuple0[]; WTuple2[T1, T2]; [T1, T2]);
-build_view_with!(view_with_w3; Tuple0[]; WTuple3[T1, T2, T3]; [T1, T2, T3]);
-build_view_with!(view_with_w4; Tuple0[]; WTuple4[T1, T2, T3, T4]; [T1, T2, T3, T4]);
-
-build_view_with!(view_with_r1w1; RTuple1[T1]; WTuple1[T2]; [T1, T2]);
-build_view_with!(view_with_r1w2; RTuple1[T1]; WTuple2[T2, T3]; [T1, T2, T3]);
-build_view_with!(view_with_r1w3; RTuple1[T1]; WTuple3[T2, T3, T4]; [T1, T2, T3, T4]);
-build_view_with!(view_with_r1w4; RTuple1[T1]; WTuple4[T2, T3, T4, T5]; [T1, T2, T3, T4, T5]);
-build_view_with!(view_with_r2w1; RTuple2[T1, T2]; WTuple1[T3]; [T1, T2, T3]);
-build_view_with!(view_with_r2w2; RTuple2[T1, T2]; WTuple2[T3, T4]; [T1, T2, T3, T4]);
-build_view_with!(view_with_r2w3; RTuple2[T1, T2]; WTuple3[T3, T4, T5]; [T1, T2, T3, T4, T5]);
-build_view_with!(view_with_r2w4; RTuple2[T1, T2]; WTuple4[T3, T4, T5, T6]; [T1, T2, T3, T4, T5, T6]);
-build_view_with!(view_with_r3w1; RTuple3[T1, T2, T3]; WTuple1[T4]; [T1, T2, T3, T4]);
-build_view_with!(view_with_r3w2; RTuple3[T1, T2, T3]; WTuple2[T4, T5]; [T1, T2, T3, T4, T5]);
-build_view_with!(view_with_r3w3; RTuple3[T1, T2, T3]; WTuple3[T4, T5, T6]; [T1, T2, T3, T4, T5, T6]);
-build_view_with!(view_with_r3w4; RTuple3[T1, T2, T3]; WTuple4[T4, T5, T6, T7]; [T1, T2, T3, T4, T5, T6, T7]);
-build_view_with!(view_with_r4w1; RTuple4[T1, T2, T3, T4]; WTuple1[T5]; [T1, T2, T3, T4, T5]);
-build_view_with!(view_with_r4w2; RTuple4[T1, T2, T3, T4]; WTuple2[T5, T6]; [T1, T2, T3, T4, T5, T6]);
-build_view_with!(view_with_r4w3; RTuple4[T1, T2, T3, T4]; WTuple3[T5, T6, T7]; [T1, T2, T3, T4, T5, T6, T7]);
-build_view_with!(view_with_r4w4; RTuple4[T1, T2, T3, T4]; WTuple4[T5, T6, T7, T8]; [T1, T2, T3, T4, T5, T6, T7, T8]);
+build_view_with!(view_with[T1]);
+build_view_with!(view_with_2[T1, T2]);
+build_view_with!(view_with_3[T1, T2, T3]);
+build_view_with!(view_with_4[T1, T2, T3, T4]);
+build_view_with!(view_with_5[T1, T2, T3, T4, T5]);
+build_view_with!(view_with_6[T1, T2, T3, T4, T5, T6]);
+build_view_with!(view_with_7[T1, T2, T3, T4, T5, T6, T7]);
+build_view_with!(view_with_8[T1, T2, T3, T4, T5, T6, T7, T8]);
 
 #[cfg(test)]
 mod test {

@@ -1,6 +1,7 @@
 use math;
 use math::{One, Rotation, Transform as Trans};
-use ecs::{Entity, VecStorage, ArenaGetterMut};
+use ecs::{Entity, VecStorage, ArenaGetter};
+use std::borrow::Borrow;
 
 use super::errors::*;
 
@@ -53,8 +54,17 @@ impl Transform {
     }
 
     #[inline]
-    pub fn set_position(&mut self, position: math::Vector3<f32>) {
-        self.decomposed.disp = position;
+    pub fn set_position<T>(&mut self, position: T)
+        where T: Borrow<math::Vector3<f32>>
+    {
+        self.decomposed.disp = *position.borrow();
+    }
+
+    #[inline]
+    pub fn translate<T>(&mut self, disp: T)
+        where T: Borrow<math::Vector3<f32>>
+    {
+        self.decomposed.disp += *disp.borrow();
     }
 
     #[inline]
@@ -63,8 +73,10 @@ impl Transform {
     }
 
     #[inline]
-    pub fn set_rotation(&mut self, rotation: math::Quaternion<f32>) {
-        self.decomposed.rot = rotation;
+    pub fn set_rotation<T>(&mut self, rotation: T)
+        where T: Borrow<math::Quaternion<f32>>
+    {
+        self.decomposed.rot = *rotation.borrow();
     }
 
     #[inline]
@@ -91,7 +103,7 @@ impl Transform {
     /// If `keep_world_pose` is true, the parent-relative position, scale and rotation is
     /// modified such that the object keeps the same world space position, rotation and
     /// scale as before.
-    pub fn set_parent(mut arena: &mut ArenaGetterMut<Transform>,
+    pub fn set_parent(mut arena: &mut ArenaGetter<Transform>,
                       child: Entity,
                       parent: Option<Entity>,
                       keep_world_pose: bool)
@@ -133,7 +145,7 @@ impl Transform {
     }
 
     /// Detach a transform from its parent and siblings. Children are not affected.
-    pub fn remove_from_parent(arena: &mut ArenaGetterMut<Transform>, handle: Entity) -> Result<()> {
+    pub fn remove_from_parent(arena: &mut ArenaGetter<Transform>, handle: Entity) -> Result<()> {
         unsafe {
             let (parent, next_sib, prev_sib) = {
                 if let Some(node) = arena.get_mut(*handle) {
@@ -159,7 +171,7 @@ impl Transform {
     }
 
     /// Return an iterator of references to its ancestors.
-    pub fn ancestors<'a, 'b>(arena: &'a ArenaGetterMut<'b, Transform>,
+    pub fn ancestors<'a, 'b>(arena: &'a ArenaGetter<'b, Transform>,
                              handle: Entity)
                              -> Ancestors<'a, 'b>
         where 'a: 'b
@@ -171,7 +183,7 @@ impl Transform {
     }
 
     /// Returns an iterator of references to this transform's children.
-    pub fn children<'a, 'b>(arena: &'a ArenaGetterMut<'b, Transform>,
+    pub fn children<'a, 'b>(arena: &'a ArenaGetter<'b, Transform>,
                             handle: Entity)
                             -> Children<'a, 'b>
         where 'a: 'b
@@ -183,7 +195,7 @@ impl Transform {
     }
 
     /// Returns an iterator of references to this transform's descendants in tree order.
-    pub fn descendants<'a, 'b>(arena: &'a ArenaGetterMut<'b, Transform>,
+    pub fn descendants<'a, 'b>(arena: &'a ArenaGetter<'b, Transform>,
                                handle: Entity)
                                -> Descendants<'a, 'b>
         where 'a: 'b
@@ -196,7 +208,7 @@ impl Transform {
     }
 
     /// Return true if rhs is one of the ancestor of this `Transform`.
-    pub fn is_ancestor(arena: &ArenaGetterMut<Transform>, lhs: Entity, rhs: Entity) -> bool {
+    pub fn is_ancestor(arena: &ArenaGetter<Transform>, lhs: Entity, rhs: Entity) -> bool {
         for v in Transform::ancestors(arena, lhs) {
             if v == rhs {
                 return true;
@@ -207,7 +219,7 @@ impl Transform {
     }
 
     /// Set the scale of `Transform` in world space.
-    pub fn set_world_scale(arena: &mut ArenaGetterMut<Transform>,
+    pub fn set_world_scale(arena: &mut ArenaGetter<Transform>,
                            handle: Entity,
                            world_scale: f32)
                            -> Result<()> {
@@ -231,7 +243,7 @@ impl Transform {
     }
 
     /// Get the scale of `Transform` in world space.
-    pub fn world_scale(arena: &ArenaGetterMut<Transform>, handle: Entity) -> Result<f32> {
+    pub fn world_scale(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<f32> {
         unsafe {
             if let Some(transform) = arena.get(*handle) {
                 let mut scale = transform.scale();
@@ -246,14 +258,16 @@ impl Transform {
     }
 
     /// set the position of `transform` in world space.
-    pub fn set_world_position(arena: &mut ArenaGetterMut<Transform>,
-                              handle: Entity,
-                              disp: math::Vector3<f32>)
-                              -> Result<()> {
+    pub fn set_world_position<T>(arena: &mut ArenaGetter<Transform>,
+                                 handle: Entity,
+                                 disp: T)
+                                 -> Result<()>
+        where T: Borrow<math::Vector3<f32>>
+    {
         unsafe {
             if arena.get(*handle).is_some() {
                 let decomposed = Transform::world_decomposed(&arena, handle);
-                let delta = disp - decomposed.disp;
+                let delta = *disp.borrow() - decomposed.disp;
                 arena.get_unchecked_mut(*handle).decomposed.disp = delta;
                 Ok(())
             } else {
@@ -263,7 +277,7 @@ impl Transform {
     }
 
     /// Get the position of `Transform` in world space.
-    pub fn world_position(arena: &ArenaGetterMut<Transform>,
+    pub fn world_position(arena: &ArenaGetter<Transform>,
                           handle: Entity)
                           -> Result<math::Vector3<f32>> {
         unsafe {
@@ -276,10 +290,12 @@ impl Transform {
     }
 
     /// Set the rotation of `Transform` in world space.
-    pub fn set_world_rotation(arena: &mut ArenaGetterMut<Transform>,
-                              handle: Entity,
-                              world_rotation: math::Quaternion<f32>)
-                              -> Result<()> {
+    pub fn set_world_rotation<T>(arena: &mut ArenaGetter<Transform>,
+                                 handle: Entity,
+                                 world_rotation: T)
+                                 -> Result<()>
+        where T: Borrow<math::Quaternion<f32>>
+    {
         unsafe {
             if arena.get(*handle).is_some() {
                 let mut rotation = math::Quaternion::one();
@@ -287,7 +303,7 @@ impl Transform {
                     rotation = rotation * arena.get_unchecked(*v).rotation();
                 }
 
-                let rotation = world_rotation * rotation.invert();
+                let rotation = *world_rotation.borrow() * rotation.invert();
                 arena.get_unchecked_mut(*handle).set_rotation(rotation);
                 Ok(())
             } else {
@@ -297,7 +313,7 @@ impl Transform {
     }
 
     /// Get the rotation of `Transform` in world space.
-    pub fn world_rotation(arena: &ArenaGetterMut<Transform>,
+    pub fn world_rotation(arena: &ArenaGetter<Transform>,
                           handle: Entity)
                           -> Result<math::Quaternion<f32>> {
         unsafe {
@@ -317,7 +333,7 @@ impl Transform {
     ///
     /// This operation is not affected by position of the transform, but is is affected by scale.
     /// The returned vector may have a different length than vector.
-    pub fn transform_vector(arena: &ArenaGetterMut<Transform>,
+    pub fn transform_vector(arena: &ArenaGetter<Transform>,
                             handle: Entity,
                             vec: math::Vector3<f32>)
                             -> Result<math::Vector3<f32>> {
@@ -332,7 +348,7 @@ impl Transform {
     }
 
     /// Transforms position from local space to world space.
-    pub fn transform_point(arena: &ArenaGetterMut<Transform>,
+    pub fn transform_point(arena: &ArenaGetter<Transform>,
                            handle: Entity,
                            vec: math::Vector3<f32>)
                            -> Result<math::Vector3<f32>> {
@@ -350,7 +366,7 @@ impl Transform {
     ///
     /// This operation is not affected by scale or position of the transform. The returned
     /// vector has the same length as direction.
-    pub fn transform_direction(arena: &ArenaGetterMut<Transform>,
+    pub fn transform_direction(arena: &ArenaGetter<Transform>,
                                handle: Entity,
                                vec: math::Vector3<f32>)
                                -> Result<math::Vector3<f32>> {
@@ -362,7 +378,17 @@ impl Transform {
         }
     }
 
-    unsafe fn set_world_decomposed(arena: &mut ArenaGetterMut<Transform>,
+    /// Return the up direction in world space.
+    pub fn up(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<math::Vector3<f32>> {
+        Transform::transform_direction(&arena, handle, math::Vector3::new(0.0, 1.0, 0.0))
+    }
+
+    /// Return the forward direction in world space.
+    pub fn forward(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<math::Vector3<f32>> {
+        Transform::transform_direction(&arena, handle, math::Vector3::new(0.0, 0.0, 1.0))
+    }
+
+    unsafe fn set_world_decomposed(arena: &mut ArenaGetter<Transform>,
                                    handle: Entity,
                                    decomposed: &math::Decomposed<math::Vector3<f32>,
                                                                  math::Quaternion<f32>>)
@@ -380,7 +406,7 @@ impl Transform {
         }
     }
 
-    unsafe fn world_decomposed(arena: &ArenaGetterMut<Transform>,
+    unsafe fn world_decomposed(arena: &ArenaGetter<Transform>,
                                handle: Entity)
                                -> math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>> {
         let mut decomposed = arena.get_unchecked(*handle).decomposed;
@@ -394,7 +420,7 @@ impl Transform {
 pub struct Ancestors<'a, 'b>
     where 'a: 'b
 {
-    arena: &'b ArenaGetterMut<'a, Transform>,
+    arena: &'b ArenaGetter<'a, Transform>,
     cursor: Option<Entity>,
 }
 
@@ -419,7 +445,7 @@ impl<'a, 'b> Iterator for Ancestors<'a, 'b>
 pub struct Children<'a, 'b>
     where 'a: 'b
 {
-    arena: &'b ArenaGetterMut<'a, Transform>,
+    arena: &'b ArenaGetter<'a, Transform>,
     cursor: Option<Entity>,
 }
 
@@ -444,7 +470,7 @@ impl<'a, 'b> Iterator for Children<'a, 'b>
 pub struct Descendants<'a, 'b>
     where 'a: 'b
 {
-    arena: &'b ArenaGetterMut<'a, Transform>,
+    arena: &'b ArenaGetter<'a, Transform>,
     root: Entity,
     cursor: Option<Entity>,
 }

@@ -1,6 +1,17 @@
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct Color(pub f32, pub f32, pub f32, pub f32);
 
+impl Into<u32> for Color {
+    fn into(self) -> u32 {
+        let color = self.clip();
+        let mut encoded = ((color.0 / 1.0 * 255.0) as u32) << 24;
+        encoded |= ((color.1 / 1.0 * 255.0) as u32) << 16;
+        encoded |= ((color.2 / 1.0 * 255.0) as u32) << 8;
+        encoded |= ((color.3 / 1.0 * 255.0) as u32) << 0;
+        encoded
+    }
+}
+
 impl From<u32> for Color {
     fn from(encoded: u32) -> Self {
         Color(((encoded >> 24) & 0xFF) as f32 / 255.0,
@@ -10,14 +21,21 @@ impl From<u32> for Color {
     }
 }
 
-impl Into<u32> for Color {
-    fn into(self) -> u32 {
-        let color = self.clip();
-        let mut encoded = ((color.0 / 1.0 * 255.0) as u32) << 24;
-        encoded |= ((color.1 / 1.0 * 255.0) as u32) << 16;
-        encoded |= ((color.2 / 1.0 * 255.0) as u32) << 8;
-        encoded |= ((color.3 / 1.0 * 255.0) as u32) << 0;
-        encoded
+impl Into<[u8; 4]> for Color {
+    fn into(self) -> [u8; 4] {
+        [(self.0 / 1.0 * 255.0) as u8,
+         (self.1 / 1.0 * 255.0) as u8,
+         (self.2 / 1.0 * 255.0) as u8,
+         (self.3 / 1.0 * 255.0) as u8]
+    }
+}
+
+impl From<[u8; 4]> for Color {
+    fn from(v: [u8; 4]) -> Self {
+        Color(v[0] as f32 / 255.0,
+              v[1] as f32 / 255.0,
+              v[2] as f32 / 255.0,
+              v[3] as f32 / 255.0)
     }
 }
 

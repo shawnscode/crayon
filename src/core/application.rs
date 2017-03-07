@@ -4,7 +4,9 @@ use super::arguments::Arguments;
 use super::window;
 use super::input;
 use super::errors::*;
+
 use graphics;
+use resource;
 
 /// User-friendly facade for building applications.
 pub struct Application {
@@ -12,6 +14,7 @@ pub struct Application {
     pub engine: Engine,
     pub window: window::Window,
     pub graphics: graphics::Graphics,
+    pub resource: resource::Cache,
 }
 
 impl Application {
@@ -23,6 +26,7 @@ impl Application {
             engine: Engine::new(),
             graphics: graphics::Graphics::new(window.underlaying())?,
             window: window,
+            resource: resource::Cache::new(),
         })
     }
 
@@ -61,6 +65,7 @@ impl Application {
             engine: engine,
             graphics: graphics::Graphics::new(window.underlaying())?,
             window: window,
+            resource: resource::Cache::new(),
         })
     }
 
@@ -80,7 +85,8 @@ impl Application {
         println!("Launch Lemon3D.");
         println!("PWD: {:?}", ::std::env::current_dir());
 
-        'main: while closure(&mut self) {
+        let mut exec = true;
+        'main: while exec {
             // Poll any possible events first.
             self.input.run_one_frame();
             for event in self.window.poll_events() {
@@ -93,23 +99,13 @@ impl Application {
                     }
                     window::Event::InputDevice(value) => self.input.process(value),
                     other => println!("Drop {:?}.", other),
-                    // _ => (),
                 }
             }
 
             self.engine.run_one_frame();
             self.graphics.run_one_frame().unwrap();
+            exec = closure(&mut self);
         }
         self
     }
 }
-
-// impl From<window::Error> for Error {
-//     fn from(error: window::Error) -> Error {
-//         match error {
-//             window::Error::CreationFailed(v) => Error::WindowCreation(v),
-//             window::Error::ContextLost => Error::WindowContextLost,
-//             window::Error::IoError(e) => Error::IoBreak(e),
-//         }
-//     }
-// }

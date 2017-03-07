@@ -6,6 +6,7 @@ pub mod resource;
 pub mod frame;
 pub mod graphics;
 pub mod errors;
+#[macro_use]
 pub mod macros;
 pub mod backend;
 

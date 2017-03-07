@@ -10,8 +10,10 @@ Lemon3d is an experimental purpose project, written with a minimalistic modular 
 - [x] \[ECS\] Entity component system with a data-driven designs.
 - [x] \[TSK\] Task based multi-thread system based on awesome crate [Rayon](https://github.com/nikomatsakis/rayon.git).
 - [x] \[RES\] Abstract archive with default supports for native filesystem and zip.
+- [x] \[RES\] Resource management based on Referece-Count and LRU cache strategy.
 - [x] \[GFX\] Window and graphic context management based on [glutin](https://github.com/tomaka/glutin).
 - [x] \[SCE\] Hierachy-based transformation of position/rotaion/scale etc.
+- [x] \[SCE\] Automatic-bath based `Sprite` that support easy and quick way to draw 2d images.
 
 ### FAQ
 
@@ -25,8 +27,12 @@ git clone git@github.com:kayak233/lemon3d.git
 
 And then you can run test cases with:
 ``` sh
-cargo test
+cargo run --example sprite
 ```
+
+<p align="center">
+  <img src="info/sprite-particles.gif">
+</p>
 
 ##### Why Rust ?
 

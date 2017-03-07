@@ -123,6 +123,15 @@ impl Window {
         self.window.set_position(x, y);
     }
 
+    /// Returns the size in pixels of the client area of the window.
+    ///
+    /// The client area is the content of the window, excluding the title bar and borders.
+    /// These are the dimensions of the frame buffer.
+    #[inline]
+    pub fn dimensions(&self) -> Option<(u32, u32)> {
+        self.window.get_inner_size_pixels()
+    }
+
     /// Set the context as the active context in this thread.
     #[inline]
     pub fn make_current(&self) -> Result<()> {

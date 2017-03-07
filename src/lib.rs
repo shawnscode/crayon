@@ -19,6 +19,7 @@ extern crate serde_derive;
 extern crate byteorder;
 #[macro_use]
 extern crate derive_builder;
+extern crate image;
 
 #[macro_use]
 pub mod utility;
@@ -27,6 +28,7 @@ pub mod multitask;
 #[macro_use]
 pub mod ecs;
 pub mod resource;
+#[macro_use]
 pub mod graphics;
 pub mod scene;
 
