@@ -14,8 +14,9 @@ use super::camera::Camera;
 impl_vertex! {
     Vertex {
         position => [Position; Float; 2; false],
-        color => [Color0; UByte; 4; true],
-        texcoord => [Texcoord0; UByte; 2; true],
+        diffuse => [Color0; UByte; 4; true],
+        additive => [Color1; UByte; 4; true],
+        texcoord => [Texcoord0; UShort; 2; true],
     }
 }
 
@@ -34,6 +35,7 @@ impl Scene2d {
         let attributes = graphics::AttributeLayoutBuilder::new()
             .with(graphics::VertexAttribute::Position, 2)
             .with(graphics::VertexAttribute::Color0, 4)
+            .with(graphics::VertexAttribute::Color1, 4)
             .with(graphics::VertexAttribute::Texcoord0, 2)
             .finish();
 
@@ -101,14 +103,15 @@ impl Scene2d {
         for v in view {
             let coners = Rect::world_corners(&arenas.0, &arenas.1, v).unwrap();
             let sprite = arenas.2.get(*v).unwrap();
-            let color = sprite.color().into();
+            let diffuse = sprite.color().into();
+            let addtive = sprite.additive_color().into();
 
-            self.vertices.push(Vertex::new(coners[0].into(), color, [0, 0]));
-            self.vertices.push(Vertex::new(coners[3].into(), color, [0, 255]));
-            self.vertices.push(Vertex::new(coners[2].into(), color, [255, 255]));
-            self.vertices.push(Vertex::new(coners[0].into(), color, [0, 0]));
-            self.vertices.push(Vertex::new(coners[2].into(), color, [255, 255]));
-            self.vertices.push(Vertex::new(coners[1].into(), color, [255, 0]));
+            self.vertices.push(Vertex::new(coners[0].into(), diffuse, addtive, [0, 0]));
+            self.vertices.push(Vertex::new(coners[3].into(), diffuse, addtive, [0, 255]));
+            self.vertices.push(Vertex::new(coners[2].into(), diffuse, addtive, [255, 255]));
+            self.vertices.push(Vertex::new(coners[0].into(), diffuse, addtive, [0, 0]));
+            self.vertices.push(Vertex::new(coners[2].into(), diffuse, addtive, [255, 255]));
+            self.vertices.push(Vertex::new(coners[1].into(), diffuse, addtive, [255, 0]));
 
             let texture = sprite.texture();
             if main_texture != texture || self.vertices.len() >= MAX_BATCH_VERTICES {

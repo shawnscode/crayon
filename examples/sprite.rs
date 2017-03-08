@@ -76,7 +76,7 @@ fn main() {
 
                             {
                                 let mut sprite = world.fetch_mut::<Sprite>(spr.handle).unwrap();
-                                sprite.set_color(&spr.color);
+                                sprite.set_additive_color(&spr.color);
 
                                 let mut rect = world.fetch_mut::<Rect>(spr.handle).unwrap();
                                 rect.set_size(&spr.size);

@@ -7,7 +7,8 @@ use ecs::VecStorage;
 /// way to draw 2D images.
 #[derive(Debug, Clone, Copy)]
 pub struct Sprite {
-    color: graphics::Color,
+    diffuse: graphics::Color,
+    additive: graphics::Color,
     texture: Option<resource::ResourceHandle>,
 }
 
@@ -16,7 +17,8 @@ declare_component!(Sprite, VecStorage);
 impl Default for Sprite {
     fn default() -> Self {
         Sprite {
-            color: graphics::Color::white(),
+            diffuse: graphics::Color::white(),
+            additive: graphics::Color::black(),
             texture: None,
         }
     }
@@ -25,12 +27,22 @@ impl Default for Sprite {
 impl Sprite {
     /// Return main color of `Sprite`.
     pub fn color(&self) -> graphics::Color {
-        self.color
+        self.diffuse
     }
 
     /// Set the main color of `Sprite`.
     pub fn set_color(&mut self, color: &graphics::Color) {
-        self.color = *color;
+        self.diffuse = *color;
+    }
+
+    /// Return main color of `Sprite`.
+    pub fn additive_color(&self) -> graphics::Color {
+        self.additive
+    }
+
+    /// Set the main color of `Sprite`.
+    pub fn set_additive_color(&mut self, color: &graphics::Color) {
+        self.additive = *color;
     }
 
     pub fn texture(&self) -> Option<resource::ResourceHandle> {

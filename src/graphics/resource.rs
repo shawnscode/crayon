@@ -160,6 +160,7 @@ impl AttributeLayoutBuilder {
         }
 
         assert!((self.0.len as usize) < MAX_ATTRIBUTES);
+        self.0.elements[self.0.len as usize] = (attribute, size);
         self.0.len += 1;
         self
     }
