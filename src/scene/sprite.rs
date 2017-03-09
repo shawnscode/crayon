@@ -5,11 +5,11 @@ use ecs::VecStorage;
 /// A Sprite is a texture mapped planar mesh and associated material that
 /// can be rendered in the world. In simpler terms, it's a quick and easy
 /// way to draw 2D images.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Sprite {
     diffuse: graphics::Color,
     additive: graphics::Color,
-    texture: Option<resource::ResourceHandle>,
+    texture: Option<resource::TextureItem>,
 }
 
 declare_component!(Sprite, VecStorage);
@@ -45,11 +45,11 @@ impl Sprite {
         self.additive = *color;
     }
 
-    pub fn texture(&self) -> Option<resource::ResourceHandle> {
-        self.texture
+    pub fn texture(&self) -> Option<&resource::TextureItem> {
+        self.texture.as_ref()
     }
 
-    pub fn set_texture(&mut self, texture: Option<resource::ResourceHandle>) {
+    pub fn set_texture(&mut self, texture: Option<resource::TextureItem>) {
         self.texture = texture;
     }
 }

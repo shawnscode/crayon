@@ -4,6 +4,7 @@ use graphics;
 use math;
 use math::EuclideanSpace;
 use resource;
+use std::sync::RwLock;
 
 use super::errors::*;
 use super::transform::Transform;
@@ -98,8 +99,8 @@ impl Scene2d {
             bail!(ErrorKind::CanNotDrawWithoutCamera);
         };
 
-        let mut main_texture = None;
         let (view, arenas) = self.world.view_with_3::<Transform, Rect, Sprite>();
+        let mut main_texture = None;
         for v in view {
             let coners = Rect::world_corners(&arenas.0, &arenas.1, v).unwrap();
             let sprite = arenas.2.get(*v).unwrap();
@@ -114,9 +115,9 @@ impl Scene2d {
             self.vertices.push(Vertex::new(coners[1].into(), diffuse, addtive, [255, 0]));
 
             let texture = sprite.texture();
-            if main_texture != texture || self.vertices.len() >= MAX_BATCH_VERTICES {
+            if !eq(main_texture, texture) || self.vertices.len() >= MAX_BATCH_VERTICES {
                 main_texture = texture;
-                self.consume_vertices(&mut application, &view_mat, &proj_mat, texture)?;
+                self.consume_vertices(&mut application, &view_mat, &proj_mat, main_texture)?;
                 self.vertices.clear();
             }
         }
@@ -130,7 +131,7 @@ impl Scene2d {
                         mut application: &mut Application,
                         view_mat: &math::Matrix4<f32>,
                         proj_mat: &math::Matrix4<f32>,
-                        texture: Option<resource::ResourceHandle>)
+                        _texture: Option<&resource::TextureItem>)
                         -> Result<()> {
 
         let uniforms = [("u_View", graphics::UniformVariable::Matrix4f(*view_mat.as_ref(), true)),
@@ -143,38 +144,53 @@ impl Scene2d {
                                   (self.vertices.len() * layout.stride() as usize) as u32,
                                   Some(Vertex::as_bytes(self.vertices.as_slice())))?;
 
-        if let Some(texture) =
-               texture.and_then(|v| application.resource.get::<resource::Texture>(v))
-            .and_then(|v| v.video_object()) {
-            application.graphics
-                .draw(0,
-                      self.view,
-                      self.pso,
-                      &[("u_MainTex", texture)],
-                      &uniforms,
-                      vbo,
-                      None,
-                      graphics::Primitive::Triangles,
-                      0,
-                      self.vertices.len() as u32)?;
-        } else {
-            application.graphics
-                .draw(0,
-                      self.view,
-                      self.pso,
-                      &[],
-                      &uniforms,
-                      vbo,
-                      None,
-                      graphics::Primitive::Triangles,
-                      0,
-                      self.vertices.len() as u32)?;
-
-        }
+        // if let Some(texture) =
+        //        texture.and_then(|v| application.resources.get::<resource::Texture>(v))
+        //     .and_then(|v| v.video_object()) {
+        //     application.graphics
+        //         .draw(0,
+        //               self.view,
+        //               self.pso,
+        //               &[("u_MainTex", texture)],
+        //               &uniforms,
+        //               vbo,
+        //               None,
+        //               graphics::Primitive::Triangles,
+        //               0,
+        //               self.vertices.len() as u32)?;
+        // } else {
+        application.graphics
+            .draw(0,
+                  self.view,
+                  self.pso,
+                  &[],
+                  &uniforms,
+                  vbo,
+                  None,
+                  graphics::Primitive::Triangles,
+                  0,
+                  self.vertices.len() as u32)?;
+        // }
 
         application.graphics.delete_vertex_buffer(vbo)?;
         Ok(())
     }
+}
+
+fn eq(lhs: Option<&resource::TextureItem>, rhs: Option<&resource::TextureItem>) -> bool {
+    if lhs.is_none() && rhs.is_none() {
+        return true;
+    }
+
+    if lhs.is_none() || rhs.is_none() {
+        return false;
+    }
+
+    let lhs = lhs.unwrap();
+    let rhs = rhs.unwrap();
+    let lhs: *const RwLock<resource::Texture> = &**lhs;
+    let rhs: *const RwLock<resource::Texture> = &**rhs;
+    lhs == rhs
 }
 
 impl Scene2d {

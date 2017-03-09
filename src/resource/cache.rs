@@ -1,124 +1,205 @@
-use std::any::Any;
+use std::sync::Arc;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
+use std::cmp::max;
 
-use utility::HandleSet;
-use super::{ResourceHandle, Resource};
-use super::errors::*;
-use super::archive::ArchiveCollection;
+use utility::hash::HashValue;
 
-pub struct ResourceDesc {
-    rc: usize,
-    resource: Box<Any>,
+#[derive(Debug)]
+struct ResourceDesc<T> {
+    path: PathBuf,
+    hash: HashValue<Path>,
+    resource: Arc<T>,
+    size: usize,
+    next: Option<HashValue<Path>>,
+    prev: Option<HashValue<Path>>,
 }
 
-pub struct Cache {
-    archives: ArchiveCollection,
-    names: HashMap<PathBuf, ResourceHandle>,
-    loads: Vec<Option<ResourceDesc>>,
-    handles: HandleSet,
-    buf: Vec<u8>,
+/// A cache that holds a limited size of path-resource pairs. When the capacity of
+/// the cache is exceeded. The least-recently-used resource, that without any
+/// reference outside, will be removed.
+pub struct Cache<T> {
+    cache: HashMap<HashValue<Path>, ResourceDesc<T>>,
+    lru_front: Option<HashValue<Path>>,
+    lru_back: Option<HashValue<Path>>,
+    used: usize,
+    threshold: usize,
+    dynamic_threshold: usize,
 }
 
-impl Cache {
-    pub fn new() -> Self {
+impl<T> Cache<T> {
+    /// Create a new and empty `Cache`.
+    pub fn new(threshold: usize) -> Self {
         Cache {
-            archives: ArchiveCollection::new(),
-            names: HashMap::new(),
-            loads: Vec::new(),
-            handles: HandleSet::new(),
-            buf: Vec::new(),
+            cache: HashMap::new(),
+            lru_front: None,
+            lru_back: None,
+            used: 0,
+            threshold: threshold,
+            dynamic_threshold: threshold,
         }
     }
 
-    pub fn archives(&self) -> &ArchiveCollection {
-        &self.archives
-    }
-
-    pub fn archives_mut(&mut self) -> &mut ArchiveCollection {
-        &mut self.archives
-    }
-
-    pub fn load<T, U>(&mut self, path: U) -> Result<ResourceHandle>
-        where U: AsRef<Path>,
-              T: Resource + 'static
+    /// Checks if the cache contains resource associated with given path.
+    ///
+    /// This operation has no effect on LRU strategy.
+    pub fn contains<P>(&self, path: P) -> bool
+        where P: AsRef<Path>
     {
-        let path = path.as_ref();
-        if let Some(&handle) = self.names.get(path) {
-            let mut v = &mut self.loads
-                .get_mut(handle.index() as usize)
-                .unwrap()
-                .as_mut()
-                .unwrap();
-            v.rc += 1;
-            Ok(handle)
+        self.cache.get(&path.as_ref().into()).is_some()
+    }
+
+    /// Insert a manually created resource and its path into cache.
+    ///
+    /// If the cache did have this path present, the resource associated with this
+    /// path is replaced with new one.
+    pub fn insert<P>(&mut self, path: P, size: usize, resource: Arc<T>)
+        where P: AsRef<Path>
+    {
+        let hash = path.as_ref().into();
+        let mut desc = ResourceDesc {
+            path: path.as_ref().to_owned(),
+            hash: hash,
+            size: size,
+            resource: resource,
+            next: None,
+            prev: None,
+        };
+
+        self.make_room(size);
+        self.attach(&mut desc);
+        self.cache.insert(hash, desc);
+    }
+
+    /// Returns a reference to the value corresponding to the `Path`,
+    pub fn get<P>(&mut self, path: P) -> Option<&Arc<T>>
+        where P: AsRef<Path>
+    {
+        let hash = path.as_ref().into();
+        if let Some(mut desc) = self.cache.remove(&hash) {
+            self.detach(&desc);
+            self.attach(&mut desc);
+            self.cache.insert(hash, desc);
+            Some(&self.cache.get(&hash).unwrap().resource)
         } else {
-            let handle = self.handles.create().into();
-
-            self.buf.clear();
-            self.archives.read(&path, &mut self.buf)?;
-            let desc = ResourceDesc {
-                rc: 1,
-                resource: Box::new(T::from_bytes(self.buf.as_slice())?),
-            };
-
-            self.names.insert(path.to_owned(), handle);
-            self.loads[handle.index() as usize] = Some(desc);
-            Ok(handle)
+            None
         }
     }
 
-    pub fn unload<U>(&mut self, path: U)
-        where U: AsRef<Path>
-    {
-        let path = path.as_ref();
+    fn make_room(&mut self, size: usize) {
+        self.used += size;
 
-        if let Some(&handle) = self.names.get(path) {
-            let clean = {
-                let mut v =
-                    &mut self.loads.get_mut(handle.index() as usize).unwrap().as_mut().unwrap();
-                v.rc -= 1;
-                v.rc == 0
+        if self.used <= self.dynamic_threshold {
+            return;
+        }
+
+        let mut cursor = self.lru_back;
+        while !cursor.is_none() && self.used > self.dynamic_threshold {
+            let hash = cursor.unwrap();
+            let rc = {
+                let desc = self.cache.get(&hash).unwrap();
+                cursor = desc.prev;
+                Arc::strong_count(&desc.resource)
             };
 
-            if clean {
-                self.names.remove(path);
-                self.loads[handle.index() as usize] = None;
+            // If this resource is referenced by `Cache` only then erase it.
+            if rc == 1 {
+                let desc = self.cache.remove(&hash).unwrap();
+                self.detach(&desc);
+                self.used -= desc.size;
             }
+        }
+
+        let delta = self.threshold / 4;
+        if self.used > self.dynamic_threshold {
+            // If we failed to make spare room for upcoming insertion. Then we
+            // simply increase the `dynamic_threshold`.
+            self.dynamic_threshold += delta;
+        } else {
+            self.dynamic_threshold = max(self.dynamic_threshold - delta, self.threshold);
         }
     }
 
     #[inline]
-    pub fn get<T>(&self, handle: ResourceHandle) -> Option<&T>
-        where T: Resource + 'static
-    {
-        if self.handles.is_alive(*handle) {
-            if let Some(v) = self.loads[handle.index() as usize]
-                .as_ref()
-                .unwrap()
-                .resource
-                .downcast_ref::<T>() {
-                return Some(&v);
-            }
+    fn attach(&mut self, node: &mut ResourceDesc<T>) {
+        if let Some(hash) = self.lru_front {
+            node.next = Some(hash);
+            self.cache.get_mut(&hash).unwrap().prev = Some(node.hash);
         }
 
-        None
+        self.lru_front = Some(node.hash);
+
+        if self.lru_back.is_none() {
+            self.lru_back = Some(node.hash);
+        }
     }
 
-    // #[inline]
-    // pub fn get_mut<T>(&mut self, handle: ResourceHandle) -> Option<&mut T>
-    //     where T: Resource + 'static
-    // {
-    //     if self.handles.is_alive(*handle) {
-    //         if let Some(v) = self.loads[handle.index() as usize]
-    //             .as_mut()
-    //             .unwrap()
-    //             .resource
-    //             .downcast_mut::<T>() {
-    //             return Some(&mut v);
-    //         }
-    //     }
+    #[inline]
+    fn detach(&mut self, node: &ResourceDesc<T>) {
+        if node.prev.is_some() {
+            self.cache.get_mut(&node.prev.unwrap()).unwrap().next = node.next;
+        }
 
-    //     None
-    // }
+        if node.next.is_some() {
+            self.cache.get_mut(&node.next.unwrap()).unwrap().prev = node.prev;
+        }
+
+        if Some(node.hash) == self.lru_front {
+            self.lru_front = node.next;
+        }
+
+        if Some(node.hash) == self.lru_back {
+            self.lru_back = node.prev;
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn lru() {
+        let mut cache = Cache::new(4);
+        cache.insert("/1", 2, Arc::new("a1".to_owned()));
+        cache.insert("/2", 2, Arc::new("a2".to_owned()));
+        assert!(cache.contains("/1"));
+        assert!(cache.contains("/2"));
+
+        cache.insert("/3", 2, Arc::new("a3".to_owned()));
+        assert!(!cache.contains("/1"));
+        assert!(cache.contains("/2"));
+        assert!(cache.contains("/3"));
+
+        cache.get("/2").unwrap();
+        cache.insert("/4", 2, Arc::new("a4".to_owned()));
+        assert!(cache.contains("/2"));
+        assert!(!cache.contains("/3"));
+        assert!(cache.contains("/4"));
+    }
+
+    #[test]
+    fn rc() {
+        let mut cache = Cache::new(4);
+
+        {
+            let a1 = Arc::new("a1".to_owned());
+            let a2 = Arc::new("a2".to_owned());
+            cache.insert("/1", 2, a1.clone());
+            cache.insert("/2", 2, a2.clone());
+            assert!(cache.contains("/1"));
+            assert!(cache.contains("/2"));
+
+            cache.insert("/3", 2, Arc::new("a3".to_owned()));
+            assert!(cache.contains("/1"));
+            assert!(cache.contains("/2"));
+            assert!(cache.contains("/3"));
+        }
+
+        cache.insert("/4", 2, Arc::new("a4".to_owned()));
+        assert!(!cache.contains("/1"));
+        assert!(!cache.contains("/2"));
+        assert!(cache.contains("/3"));
+        assert!(cache.contains("/4"));
+    }
 }

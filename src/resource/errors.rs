@@ -15,4 +15,8 @@ error_chain!{
     links {
         Graphics(graphics::errors::Error, graphics::errors::ErrorKind);
     }
+
+    errors {
+        ResourceDeclarationMismath
+    }
 }

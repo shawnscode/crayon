@@ -14,7 +14,7 @@ pub struct Application {
     pub engine: Engine,
     pub window: window::Window,
     pub graphics: graphics::Graphics,
-    pub resource: resource::Cache,
+    pub resources: resource::Resources,
 }
 
 impl Application {
@@ -26,7 +26,7 @@ impl Application {
             engine: Engine::new(),
             graphics: graphics::Graphics::new(window.underlaying())?,
             window: window,
-            resource: resource::Cache::new(),
+            resources: resource::Resources::new(),
         })
     }
 
@@ -65,7 +65,7 @@ impl Application {
             engine: engine,
             graphics: graphics::Graphics::new(window.underlaying())?,
             window: window,
-            resource: resource::Cache::new(),
+            resources: resource::Resources::new(),
         })
     }
 
