@@ -24,8 +24,8 @@ impl_vertex! {
 const MAX_BATCH_VERTICES: usize = 1024;
 
 pub struct Scene2d {
-    view: graphics::ViewHandle,
-    pso: graphics::PipelineHandle,
+    view: graphics::ViewItem,
+    pso: graphics::PipelineStateItem,
     vertices: Vec<Vertex>,
     world: ecs::World,
     camera: Option<ecs::Entity>,
@@ -161,18 +161,16 @@ impl Scene2d {
         // } else {
         application.graphics
             .draw(0,
-                  self.view,
-                  self.pso,
+                  *self.view,
+                  *self.pso,
                   &[],
                   &uniforms,
-                  vbo,
+                  *vbo,
                   None,
                   graphics::Primitive::Triangles,
                   0,
                   self.vertices.len() as u32)?;
         // }
-
-        application.graphics.delete_vertex_buffer(vbo)?;
         Ok(())
     }
 }

@@ -77,7 +77,7 @@ impl<T: Sized> HandleObjectSet<T> {
         where H: Borrow<Handle>
     {
         let handle = handle.borrow();
-        if self.handles.is_alive(handle) {
+        if self.handles.free(handle) {
             let mut v = None;
             ::std::mem::swap(&mut v, &mut self.values[handle.index() as usize]);
             v
@@ -88,7 +88,7 @@ impl<T: Sized> HandleObjectSet<T> {
 
     /// Returns the total number of alive handle in this `HandleSetWith`.
     #[inline]
-    pub fn size(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.handles.size()
     }
 
@@ -110,7 +110,10 @@ mod test {
         let e1 = set.create(3);
         assert_eq!(set.get(e1), Some(&3));
         assert_eq!(set.free(e1), Some(3));
+        assert_eq!(set.len(), 0);
         assert_eq!(set.get(e1), None);
+        assert_eq!(set.len(), 1);
         assert_eq!(set.free(e1), None)
+        assert_eq!(set.len(), 0);
     }
 }

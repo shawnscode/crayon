@@ -14,10 +14,10 @@ pub use self::errors::*;
 pub use self::resource::*;
 pub use self::pipeline::*;
 pub use self::color::Color;
-pub use self::graphics::Graphics;
+pub use self::graphics::{Graphics, ViewItem, PipelineStateItem, FrameBufferItem, TextureItem, RenderBufferItem, VertexBufferItem, IndexBufferItem};
 
 impl_handle!(ViewHandle);
-impl_handle!(PipelineHandle);
+impl_handle!(PipelineStateHandle);
 impl_handle!(VertexBufferHandle);
 impl_handle!(IndexBufferHandle);
 impl_handle!(TextureHandle);

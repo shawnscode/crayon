@@ -17,9 +17,9 @@ pub enum PreFrameTask {
     UpdateViewSequential(ViewHandle, bool),
     UpdateViewFrameBuffer(ViewHandle, Option<FrameBufferHandle>),
 
-    CreatePipeline(PipelineHandle, TaskBufferPtr<PipelineDesc>),
-    UpdatePipelineState(PipelineHandle, TaskBufferPtr<RenderState>),
-    UpdatePipelineUniform(PipelineHandle, TaskBufferPtr<str>, TaskBufferPtr<UniformVariable>),
+    CreatePipeline(PipelineStateHandle, TaskBufferPtr<PipelineDesc>),
+    UpdatePipelineState(PipelineStateHandle, TaskBufferPtr<RenderState>),
+    UpdatePipelineUniform(PipelineStateHandle, TaskBufferPtr<str>, TaskBufferPtr<UniformVariable>),
 
     CreateVertexBuffer(VertexBufferHandle, TaskBufferPtr<VertexBufferDesc>),
     UpdateVertexBuffer(VertexBufferHandle, u32, TaskBufferPtr<[u8]>),
@@ -33,16 +33,16 @@ pub enum PreFrameTask {
 
     CreateRenderBuffer(RenderBufferHandle, TaskBufferPtr<RenderTextureDesc>),
 
-    CreateFrameBuffer(FrameBufferHandle, TaskBufferPtr<FrameBufferDesc>),
+    CreateFrameBuffer(FrameBufferHandle),
     UpdateFrameBufferAttachment(FrameBufferHandle, u32, FrameBufferAttachment),
-    UpdateFrameBufferClear(FrameBufferHandle, TaskBufferPtr<FrameBufferDesc>),
+    UpdateFrameBufferClear(FrameBufferHandle, TaskBufferPtr<FrameBufferClearDesc>),
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct FrameTask {
     pub priority: u64,
     pub view: ViewHandle,
-    pub pipeline: PipelineHandle,
+    pub pipeline: PipelineStateHandle,
     pub uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
     pub textures: TaskBufferPtr<[(TaskBufferPtr<str>, TextureHandle)]>,
     pub vb: VertexBufferHandle,
@@ -55,7 +55,7 @@ pub struct FrameTask {
 #[derive(Debug, Clone, Copy)]
 pub enum PostFrameTask {
     DeleteView(ViewHandle),
-    DeletePipeline(PipelineHandle),
+    DeletePipeline(PipelineStateHandle),
     DeleteVertexBuffer(VertexBufferHandle),
     DeleteIndexBuffer(IndexBufferHandle),
     DeleteTexture(TextureHandle),
@@ -118,7 +118,7 @@ pub struct TextureParametersDesc {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct FrameBufferDesc {
+pub struct FrameBufferClearDesc {
     pub clear_color: Option<Color>,
     pub clear_depth: Option<f32>,
     pub clear_stencil: Option<i32>,
@@ -219,9 +219,8 @@ impl Frame {
                     let desc = &self.buf.as_ref(desc);
                     device.create_render_buffer(handle, desc.format, desc.width, desc.height)?;
                 }
-                PreFrameTask::CreateFrameBuffer(handle, desc) => {
-                    let desc = &self.buf.as_ref(desc);
-                    device.create_framebuffer(handle, desc.clear_color, desc.clear_depth, desc.clear_stencil)?;
+                PreFrameTask::CreateFrameBuffer(handle) => {
+                    device.create_framebuffer(handle)?;
                 },
                 PreFrameTask::UpdateFrameBufferAttachment(handle, slot, attachment) => {
                     match attachment {

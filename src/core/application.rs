@@ -70,8 +70,8 @@ impl Application {
     }
 
     /// Perform custom logics after engine initialization.
-    pub fn perform<F>(mut self, closure: F) -> Self
-        where F: FnOnce(&mut Application)
+    pub fn perform<F>(mut self, mut closure: F) -> Self
+        where F: FnMut(&mut Application)
     {
         closure(&mut self);
         self

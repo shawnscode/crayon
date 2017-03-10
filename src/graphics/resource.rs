@@ -2,6 +2,7 @@ use super::{TextureHandle, RenderBufferHandle};
 
 pub const MAX_ATTRIBUTES: usize = 12;
 pub const MAX_TEXTURE_SLOTS: usize = 16;
+pub const MAX_ATTACHMENTS: usize = 8;
 
 /// Specifies the target to which the buffer object is bound
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

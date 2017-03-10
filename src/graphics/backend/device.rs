@@ -86,7 +86,7 @@ struct GLFrameBuffer {
 struct GLDrawcall {
     priority: u64,
     view: ViewHandle,
-    pipeline: PipelineHandle,
+    pipeline: PipelineStateHandle,
     uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
     textures: TaskBufferPtr<[(TaskBufferPtr<str>, TextureHandle)]>,
     vb: VertexBufferHandle,
@@ -107,7 +107,7 @@ pub struct Device {
     render_textures: DataVec<GLRenderTexture>,
     framebuffers: DataVec<GLFrameBuffer>,
 
-    active_pipeline: Cell<Option<PipelineHandle>>,
+    active_pipeline: Cell<Option<PipelineStateHandle>>,
     cleared_framebuffer: RefCell<HashSet<GLuint>>,
 }
 
@@ -147,7 +147,7 @@ impl Device {
     pub fn submit(&self,
                   priority: u64,
                   view: ViewHandle,
-                  pipeline: PipelineHandle,
+                  pipeline: PipelineStateHandle,
                   textures: TaskBufferPtr<[(TaskBufferPtr<str>, TextureHandle)]>,
                   uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
                   vb: VertexBufferHandle,
@@ -294,7 +294,7 @@ impl Device {
         Ok(())
     }
 
-    unsafe fn bind_pipeline(&self, pipeline: PipelineHandle) -> Result<&GLPipeline> {
+    unsafe fn bind_pipeline(&self, pipeline: PipelineStateHandle) -> Result<&GLPipeline> {
         let pso = self.pipelines.get(pipeline).ok_or(ErrorKind::InvalidHandle)?;
 
         if let Some(v) = self.active_pipeline.get() {
@@ -449,21 +449,16 @@ impl Device {
         }
     }
 
-    pub unsafe fn create_framebuffer(&mut self,
-                                     handle: FrameBufferHandle,
-                                     clear_color: Option<Color>,
-                                     clear_depth: Option<f32>,
-                                     clear_stencil: Option<i32>)
-                                     -> Result<()> {
+    pub unsafe fn create_framebuffer(&mut self, handle: FrameBufferHandle) -> Result<()> {
         if self.framebuffers.get(handle).is_some() {
             bail!(ErrorKind::DuplicatedHandle)
         }
 
         let fbo = GLFrameBuffer {
             id: self.visitor.create_framebuffer()?,
-            clear_color: clear_color,
-            clear_depth: clear_depth,
-            clear_stencil: clear_stencil,
+            clear_color: None,
+            clear_depth: None,
+            clear_stencil: None,
         };
 
         self.framebuffers.set(handle, fbo);
@@ -734,7 +729,7 @@ impl Device {
     /// which shader objects can be attached. Vertex and fragment shader
     /// are minimal requirement to build a proper program.
     pub unsafe fn create_pipeline(&mut self,
-                                  handle: PipelineHandle,
+                                  handle: PipelineStateHandle,
                                   state: &RenderState,
                                   vs_src: &str,
                                   fs_src: &str,
@@ -762,7 +757,7 @@ impl Device {
     }
 
     pub fn update_pipeline_state(&mut self,
-                                 handle: PipelineHandle,
+                                 handle: PipelineStateHandle,
                                  state: &RenderState)
                                  -> Result<()> {
         if let Some(pso) = self.pipelines.get_mut(handle) {
@@ -774,7 +769,7 @@ impl Device {
     }
 
     pub fn update_pipeline_uniform(&mut self,
-                                   handle: PipelineHandle,
+                                   handle: PipelineStateHandle,
                                    name: &str,
                                    variable: &UniformVariable)
                                    -> Result<()> {
@@ -787,7 +782,7 @@ impl Device {
     }
 
     /// Free named program object.
-    pub unsafe fn delete_pipeline(&mut self, handle: PipelineHandle) -> Result<()> {
+    pub unsafe fn delete_pipeline(&mut self, handle: PipelineStateHandle) -> Result<()> {
         if let Some(pso) = self.pipelines.remove(handle) {
             self.visitor.delete_program(pso.id)
         } else {

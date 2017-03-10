@@ -7,7 +7,6 @@ pub use self::archive::{Read, Seek, Archive, FilesystemArchive, ZipArchive, Arch
 pub use self::cache::Cache;
 pub use self::texture::Texture;
 
-use graphics;
 use std::any::Any;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
@@ -19,19 +18,7 @@ pub trait ResourceItem: ::std::fmt::Debug {
     fn from_bytes(bytes: &[u8]) -> Result<Self> where Self: Sized;
 
     /// Return internal memory usages of resource in bytes.
-    fn bytes(&self) -> usize;
-
-    /// Implement this function to create or update video object. This will be called
-    /// at first time when inserting resource into manager.
-    fn update_video_object(&mut self, _: &mut graphics::Graphics) -> Result<()> {
-        Ok(())
-    }
-
-    /// Implement this function to delete video object. This will be called automaticlly
-    /// when purging resource from manager.
-    fn delete_video_object(&mut self, _: &mut graphics::Graphics) -> Result<()> {
-        Ok(())
-    }
+    fn size(&self) -> usize;
 }
 
 pub trait ResourceItemIndex {
@@ -88,7 +75,7 @@ impl Resources {
 
         self.archives.read(path.as_ref(), &mut self.buf)?;
         let resource = T::from_bytes(self.buf.as_slice())?;
-        let size = resource.bytes();
+        let size = resource.size();
 
         self.buf.clear();
         let rc = Arc::new(RwLock::new(resource));
