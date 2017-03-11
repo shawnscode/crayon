@@ -436,10 +436,10 @@ impl FrameBufferObject {
     ///
     /// `FrameBufferObject` will keep a reference to this attachment, so its perfectly
     /// safe to drop attached resource immediately.
-    pub fn set_textuer_attachment(&mut self,
-                                  attachment: &TextureItem,
-                                  slot: Option<usize>)
-                                  -> Result<()> {
+    pub fn update_texture_attachment(&mut self,
+                                     attachment: &TextureItem,
+                                     slot: Option<usize>)
+                                     -> Result<()> {
         let handle = FrameBufferAttachment::Texture(attachment.handle);
         let slot = match attachment.object.read().unwrap().render_format() {
             RenderTextureFormat::RGB8 |

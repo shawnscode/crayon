@@ -109,11 +109,11 @@ mod test {
 
         let e1 = set.create(3);
         assert_eq!(set.get(e1), Some(&3));
+        assert_eq!(set.len(), 1);
         assert_eq!(set.free(e1), Some(3));
         assert_eq!(set.len(), 0);
         assert_eq!(set.get(e1), None);
-        assert_eq!(set.len(), 1);
-        assert_eq!(set.free(e1), None)
+        assert_eq!(set.free(e1), None);
         assert_eq!(set.len(), 0);
     }
 }
