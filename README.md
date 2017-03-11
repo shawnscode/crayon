@@ -13,6 +13,7 @@ Crayon is an experimental purpose project, written with a minimalistic modular d
 - [x] \[RES\] Abstract archive with default supports for native filesystem and zip.
 - [x] \[RES\] Resource management based on Referece-Count and LRU cache strategy.
 - [x] \[GFX\] Window and graphic context management based on [glutin](https://github.com/tomaka/glutin).
+- [x] \[GFX\] Stateless, layed, multithread `Graphics` subsystem with OpenGL(ES) 2.0+ backends.
 - [x] \[SCE\] Hierachy-based transformation of position/rotaion/scale etc.
 - [x] \[SCE\] Automatic-bath based `Sprite` that support easy and quick way to draw 2d images.
 
@@ -32,7 +33,7 @@ cargo run --example sprite
 ```
 
 <p align="center">
-  <img src="info/sprite-particles.gif">
+  <img src="info/screenshots/sprite-particles.gif">
 </p>
 
 ##### Why Rust ?
