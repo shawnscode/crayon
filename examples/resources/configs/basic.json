@@ -6,7 +6,7 @@
         "TimeSmoothingStep": 10
     },
     "Window": {
-        "Name": "Lemon3D - Basic Window.",
+        "Title": "Lemon3D - Basic Window.",
         "Width": 568,
         "Height": 320
     }
