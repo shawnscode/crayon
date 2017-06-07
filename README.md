@@ -1,5 +1,5 @@
 ### Build Status
-[![Build Status](https://travis-ci.org/kayak233/crayon.svg?branch=master)](https://travis-ci.org/kayak233/crayon)
+[![Build Status](https://travis-ci.org/kayak233/crayon.svg?branch=master)](https://travis-ci.org/kaisc/crayon)
 [![Crate Status](http://meritbadge.herokuapp.com/crayon)](https://crates.io/crates/crayon)
 
 ### Introduction
@@ -24,7 +24,7 @@ In spite of the unstable status of this project, feel free to checkout and build
 
 First of all, checkout the repository by:
 ``` sh
-git clone git@github.com:kayak233/crayon.git
+git clone git@github.com:kaisc/crayon.git
 ```
 
 And then you can run test cases with:
