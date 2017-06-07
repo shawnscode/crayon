@@ -7,7 +7,7 @@ use super::ResourceItem;
 
 #[derive(Debug)]
 pub struct Texture {
-    video: Option<graphics::TextureItem>,
+    video: Option<graphics::TextureRef>,
     address: graphics::TextureAddress,
     filter: graphics::TextureFilter,
     mipmap: bool,
@@ -21,13 +21,13 @@ impl ResourceItem for Texture {
     {
         let dynamic = image::load_from_memory(bytes)?;
         Ok(Texture {
-            video: None,
-            address: graphics::TextureAddress::Clamp,
-            filter: graphics::TextureFilter::Linear,
-            mipmap: false,
-            dimensions: dynamic.dimensions(),
-            buf: dynamic.to_rgba().into_raw(),
-        })
+               video: None,
+               address: graphics::TextureAddress::Clamp,
+               filter: graphics::TextureFilter::Linear,
+               mipmap: false,
+               dimensions: dynamic.dimensions(),
+               buf: dynamic.to_rgba().into_raw(),
+           })
     }
 
     fn size(&self) -> usize {
@@ -38,7 +38,8 @@ impl ResourceItem for Texture {
 impl Texture {
     pub fn update_video_object(&mut self, video: &mut graphics::Graphics) -> Result<()> {
         if self.video.is_none() {
-            let v = video.create_texture(graphics::TextureFormat::U8U8U8U8,
+            let v = video
+                .create_texture(graphics::TextureFormat::U8U8U8U8,
                                 self.address,
                                 self.filter,
                                 self.mipmap,

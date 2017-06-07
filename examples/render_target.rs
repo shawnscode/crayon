@@ -10,14 +10,14 @@ impl_vertex!{
 }
 
 struct Window {
-    view: ViewItem,
-    pso: PipelineStateItem,
-    vbo: VertexBufferItem,
-    texture: TextureItem,
+    view: ViewStateRef,
+    pso: PipelineStateRef,
+    vbo: VertexBufferRef,
+    texture: TextureRef,
 
-    view_pass_2: ViewItem,
-    pso_pass_2: PipelineStateItem,
-    vbo_pass_2: VertexBufferItem,
+    view_pass_2: ViewStateRef,
+    pso_pass_2: PipelineStateRef,
+    vbo_pass_2: VertexBufferRef,
 
     time: f32,
 }
@@ -27,8 +27,9 @@ fn main() {
     crayon::Application::setup("examples/resources/configs/basic.json")
         .unwrap()
         .perform(|app| {
-            let vertices: [Vertex; 3] =
-                [Vertex::new([0.0, 0.5]), Vertex::new([0.5, -0.5]), Vertex::new([-0.5, -0.5])];
+            let vertices: [Vertex; 3] = [Vertex::new([0.0, 0.5]),
+                                         Vertex::new([0.5, -0.5]),
+                                         Vertex::new([-0.5, -0.5])];
 
             let quad_vertices: [Vertex; 6] = [Vertex::new([-1.0, -1.0]),
                                               Vertex::new([1.0, -1.0]),
@@ -37,8 +38,9 @@ fn main() {
                                               Vertex::new([1.0, -1.0]),
                                               Vertex::new([1.0, 1.0])];
 
-            let attributes =
-                AttributeLayoutBuilder::new().with(VertexAttribute::Position, 2).finish();
+            let attributes = AttributeLayoutBuilder::new()
+                .with(VertexAttribute::Position, 2)
+                .finish();
 
             let layout = Vertex::layout();
 
@@ -58,7 +60,8 @@ fn main() {
             let fbo = app.graphics.create_framebuffer().unwrap();
             {
                 let mut item = fbo.object.write().unwrap();
-                item.update_texture_attachment(&rendered_texture, Some(0)).unwrap();
+                item.update_texture_attachment(&rendered_texture, Some(0))
+                    .unwrap();
                 item.update_clear(Some(Color::gray()), None, None);
             }
 
@@ -85,17 +88,17 @@ fn main() {
                 .unwrap();
 
             window = Some(Window {
-                view: view_fb,
-                pso: pipeline_fb,
-                vbo: vbo_fb,
-                texture: rendered_texture,
+                              view: view_fb,
+                              pso: pipeline_fb,
+                              vbo: vbo_fb,
+                              texture: rendered_texture,
 
-                view_pass_2: view,
-                pso_pass_2: pipeline,
-                vbo_pass_2: vbo,
+                              view_pass_2: view,
+                              pso_pass_2: pipeline,
+                              vbo_pass_2: vbo,
 
-                time: 0.0,
-            });
+                              time: 0.0,
+                          });
         })
         .run(move |app| {
             if let Some(ref mut window) = window {
