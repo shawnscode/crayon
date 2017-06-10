@@ -1,12 +1,12 @@
-use glutin;
+use core::window;
 
 error_chain!{
     types {
         Error, ErrorKind, ResultExt, Result;
     }
 
-    foreign_links {
-        Context(glutin::ContextError);
+    links {
+        Window(window::Error, window::ErrorKind);
     }
 
     errors {
@@ -22,7 +22,6 @@ error_chain!{
             description("failed compile pipeline")
             display("Failed compile pipeline: '{}'", t)
         }
-        ContextLost
         Unknown
     }
 }

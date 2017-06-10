@@ -1,5 +1,5 @@
 ### Build Status
-[![Build Status](https://travis-ci.org/kayak233/crayon.svg?branch=master)](https://travis-ci.org/kaisc/crayon)
+[![Build Status](https://travis-ci.org/kaisc/crayon.svg?branch=master)](https://travis-ci.org/kaisc/crayon)
 [![Crate Status](http://meritbadge.herokuapp.com/crayon)](https://crates.io/crates/crayon)
 
 ### Introduction

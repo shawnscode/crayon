@@ -12,19 +12,19 @@ pub use self::capabilities::{Capabilities, Version, Profile};
 
 use std::sync::{Arc, RwLock};
 use gl;
-use glutin;
+use core::window;
 use super::{ViewHandle, PipelineStateHandle, FrameBufferHandle, VertexBufferHandle,
             IndexBufferHandle, TextureHandle, RenderBufferHandle};
 
 pub struct Context {
-    window: Arc<glutin::Window>,
+    window: Arc<window::Window>,
     context_lost: RwLock<bool>,
     capabilities: Capabilities,
     device: device::Device,
 }
 
 impl Context {
-    pub fn new(window: Arc<glutin::Window>) -> Result<Self> {
+    pub fn new(window: Arc<window::Window>) -> Result<Self> {
         unsafe {
             window.make_current()?;
             gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
@@ -85,7 +85,7 @@ impl Context {
 
 impl Context {
     /// TODO
-    pub fn rebuild(_: Arc<glutin::Window>) -> Result<()> {
+    pub fn rebuild(_: Arc<window::Window>) -> Result<()> {
         Ok(())
     }
 
@@ -104,7 +104,7 @@ impl Context {
     /// Returns the dimensions of the default frame buffer.
     #[inline]
     pub fn dimensions(&self) -> Option<(u32, u32)> {
-        self.window.get_inner_size_pixels()
+        self.window.dimensions()
     }
 
     /// Returns true if the context has been lost and needs to be rebuild.
@@ -122,7 +122,9 @@ impl Context {
     /// Set the context as the active context in this thread.
     #[inline]
     pub fn make_current(&self) -> Result<()> {
-        unsafe { self.window.make_current().chain_err(|| "unable to make context current.") }
+        self.window
+            .make_current()
+            .chain_err(|| "Unable to make context current.")
     }
 
     /// Swaps the buffers in case of double or triple buffering.
@@ -133,15 +135,15 @@ impl Context {
     /// whether swap_buffers will block or not.
     pub fn swap_buffers(&self) -> Result<()> {
         if *self.context_lost.read().unwrap() {
-            bail!(ErrorKind::ContextLost);
+            bail!("Unable to swap buffers due to context lost.");
         }
 
         match self.window.swap_buffers() {
-            Err(glutin::ContextError::ContextLost) => {
+            Err(window::Error(window::ErrorKind::Context(_), _)) => {
                 *self.context_lost.write().unwrap() = true;
-                bail!(ErrorKind::ContextLost);
+                bail!("Unable to swap buffers due to context lost.");
             }
-            other => other.chain_err(|| "unable to swap buffers."),
+            other => other.chain_err(|| "Unable to swap buffers."),
         }
     }
 }

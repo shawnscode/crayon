@@ -1,8 +1,11 @@
 use std::path::Path;
+use std::sync::Arc;
+
 use super::engine::Engine;
 use super::arguments::Arguments;
 use super::window;
 use super::input;
+use super::event;
 use super::errors::*;
 
 use graphics;
@@ -11,8 +14,8 @@ use resource;
 /// User-friendly facade for building applications.
 pub struct Application {
     pub input: input::Input,
+    pub window: Arc<window::Window>,
     pub engine: Engine,
-    pub window: window::Window,
     pub graphics: graphics::Graphics,
     pub resources: resource::Resources,
 }
@@ -20,21 +23,25 @@ pub struct Application {
 impl Application {
     /// Creates empty `Application`.
     pub fn new() -> Result<Self> {
-        let window = window::WindowBuilder::new().build()?;
+        let input = input::Input::new();
+        let window = Arc::new(window::WindowBuilder::new().build(&input)?);
+        let graphics = graphics::Graphics::new(window.clone())?;
+
         Ok(Application {
-            input: input::Input::new(),
-            engine: Engine::new(),
-            graphics: graphics::Graphics::new(window.underlaying())?,
-            window: window,
-            resources: resource::Resources::new(),
-        })
+               input: input,
+               window: window,
+               graphics: graphics,
+               engine: Engine::new(),
+               resources: resource::Resources::new(),
+           })
     }
 
     /// Setup application from configuration.
     pub fn setup<T>(path: T) -> Result<Self>
         where T: AsRef<Path>
     {
-        let args = Arguments::new(path).chain_err(|| "failed to parse arguments.")?;
+        let args = Arguments::new(path)
+            .chain_err(|| "failed to parse arguments.")?;
 
         let mut engine = Engine::new();
         if let Some(slice) = args.load_as_slice("Engine") {
@@ -53,20 +60,26 @@ impl Application {
 
         let mut wb = window::WindowBuilder::new();
         if let Some(slice) = args.load_as_slice("Window") {
-            let name = slice.load_as_str("Title").unwrap_or("Lemon3D - Application");
+            let name = slice
+                .load_as_str("Title")
+                .unwrap_or("Lemon3D - Application");
             let width = slice.load_as_i32("Width").unwrap_or(128) as u32;
             let height = slice.load_as_i32("Height").unwrap_or(128) as u32;
-            wb.with_title(name.to_string()).with_dimensions(width, height);
+            wb.with_title(name.to_string())
+                .with_dimensions(width, height);
         }
 
-        let window = wb.build()?;
+        let input = input::Input::new();
+        let window = Arc::new(wb.build(&input)?);
+        let graphics = graphics::Graphics::new(window.clone())?;
+
         Ok(Application {
-            input: input::Input::new(),
-            engine: engine,
-            graphics: graphics::Graphics::new(window.underlaying())?,
-            window: window,
-            resources: resource::Resources::new(),
-        })
+               input: input,
+               window: window,
+               engine: engine,
+               graphics: graphics,
+               resources: resource::Resources::new(),
+           })
     }
 
     /// Perform custom logics after engine initialization.
@@ -86,18 +99,21 @@ impl Application {
         println!("PWD: {:?}", ::std::env::current_dir());
 
         let mut exec = true;
+        let mut events = Vec::new();
         'main: while exec {
             // Poll any possible events first.
-            self.input.run_one_frame();
-            for event in self.window.poll_events() {
-                match event {
-                    window::Event::Application(value) => {
+            events.clear();
+            self.input.run_one_frame(&mut events);
+
+            for v in events.drain(..) {
+                match v {
+                    event::Event::Application(value) => {
                         match value {
-                            window::ApplicationEvent::Closed => break 'main,
+                            event::ApplicationEvent::Closed => break 'main,
                             other => println!("Drop {:?}.", other),
                         };
                     }
-                    window::Event::InputDevice(value) => self.input.process(value),
+                    event::Event::InputDevice(value) => self.input.process(value),
                     other => println!("Drop {:?}.", other),
                 }
             }

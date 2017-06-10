@@ -1,14 +1,17 @@
 use std::collections::HashSet;
+use glutin;
 
-use super::window;
+use super::event;
 
 /// Input subsystem, responsible for converting window messages to input state
 /// and internal events.
 pub struct Input {
-    key_downs: HashSet<window::KeyboardButton>,
-    key_presses: HashSet<window::KeyboardButton>,
-    mouse_downs: HashSet<window::MouseButton>,
-    mouse_presses: HashSet<window::MouseButton>,
+    events: glutin::EventsLoop,
+
+    key_downs: HashSet<event::KeyboardButton>,
+    key_presses: HashSet<event::KeyboardButton>,
+    mouse_downs: HashSet<event::MouseButton>,
+    mouse_presses: HashSet<event::MouseButton>,
 
     mouse_position: (i32, i32),
     last_mouse_position: (i32, i32),
@@ -19,6 +22,7 @@ pub struct Input {
 impl Input {
     pub fn new() -> Self {
         Input {
+            events: glutin::EventsLoop::new(),
             key_downs: HashSet::new(),
             key_presses: HashSet::new(),
             mouse_downs: HashSet::new(),
@@ -28,6 +32,11 @@ impl Input {
             touch_emulation: false,
             focused: false,
         }
+    }
+
+    /// Returns underlying `glutin::EventsLoop`.
+    pub fn underlaying(&self) -> &glutin::EventsLoop {
+        &self.events
     }
 
     /// Reset input to initial states.
@@ -47,36 +56,94 @@ impl Input {
 
     /// Perform one frame. This will make preparations for some internal
     /// states.
-    pub fn run_one_frame(&mut self) {
+    pub fn run_one_frame(&mut self, collects: &mut Vec<event::Event>) {
         self.key_presses.clear();
         self.mouse_presses.clear();
         self.last_mouse_position = self.mouse_position;
+
+        self.events
+            .poll_events(|event| {
+                let glutin::Event::WindowEvent {
+                    window_id: _,
+                    event: v,
+                } = event;
+
+                if let Some(parse_event) = Input::parse_window_event(v) {
+                    collects.push(parse_event);
+                }
+            });
+    }
+
+    /// Converts `glutin::WindowEvent` into custom `Event`.
+    #[doc(hidden)]
+    fn parse_window_event(event: glutin::WindowEvent) -> Option<event::Event> {
+        match event {
+            glutin::WindowEvent::Awakened => {
+                Some(event::Event::Application(event::ApplicationEvent::Awakened))
+            }
+            glutin::WindowEvent::Suspended(v) => {
+                Some(event::Event::Application(if v {
+                                                   event::ApplicationEvent::Suspended
+                                               } else {
+                                                   event::ApplicationEvent::Resumed
+                                               }))
+            }
+            glutin::WindowEvent::Closed => {
+                Some(event::Event::Application(event::ApplicationEvent::Closed))
+            }
+            glutin::WindowEvent::Focused(v) => {
+                Some(event::Event::InputDevice(if v {
+                                                   event::InputDeviceEvent::GainFocus
+                                               } else {
+                                                   event::InputDeviceEvent::LostFocus
+                                               }))
+            }
+            glutin::WindowEvent::MouseMoved(x, y) => {
+                Some(event::Event::InputDevice(event::InputDeviceEvent::MouseMoved(x, y)))
+            }
+            glutin::WindowEvent::MouseInput(glutin::ElementState::Pressed, button) => {
+                Some(event::Event::InputDevice(event::InputDeviceEvent::MousePressed(button)))
+            }
+            glutin::WindowEvent::MouseInput(glutin::ElementState::Released, button) => {
+                Some(event::Event::InputDevice(event::InputDeviceEvent::MouseReleased(button)))
+            }
+            glutin::WindowEvent::KeyboardInput(glutin::ElementState::Pressed, _, Some(vkey), _) => {
+                Some(event::Event::InputDevice(event::InputDeviceEvent::KeyboardPressed(vkey)))
+            }
+            glutin::WindowEvent::KeyboardInput(glutin::ElementState::Released,
+                                               _,
+                                               Some(vkey),
+                                               _) => {
+                Some(event::Event::InputDevice(event::InputDeviceEvent::KeyboardReleased(vkey)))
+            }
+            _ => None,
+        }
     }
 
     /// Handle window messages, called from application. Returns true
     /// if received closed event.
     #[doc(hidden)]
-    pub fn process(&mut self, event: window::InputDeviceEvent) {
+    pub fn process(&mut self, event: event::InputDeviceEvent) {
         match event {
-            window::InputDeviceEvent::GainFocus => self.focused = true,
-            window::InputDeviceEvent::LostFocus => self.focused = false,
-            window::InputDeviceEvent::MouseMoved(x, y) => self.mouse_position = (x, y),
-            window::InputDeviceEvent::MousePressed(button) => {
+            event::InputDeviceEvent::GainFocus => self.focused = true,
+            event::InputDeviceEvent::LostFocus => self.focused = false,
+            event::InputDeviceEvent::MouseMoved(x, y) => self.mouse_position = (x, y),
+            event::InputDeviceEvent::MousePressed(button) => {
                 if !self.mouse_downs.contains(&button) {
                     self.mouse_downs.insert(button);
                     self.mouse_presses.insert(button);
                 }
             }
-            window::InputDeviceEvent::MouseReleased(button) => {
+            event::InputDeviceEvent::MouseReleased(button) => {
                 self.mouse_downs.remove(&button);
             }
-            window::InputDeviceEvent::KeyboardPressed(button) => {
+            event::InputDeviceEvent::KeyboardPressed(button) => {
                 if !self.key_downs.contains(&button) {
                     self.key_downs.insert(button);
                     self.key_presses.insert(button);
                 }
             }
-            window::InputDeviceEvent::KeyboardReleased(button) => {
+            event::InputDeviceEvent::KeyboardReleased(button) => {
                 self.key_downs.remove(&button);
             }
         }
@@ -88,22 +155,22 @@ impl Input {
     }
 
     /// Checks if a key is held down.
-    pub fn is_key_down(&self, button: window::KeyboardButton) -> bool {
+    pub fn is_key_down(&self, button: event::KeyboardButton) -> bool {
         self.key_downs.contains(&button)
     }
 
     /// Checks if a key has been pressed on this frame.
-    pub fn is_key_press(&self, button: window::KeyboardButton) -> bool {
+    pub fn is_key_press(&self, button: event::KeyboardButton) -> bool {
         self.key_presses.contains(&button)
     }
 
     /// Checks if a mouse button is held down.
-    pub fn is_mouse_down(&self, button: window::MouseButton) -> bool {
+    pub fn is_mouse_down(&self, button: event::MouseButton) -> bool {
         self.mouse_downs.contains(&button)
     }
 
     /// Checks if a mouse button has been pressed on this frame.
-    pub fn is_mouse_press(&self, button: window::MouseButton) -> bool {
+    pub fn is_mouse_press(&self, button: event::MouseButton) -> bool {
         self.mouse_presses.contains(&button)
     }
 

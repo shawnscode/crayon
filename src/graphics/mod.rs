@@ -14,7 +14,8 @@ pub use self::errors::*;
 pub use self::resource::*;
 pub use self::pipeline::*;
 pub use self::color::Color;
-pub use self::graphics::{Graphics, ViewItem, PipelineStateItem, FrameBufferItem, TextureItem, RenderBufferItem, VertexBufferItem, IndexBufferItem};
+pub use self::graphics::{Graphics, ViewStateRef, PipelineStateRef, FrameBufferRef, TextureRef,
+                         RenderBufferRef, VertexBufferRef, IndexBufferRef};
 
 impl_handle!(ViewHandle);
 impl_handle!(PipelineStateHandle);

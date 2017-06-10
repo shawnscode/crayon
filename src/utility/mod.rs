@@ -3,7 +3,6 @@ pub mod handle;
 pub mod handle_set;
 pub mod handle_object_set;
 pub mod hash;
-pub mod serialization;
 pub mod memory;
 
 mod finally;

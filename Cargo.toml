@@ -3,31 +3,31 @@ name = "crayon"
 version = "0.0.1"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 description = "Crayon is an experimental purpose project, written with a minimalistic modular design philosophy. Its built from the ground up to focus on cache friendly data layouts in multicore environments with entity-component based architecture."
-repository = "https://github.com/kayak233/crayon"
+repository = "https://github.com/kaisc/crayon"
 readme = "README.md"
 license = "Apache-2.0"
 keywords = ["ecs", "entity-component", "game-dev", "multithread"]
 categories = ["game-engines", "multimedia"]
 
 [badges]
-travis-ci = { repository = "kayak233/crayon", branch = "master" }
+travis-ci = { repository = "kaisc/crayon", branch = "master" }
 
 [dependencies]
 bit-set = "0.4.0"
-lazy_static = "0.2.4"
-deque = "0.3.1"
+lazy_static = "0.2.8"
+deque = "0.3.2"
 rand = "0.3.15"
-libc = "0.2.21"
+libc = "0.2.23"
 zip = "0.2.2"
-json = "0.11.5"
-glutin = "0.7.4"
-gl = "0.6.1"
+json = "0.11.6"
+glutin = "0.8.1"
+gl = "0.6.2"
 approx = "0.1.1"
-cgmath = "0.12.0"
-serde = "0.9.11"
-serde_derive = "0.9.11"
+cgmath = "0.14.1"
+serde = "1.0.8"
+serde_derive = "1.0.8"
 byteorder = "1.0.0"
 error-chain = "0.10.0"
-derive_builder = "0.3.0"
-image = "0.12.3"
-rayon = "0.6.0"
+derive_builder = "0.4.7"
+image = "0.13.0"
+rayon = "0.7.1"

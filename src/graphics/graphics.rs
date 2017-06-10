@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, Mutex, MutexGuard};
-use glutin;
 use utility::HandleObjectSet;
+use core::window;
 
 use super::*;
 use super::errors::*;
@@ -14,7 +14,7 @@ use super::backend::Context;
 pub struct Graphics {
     context: Context,
 
-    views: HandleObjectSet<Arc<RwLock<ViewObject>>>,
+    views: HandleObjectSet<Arc<RwLock<ViewStateObject>>>,
     pipelines: HandleObjectSet<Arc<RwLock<PipelineStateObject>>>,
     vertex_buffers: HandleObjectSet<Arc<RwLock<VertexBufferObject>>>,
     index_buffers: HandleObjectSet<Arc<RwLock<IndexBufferObject>>>,
@@ -28,21 +28,21 @@ pub struct Graphics {
 }
 
 impl Graphics {
-    /// Create a new `Graphics` with `glutin::Window`.
-    pub fn new(window: Arc<glutin::Window>) -> Result<Self> {
+    /// Create a new `Graphics` with one `Window` context.
+    pub fn new(window: Arc<window::Window>) -> Result<Self> {
         Ok(Graphics {
-            context: Context::new(window)?,
-            views: HandleObjectSet::new(),
-            pipelines: HandleObjectSet::new(),
-            vertex_buffers: HandleObjectSet::new(),
-            index_buffers: HandleObjectSet::new(),
-            textures: HandleObjectSet::new(),
-            renderbuffers: HandleObjectSet::new(),
-            framebuffers: HandleObjectSet::new(),
-            handle_buf: Vec::new(),
-            frames: DoubleFrame::with_capacity(64 * 1024), // 64 kbs
-            multithread: false,
-        })
+               context: Context::new(window)?,
+               views: HandleObjectSet::new(),
+               pipelines: HandleObjectSet::new(),
+               vertex_buffers: HandleObjectSet::new(),
+               index_buffers: HandleObjectSet::new(),
+               textures: HandleObjectSet::new(),
+               renderbuffers: HandleObjectSet::new(),
+               framebuffers: HandleObjectSet::new(),
+               handle_buf: Vec::new(),
+               frames: DoubleFrame::with_capacity(64 * 1024), // 64 kbs
+               multithread: false,
+           })
     }
 
     /// Advance to next frame. When using multithreaded renderer, this call just swaps internal
@@ -63,7 +63,9 @@ impl Graphics {
 
                 // Update view's render target.
                 if let Some(framebuffer) = vso.update_framebuffer {
-                    frame.pre.push(PreFrameTask::UpdateViewFrameBuffer(handle, framebuffer));
+                    frame
+                        .pre
+                        .push(PreFrameTask::UpdateViewFrameBuffer(handle, framebuffer));
                     vso.update_framebuffer = None;
                 }
 
@@ -75,16 +77,20 @@ impl Graphics {
 
                 // Update view's sequential mode.
                 if let Some(seq) = vso.update_seq_mode {
-                    frame.pre.push(PreFrameTask::UpdateViewSequential(handle, seq));
+                    frame
+                        .pre
+                        .push(PreFrameTask::UpdateViewSequential(handle, seq));
                     vso.update_seq_mode = None;
                 }
 
                 // Update view's viewport.
                 if let Some(viewport) = vso.update_viewport {
-                    let ptr = frame.buf.extend(&ViewRectDesc {
-                        position: viewport.0,
-                        size: viewport.1,
-                    });
+                    let ptr = frame
+                        .buf
+                        .extend(&ViewRectDesc {
+                                    position: viewport.0,
+                                    size: viewport.1,
+                                });
                     frame.pre.push(PreFrameTask::UpdateViewRect(handle, ptr));
                     vso.update_viewport = None;
                 }
@@ -108,14 +114,18 @@ impl Graphics {
                 // Update pipeline's render state.
                 if let Some(state) = pso.update_state {
                     let ptr = frame.buf.extend(&state);
-                    frame.pre.push(PreFrameTask::UpdatePipelineState(handle, ptr));
+                    frame
+                        .pre
+                        .push(PreFrameTask::UpdatePipelineState(handle, ptr));
                     pso.update_state = None;
                 }
             }
         }
 
         for handle in self.handle_buf.drain(..) {
-            frame.post.push(PostFrameTask::DeletePipeline(handle.into()));
+            frame
+                .post
+                .push(PostFrameTask::DeletePipeline(handle.into()));
             self.pipelines.free(handle);
         }
 
@@ -131,12 +141,16 @@ impl Graphics {
 
                 // Update framebuffer's clear option.
                 if let Some(clear) = fbo.update_clear {
-                    let ptr = frame.buf.extend(&FrameBufferClearDesc {
-                        clear_color: clear.0.map(|v| v.into()),
-                        clear_depth: clear.1,
-                        clear_stencil: clear.2,
-                    });
-                    frame.pre.push(PreFrameTask::UpdateFrameBufferClear(handle, ptr));
+                    let ptr = frame
+                        .buf
+                        .extend(&FrameBufferClearDesc {
+                                    clear_color: clear.0.map(|v| v.into()),
+                                    clear_depth: clear.1,
+                                    clear_stencil: clear.2,
+                                });
+                    frame
+                        .pre
+                        .push(PreFrameTask::UpdateFrameBufferClear(handle, ptr));
                     fbo.update_clear = None;
                 }
 
@@ -144,7 +158,9 @@ impl Graphics {
                 for i in 0..MAX_ATTACHMENTS {
                     if let Some(v) = fbo.update_attachments[i] {
                         let i = i as u32;
-                        frame.pre.push(PreFrameTask::UpdateFrameBufferAttachment(handle, i, v));
+                        frame
+                            .pre
+                            .push(PreFrameTask::UpdateFrameBufferAttachment(handle, i, v));
                         fbo.update_attachments[i as usize] = None;
                     }
                 }
@@ -152,7 +168,9 @@ impl Graphics {
         }
 
         for handle in self.handle_buf.drain(..) {
-            frame.post.push(PostFrameTask::DeleteFrameBuffer(handle.into()));
+            frame
+                .post
+                .push(PostFrameTask::DeleteFrameBuffer(handle.into()));
             self.framebuffers.free(handle);
         }
 
@@ -164,11 +182,15 @@ impl Graphics {
             } else {
                 let mut texture = item.write().unwrap();
                 if let Some((address, filter)) = texture.update_params {
-                    let ptr = frame.buf.extend(&TextureParametersDesc {
-                        address: address,
-                        filter: filter,
-                    });
-                    frame.pre.push(PreFrameTask::UpdateTextureParameters(handle.into(), ptr));
+                    let ptr = frame
+                        .buf
+                        .extend(&TextureParametersDesc {
+                                    address: address,
+                                    filter: filter,
+                                });
+                    frame
+                        .pre
+                        .push(PreFrameTask::UpdateTextureParameters(handle.into(), ptr));
                     texture.update_params = None;
                 }
             }
@@ -188,7 +210,9 @@ impl Graphics {
         }
 
         for handle in self.handle_buf.drain(..) {
-            frame.post.push(PostFrameTask::DeleteRenderBuffer(handle.into()));
+            frame
+                .post
+                .push(PostFrameTask::DeleteRenderBuffer(handle.into()));
             self.renderbuffers.free(handle);
         }
 
@@ -201,7 +225,9 @@ impl Graphics {
         }
 
         for handle in self.handle_buf.drain(..) {
-            frame.post.push(PostFrameTask::DeleteVertexBuffer(handle.into()));
+            frame
+                .post
+                .push(PostFrameTask::DeleteVertexBuffer(handle.into()));
             self.vertex_buffers.free(handle);
         }
 
@@ -214,7 +240,9 @@ impl Graphics {
         }
 
         for handle in self.handle_buf.drain(..) {
-            frame.post.push(PostFrameTask::DeleteIndexBuffer(handle.into()));
+            frame
+                .post
+                .push(PostFrameTask::DeleteIndexBuffer(handle.into()));
             self.index_buffers.free(handle);
         }
 
@@ -238,19 +266,19 @@ impl Graphics {
 /// order is less efficient, because it doesn't allow state change optimization, and
 /// should be avoided when possible.
 #[derive(Debug)]
-pub struct ViewObject {
-    framebuffer: Option<FrameBufferItem>,
+pub struct ViewStateObject {
+    framebuffer: Option<FrameBufferRef>,
     update_framebuffer: Option<Option<FrameBufferHandle>>,
     update_order: Option<u32>,
     update_seq_mode: Option<bool>,
     update_viewport: Option<((u16, u16), Option<(u16, u16)>)>,
 }
 
-impl ViewObject {
+impl ViewStateObject {
     /// Update the render target of `View` bucket. If `framebuffer` is none, default
     /// framebuffer will be used as render target
     #[inline]
-    pub fn update_framebuffer(&mut self, framebuffer: Option<&FrameBufferItem>) {
+    pub fn update_framebuffer(&mut self, framebuffer: Option<&FrameBufferRef>) {
         self.framebuffer = framebuffer.map(|v| v.clone());
         self.update_framebuffer = Some(framebuffer.map(|v| v.handle));
     }
@@ -281,12 +309,12 @@ impl ViewObject {
 }
 
 #[derive(Debug, Clone)]
-pub struct ViewItem {
+pub struct ViewStateRef {
     pub handle: ViewHandle,
-    pub object: Arc<RwLock<ViewObject>>,
+    pub object: Arc<RwLock<ViewStateObject>>,
 }
 
-impl Deref for ViewItem {
+impl Deref for ViewStateRef {
     type Target = ViewHandle;
 
     fn deref(&self) -> &Self::Target {
@@ -297,23 +325,25 @@ impl Deref for ViewItem {
 impl Graphics {
     /// Creates an view with optional `FrameBuffer`. If `FrameBuffer` is none, default
     /// framebuffer will be used as render target.
-    pub fn create_view(&mut self, framebuffer: Option<&FrameBufferItem>) -> Result<ViewItem> {
-        let object = Arc::new(RwLock::new(ViewObject {
-            framebuffer: framebuffer.map(|v| v.clone()),
-            update_framebuffer: None,
-            update_order: None,
-            update_seq_mode: None,
-            update_viewport: None,
-        }));
+    pub fn create_view(&mut self, framebuffer: Option<&FrameBufferRef>) -> Result<ViewStateRef> {
+        let object = Arc::new(RwLock::new(ViewStateObject {
+                                              framebuffer: framebuffer.map(|v| v.clone()),
+                                              update_framebuffer: None,
+                                              update_order: None,
+                                              update_seq_mode: None,
+                                              update_viewport: None,
+                                          }));
 
         let mut frame = self.frames.front();
         let handle = self.views.create(object.clone()).into();
-        frame.pre.push(PreFrameTask::CreateView(handle, framebuffer.map(|v| v.handle)));
+        frame
+            .pre
+            .push(PreFrameTask::CreateView(handle, framebuffer.map(|v| v.handle)));
 
-        Ok(ViewItem {
-            handle: handle,
-            object: object,
-        })
+        Ok(ViewStateRef {
+               handle: handle,
+               object: object,
+           })
     }
 }
 
@@ -336,12 +366,12 @@ impl PipelineStateObject {
 }
 
 #[derive(Debug, Clone)]
-pub struct PipelineStateItem {
+pub struct PipelineStateRef {
     pub handle: PipelineStateHandle,
     pub object: Arc<RwLock<PipelineStateObject>>,
 }
 
-impl Deref for PipelineStateItem {
+impl Deref for PipelineStateRef {
     type Target = PipelineStateHandle;
 
     fn deref(&self) -> &Self::Target {
@@ -357,11 +387,11 @@ impl Graphics {
                            fs: &str,
                            state: &RenderState,
                            attributes: &AttributeLayout)
-                           -> Result<PipelineStateItem> {
+                           -> Result<PipelineStateRef> {
         let object = Arc::new(RwLock::new(PipelineStateObject {
-            attributes: *attributes,
-            update_state: None,
-        }));
+                                              attributes: *attributes,
+                                              update_state: None,
+                                          }));
 
         let mut frame = self.frames.front();
         let handle = self.pipelines.create(object.clone()).into();
@@ -369,25 +399,27 @@ impl Graphics {
         let vs = frame.buf.extend_from_str(vs);
         let fs = frame.buf.extend_from_str(fs);
 
-        let ptr = frame.buf.extend(&PipelineDesc {
-            vs: vs,
-            fs: fs,
-            state: *state,
-            attributes: *attributes,
-        });
+        let ptr = frame
+            .buf
+            .extend(&PipelineDesc {
+                        vs: vs,
+                        fs: fs,
+                        state: *state,
+                        attributes: *attributes,
+                    });
 
         frame.pre.push(PreFrameTask::CreatePipeline(handle, ptr));
-        Ok(PipelineStateItem {
-            handle: handle,
-            object: object,
-        })
+        Ok(PipelineStateRef {
+               handle: handle,
+               object: object,
+           })
     }
 }
 
 #[derive(Debug)]
 pub struct FrameBufferObject {
-    renderbuffers: [Option<RenderBufferItem>; MAX_ATTACHMENTS],
-    textures: [Option<TextureItem>; MAX_ATTACHMENTS],
+    renderbuffers: [Option<RenderBufferRef>; MAX_ATTACHMENTS],
+    textures: [Option<TextureRef>; MAX_ATTACHMENTS],
     update_clear: Option<(Option<Color>, Option<f32>, Option<i32>)>,
     update_attachments: [Option<FrameBufferAttachment>; MAX_ATTACHMENTS],
 }
@@ -407,7 +439,7 @@ impl FrameBufferObject {
     /// `FrameBufferObject` will keep a reference to this attachment, so its perfectly
     /// safe to drop attached resource immediately.
     pub fn update_attachment(&mut self,
-                             attachment: &RenderBufferItem,
+                             attachment: &RenderBufferRef,
                              slot: Option<usize>)
                              -> Result<()> {
         let handle = FrameBufferAttachment::RenderBuffer(attachment.handle);
@@ -437,7 +469,7 @@ impl FrameBufferObject {
     /// `FrameBufferObject` will keep a reference to this attachment, so its perfectly
     /// safe to drop attached resource immediately.
     pub fn update_texture_attachment(&mut self,
-                                     attachment: &TextureItem,
+                                     attachment: &TextureRef,
                                      slot: Option<usize>)
                                      -> Result<()> {
         let handle = FrameBufferAttachment::Texture(attachment.handle);
@@ -464,12 +496,12 @@ impl FrameBufferObject {
 }
 
 #[derive(Debug, Clone)]
-pub struct FrameBufferItem {
+pub struct FrameBufferRef {
     pub handle: FrameBufferHandle,
     pub object: Arc<RwLock<FrameBufferObject>>,
 }
 
-impl Deref for FrameBufferItem {
+impl Deref for FrameBufferRef {
     type Target = FrameBufferHandle;
 
     fn deref(&self) -> &Self::Target {
@@ -482,22 +514,24 @@ impl Graphics {
     /// which can then be used in other rendering operations.
     ///
     /// At least one color attachment has been attached before you can use it.
-    pub fn create_framebuffer(&mut self) -> Result<FrameBufferItem> {
+    pub fn create_framebuffer(&mut self) -> Result<FrameBufferRef> {
         let object = Arc::new(RwLock::new(FrameBufferObject {
-            renderbuffers: [None, None, None, None, None, None, None, None],
-            textures: [None, None, None, None, None, None, None, None],
-            update_clear: None,
-            update_attachments: [None; MAX_ATTACHMENTS],
-        }));
+                                              renderbuffers: [None, None, None, None, None, None,
+                                                              None, None],
+                                              textures: [None, None, None, None, None, None, None,
+                                                         None],
+                                              update_clear: None,
+                                              update_attachments: [None; MAX_ATTACHMENTS],
+                                          }));
 
         let handle = self.framebuffers.create(object.clone()).into();
         let mut frame = self.frames.front();
         frame.pre.push(PreFrameTask::CreateFrameBuffer(handle));
 
-        Ok(FrameBufferItem {
-            handle: handle,
-            object: object,
-        })
+        Ok(FrameBufferRef {
+               handle: handle,
+               object: object,
+           })
     }
 }
 
@@ -527,12 +561,12 @@ impl TextureObject {
 }
 
 #[derive(Debug, Clone)]
-pub struct TextureItem {
+pub struct TextureRef {
     pub handle: TextureHandle,
     pub object: Arc<RwLock<TextureObject>>,
 }
 
-impl Deref for TextureItem {
+impl Deref for TextureRef {
     type Target = TextureHandle;
 
     fn deref(&self) -> &Self::Target {
@@ -551,33 +585,35 @@ impl Graphics {
                           width: u32,
                           height: u32,
                           data: &[u8])
-                          -> Result<TextureItem> {
+                          -> Result<TextureRef> {
         let object = Arc::new(RwLock::new(TextureObject {
-            format: format,
-            render_format: RenderTextureFormat::RGBA8,
-            dimensions: (width, height),
-            update_params: None,
-        }));
+                                              format: format,
+                                              render_format: RenderTextureFormat::RGBA8,
+                                              dimensions: (width, height),
+                                              update_params: None,
+                                          }));
 
         let mut frame = self.frames.front();
         let handle = self.textures.create(object.clone()).into();
 
         let data = frame.buf.extend_from_slice(data);
-        let ptr = frame.buf.extend(&TextureDesc {
-            format: format,
-            address: address,
-            filter: filter,
-            mipmap: mipmap,
-            width: width,
-            height: height,
-            data: data,
-        });
+        let ptr = frame
+            .buf
+            .extend(&TextureDesc {
+                        format: format,
+                        address: address,
+                        filter: filter,
+                        mipmap: mipmap,
+                        width: width,
+                        height: height,
+                        data: data,
+                    });
 
         frame.pre.push(PreFrameTask::CreateTexture(handle, ptr));
-        Ok(TextureItem {
-            handle: handle,
-            object: object,
-        })
+        Ok(TextureRef {
+               handle: handle,
+               object: object,
+           })
     }
 
     /// Create render texture object, which could be attached with a framebuffer.
@@ -585,28 +621,32 @@ impl Graphics {
                                  format: RenderTextureFormat,
                                  width: u32,
                                  height: u32)
-                                 -> Result<TextureItem> {
+                                 -> Result<TextureRef> {
         let object = Arc::new(RwLock::new(TextureObject {
-            format: TextureFormat::U8,
-            render_format: format,
-            dimensions: (width, height),
-            update_params: None,
-        }));
+                                              format: TextureFormat::U8,
+                                              render_format: format,
+                                              dimensions: (width, height),
+                                              update_params: None,
+                                          }));
 
         let mut frame = self.frames.front();
         let handle = self.textures.create(object.clone()).into();
 
-        let ptr = frame.buf.extend(&RenderTextureDesc {
-            format: format,
-            width: width,
-            height: height,
-        });
+        let ptr = frame
+            .buf
+            .extend(&RenderTextureDesc {
+                        format: format,
+                        width: width,
+                        height: height,
+                    });
 
-        frame.pre.push(PreFrameTask::CreateRenderTexture(handle, ptr));
-        Ok(TextureItem {
-            handle: handle,
-            object: object,
-        })
+        frame
+            .pre
+            .push(PreFrameTask::CreateRenderTexture(handle, ptr));
+        Ok(TextureRef {
+               handle: handle,
+               object: object,
+           })
     }
 }
 
@@ -629,12 +669,12 @@ impl RenderBufferObject {
 }
 
 #[derive(Debug, Clone)]
-pub struct RenderBufferItem {
+pub struct RenderBufferRef {
     pub handle: RenderBufferHandle,
     pub object: Arc<RwLock<RenderBufferObject>>,
 }
 
-impl Deref for RenderBufferItem {
+impl Deref for RenderBufferRef {
     type Target = RenderBufferHandle;
 
     fn deref(&self) -> &Self::Target {
@@ -648,26 +688,30 @@ impl Graphics {
                                 format: RenderTextureFormat,
                                 width: u32,
                                 height: u32)
-                                -> Result<RenderBufferItem> {
+                                -> Result<RenderBufferRef> {
         let object = Arc::new(RwLock::new(RenderBufferObject {
-            format: format,
-            dimensions: (width, height),
-        }));
+                                              format: format,
+                                              dimensions: (width, height),
+                                          }));
 
         let mut frame = self.frames.front();
         let handle = self.renderbuffers.create(object.clone()).into();
 
-        let ptr = frame.buf.extend(&RenderTextureDesc {
-            format: format,
-            width: width,
-            height: height,
-        });
+        let ptr = frame
+            .buf
+            .extend(&RenderTextureDesc {
+                        format: format,
+                        width: width,
+                        height: height,
+                    });
 
-        frame.pre.push(PreFrameTask::CreateRenderBuffer(handle, ptr));
-        Ok(RenderBufferItem {
-            handle: handle,
-            object: object,
-        })
+        frame
+            .pre
+            .push(PreFrameTask::CreateRenderBuffer(handle, ptr));
+        Ok(RenderBufferRef {
+               handle: handle,
+               object: object,
+           })
     }
 }
 
@@ -696,12 +740,12 @@ impl VertexBufferObject {
 }
 
 #[derive(Debug, Clone)]
-pub struct VertexBufferItem {
+pub struct VertexBufferRef {
     pub handle: VertexBufferHandle,
     pub object: Arc<RwLock<VertexBufferObject>>,
 }
 
-impl Deref for VertexBufferItem {
+impl Deref for VertexBufferRef {
     type Target = VertexBufferHandle;
 
     fn deref(&self) -> &Self::Target {
@@ -716,29 +760,33 @@ impl Graphics {
                                 hint: ResourceHint,
                                 size: u32,
                                 data: Option<&[u8]>)
-                                -> Result<VertexBufferItem> {
+                                -> Result<VertexBufferRef> {
         let object = Arc::new(RwLock::new(VertexBufferObject {
-            hint: hint,
-            len: size,
-            layout: *layout,
-        }));
+                                              hint: hint,
+                                              len: size,
+                                              layout: *layout,
+                                          }));
 
         let mut frame = self.frames.front();
         let handle = self.vertex_buffers.create(object.clone()).into();
 
         let data = data.map(|v| frame.buf.extend_from_slice(v));
-        let ptr = frame.buf.extend(&VertexBufferDesc {
-            layout: *layout,
-            hint: hint,
-            size: size,
-            data: data,
-        });
+        let ptr = frame
+            .buf
+            .extend(&VertexBufferDesc {
+                        layout: *layout,
+                        hint: hint,
+                        size: size,
+                        data: data,
+                    });
 
-        frame.pre.push(PreFrameTask::CreateVertexBuffer(handle, ptr));
-        Ok(VertexBufferItem {
-            handle: handle,
-            object: object,
-        })
+        frame
+            .pre
+            .push(PreFrameTask::CreateVertexBuffer(handle, ptr));
+        Ok(VertexBufferRef {
+               handle: handle,
+               object: object,
+           })
     }
 
     /// Update a subset of dynamic vertex buffer. Use `offset` specifies the offset
@@ -761,7 +809,9 @@ impl Graphics {
 
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(data);
-            frame.pre.push(PreFrameTask::UpdateVertexBuffer(handle, offset, ptr));
+            frame
+                .pre
+                .push(PreFrameTask::UpdateVertexBuffer(handle, offset, ptr));
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -794,12 +844,12 @@ impl IndexBufferObject {
 }
 
 #[derive(Debug, Clone)]
-pub struct IndexBufferItem {
+pub struct IndexBufferRef {
     pub handle: IndexBufferHandle,
     pub object: Arc<RwLock<IndexBufferObject>>,
 }
 
-impl Deref for IndexBufferItem {
+impl Deref for IndexBufferRef {
     type Target = IndexBufferHandle;
 
     fn deref(&self) -> &Self::Target {
@@ -814,29 +864,31 @@ impl Graphics {
                                hint: ResourceHint,
                                size: u32,
                                data: Option<&[u8]>)
-                               -> Result<IndexBufferItem> {
+                               -> Result<IndexBufferRef> {
         let object = Arc::new(RwLock::new(IndexBufferObject {
-            hint: hint,
-            len: size,
-            format: format,
-        }));
+                                              hint: hint,
+                                              len: size,
+                                              format: format,
+                                          }));
 
         let mut frame = self.frames.front();
         let handle = self.index_buffers.create(object.clone()).into();
 
         let data = data.map(|v| frame.buf.extend_from_slice(v));
-        let ptr = frame.buf.extend(&IndexBufferDesc {
-            format: format,
-            hint: hint,
-            size: size,
-            data: data,
-        });
+        let ptr = frame
+            .buf
+            .extend(&IndexBufferDesc {
+                        format: format,
+                        hint: hint,
+                        size: size,
+                        data: data,
+                    });
 
         frame.pre.push(PreFrameTask::CreateIndexBuffer(handle, ptr));
-        Ok(IndexBufferItem {
-            handle: handle,
-            object: object,
-        })
+        Ok(IndexBufferRef {
+               handle: handle,
+               object: object,
+           })
     }
 
     /// Update a subset of dynamic index buffer. Use `offset` specifies the offset
@@ -859,7 +911,9 @@ impl Graphics {
 
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(data);
-            frame.pre.push(PreFrameTask::UpdateIndexBuffer(handle, offset, ptr));
+            frame
+                .pre
+                .push(PreFrameTask::UpdateIndexBuffer(handle, offset, ptr));
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -900,18 +954,20 @@ impl Graphics {
             frame.buf.extend_from_slice(variables.as_slice())
         };
 
-        frame.drawcalls.push(FrameTask {
-            priority: priority,
-            view: view,
-            pipeline: pipeline,
-            primitive: primitive,
-            vb: vb,
-            ib: ib,
-            from: from,
-            len: len,
-            textures: textures,
-            uniforms: uniforms,
-        });
+        frame
+            .drawcalls
+            .push(FrameTask {
+                      priority: priority,
+                      view: view,
+                      pipeline: pipeline,
+                      primitive: primitive,
+                      vb: vb,
+                      ib: ib,
+                      from: from,
+                      len: len,
+                      textures: textures,
+                      uniforms: uniforms,
+                  });
 
         Ok(())
     }

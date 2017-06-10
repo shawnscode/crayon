@@ -24,8 +24,8 @@ impl_vertex! {
 const MAX_BATCH_VERTICES: usize = 1024;
 
 pub struct Scene2d {
-    view: graphics::ViewItem,
-    pso: graphics::PipelineStateItem,
+    view: graphics::ViewStateRef,
+    pso: graphics::PipelineStateRef,
     vertices: Vec<Vertex>,
     world: ecs::World,
     camera: Option<ecs::Entity>,
@@ -42,7 +42,8 @@ impl Scene2d {
 
         let view = application.graphics.create_view(None)?;
         let state = graphics::RenderState::default();
-        let pso = application.graphics
+        let pso = application
+            .graphics
             .create_pipeline(include_str!("../../resources/shaders/scene2d.vs"),
                              include_str!("../../resources/shaders/scene2d.fs"),
                              &state,
@@ -55,12 +56,12 @@ impl Scene2d {
         world.register::<Camera>();
 
         Ok(Scene2d {
-            world: world,
-            view: view,
-            pso: pso,
-            camera: None,
-            vertices: Vec::with_capacity(MAX_BATCH_VERTICES),
-        })
+               world: world,
+               view: view,
+               pso: pso,
+               camera: None,
+               vertices: Vec::with_capacity(MAX_BATCH_VERTICES),
+           })
     }
 
     pub fn world(&self) -> &ecs::World {
@@ -92,7 +93,9 @@ impl Scene2d {
                                               up)
             };
 
-            let camera = self.world.fetch::<Camera>(id).ok_or(ErrorKind::CanNotDrawWithoutCamera)?;
+            let camera = self.world
+                .fetch::<Camera>(id)
+                .ok_or(ErrorKind::CanNotDrawWithoutCamera)?;
             let proj_mat = camera.projection_matrix();
             (view_mat, proj_mat)
         } else {
@@ -107,12 +110,18 @@ impl Scene2d {
             let diffuse = sprite.color().into();
             let addtive = sprite.additive_color().into();
 
-            self.vertices.push(Vertex::new(coners[0].into(), diffuse, addtive, [0, 0]));
-            self.vertices.push(Vertex::new(coners[3].into(), diffuse, addtive, [0, 255]));
-            self.vertices.push(Vertex::new(coners[2].into(), diffuse, addtive, [255, 255]));
-            self.vertices.push(Vertex::new(coners[0].into(), diffuse, addtive, [0, 0]));
-            self.vertices.push(Vertex::new(coners[2].into(), diffuse, addtive, [255, 255]));
-            self.vertices.push(Vertex::new(coners[1].into(), diffuse, addtive, [255, 0]));
+            self.vertices
+                .push(Vertex::new(coners[0].into(), diffuse, addtive, [0, 0]));
+            self.vertices
+                .push(Vertex::new(coners[3].into(), diffuse, addtive, [0, 255]));
+            self.vertices
+                .push(Vertex::new(coners[2].into(), diffuse, addtive, [255, 255]));
+            self.vertices
+                .push(Vertex::new(coners[0].into(), diffuse, addtive, [0, 0]));
+            self.vertices
+                .push(Vertex::new(coners[2].into(), diffuse, addtive, [255, 255]));
+            self.vertices
+                .push(Vertex::new(coners[1].into(), diffuse, addtive, [255, 0]));
 
             let texture = sprite.texture();
             if !eq(main_texture, texture) || self.vertices.len() >= MAX_BATCH_VERTICES {
@@ -138,7 +147,8 @@ impl Scene2d {
                         ("u_Proj", graphics::UniformVariable::Matrix4f(*proj_mat.as_ref(), true))];
 
         let layout = Vertex::layout();
-        let vbo = application.graphics
+        let vbo = application
+            .graphics
             .create_vertex_buffer(&layout,
                                   graphics::ResourceHint::Dynamic,
                                   (self.vertices.len() * layout.stride() as usize) as u32,
@@ -159,7 +169,8 @@ impl Scene2d {
         //               0,
         //               self.vertices.len() as u32)?;
         // } else {
-        application.graphics
+        application
+            .graphics
             .draw(0,
                   *self.view,
                   *self.pso,
@@ -194,7 +205,8 @@ fn eq(lhs: Option<&resource::TextureItem>, rhs: Option<&resource::TextureItem>) 
 impl Scene2d {
     /// Create a empty sprite.
     pub fn sprite(world: &mut ecs::World) -> ecs::Entity {
-        world.build()
+        world
+            .build()
             .with_default::<Transform>()
             .with_default::<Rect>()
             .with_default::<Sprite>()
@@ -202,7 +214,8 @@ impl Scene2d {
     }
 
     pub fn camera(world: &mut ecs::World) -> ecs::Entity {
-        world.build()
+        world
+            .build()
             .with_default::<Transform>()
             .with_default::<Camera>()
             .finish()

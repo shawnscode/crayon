@@ -3,61 +3,17 @@ use std::sync::Arc;
 use gl;
 use glutin;
 
-use super::errors::*;
+use super::input;
 
-/// The status of application.
-#[derive(Debug)]
-pub enum ApplicationEvent {
-    /// The window has been woken up by another thread.
-    Awakened,
-    /// The window has been resumed.
-    Resumed,
-    /// The window has been suspended.
-    Suspended,
-    /// The window has been closed.
-    Closed,
-}
+error_chain!{
+    types {
+        Error, ErrorKind, ResultExt, Result;
+    }
 
-/// Window related events.
-#[derive(Debug)]
-pub enum WindowEvent {
-    /// The size of window has changed.
-    Resized(u32, u32),
-    /// The position of window has changed.
-    Moved(u32, u32),
-}
-
-pub type KeyboardButton = glutin::VirtualKeyCode;
-pub type MouseButton = glutin::MouseButton;
-
-/// Input device event, supports mouse and keyboard only.
-#[derive(Debug)]
-pub enum InputDeviceEvent {
-    /// The window gained focus of user input.
-    GainFocus,
-    /// The window lost focus of user input.
-    LostFocus,
-
-    /// The cursor has moved on the window.
-    /// The parameter are the (x, y) coords in pixels relative to the top-left
-    /// corner of th window.
-    MouseMoved(i32, i32),
-    /// Pressed event on mouse has been received.
-    MousePressed(MouseButton),
-    /// Released event from mouse has been received.
-    MouseReleased(MouseButton),
-
-    /// Pressed event on keyboard has been received.
-    KeyboardPressed(KeyboardButton),
-    /// Released event from keyboard has been received.
-    KeyboardReleased(KeyboardButton),
-}
-
-#[derive(Debug)]
-pub enum Event {
-    Application(ApplicationEvent),
-    Window(WindowEvent),
-    InputDevice(InputDeviceEvent),
+    foreign_links {
+        Context(glutin::ContextError);
+        Creation(glutin::CreationError);
+    }
 }
 
 /// Represents an OpenGL context and the Window or environment around it, its just
@@ -73,8 +29,10 @@ impl Window {
         WindowBuilder::new()
     }
 
-    pub fn underlaying(&self) -> Arc<glutin::Window> {
-        self.window.clone()
+    /// Returns the address of an OpenGL function.
+    /// Contrary to wglGetProcAddress, all available OpenGL functions return an address.
+    pub fn get_proc_address(&self, func: &str) -> *const () {
+        self.window.get_proc_address(func)
     }
 
     /// Shows the window if it was hidden.
@@ -158,80 +116,6 @@ impl Window {
         self.window.swap_buffers()?;
         Ok(())
     }
-
-    /// Returns an iterator that poll for the next event in the window's
-    /// events queue. Returns `None` if there is no event in the queue.
-    #[inline]
-    pub fn poll_events<'a>(&'a self) -> EventIterator<'a> {
-        EventIterator { iterator: self.window.poll_events() }
-    }
-}
-
-// impl From<glutin::ContextError> for Error {
-//     fn from(err: glutin::ContextError) -> Error {
-//         match err {
-//             glutin::ContextError::ContextLost => Error::ContextLost,
-//             glutin::ContextError::IoError(v) => Error::IoError(v),
-//         }
-//     }
-// }
-
-/// An iterator for the `poll_events` function.
-pub struct EventIterator<'a> {
-    iterator: glutin::PollEventsIterator<'a>,
-}
-
-impl<'a> Iterator for EventIterator<'a> {
-    type Item = Event;
-
-    fn next(&mut self) -> Option<Event> {
-        while let Some(event) = self.iterator.next() {
-            let window_event = match event {
-                glutin::Event::Awakened => Event::Application(ApplicationEvent::Awakened),
-                glutin::Event::Suspended(v) => {
-                    Event::Application(if v {
-                        ApplicationEvent::Suspended
-                    } else {
-                        ApplicationEvent::Resumed
-                    })
-                }
-                glutin::Event::Closed => Event::Application(ApplicationEvent::Closed),
-
-                glutin::Event::Focused(v) => {
-                    Event::InputDevice(if v {
-                        InputDeviceEvent::GainFocus
-                    } else {
-                        InputDeviceEvent::LostFocus
-                    })
-                }
-                glutin::Event::MouseMoved(x, y) => {
-                    Event::InputDevice(InputDeviceEvent::MouseMoved(x, y))
-                }
-                glutin::Event::MouseInput(glutin::ElementState::Pressed, button) => {
-                    Event::InputDevice(InputDeviceEvent::MousePressed(button))
-                }
-                glutin::Event::MouseInput(glutin::ElementState::Released, button) => {
-                    Event::InputDevice(InputDeviceEvent::MouseReleased(button))
-                }
-                glutin::Event::KeyboardInput(glutin::ElementState::Pressed, _, Some(vkey)) => {
-                    Event::InputDevice(InputDeviceEvent::KeyboardPressed(vkey))
-                }
-                glutin::Event::KeyboardInput(glutin::ElementState::Released, _, Some(vkey)) => {
-                    Event::InputDevice(InputDeviceEvent::KeyboardReleased(vkey))
-                }
-                _ => continue,
-            };
-
-            return Some(window_event);
-        }
-
-        None
-    }
-
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iterator.size_hint()
-    }
 }
 
 /// Describes the requested OpenGL context profiles.
@@ -263,7 +147,7 @@ impl WindowBuilder {
         Default::default()
     }
 
-    pub fn build(self) -> Result<Window> {
+    pub fn build(self, events: &input::Input) -> Result<Window> {
         let profile = match self.profile {
             OpenGLProfile::Core => glutin::GlProfile::Core,
             OpenGLProfile::Compatibility => glutin::GlProfile::Compatibility,
@@ -291,7 +175,7 @@ impl WindowBuilder {
             builder = builder.with_vsync();
         }
 
-        let window = builder.build()?;
+        let window = builder.build(&events.underlaying())?;
 
         unsafe {
             window.make_current()?;
