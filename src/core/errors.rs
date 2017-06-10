@@ -1,5 +1,5 @@
-use glutin;
 use graphics;
+use super::window;
 
 error_chain!{
     types {
@@ -8,14 +8,6 @@ error_chain!{
 
     links {
         Graphics(graphics::errors::Error, graphics::errors::ErrorKind);
-    }
-
-    foreign_links {
-        Context(glutin::ContextError);
-        Creation(glutin::CreationError);
-    }
-
-    errors {
-        ContextLost
+        Window(window::Error, window::ErrorKind);
     }
 }

@@ -73,6 +73,7 @@ pub enum BlendFactor {
 
 /// A struct that encapsulate all the necessary render states.
 #[derive(Debug, PartialEq, Clone, Copy, Builder)]
+#[builder(field(private))]
 pub struct RenderState {
     pub cull_face: CullFace,
     pub front_face_order: FrontFaceOrder,

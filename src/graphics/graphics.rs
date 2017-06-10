@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, Mutex, MutexGuard};
-use glutin;
 use utility::HandleObjectSet;
+use core::window;
 
 use super::*;
 use super::errors::*;
@@ -28,8 +28,8 @@ pub struct Graphics {
 }
 
 impl Graphics {
-    /// Create a new `Graphics` with `glutin::Window`.
-    pub fn new(window: Arc<glutin::Window>) -> Result<Self> {
+    /// Create a new `Graphics` with one `Window` context.
+    pub fn new(window: Arc<window::Window>) -> Result<Self> {
         Ok(Graphics {
                context: Context::new(window)?,
                views: HandleObjectSet::new(),
