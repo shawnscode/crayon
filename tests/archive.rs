@@ -1,6 +1,7 @@
 extern crate crayon;
 
 use crayon::resource::*;
+use std::fs;
 
 #[test]
 fn collection() {
@@ -24,25 +25,29 @@ fn collection() {
 fn filesystem() {
     assert!(FilesystemArchive::new("tests/_invalid_path_").is_err());
 
-    let mut fs = FilesystemArchive::new("tests/resources").unwrap();
-    assert!(fs.exists("mock.prefab"));
+    let fs = FilesystemArchive::new("tests/resources").unwrap();
+    assert!(fs.exists("mock.prefab".as_ref()));
 
     let mut prefab = String::new();
-    let len = fs.open("mock.prefab").unwrap().read_to_string(&mut prefab).unwrap();
+    let len = fs.open("mock.prefab".as_ref())
+        .unwrap()
+        .read_to_string(&mut prefab)
+        .unwrap();
     assert_eq!(len, "mock".to_string().len());
     assert_eq!(prefab, "mock");
 }
 
 #[test]
 fn zip() {
-    let mut fs = FilesystemArchive::new("tests/resources").unwrap();
-    assert!(fs.exists("mock.zip"));
-
-    let mut zip = ZipArchive::new(fs.open("mock.zip").unwrap()).unwrap();
-    assert!(zip.exists("foo/mock.prefab"));
+    let zip_file = fs::File::open("tests/resources/mock.zip").unwrap();
+    let zip = ZipArchive::new(zip_file).unwrap();
+    assert!(zip.exists("foo/mock.prefab".as_ref()));
 
     let mut prefab = String::new();
-    let len = zip.open("foo/mock.prefab").unwrap().read_to_string(&mut prefab).unwrap();
+    let len = zip.open("foo/mock.prefab".as_ref())
+        .unwrap()
+        .read_to_string(&mut prefab)
+        .unwrap();
     assert_eq!(len, "mock".to_string().len());
     assert_eq!(prefab, "mock");
 }

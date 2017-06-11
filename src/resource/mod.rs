@@ -64,8 +64,7 @@ impl Resources {
     }
 
     pub fn loads<T, P>(&mut self, path: P) -> Result<Arc<RwLock<T>>>
-        where P: AsRef<Path>,
-              T: ResourceItem + ResourceItemIndex + 'static
+        where P: AsRef<Path>, T: ResourceItem + ResourceItemIndex + 'static
     {
         if let Some(cache) = self.cache_mut::<T>() {
             if let Some(v) = cache.get(path.as_ref()) {
