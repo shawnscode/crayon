@@ -1,9 +1,8 @@
-use image;
-use image::GenericImage;
+// use image;
+// use image::GenericImage;
 use graphics;
 
 use super::errors::*;
-use super::ResourceItem;
 
 #[derive(Debug)]
 pub struct Texture {
@@ -15,25 +14,25 @@ pub struct Texture {
     buf: Vec<u8>,
 }
 
-impl ResourceItem for Texture {
-    fn from_bytes(bytes: &[u8]) -> Result<Self>
-        where Self: Sized
-    {
-        let dynamic = image::load_from_memory(bytes)?;
-        Ok(Texture {
-               video: None,
-               address: graphics::TextureAddress::Clamp,
-               filter: graphics::TextureFilter::Linear,
-               mipmap: false,
-               dimensions: dynamic.dimensions(),
-               buf: dynamic.to_rgba().into_raw(),
-           })
-    }
+// impl ResourceItem for Texture {
+//     fn from_bytes(bytes: &[u8]) -> Result<Self>
+//         where Self: Sized
+//     {
+//         let dynamic = image::load_from_memory(bytes)?;
+//         Ok(Texture {
+//                video: None,
+//                address: graphics::TextureAddress::Clamp,
+//                filter: graphics::TextureFilter::Linear,
+//                mipmap: false,
+//                dimensions: dynamic.dimensions(),
+//                buf: dynamic.to_rgba().into_raw(),
+//            })
+//     }
 
-    fn size(&self) -> usize {
-        self.buf.len()
-    }
-}
+//     fn size(&self) -> usize {
+//         self.buf.len()
+//     }
+// }
 
 impl Texture {
     pub fn update_video_object(&mut self, video: &mut graphics::Graphics) -> Result<()> {

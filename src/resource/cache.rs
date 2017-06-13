@@ -25,11 +25,12 @@ pub struct Cache<T> {
     used: usize,
     threshold: usize,
     dynamic_threshold: usize,
+    extern_ref: usize,
 }
 
 impl<T> Cache<T> {
     /// Create a new and empty `Cache`.
-    pub fn new(threshold: usize) -> Self {
+    pub fn new(extern_ref: usize, threshold: usize) -> Self {
         Cache {
             cache: HashMap::new(),
             lru_front: None,
@@ -37,6 +38,7 @@ impl<T> Cache<T> {
             used: 0,
             threshold: threshold,
             dynamic_threshold: threshold,
+            extern_ref: extern_ref,
         }
     }
 
@@ -103,7 +105,7 @@ impl<T> Cache<T> {
             };
 
             // If this resource is referenced by `Cache` only then erase it.
-            if rc == 1 {
+            if rc <= (self.extern_ref + 1) {
                 let desc = self.cache.remove(&hash).unwrap();
                 self.detach(&desc);
                 self.used -= desc.size;
@@ -160,7 +162,7 @@ mod test {
 
     #[test]
     fn lru() {
-        let mut cache = Cache::new(4);
+        let mut cache = Cache::new(0, 4);
         cache.insert("/1", 2, Arc::new("a1".to_owned()));
         cache.insert("/2", 2, Arc::new("a2".to_owned()));
         assert!(cache.contains("/1"));
@@ -180,7 +182,7 @@ mod test {
 
     #[test]
     fn rc() {
-        let mut cache = Cache::new(4);
+        let mut cache = Cache::new(0, 4);
 
         {
             let a1 = Arc::new("a1".to_owned());
