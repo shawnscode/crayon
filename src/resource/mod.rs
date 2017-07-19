@@ -4,22 +4,22 @@ pub mod cache;
 pub mod resource;
 pub mod texture;
 
-pub use self::archive::{Read, Seek, Archive, FilesystemArchive, ZipArchive, ArchiveCollection};
+pub use self::archive::{Read, Seek, File, Archive, FilesystemArchive, ZipArchive,
+                        ArchiveCollection};
 pub use self::cache::Cache;
 pub use self::texture::Texture;
-pub use self::resource::ResourceSystem;
+pub use self::resource::{ResourceSystem, Resource, ResourceLoader};
 
 use std::sync::{Arc, RwLock};
 
 pub type TextureItem = Arc<RwLock<Texture>>;
 
 pub struct ResourceSystemTable {
-    // pub textures: ResourceSystem<Texture>,
+    pub textures: ResourceSystem<Texture>,
 }
 
 impl ResourceSystemTable {
     pub fn new() -> ResourceSystemTable {
-        // ResourceSystemTable { textures: ResourceSystem::new() }
-        ResourceSystemTable {}
+        ResourceSystemTable { textures: ResourceSystem::new() }
     }
 }
