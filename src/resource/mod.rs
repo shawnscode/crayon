@@ -33,3 +33,14 @@ macro_rules! declare_resource {
 
 pub type TextureItem = Arc<RwLock<Texture>>;
 declare_resource!(Texture);
+
+pub struct ResourceSystemTable {
+    // pub textures: ResourceSystem<Texture>,
+}
+
+impl ResourceSystemTable {
+    pub fn new() -> ResourceSystemTable {
+        // ResourceSystemTable { textures: ResourceSystem::new() }
+        ResourceSystemTable {}
+    }
+}
