@@ -13,31 +13,29 @@ pub trait Resource {
     fn size(&self) -> usize;
 }
 
-pub trait ResourceIndex {
-    fn index() -> usize;
-}
-
 /// `ResourceLoader`
 pub trait ResourceLoader: Debug {
-    type Item: Resource + ResourceIndex + 'static;
+    type Item: Resource + 'static;
 
     fn create(file: &mut archive::File) -> Result<Self::Item>;
 }
 
 pub struct ResourceSystem<T>
-    where T: Resource + ResourceIndex + 'static
+    where T: Resource + 'static
 {
     cache: Option<cache::Cache<RwLock<T>>>,
     resources: HashMap<HashValue<Path>, Arc<RwLock<T>>>,
+    size: usize,
 }
 
 impl<T> ResourceSystem<T>
-    where T: Resource + ResourceIndex + 'static
+    where T: Resource + 'static
 {
     pub fn new() -> Self {
         ResourceSystem {
             cache: None,
             resources: HashMap::new(),
+            size: 0,
         }
     }
 
@@ -49,6 +47,11 @@ impl<T> ResourceSystem<T>
         }
 
         self.cache = Some(cache::Cache::<RwLock<T>>::new(size));
+    }
+
+    /// Returns size of all loaded assets from this `ResourceSystem`.
+    pub fn size(&self) -> usize {
+        self.size
     }
 
     /// Load resource from archive collections at specified path. It could
@@ -73,7 +76,9 @@ impl<T> ResourceSystem<T>
         let resource = L::create(file.as_mut())?;
         let size = resource.size();
         let rc = Arc::new(RwLock::new(resource));
+
         self.resources.insert(hash, rc.clone());
+        self.size += size;
 
         if let Some(mut c) = self.cache.as_mut() {
             c.insert(&path, size, rc.clone());
@@ -86,8 +91,10 @@ impl<T> ResourceSystem<T>
     pub fn unload_unused(&mut self) {
         let mut next = HashMap::new();
         for (k, v) in self.resources.drain() {
-            if Arc::strong_count(&v) <= 1 {
+            if Arc::strong_count(&v) > 1 {
                 next.insert(k, v);
+            } else {
+                self.size -= v.read().unwrap().size();
             }
         }
         self.resources = next;

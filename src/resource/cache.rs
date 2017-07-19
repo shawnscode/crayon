@@ -187,4 +187,25 @@ mod test {
         assert!(cache.contains("/3"));
         assert!(cache.contains("/4"));
     }
+
+    #[test]
+    fn reset_threshold() {
+        let mut cache = Cache::new(4);
+        cache.insert("/1", 2, Arc::new("a1".to_owned()));
+        cache.insert("/2", 2, Arc::new("a2".to_owned()));
+
+        cache.set_threshold(7);
+        cache.insert("/3", 2, Arc::new("a3".to_owned()));
+        cache.insert("/4", 2, Arc::new("a4".to_owned()));
+        assert!(!cache.contains("/1"));
+        assert!(cache.contains("/2"));
+        assert!(cache.contains("/3"));
+        assert!(cache.contains("/4"));
+
+        cache.set_threshold(4);
+        assert!(!cache.contains("/1"));
+        assert!(!cache.contains("/2"));
+        assert!(cache.contains("/3"));
+        assert!(cache.contains("/4"));
+    }
 }

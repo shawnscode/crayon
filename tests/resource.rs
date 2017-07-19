@@ -51,3 +51,44 @@ fn zip() {
     assert_eq!(len, "mock".to_string().len());
     assert_eq!(prefab, "mock");
 }
+
+struct Text {
+    pub value: String,
+}
+
+impl resource::Resource for Text {
+    fn size(&self) -> usize {
+        self.value.len()
+    }
+}
+
+#[derive(Debug)]
+struct TextLoader {}
+
+impl resource::ResourceLoader for TextLoader {
+    type Item = Text;
+
+    fn create(file: &mut archive::File) -> errors::Result<Self::Item> {
+        let mut prefab = String::new();
+        file.read_to_string(&mut prefab)?;
+        Ok(Text { value: prefab })
+    }
+}
+
+#[test]
+fn clean() {
+    let mut collection = ArchiveCollection::new();
+    collection.register(FilesystemArchive::new("tests/resources").unwrap());
+
+    let mut rs = ResourceSystem::new();
+
+    {
+        let t1 = rs.load::<TextLoader, &str>(&collection, "mock.prefab")
+            .unwrap();
+        assert_eq!(t1.read().unwrap().value, "mock");
+    }
+
+    assert_eq!(rs.size(), 4);
+    rs.unload_unused();
+    assert_eq!(rs.size(), 0);
+}
