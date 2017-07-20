@@ -18,5 +18,6 @@ error_chain!{
 
     errors {
         ResourceDeclarationMismath
+        NotFound
     }
 }

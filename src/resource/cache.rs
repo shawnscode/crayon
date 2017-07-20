@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
-use std::cmp::max;
 
 use utility::hash::HashValue;
 
@@ -16,15 +15,13 @@ struct ResourceDesc<T> {
 }
 
 /// A cache that holds a limited size of path-resource pairs. When the capacity of
-/// the cache is exceeded. The least-recently-used resource, that without any
-/// reference outside, will be removed.
+/// the cache is exceeded, the least-recently-used resource will be removed.
 pub struct Cache<T> {
     cache: HashMap<HashValue<Path>, ResourceDesc<T>>,
     lru_front: Option<HashValue<Path>>,
     lru_back: Option<HashValue<Path>>,
     used: usize,
     threshold: usize,
-    dynamic_threshold: usize,
 }
 
 impl<T> Cache<T> {
@@ -36,8 +33,13 @@ impl<T> Cache<T> {
             lru_back: None,
             used: 0,
             threshold: threshold,
-            dynamic_threshold: threshold,
         }
+    }
+
+    /// Reset the threshold of this cache.
+    pub fn set_threshold(&mut self, threshold: usize) {
+        self.threshold = threshold;
+        self.make_room(0);
     }
 
     /// Checks if the cache contains resource associated with given path.
@@ -89,34 +91,17 @@ impl<T> Cache<T> {
     fn make_room(&mut self, size: usize) {
         self.used += size;
 
-        if self.used <= self.dynamic_threshold {
+        if self.used <= self.threshold {
             return;
         }
 
         let mut cursor = self.lru_back;
-        while !cursor.is_none() && self.used > self.dynamic_threshold {
+        while !cursor.is_none() && self.used > self.threshold {
             let hash = cursor.unwrap();
-            let rc = {
-                let desc = self.cache.get(&hash).unwrap();
-                cursor = desc.prev;
-                Arc::strong_count(&desc.resource)
-            };
-
-            // If this resource is referenced by `Cache` only then erase it.
-            if rc == 1 {
-                let desc = self.cache.remove(&hash).unwrap();
-                self.detach(&desc);
-                self.used -= desc.size;
-            }
-        }
-
-        let delta = self.threshold / 4;
-        if self.used > self.dynamic_threshold {
-            // If we failed to make spare room for upcoming insertion. Then we
-            // simply increase the `dynamic_threshold`.
-            self.dynamic_threshold += delta;
-        } else {
-            self.dynamic_threshold = max(self.dynamic_threshold - delta, self.threshold);
+            let desc = self.cache.remove(&hash).unwrap();
+            self.detach(&desc);
+            self.used -= desc.size;
+            cursor = desc.prev;
         }
     }
 
@@ -191,12 +176,33 @@ mod test {
             assert!(cache.contains("/2"));
 
             cache.insert("/3", 2, Arc::new("a3".to_owned()));
-            assert!(cache.contains("/1"));
+            assert!(!cache.contains("/1"));
             assert!(cache.contains("/2"));
             assert!(cache.contains("/3"));
         }
 
         cache.insert("/4", 2, Arc::new("a4".to_owned()));
+        assert!(!cache.contains("/1"));
+        assert!(!cache.contains("/2"));
+        assert!(cache.contains("/3"));
+        assert!(cache.contains("/4"));
+    }
+
+    #[test]
+    fn reset_threshold() {
+        let mut cache = Cache::new(4);
+        cache.insert("/1", 2, Arc::new("a1".to_owned()));
+        cache.insert("/2", 2, Arc::new("a2".to_owned()));
+
+        cache.set_threshold(7);
+        cache.insert("/3", 2, Arc::new("a3".to_owned()));
+        cache.insert("/4", 2, Arc::new("a4".to_owned()));
+        assert!(!cache.contains("/1"));
+        assert!(cache.contains("/2"));
+        assert!(cache.contains("/3"));
+        assert!(cache.contains("/4"));
+
+        cache.set_threshold(4);
         assert!(!cache.contains("/1"));
         assert!(!cache.contains("/2"));
         assert!(cache.contains("/3"));
