@@ -33,7 +33,7 @@ cargo run --example sprite
 ```
 
 <p align="center">
-  <img src="info/screenshots/sprite-particles.gif">
+  <img src="screenshots/sprite-particles.gif">
 </p>
 
 ##### Why Rust ?
