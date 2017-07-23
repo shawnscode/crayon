@@ -29,7 +29,7 @@ git clone git@github.com:kaisc/crayon.git
 
 And then you can run test cases with:
 ``` sh
-cargo run --example sprite
+cargo run --manifest-path crayon-runtime/Cargo.toml --example render_target
 ```
 
 <p align="center">

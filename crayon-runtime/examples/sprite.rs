@@ -25,7 +25,7 @@ fn main() {
     let mut particles = vec![];
     let mut cal = XorShiftRng::from_seed([0, 1, 2, 3]);
 
-    crayon::Application::setup("examples/resources/configs/basic.json")
+    crayon::Application::setup("crayon-runtime/examples/resources/configs/basic.json")
         .unwrap()
         .perform(|mut app| {
             scene = {
@@ -58,14 +58,16 @@ fn main() {
                             let spr = {
                                 SpriteParticle {
                                     lifetime: (cal.gen::<u32>() % 5) as f32,
-                                    velocity:
-                                        math::Vector3::new((cal.gen::<i32>() % 20 - 10) as f32,
-                                                           (cal.gen::<i32>() % 20 - 10) as f32,
-                                                           0.0),
-                                    acceleration:
-                                        math::Vector3::new((cal.gen::<i32>() % 10 - 5) as f32,
-                                                           (cal.gen::<i32>() % 10 - 5) as f32,
-                                                           0.0),
+                                    velocity: math::Vector3::new((cal.gen::<i32>() % 20 - 10) as
+                                                                 f32,
+                                                                 (cal.gen::<i32>() % 20 - 10) as
+                                                                 f32,
+                                                                 0.0),
+                                    acceleration: math::Vector3::new((cal.gen::<i32>() % 10 - 5) as
+                                                                     f32,
+                                                                     (cal.gen::<i32>() % 10 - 5) as
+                                                                     f32,
+                                                                     0.0),
                                     color: [cal.gen::<u8>(), cal.gen::<u8>(), cal.gen::<u8>(), 255]
                                         .into(),
                                     size: math::Vector2::new((cal.gen::<u32>() % 10) as f32 + 5.0,
@@ -97,7 +99,11 @@ fn main() {
                     for (i, w) in particles.iter_mut().enumerate() {
                         if let Some(ref mut particle) = *w {
                             particle.velocity += particle.acceleration * dt;
-                            arenas.0.get_mut(particle.handle).unwrap().translate(particle.velocity);
+                            arenas
+                                .0
+                                .get_mut(particle.handle)
+                                .unwrap()
+                                .translate(particle.velocity);
 
                             particle.lifetime -= dt;
                             if particle.lifetime < 0.0 {
