@@ -1,6 +1,7 @@
 [package]
-name = "crayon-workflow"
+name = "crayonctl"
 version = "0.0.1"
 authors = ["Jingkai Mao <oammix@gmail.com>"]
 
 [dependencies]
+clap = "2.25.1"
