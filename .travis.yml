@@ -7,7 +7,7 @@ matrix:
     - rust: nightly
 
 script:
-- cargo build --verbose
-- cargo test --all --verbose -- --ignored
-- cargo build --all --verbose --no-default-features
-- cargo test -all --verbose --no-default-features -- --ignored
+    - cargo build --all --verbose
+    - cargo test --all --verbose -- --ignored
+    - cargo build --all --verbose --no-default-features
+    - cargo test --all --verbose --no-default-features -- --ignored
