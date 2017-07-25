@@ -1,8 +1,0 @@
-[package]
-name = "{{ name }}"
-version = "0.1.0"
-authors = [{{toml-escape author}}]
-
-[dependencies]
-crayon = "*"
-
