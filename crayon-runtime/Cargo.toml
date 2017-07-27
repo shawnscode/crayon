@@ -13,21 +13,30 @@ categories = ["game-engines", "multimedia"]
 travis-ci = { repository = "kaisc/crayon", branch = "master" }
 
 [dependencies]
-bit-set = "0.4.0"
-lazy_static = "0.2.8"
-deque = "0.3.2"
-rand = "0.3.15"
+
 libc = "0.2.23"
-zip = "0.2.2"
-json = "0.11.6"
-glutin = "0.8.1"
 gl = "0.6.2"
-approx = "0.1.1"
-cgmath = "0.14.1"
-serde = "1.0.8"
-serde_derive = "1.0.8"
-byteorder = "1.0.0"
+lazy_static = "0.2.8"
 error-chain = "0.10.0"
 derive_builder = "0.4.7"
-image = "0.13.0"
+
+glutin = "0.8.1"
 rayon = "0.7.1"
+
+byteorder = "1.0.0"
+approx = "0.1.1"
+cgmath = "0.14.1"
+rand = "0.3.15"
+uuid = { version = "0.5.1", features = ["serde"] }
+seahash = "3.0.5"
+
+bit-set = "0.4.0"
+deque = "0.3.2"
+
+serde = "1.0.8"
+serde_derive = "1.0.8"
+bincode = "0.8.0"
+json = "0.11.6"
+
+zip = "0.2.2"
+image = "0.13.0"

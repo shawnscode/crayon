@@ -52,6 +52,7 @@ fn zip() {
     assert_eq!(prefab, "mock");
 }
 
+#[derive(Debug)]
 struct Text {
     pub value: String,
 }
@@ -62,16 +63,11 @@ impl resource::Resource for Text {
     }
 }
 
-#[derive(Debug)]
-struct TextLoader {}
-
-impl resource::ResourceLoader for TextLoader {
+impl resource::ResourceLoader for Text {
     type Item = Text;
 
-    fn create(file: &mut archive::File) -> errors::Result<Self::Item> {
-        let mut prefab = String::new();
-        file.read_to_string(&mut prefab)?;
-        Ok(Text { value: prefab })
+    fn load_from_memory(bytes: &[u8]) -> Result<Self::Item> {
+        Ok(Text { value: String::from_utf8_lossy(&bytes).into_owned() })
     }
 }
 
@@ -83,8 +79,7 @@ fn clean() {
     let mut rs = ResourceSystem::new();
 
     {
-        let t1 = rs.load::<TextLoader, &str>(&collection, "mock.prefab")
-            .unwrap();
+        let t1 = rs.load::<Text, &str>(&collection, "mock.prefab").unwrap();
         assert_eq!(t1.read().unwrap().value, "mock");
     }
 

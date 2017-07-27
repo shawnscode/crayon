@@ -1,6 +1,6 @@
 [Workflow.ProjectSettings]
 # List all the resource folders that will be included in the playable package.
-resources = [ "./", "no-exists-path" ]
+resources = [ "./resources", "no-exists-path" ]
 
 [Workflow.ImportSettings]
 # Type table used when crayon-cli import new resources.

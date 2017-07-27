@@ -1,42 +1,35 @@
-use std::collections::HashMap;
-
 use crayon::graphics;
-use platform;
 
-/// Texture format that used to build resource.
+/// Compression settings of texture.
 #[derive(Debug, Serialize, Deserialize)]
-pub enum TextureFormat {
-    RGB, // Color texture format, 8-bits per channel.
-    RGBA, // Color with alpha texture format, 8-bits per channel.
-    PVRTC4, // PowerVR (iOS) 4 bits/pixel compressed color texture format.
-    PVRTC4A, // PowerVR (iOS) 4 bits/pixel compressed with alpha channel texture format.
+pub enum TextureCompressionMetadata {
+    /// Texture will not be compressed.
+    None,
+    /// Texture will be compressed using a standard format depending on the platform (DXT, ASTC, ...).
+    Compressed,
 }
 
-/// Platform-independent settings of texture importer.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TexturePlatformMetadata {
-    format: TextureFormat,
-}
-
+/// `TextureMetadata` contains settings that used to address how should we process
+/// and import corresponding texture resource.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TextureMetadata {
+    /// Generate mip maps for the texture?
     pub mipmap: bool,
+    /// Wrap mode (usually repeat or clamp) of the texture.
     pub address: graphics::TextureAddress,
+    /// Filtering mode of the texture.
     pub filter: graphics::TextureFilter,
-    pub platform_settings: HashMap<platform::BuildTarget, TexturePlatformMetadata>,
+    /// Compression of imported texture.
+    pub compression: TextureCompressionMetadata,
 }
 
 impl TextureMetadata {
     pub fn new() -> TextureMetadata {
-        let mut settings = HashMap::new();
-        settings.insert(platform::BuildTarget::MacOS,
-                        TexturePlatformMetadata { format: TextureFormat::PVRTC4A });
-
         TextureMetadata {
+            mipmap: false,
             address: graphics::TextureAddress::Clamp,
             filter: graphics::TextureFilter::Linear,
-            mipmap: false,
-            platform_settings: settings,
+            compression: TextureCompressionMetadata::None,
         }
     }
 }

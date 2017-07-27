@@ -1,6 +1,7 @@
 use std::io;
 use image;
 use graphics;
+use bincode;
 
 error_chain!{
     types {
@@ -10,6 +11,7 @@ error_chain!{
     foreign_links {
         IO(io::Error);
         Image(image::ImageError);
+        Bincode(bincode::Error);
     }
 
     links {

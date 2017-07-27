@@ -11,7 +11,9 @@ use resource::Resource;
 /// Workflow manifest of crayon project.
 #[derive(Debug)]
 pub struct Manifest {
-    pub dir: PathBuf,
+    dir: PathBuf,
+    workspace: PathBuf,
+
     pub resources: Vec<PathBuf>,
     pub types: HashMap<String, Resource>,
 }
@@ -38,15 +40,36 @@ impl Manifest {
         bail!("Failed to find manifest Crayon.toml.");
     }
 
+    /// Setup workspace.
+    pub fn setup(self) -> Result<Self> {
+        if !self.workspace.exists() {
+            fs::create_dir_all(&self.workspace)?;
+        }
+
+        Ok(self)
+    }
+
+    /// The directory of workspace.
+    pub fn workspace(&self) -> &Path {
+        &self.workspace
+    }
+
+    /// The directory where this manifest locates.
+    pub fn dir(&self) -> &Path {
+        &self.dir
+    }
+
     fn parse(path: &Path) -> Result<Manifest> {
         if let Ok(mut file) = fs::File::open(path) {
             let mut raw = String::new();
             file.read_to_string(&mut raw)?;
 
             let value: toml::Value = raw.parse()?;
+            let dir = path.parent().unwrap().to_owned();
 
             let mut manifest = Manifest {
-                dir: path.parent().unwrap().to_owned(),
+                workspace: dir.join(".crayon"),
+                dir: dir,
                 resources: Vec::new(),
                 types: HashMap::new(),
             };
@@ -77,7 +100,7 @@ impl Manifest {
                             if let Some(v) = item.as_str() {
                                 manifest
                                     .types
-                                    .insert(v.trim_matches('.').to_owned(), Resource::Binary);
+                                    .insert(v.trim_matches('.').to_owned(), Resource::Bytes);
                             }
                         }
                     }
@@ -92,6 +115,16 @@ impl Manifest {
                             }
                         }
                     }
+
+                    // if let Some(types) = import_settings.get("atlases").and_then(|v| v.as_array()) {
+                    //     for item in types {
+                    //         if let Some(v) = item.as_str() {
+                    //             manifest
+                    //                 .types
+                    //                 .insert(v.trim_matches('.').to_owned(), Resource::Atlas);
+                    //         }
+                    //     }
+                    // }
                 }
             }
 

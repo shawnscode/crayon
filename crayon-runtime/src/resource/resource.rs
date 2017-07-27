@@ -8,16 +8,26 @@ use super::archive;
 use super::cache;
 use utility::hash::HashValue;
 
+/// `Resource`.
 pub trait Resource {
     /// Returns internal memory usages of resource in bytes.
     fn size(&self) -> usize;
 }
 
-/// `ResourceLoader`
+/// This trait addresses how we load a specified resource `ResourceLoader::Item`
+/// into runtime.
 pub trait ResourceLoader: Debug {
     type Item: Resource + 'static;
 
-    fn create(file: &mut archive::File) -> Result<Self::Item>;
+    /// Load resource from a file on disk.
+    fn load_from_file(file: &mut archive::File) -> Result<Self::Item> {
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf)?;
+        Self::load_from_memory(&buf)
+    }
+
+    /// Create resource from memory region.
+    fn load_from_memory(bytes: &[u8]) -> Result<Self::Item>;
 }
 
 pub struct ResourceSystem<T>
@@ -73,7 +83,7 @@ impl<T> ResourceSystem<T>
         }
 
         let mut file = archives.open(&path.as_ref())?;
-        let resource = L::create(file.as_mut())?;
+        let resource = L::load_from_file(file.as_mut())?;
         let size = resource.size();
         let rc = Arc::new(RwLock::new(resource));
 

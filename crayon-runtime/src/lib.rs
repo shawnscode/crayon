@@ -7,20 +7,24 @@ extern crate deque;
 extern crate rand;
 extern crate libc;
 extern crate zip;
-extern crate json;
 extern crate glutin;
 extern crate gl;
 extern crate cgmath;
+extern crate uuid;
+
 #[macro_use]
 extern crate approx;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
 extern crate byteorder;
 #[macro_use]
 extern crate derive_builder;
 extern crate image;
 extern crate rayon;
+
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+extern crate json;
+extern crate bincode;
 
 #[macro_use]
 pub mod utility;
