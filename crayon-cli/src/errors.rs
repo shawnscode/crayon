@@ -1,3 +1,5 @@
+use crayon_workflow;
+
 error_chain!{
     types {
         Error, ErrorKind, ResultExt, Result;
@@ -5,7 +7,9 @@ error_chain!{
 
     foreign_links {
         IO(::std::io::Error);
-        Toml(::toml::de::Error);
-        Yaml(::serde_yaml::Error);
+    }
+
+    links {
+        Workflow(crayon_workflow::Error, crayon_workflow::ErrorKind);
     }
 }

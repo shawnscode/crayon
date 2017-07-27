@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "crayon-runtime",
-    "crayon-workflow"
+    "crayon-workflow",
+    "crayon-cli"
 ]

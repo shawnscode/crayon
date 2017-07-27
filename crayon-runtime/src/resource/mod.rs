@@ -7,7 +7,7 @@ pub mod texture;
 pub use self::archive::{Read, Seek, File, Archive, FilesystemArchive, ZipArchive,
                         ArchiveCollection};
 pub use self::cache::Cache;
-pub use self::texture::Texture;
+pub use self::texture::{Texture, TextureMetadata};
 pub use self::resource::{ResourceSystem, Resource, ResourceLoader};
 
 use std::sync::{Arc, RwLock};

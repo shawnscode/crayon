@@ -4,14 +4,29 @@ use graphics;
 
 use super::errors::*;
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TextureMetadata {
+    pub mipmap: bool,
+    pub address: graphics::TextureAddress,
+    pub filter: graphics::TextureFilter,
+}
+
+impl TextureMetadata {
+    pub fn new() -> TextureMetadata {
+        TextureMetadata {
+            address: graphics::TextureAddress::Clamp,
+            filter: graphics::TextureFilter::Linear,
+            mipmap: false,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Texture {
-    video: Option<graphics::TextureRef>,
-    address: graphics::TextureAddress,
-    filter: graphics::TextureFilter,
-    mipmap: bool,
+    metadata: TextureMetadata,
     dimensions: (u32, u32),
     buf: Vec<u8>,
+    video: Option<graphics::TextureRef>,
 }
 
 impl Texture {
@@ -19,9 +34,9 @@ impl Texture {
         if self.video.is_none() {
             let v = video
                 .create_texture(graphics::TextureFormat::U8U8U8U8,
-                                self.address,
-                                self.filter,
-                                self.mipmap,
+                                self.metadata.address,
+                                self.metadata.filter,
+                                self.metadata.mipmap,
                                 self.dimensions.0,
                                 self.dimensions.1,
                                 self.buf.as_slice())?;
@@ -34,6 +49,9 @@ impl Texture {
     pub fn update_video_parameters(&mut self,
                                    address: graphics::TextureAddress,
                                    filter: graphics::TextureFilter) {
+        self.metadata.address = address;
+        self.metadata.filter = filter;
+
         if let Some(ref mut v) = self.video {
             v.object.write().unwrap().update_parameters(address, filter);
         }
@@ -69,12 +87,10 @@ impl super::ResourceLoader for Texture {
         let dynamic = image::load_from_memory(&buf)?;
 
         Ok(Texture {
-               video: None,
-               address: graphics::TextureAddress::Clamp,
-               filter: graphics::TextureFilter::Linear,
-               mipmap: false,
+               metadata: TextureMetadata::new(),
                dimensions: dynamic.dimensions(),
                buf: dynamic.to_rgba().into_raw(),
+               video: None,
            })
     }
 }

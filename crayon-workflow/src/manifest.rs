@@ -11,8 +11,9 @@ use resource::Resource;
 /// Workflow manifest of crayon project.
 #[derive(Debug)]
 pub struct Manifest {
-    resources: Vec<PathBuf>,
-    types: HashMap<String, Resource>,
+    pub dir: PathBuf,
+    pub resources: Vec<PathBuf>,
+    pub types: HashMap<String, Resource>,
 }
 
 impl Manifest {
@@ -45,6 +46,7 @@ impl Manifest {
             let value: toml::Value = raw.parse()?;
 
             let mut manifest = Manifest {
+                dir: path.parent().unwrap().to_owned(),
                 resources: Vec::new(),
                 types: HashMap::new(),
             };
@@ -58,7 +60,10 @@ impl Manifest {
                     }) {
                         for item in resources {
                             if let Some(v) = item.as_str() {
-                                manifest.resources.push(path.join(v));
+                                let dir = manifest.dir.join(v);
+                                if let Ok(true) = fs::metadata(&dir).and_then(|v| Ok(v.is_dir())) {
+                                    manifest.resources.push(dir);
+                                }
                             }
                         }
                     }
@@ -70,7 +75,9 @@ impl Manifest {
                     if let Some(types) = import_settings.get("bytes").and_then(|v| v.as_array()) {
                         for item in types {
                             if let Some(v) = item.as_str() {
-                                manifest.types.insert(v.to_owned(), Resource::Binary);
+                                manifest
+                                    .types
+                                    .insert(v.trim_matches('.').to_owned(), Resource::Binary);
                             }
                         }
                     }
@@ -79,7 +86,9 @@ impl Manifest {
                         import_settings.get("textures").and_then(|v| v.as_array()) {
                         for item in types {
                             if let Some(v) = item.as_str() {
-                                manifest.types.insert(v.to_owned(), Resource::Texture);
+                                manifest
+                                    .types
+                                    .insert(v.trim_matches('.').to_owned(), Resource::Texture);
                             }
                         }
                     }

@@ -9,7 +9,7 @@ use std::io::Write;
 
 const MANIFEST: &[u8] = include_bytes!("../../template/Crayon.toml");
 
-pub fn execute(matches: &clap::ArgMatches) -> Result<()> {
+pub fn execute(rev: &str, matches: &clap::ArgMatches) -> Result<()> {
     let path = matches.value_of("path").unwrap();
 
     // Execute `cargo new -q --bin <path>`.
@@ -23,7 +23,8 @@ pub fn execute(matches: &clap::ArgMatches) -> Result<()> {
             .append(true)
             .open(manifest)?;
 
-        file.write(format!("crayon = \"{}\"", env!("CARGO_PKG_VERSION")).as_ref())?;
+        file.write(format!("crayon = {{ git = \"https://github.com/kaisc/crayon\", rev = \"{0}\" }}",
+                           rev).as_ref())?;
         file.flush()?;
     }
 

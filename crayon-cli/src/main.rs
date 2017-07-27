@@ -1,12 +1,13 @@
 #[macro_use]
 extern crate error_chain;
 extern crate clap;
-extern crate toml;
+
+extern crate crayon;
+extern crate crayon_workflow;
 
 mod errors;
 mod cargo;
 mod subcommand;
-mod manifest;
 mod resource;
 
 include!(concat!(env!("OUT_DIR"), "/env.rs"));
@@ -43,20 +44,20 @@ fn main() {
         .get_matches();
 
     if let Some(matches) = matches.subcommand_matches("new") {
-        subcommand::new::execute(matches).unwrap();
+        subcommand::new::execute(&BUILD_REV, matches).unwrap();
         return;
     }
 
     let wd = ::std::env::current_dir().unwrap();
-    match manifest::Manifest::find(&wd) {
+    match crayon_workflow::Manifest::find(&wd) {
         Ok(man) => {
             if let Some(matches) = matches.subcommand_matches("build") {
-                subcommand::build::execute(matches).unwrap();
+                subcommand::build::execute(&man, matches).unwrap();
                 return;
             }
 
             if let Some(matches) = matches.subcommand_matches("run") {
-                subcommand::build::execute(matches).unwrap();
+                subcommand::run::execute(&man, matches).unwrap();
                 return;
             }
 
