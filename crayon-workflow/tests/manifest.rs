@@ -6,12 +6,9 @@ use crayon_workflow::resource::Resource;
 
 #[test]
 fn load() {
-    let manifest = crayon_workflow::manifest::Manifest::find("tests/resources")
-        .unwrap()
-        .setup()
-        .unwrap();
+    let manifest = crayon_workflow::manifest::Manifest::find("tests/workspace").unwrap();
 
-    assert_eq!(manifest.dir(), Path::new("tests/resources"));
+    assert_eq!(manifest.dir(), Path::new("tests/workspace"));
     assert_eq!(manifest.resources.len(), 1);
 
     assert_eq!(manifest.types.get("png").unwrap(), &Resource::Texture);

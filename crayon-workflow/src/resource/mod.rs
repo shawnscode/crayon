@@ -13,3 +13,5 @@ pub enum Resource {
     Bytes,
     Texture,
 }
+
+const METADATA_EXTENSION: &'static str = "meta";

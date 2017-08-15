@@ -2,6 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use uuid;
 
+use errors::*;
 use super::texture;
 use super::Resource;
 
@@ -47,9 +48,30 @@ impl ResourceMetadata {
     }
 
     pub fn is(&self, tt: Resource) -> bool {
-        match self.metadata {
-            ResourceConcreteMetadata::Bytes => tt == Resource::Bytes,
-            ResourceConcreteMetadata::Texture(_) => tt == Resource::Texture,
+        self.file_type() == tt
+    }
+
+    pub fn file_type(&self) -> Resource {
+        match &self.metadata {
+            &ResourceConcreteMetadata::Bytes => Resource::Bytes,
+            &ResourceConcreteMetadata::Texture(_) => Resource::Texture,
+        }
+    }
+
+    pub fn validate(&self, bytes: &[u8]) -> Result<()> {
+        match &self.metadata {
+            &ResourceConcreteMetadata::Texture(ref metadata) => metadata.validate(&bytes),
+            _ => Ok(()),
+        }
+    }
+
+    pub fn build(&self, bytes: &[u8], mut out: &mut Vec<u8>) -> Result<()> {
+        match &self.metadata {
+            &ResourceConcreteMetadata::Texture(ref metadata) => metadata.build(&bytes, &mut out),
+            _ => {
+                out.copy_from_slice(&bytes);
+                Ok(())
+            }
         }
     }
 }

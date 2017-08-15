@@ -1,7 +1,10 @@
 use crayon::graphics;
+use image;
+
+use errors::*;
 
 /// Compression settings of texture.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TextureCompressionMetadata {
     /// Texture will not be compressed.
     None,
@@ -31,5 +34,17 @@ impl TextureMetadata {
             filter: graphics::TextureFilter::Linear,
             compression: TextureCompressionMetadata::None,
         }
+    }
+
+    pub fn validate(&self, bytes: &[u8]) -> Result<()> {
+        image::guess_format(&bytes)?;
+        Ok(())
+    }
+
+    pub fn build(&self, bytes: &[u8], mut out: &mut Vec<u8>) -> Result<()> {
+        assert!(self.compression == TextureCompressionMetadata::None);
+        let src = image::load_from_memory(&bytes)?;
+        src.save(&mut out, image::ImageFormat::WEBP)?;
+        Ok(())
     }
 }

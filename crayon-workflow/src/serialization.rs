@@ -27,13 +27,15 @@ pub fn deserialize<T, P>(path: P, _readable: bool) -> Result<T>
     where T: serde::de::DeserializeOwned,
           P: AsRef<Path>
 {
-    let mut file = fs::OpenOptions::new()
-        .create(true)
-        .read(true)
-        .open(path.as_ref())?;
+    let path = path.as_ref();
+    if path.exists() {
+        let mut file = fs::OpenOptions::new().read(true).open(path)?;
 
-    let mut raw = String::new();
-    file.read_to_string(&mut raw)?;
+        let mut raw = String::new();
+        file.read_to_string(&mut raw)?;
 
-    Ok(serde_yaml::from_str(&raw)?)
+        Ok(serde_yaml::from_str(&raw)?)
+    } else {
+        bail!("failed to deserilize from path {:?}.", path);
+    }
 }

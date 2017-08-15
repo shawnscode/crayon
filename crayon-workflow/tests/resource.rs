@@ -1,30 +1,25 @@
 extern crate crayon_workflow;
+extern crate image;
 
-use std::fs;
-use std::path::Path;
 use crayon_workflow::resource;
-
-const REMOVE_FILES: bool = false;
+use crayon_workflow::Manifest;
 
 #[test]
 fn database() {
-    // {
-    //     let metadata = resource::Metadata::new(resource::ResourceMetadata::Texture(resource::TextureMetadata::new()));
+    use resource::ResourceDatabase;
 
-    //     let path = Path::new("tests/resources/texture.png.meta");
-    //     metadata.serialize(&path).unwrap();
-    //     assert!(path.exists());
-    // }
+    let manifest = Manifest::find("tests/workspace").unwrap().setup().unwrap();
+    let mut database = ResourceDatabase::new(manifest).unwrap();
+    database.refresh().unwrap();
+    database.save().unwrap();
 
-    // {
-    //     let metadata = resource::Metadata::new(resource::ResourceMetadata::Atlas(resource::AtlasMetadata::new()));
+    {
+        let path = Path::new("tests/resources/texture.png.meta");
+        assert!(path.exists());
 
-    //     let path = Path::new("tests/resources/texture.atlas.meta");
-    //     metadata.serialize(&path).unwrap();
-    //     assert!(path.exists());
-    // }
+        let path = Path::new("tests/resources/invalid_texture.png.meta");
+        assert!(!path.exists());
 
-    // if REMOVE_FILES {
-    //     fs::remove_file(&path).unwrap();
-    // }
+        assert!(database.len() == 1);
+    }
 }
