@@ -30,7 +30,7 @@ pub trait ResourceLoader: Debug {
     fn load_from_memory(bytes: &[u8]) -> Result<Self::Item>;
 }
 
-pub struct ResourceSystem<T>
+pub struct ResourceSystemBackend<T>
     where T: Resource + 'static
 {
     cache: Option<cache::Cache<RwLock<T>>>,
@@ -38,11 +38,11 @@ pub struct ResourceSystem<T>
     size: usize,
 }
 
-impl<T> ResourceSystem<T>
+impl<T> ResourceSystemBackend<T>
     where T: Resource + 'static
 {
     pub fn new() -> Self {
-        ResourceSystem {
+        ResourceSystemBackend {
             cache: None,
             resources: HashMap::new(),
             size: 0,
@@ -59,7 +59,7 @@ impl<T> ResourceSystem<T>
         self.cache = Some(cache::Cache::<RwLock<T>>::new(size));
     }
 
-    /// Returns size of all loaded assets from this `ResourceSystem`.
+    /// Returns size of all loaded assets from this `ResourceSystemBackend`.
     pub fn size(&self) -> usize {
         self.size
     }

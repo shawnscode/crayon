@@ -3,12 +3,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use uuid;
 
 use errors::*;
-use super::texture;
-use super::Resource;
+use super::{Resource, texture, bytes};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ResourceConcreteMetadata {
-    Bytes,
+    Bytes(bytes::BytesMetadata),
     Texture(texture::TextureMetadata),
 }
 
@@ -36,7 +35,7 @@ impl ResourceMetadata {
 
     pub fn new_as(tt: Resource) -> ResourceMetadata {
         let concrete = match tt {
-            Resource::Bytes => ResourceConcreteMetadata::Bytes,
+            Resource::Bytes => ResourceConcreteMetadata::Bytes(bytes::BytesMetadata::new()),
             Resource::Texture => ResourceConcreteMetadata::Texture(texture::TextureMetadata::new()),
         };
 
@@ -53,25 +52,22 @@ impl ResourceMetadata {
 
     pub fn file_type(&self) -> Resource {
         match &self.metadata {
-            &ResourceConcreteMetadata::Bytes => Resource::Bytes,
+            &ResourceConcreteMetadata::Bytes(_) => Resource::Bytes,
             &ResourceConcreteMetadata::Texture(_) => Resource::Texture,
         }
     }
 
     pub fn validate(&self, bytes: &[u8]) -> Result<()> {
         match &self.metadata {
+            &ResourceConcreteMetadata::Bytes(ref metadata) => metadata.validate(&bytes),
             &ResourceConcreteMetadata::Texture(ref metadata) => metadata.validate(&bytes),
-            _ => Ok(()),
         }
     }
 
     pub fn build(&self, bytes: &[u8], mut out: &mut Vec<u8>) -> Result<()> {
         match &self.metadata {
             &ResourceConcreteMetadata::Texture(ref metadata) => metadata.build(&bytes, &mut out),
-            _ => {
-                out.copy_from_slice(&bytes);
-                Ok(())
-            }
+            &ResourceConcreteMetadata::Bytes(ref metadata) => metadata.build(&bytes, &mut out),
         }
     }
 }

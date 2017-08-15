@@ -1,16 +1,18 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::io::Read;
+use std::io::{Read, Write};
 use std::sync::RwLock;
 use std::fs;
 use std::ops::Deref;
 
+use crayon;
 use uuid;
 use seahash;
 use walkdir;
 
 use serialization;
 use manifest::Manifest;
+use platform;
 use errors::*;
 
 use super::{ResourceMetadata, METADATA_EXTENSION};
@@ -19,7 +21,10 @@ use super::{ResourceMetadata, METADATA_EXTENSION};
 /// relative to the workspace folder, which is indicated by the path of `Crayon.toml`.
 pub struct ResourceDatabase {
     manifest: Manifest,
+
     resources: HashMap<uuid::Uuid, ResourceMetadata>,
+    paths: HashMap<uuid::Uuid, PathBuf>,
+
     database: RwLock<ResourceDatabasePersistentData>,
 }
 
@@ -37,6 +42,7 @@ impl ResourceDatabase {
                manifest: manifest,
                database: RwLock::new(database),
                resources: HashMap::new(),
+               paths: HashMap::new(),
            })
     }
 
@@ -55,6 +61,60 @@ impl ResourceDatabase {
         let resource_database_path = self.manifest.workspace().join("resources.database");
         let database = self.database.read().unwrap();
         serialization::serialize(Deref::deref(&database), &resource_database_path, true)
+    }
+
+    /// Build resources into serialization data which could be imported by cyon-runtime
+    /// directly.
+    pub fn build<P>(&self, version: &str, target: platform::BuildTarget, path: P) -> Result<()>
+        where P: AsRef<Path>
+    {
+        fs::create_dir_all(path.as_ref())?;
+
+        let mut manifest = crayon::resource::manifest::ResourceManifest {
+            path: PathBuf::new(),
+            version: version.to_owned(),
+            items: HashMap::new(),
+        };
+
+        let mut out = Vec::new();
+        for (id, metadata) in &self.resources {
+            if let Some(resource_path) = self.paths.get(&id) {
+                if resource_path.exists() {
+                    /// Read source from disk.
+                    let mut file = fs::OpenOptions::new().read(true).open(&resource_path)?;
+
+                    let mut bytes = Vec::new();
+                    file.read_to_end(&mut bytes)?;
+
+                    out.clear();
+                    metadata.build(&bytes, &mut out)?;
+
+                    /// Write to specified path.
+                    let name = id.simple().to_string();
+                    let mut file = fs::OpenOptions::new()
+                        .create(true)
+                        .truncate(true)
+                        .write(true)
+                        .open(path.as_ref().join(name))?;
+
+                    file.write(&out)?;
+                    file.flush()?;
+
+                    let item = crayon::resource::manifest::ResourceManifestItem {
+                        checksum: seahash::hash(&out),
+                        path: resource_path.to_path_buf(),
+                        dependencies: Vec::new(),
+                        uuid: *id,
+                        payload: metadata.file_type().into(),
+                    };
+
+                    manifest.items.insert(*id, item);
+                }
+            }
+        }
+
+        serialization::serialize(&manifest, path.as_ref().join("manifest"), true)?;
+        Ok(())
     }
 
     /// Import any changed resources. This will import any resources that have changed
@@ -101,6 +161,8 @@ impl ResourceDatabase {
             for (file, _) in resources {
                 let rsp = self.load_metadata(&file);
                 if let Ok(metadata) = rsp {
+
+                    self.paths.insert(metadata.uuid(), file);
                     self.resources.insert(metadata.uuid(), metadata);
                 } else {
                     println!("{:?}", rsp);
@@ -117,6 +179,8 @@ impl ResourceDatabase {
     {
         let path = self.manifest.dir().join(&path);
         let metadata = self.load_metadata(&path)?;
+
+        self.paths.insert(metadata.uuid(), path);
         self.resources.insert(metadata.uuid(), metadata);
         Ok(())
     }
@@ -132,7 +196,6 @@ impl ResourceDatabase {
         }
 
         let metadata_path = ResourceDatabase::metadata_path(&path);
-
         let metadata = if metadata_path.exists() {
             serialization::deserialize(&metadata_path, true)?
 

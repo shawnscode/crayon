@@ -1,5 +1,7 @@
 use crayon::graphics;
+use crayon::resource;
 use image;
+use bincode;
 
 use errors::*;
 
@@ -41,10 +43,23 @@ impl TextureMetadata {
         Ok(())
     }
 
-    pub fn build(&self, bytes: &[u8], mut out: &mut Vec<u8>) -> Result<()> {
+    pub fn build(&self, data: &[u8], mut out: &mut Vec<u8>) -> Result<()> {
         assert!(self.compression == TextureCompressionMetadata::None);
-        let src = image::load_from_memory(&bytes)?;
-        src.save(&mut out, image::ImageFormat::WEBP)?;
+
+        let mut bytes = Vec::new();
+        let src = image::load_from_memory(&data)?;
+        src.save(&mut bytes, image::ImageFormat::PNG)?;
+
+        let payload = resource::texture::TextureSerializationPayload {
+            mipmap: self.mipmap,
+            address: self.address,
+            filter: self.filter,
+            is_compressed: false,
+            bytes: bytes,
+        };
+
+        bincode::serialize_into(&mut out, &payload, bincode::Infinite).unwrap();
+
         Ok(())
     }
 }

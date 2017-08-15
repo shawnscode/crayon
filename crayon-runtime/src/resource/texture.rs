@@ -6,7 +6,7 @@ use graphics;
 use super::errors::*;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TextureSerializationData {
+pub struct TextureSerializationPayload {
     pub mipmap: bool,
     pub address: graphics::TextureAddress,
     pub filter: graphics::TextureFilter,
@@ -14,11 +14,11 @@ pub struct TextureSerializationData {
     pub bytes: Vec<u8>,
 }
 
-impl super::ResourceLoader for TextureSerializationData {
+impl super::ResourceLoader for TextureSerializationPayload {
     type Item = Texture;
 
-    fn load_from_memory(bytes: &[u8]) -> Result<Texture> {
-        let data: TextureSerializationData = bincode::deserialize(&bytes)?;
+    fn load_from_memory(bytes: &[u8]) -> Result<Self::Item> {
+        let data: TextureSerializationPayload = bincode::deserialize(&bytes)?;
         assert!(!data.is_compressed);
 
         let dynamic = image::load_from_memory(&data.bytes)?;
@@ -97,6 +97,6 @@ impl super::ResourceLoader for Texture {
     type Item = Texture;
 
     fn load_from_memory(bytes: &[u8]) -> Result<Self::Item> {
-        TextureSerializationData::load_from_memory(&bytes)
+        TextureSerializationPayload::load_from_memory(&bytes)
     }
 }
