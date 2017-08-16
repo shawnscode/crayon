@@ -60,9 +60,7 @@ impl Application {
 
         let mut wb = window::WindowBuilder::new();
         if let Some(slice) = args.load_as_slice("Window") {
-            let name = slice
-                .load_as_str("Title")
-                .unwrap_or("Lemon3D - Application");
+            let name = slice.load_as_str("Title").unwrap_or("Crayon - Application");
             let width = slice.load_as_i32("Width").unwrap_or(128) as u32;
             let height = slice.load_as_i32("Height").unwrap_or(128) as u32;
             wb.with_title(name.to_string())
@@ -95,8 +93,8 @@ impl Application {
     pub fn run<F>(mut self, mut closure: F) -> Self
         where F: FnMut(&mut Application) -> bool
     {
-        println!("Launch Lemon3D.");
-        println!("PWD: {:?}", ::std::env::current_dir());
+        println!("Launch crayon-runtim with working directory {:?}.",
+                 ::std::env::current_dir());
 
         let mut exec = true;
         let mut events = Vec::new();

@@ -48,7 +48,8 @@ fn main() {
         return;
     }
 
-    let mut workflow = workflow::Workflow::new().unwrap();
+    let mut workflow = workflow::Workflow::new(&BUILD_REV).unwrap();
+    workflow.setup().unwrap();
 
     if let Some(matches) = matches.subcommand_matches("build") {
         subcommand::build::execute(&mut workflow, matches).unwrap();

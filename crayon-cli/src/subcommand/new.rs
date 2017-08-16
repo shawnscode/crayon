@@ -7,6 +7,7 @@ use std::path::Path;
 use std::fs;
 use std::io::Write;
 
+const MAIN: &[u8] = include_bytes!("../../template/src/main.rs");
 const MANIFEST: &[u8] = include_bytes!("../../template/Crayon.toml");
 
 pub fn execute(rev: &str, matches: &clap::ArgMatches) -> Result<()> {
@@ -37,6 +38,15 @@ pub fn execute(rev: &str, matches: &clap::ArgMatches) -> Result<()> {
             .open(manifest)?;
 
         file.write(MANIFEST)?;
+        file.flush()?;
+    }
+
+    // Add default main.rs
+    {
+        let main = Path::new(&path).join("src").join("main.rs");
+        let mut file = fs::OpenOptions::new().create(true).write(true).open(main)?;
+
+        file.write(MAIN)?;
         file.flush()?;
     }
 

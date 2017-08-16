@@ -66,10 +66,17 @@ impl Manifest {
 
             let value: toml::Value = raw.parse()?;
             let dir = path.parent().unwrap().to_owned();
+            let absolute_dir = if dir.is_relative() {
+                let mut wd = ::std::env::current_dir()?;
+                wd.push(dir);
+                wd
+            } else {
+                dir
+            };
 
             let mut manifest = Manifest {
-                workspace: dir.join(".crayon"),
-                dir: dir,
+                workspace: absolute_dir.join(".crayon"),
+                dir: absolute_dir,
                 resources: Vec::new(),
                 types: HashMap::new(),
             };
