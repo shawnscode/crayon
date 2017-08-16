@@ -1,4 +1,7 @@
+#[macro_use]
 extern crate crayon;
+#[macro_use]
+extern crate lazy_static;
 
 use crayon::resource::*;
 use std::fs;
@@ -71,14 +74,19 @@ impl ResourceLoader for Text {
     }
 }
 
-// #[test]
-// fn load_from() {
-//     let mut rs = ResourceSystem::new().unwrap();
+declare_resource!(Text);
 
-//     {
-//         rs.load_bytes_from()
-//     }
-// }
+#[test]
+fn load_from() {
+    let mut rs = ResourceSystem::new().unwrap();
+    rs.register::<Text>();
+
+    {
+        let t1 = rs.load_from::<Text, &str>("tests/resources/mock.prefab")
+            .unwrap();
+        assert_eq!(t1.read().unwrap().value, "mock");
+    }
+}
 
 #[test]
 fn clean() {

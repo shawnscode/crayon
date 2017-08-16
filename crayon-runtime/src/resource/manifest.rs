@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use uuid;
 
 /// Payload of serialization data.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ResourcePayload {
     Bytes,
     Texture,

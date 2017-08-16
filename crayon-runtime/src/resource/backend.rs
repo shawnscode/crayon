@@ -6,18 +6,14 @@ use std::sync::{Arc, RwLock};
 use super::errors::*;
 use super::archive;
 use super::cache;
-use utility::hash::HashValue;
+use super::{Resource, ResourceIndex};
 
-/// `Resource`.
-pub trait Resource {
-    /// Returns internal memory usages of resource in bytes.
-    fn size(&self) -> usize;
-}
+use utility::hash::HashValue;
 
 /// This trait addresses how we load a specified resource `ResourceLoader::Item`
 /// into runtime.
 pub trait ResourceLoader: Debug {
-    type Item: Resource + 'static;
+    type Item: Resource + ResourceIndex + 'static;
 
     /// Load resource from a file on disk.
     fn load_from_file(file: &mut archive::File) -> Result<Self::Item> {
@@ -31,7 +27,7 @@ pub trait ResourceLoader: Debug {
 }
 
 pub struct ResourceSystemBackend<T>
-    where T: Resource + 'static
+    where T: Resource + ResourceIndex + 'static
 {
     cache: Option<cache::Cache<RwLock<T>>>,
     resources: HashMap<HashValue<Path>, Arc<RwLock<T>>>,
@@ -39,7 +35,7 @@ pub struct ResourceSystemBackend<T>
 }
 
 impl<T> ResourceSystemBackend<T>
-    where T: Resource + 'static
+    where T: Resource + ResourceIndex + 'static
 {
     pub fn new() -> Self {
         ResourceSystemBackend {

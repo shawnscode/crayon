@@ -97,6 +97,15 @@ impl super::ResourceLoader for Texture {
     type Item = Texture;
 
     fn load_from_memory(bytes: &[u8]) -> Result<Self::Item> {
-        TextureSerializationPayload::load_from_memory(&bytes)
+        let dynamic = image::load_from_memory(&bytes)?;
+
+        Ok(Texture {
+               mipmap: false,
+               address: graphics::TextureAddress::Clamp,
+               filter: graphics::TextureFilter::Linear,
+               dimensions: dynamic.dimensions(),
+               buf: dynamic.to_rgba().into_raw(),
+               video: None,
+           })
     }
 }
