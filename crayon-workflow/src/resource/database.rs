@@ -65,7 +65,7 @@ impl ResourceDatabase {
 
     /// Build resources into serialization data which could be imported by cyon-runtime
     /// directly.
-    pub fn build<P>(&self, version: &str, target: platform::BuildTarget, path: P) -> Result<()>
+    pub fn build<P>(&self, version: &str, _: platform::BuildTarget, path: P) -> Result<()>
         where P: AsRef<Path>
     {
         fs::create_dir_all(path.as_ref())?;
@@ -80,7 +80,7 @@ impl ResourceDatabase {
         for (id, metadata) in &self.resources {
             if let Some(resource_path) = self.paths.get(&id) {
                 if resource_path.exists() {
-                    /// Read source from disk.
+                    // Read source from disk.
                     let mut file = fs::OpenOptions::new().read(true).open(&resource_path)?;
 
                     let mut bytes = Vec::new();
@@ -89,7 +89,7 @@ impl ResourceDatabase {
                     out.clear();
                     metadata.build(&bytes, &mut out)?;
 
-                    /// Write to specified path.
+                    // Write to specified path.
                     let name = id.simple().to_string();
                     let mut file = fs::OpenOptions::new()
                         .create(true)
@@ -100,9 +100,18 @@ impl ResourceDatabase {
                     file.write(&out)?;
                     file.flush()?;
 
+                    // Use relative path as readable identifier of resources.
+                    let mut resource_relative_path = resource_path.to_path_buf();
+                    for root in &self.manifest.resources {
+                        if let Ok(next) = resource_path.strip_prefix(root) {
+                            resource_relative_path = next.to_path_buf();
+                            break;
+                        }
+                    }
+
                     let item = crayon::resource::manifest::ResourceManifestItem {
                         checksum: seahash::hash(&out),
-                        path: resource_path.to_path_buf(),
+                        path: resource_relative_path,
                         dependencies: Vec::new(),
                         uuid: *id,
                         payload: metadata.file_type().into(),
@@ -113,7 +122,11 @@ impl ResourceDatabase {
             }
         }
 
-        serialization::serialize(&manifest, path.as_ref().join("manifest"), true)?;
+        //
+        serialization::serialize(&manifest, path.as_ref().join("manifest"), false)?;
+
+        // Readable manifest.
+        serialization::serialize(&manifest, path.as_ref().join("readable_manifest"), true)?;
         Ok(())
     }
 

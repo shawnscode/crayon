@@ -60,6 +60,10 @@ impl ResourceSystem {
     pub fn load_manifest<P>(&mut self, path: P) -> Result<()>
         where P: AsRef<Path>
     {
+        if !path.as_ref().exists() {
+            bail!("Failed to load manifest at path {:?}.", path.as_ref());
+        }
+
         let mut file = fs::OpenOptions::new().read(true).open(path.as_ref())?;
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes)?;
@@ -67,7 +71,7 @@ impl ResourceSystem {
         let mut manifest = bincode::deserialize::<manifest::ResourceManifest>(&bytes)?;
 
         /// Append path to archive collection.
-        let archive = FilesystemArchive::new(path.as_ref().join(&manifest.path))?;
+        let archive = FilesystemArchive::new(path.as_ref().parent().unwrap().join(&manifest.path))?;
         self.archives.register::<FilesystemArchive>(archive);
 
         /// Append resources listed in manifest.
