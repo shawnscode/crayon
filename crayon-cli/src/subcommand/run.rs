@@ -7,14 +7,12 @@ use workflow::Workflow;
 use crayon_workflow::platform;
 
 pub fn execute(mut workflow: &mut Workflow, matches: &clap::ArgMatches) -> Result<()> {
-    let build_path = workflow.build_path();
+    let path = workflow.build_path().join("resources");
 
     workflow.database.refresh()?;
     workflow
         .database
-        .build(&workflow.rev,
-               platform::BuildTarget::MacOS,
-               &build_path.join("resources"))?;
+        .build(&workflow.rev, platform::BuildTarget::MacOS, &path)?;
 
     let mut args = vec!["run", "--color=always"];
 

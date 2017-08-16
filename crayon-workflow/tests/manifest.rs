@@ -1,14 +1,17 @@
 extern crate crayon_workflow;
 
-use std::path::Path;
-
 use crayon_workflow::resource::Resource;
 
 #[test]
 fn load() {
     let manifest = crayon_workflow::manifest::Manifest::find("tests/workspace").unwrap();
 
-    assert_eq!(manifest.dir(), Path::new("tests/workspace"));
+    let wd = ::std::env::current_dir()
+        .unwrap()
+        .join("tests")
+        .join("workspace");
+
+    assert_eq!(manifest.dir(), &wd);
     assert_eq!(manifest.resources.len(), 1);
 
     assert_eq!(manifest.types.get("png").unwrap(), &Resource::Texture);

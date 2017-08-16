@@ -22,6 +22,11 @@ impl Workflow {
     }
 
     pub fn setup(&self) -> Result<()> {
+        let path = self.build_path();
+        if !path.exists() {
+            ::std::fs::create_dir_all(&path)?;
+        }
+
         ::std::env::set_current_dir(&self.build_path())?;
         Ok(())
     }
