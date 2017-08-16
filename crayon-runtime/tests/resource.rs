@@ -57,13 +57,13 @@ struct Text {
     pub value: String,
 }
 
-impl resource::Resource for Text {
+impl Resource for Text {
     fn size(&self) -> usize {
         self.value.len()
     }
 }
 
-impl resource::ResourceLoader for Text {
+impl ResourceLoader for Text {
     type Item = Text;
 
     fn load_from_memory(bytes: &[u8]) -> Result<Self::Item> {
@@ -71,12 +71,21 @@ impl resource::ResourceLoader for Text {
     }
 }
 
+// #[test]
+// fn load_from() {
+//     let mut rs = ResourceSystem::new().unwrap();
+
+//     {
+//         rs.load_bytes_from()
+//     }
+// }
+
 #[test]
 fn clean() {
     let mut collection = ArchiveCollection::new();
     collection.register(FilesystemArchive::new("tests/resources").unwrap());
 
-    let mut rs = ResourceSystem::new();
+    let mut rs = ResourceSystemBackend::new();
 
     {
         let t1 = rs.load::<Text, &str>(&collection, "mock.prefab").unwrap();

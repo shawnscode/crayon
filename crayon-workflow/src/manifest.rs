@@ -9,7 +9,7 @@ use errors::*;
 use resource::Resource;
 
 /// Workflow manifest of crayon project.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Manifest {
     dir: PathBuf,
     workspace: PathBuf,

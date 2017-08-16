@@ -1,13 +1,12 @@
 use clap;
-use crayon_workflow;
 
 use errors::*;
 use cargo;
 
-use resource;
+use workflow::Workflow;
 
-pub fn execute(man: &crayon_workflow::Manifest, matches: &clap::ArgMatches) -> Result<()> {
-    resource::refresh(&man)?;
+pub fn execute(mut workflow: &mut Workflow, matches: &clap::ArgMatches) -> Result<()> {
+    workflow.database.refresh()?;
 
     let mut args = vec!["run", "--color=always"];
 

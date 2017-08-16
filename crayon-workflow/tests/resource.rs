@@ -35,7 +35,7 @@ fn database() {
                "tests/build")
         .unwrap();
 
-    let mut resource_system = crayon::resource::ResourceSystem::new();
+    let mut resource_system = crayon::resource::ResourceSystem::new().unwrap();
 
     resource_system
         .load_manifest("tests/build/manifest")

@@ -23,4 +23,4 @@ pub mod serialization;
 
 pub use manifest::Manifest;
 pub use errors::*;
-pub use resource::{Resource, ResourceMetadata, TextureMetadata};
+pub use resource::{Resource, ResourceDatabase};

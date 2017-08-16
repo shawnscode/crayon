@@ -8,7 +8,7 @@ extern crate crayon_workflow;
 mod errors;
 mod cargo;
 mod subcommand;
-mod resource;
+mod workflow;
 
 include!(concat!(env!("OUT_DIR"), "/env.rs"));
 
@@ -48,22 +48,15 @@ fn main() {
         return;
     }
 
-    let wd = ::std::env::current_dir().unwrap();
-    match crayon_workflow::Manifest::find(&wd) {
-        Ok(man) => {
-            if let Some(matches) = matches.subcommand_matches("build") {
-                subcommand::build::execute(&man, matches).unwrap();
-                return;
-            }
+    let mut workflow = workflow::Workflow::new().unwrap();
 
-            if let Some(matches) = matches.subcommand_matches("run") {
-                subcommand::run::execute(&man, matches).unwrap();
-                return;
-            }
+    if let Some(matches) = matches.subcommand_matches("build") {
+        subcommand::build::execute(&mut workflow, matches).unwrap();
+        return;
+    }
 
-        }
-        Err(err) => {
-            println!("{:?}", err);
-        }
+    if let Some(matches) = matches.subcommand_matches("run") {
+        subcommand::run::execute(&mut workflow, matches).unwrap();
+        return;
     }
 }

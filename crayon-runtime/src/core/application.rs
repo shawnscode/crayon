@@ -32,7 +32,7 @@ impl Application {
                window: window,
                graphics: graphics,
                engine: Engine::new(),
-               resources: resource::ResourceSystem::new(),
+               resources: resource::ResourceSystem::new()?,
            })
     }
 
@@ -78,7 +78,7 @@ impl Application {
                window: window,
                engine: engine,
                graphics: graphics,
-               resources: resource::ResourceSystem::new(),
+               resources: resource::ResourceSystem::new()?,
            })
     }
 

@@ -2,7 +2,6 @@ use std::path::PathBuf;
 use std::collections::HashMap;
 
 use uuid;
-use super::texture;
 
 /// Payload of serialization data.
 #[derive(Debug, Serialize, Deserialize)]

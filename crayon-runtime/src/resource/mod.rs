@@ -34,6 +34,9 @@ pub enum ResourceItem {
 
 type InstanceId = usize;
 
+/// `ResourceSystem` allows you to find and access resources. When building resources
+/// during development, a manifest for all the resources will be generated. You should
+/// load the manifest before loading resources.
 pub struct ResourceSystem {
     ids: HashMap<uuid::Uuid, InstanceId>,
     paths: HashMap<PathBuf, InstanceId>,
@@ -45,18 +48,30 @@ pub struct ResourceSystem {
 }
 
 impl ResourceSystem {
-    pub fn new() -> ResourceSystem {
-        ResourceSystem {
-            textures: ResourceSystemBackend::new(),
-            bytes: ResourceSystemBackend::new(),
+    /// Create a new and empty `ResourceSystem`.
+    pub fn new() -> Result<ResourceSystem> {
+        /// Add working directory as default search path.
+        let mut archives = ArchiveCollection::new();
+        archives.register(FilesystemArchive::new(Path::new("./"))?);
 
-            archives: ArchiveCollection::new(),
-            ids: HashMap::new(),
-            paths: HashMap::new(),
-            resources: Vec::new(),
-        }
+        Ok(ResourceSystem {
+               archives: archives,
+               textures: ResourceSystemBackend::new(),
+               bytes: ResourceSystemBackend::new(),
+
+               ids: HashMap::new(),
+               paths: HashMap::new(),
+               resources: Vec::new(),
+           })
     }
 
+    /// Set the cache size of textures. `ResourceSystem` will keeps reference to
+    /// hot resources if we have spare space.
+    pub fn set_texture_cache_size(&mut self, size: usize) {
+        self.textures.register_cache(size);
+    }
+
+    /// Load a manifest at path of filesystem directly.
     pub fn load_manifest<P>(&mut self, path: P) -> Result<()>
         where P: AsRef<Path>
     {
@@ -86,10 +101,14 @@ impl ResourceSystem {
         Ok(())
     }
 
+    /// Unload unused, there is no external references, resources from memory.
     pub fn unload_unused(&mut self) {
         self.textures.unload_unused();
+        self.bytes.unload_unused();
     }
 
+    /// Load a resource item at path. The path is some kind of readable identifier
+    /// instead of actual path in filesystem.
     pub fn load<P>(&mut self, path: P) -> Result<ResourceItem>
         where P: AsRef<Path>
     {
@@ -119,6 +138,7 @@ impl ResourceSystem {
         }
     }
 
+    #[inline]
     pub fn load_texture<P>(&mut self, path: P) -> Result<TextureItem>
         where P: AsRef<Path>
     {
@@ -128,6 +148,7 @@ impl ResourceSystem {
         }
     }
 
+    #[inline]
     pub fn load_bytes<P>(&mut self, path: P) -> Result<BytesItem>
         where P: AsRef<Path>
     {
@@ -135,5 +156,24 @@ impl ResourceSystem {
             ResourceItem::Bytes(bytes) => Ok(bytes),
             _ => bail!("Failed to load bytes from {:?}.", path.as_ref()),
         }
+    }
+
+    /// Load a texture item at path of filesystem directly. This function does not have
+    /// any requirements on the manifest, and user have to specify the loader manually.
+    #[inline]
+    pub fn load_texture_from<L, P>(&mut self, path: P) -> Result<TextureItem>
+        where L: ResourceLoader<Item = Texture>,
+              P: AsRef<Path>
+    {
+        self.textures.load::<L, P>(&self.archives, path)
+    }
+
+    /// Same as `ResourceSystem::load_texture_from`.
+    #[inline]
+    pub fn load_bytes_from<L, P>(&mut self, path: P) -> Result<BytesItem>
+        where L: ResourceLoader<Item = Bytes>,
+              P: AsRef<Path>
+    {
+        self.bytes.load::<L, P>(&self.archives, path)
     }
 }
