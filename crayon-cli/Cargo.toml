@@ -1,0 +1,13 @@
+[package]
+name = "crayon-cli"
+version = "0.0.2"
+authors = ["Jingkai Mao <oammix@gmail.com>"]
+build = "build.rs"
+
+[dependencies]
+crayon = { path = "../crayon-runtime" }
+crayon_workflow = { path = "../crayon-workflow" }
+error-chain = "0.10.0"
+clap = "2.25.1"
+
+[build-dependencies]
