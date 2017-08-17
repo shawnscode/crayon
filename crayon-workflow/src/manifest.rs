@@ -7,6 +7,8 @@ use toml;
 
 use errors::*;
 use resource::Resource;
+use crayon::core::settings::Settings;
+use serialization;
 
 /// Workflow manifest of crayon project.
 #[derive(Debug, Clone)]
@@ -16,6 +18,7 @@ pub struct Manifest {
 
     pub resources: Vec<PathBuf>,
     pub types: HashMap<String, Resource>,
+    pub settings: Settings,
 }
 
 impl Manifest {
@@ -59,6 +62,14 @@ impl Manifest {
         &self.dir
     }
 
+    /// Save settings as serialization data.
+    pub fn save_settings<P>(&self, path: P) -> Result<()>
+        where P: AsRef<Path>
+    {
+        serialization::serialize(&self.settings, path, false)?;
+        Ok(())
+    }
+
     fn parse(path: &Path) -> Result<Manifest> {
         if let Ok(mut file) = fs::File::open(path) {
             let mut raw = String::new();
@@ -77,9 +88,45 @@ impl Manifest {
             let mut manifest = Manifest {
                 workspace: absolute_dir.join(".crayon"),
                 dir: absolute_dir,
+                settings: Settings::default(),
                 resources: Vec::new(),
                 types: HashMap::new(),
             };
+
+            if let Some(runtime) = value.get("Runtime").and_then(|v| v.as_table()) {
+                if let Some(engine_settings) =
+                    runtime.get("EngineSettings").and_then(|v| v.as_table()) {
+
+                    if let Some(v) = engine_settings.get("min_fps").and_then(|v| v.as_integer()) {
+                        manifest.settings.engine.min_fps = v as u32;
+                    }
+
+                    if let Some(v) = engine_settings.get("max_fps").and_then(|v| v.as_integer()) {
+                        manifest.settings.engine.max_fps = v as u32;
+                    }
+
+                    if let Some(v) = engine_settings
+                           .get("time_smooth_step")
+                           .and_then(|v| v.as_integer()) {
+                        manifest.settings.engine.time_smooth_step = v as u32;
+                    }
+                }
+
+                if let Some(window_settings) =
+                    runtime.get("WindowSettings").and_then(|v| v.as_table()) {
+                    if let Some(v) = window_settings.get("width").and_then(|v| v.as_integer()) {
+                        manifest.settings.window.width = v as u32;
+                    }
+
+                    if let Some(v) = window_settings.get("height").and_then(|v| v.as_integer()) {
+                        manifest.settings.window.height = v as u32;
+                    }
+
+                    if let Some(v) = window_settings.get("title").and_then(|v| v.as_str()) {
+                        manifest.settings.window.title = v.to_owned();
+                    }
+                }
+            }
 
             if let Some(workflow) = value.get("Workflow").and_then(|v| v.as_table()) {
                 if let Some(project_settings) =

@@ -24,7 +24,7 @@ struct Window {
 
 fn main() {
     let mut window = None;
-    crayon::Application::setup("crayon-runtime/examples/resources/configs/basic.json")
+    crayon::Application::new()
         .unwrap()
         .perform(|app| {
             let vertices: [Vertex; 3] = [Vertex::new([0.0, 0.5]),

@@ -1,10 +1,16 @@
 use graphics;
 use super::window;
 use resource;
+use bincode;
 
 error_chain!{
     types {
         Error, ErrorKind, ResultExt, Result;
+    }
+
+    foreign_links {
+        IO(::std::io::Error);
+        Bincode(bincode::Error);
     }
 
     links {

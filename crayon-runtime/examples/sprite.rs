@@ -25,7 +25,7 @@ fn main() {
     let mut particles = vec![];
     let mut cal = XorShiftRng::from_seed([0, 1, 2, 3]);
 
-    crayon::Application::setup("crayon-runtime/examples/resources/configs/basic.json")
+    crayon::Application::new()
         .unwrap()
         .perform(|mut app| {
             scene = {

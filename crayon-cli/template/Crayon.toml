@@ -19,7 +19,7 @@ min_fps = 20
 max_fps = 60
 
 # Set how many frames to average for timestep smoothing.
-smoothing_step = 10
+time_smooth_step = 10
 
 [Runtime.WindowSettings]
 title = "Hello, Crayon!"
