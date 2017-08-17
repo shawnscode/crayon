@@ -35,11 +35,33 @@ fn database() {
                "tests/build")
         .unwrap();
 
+    assert!(database
+                .uuid("tests/workspace/resources/invalid_texture.png")
+                .is_none());
+
     let mut resource_system = crayon::resource::ResourceSystem::new().unwrap();
 
-    resource_system
-        .load_manifest("tests/build/manifest")
-        .unwrap();
+    {
+        resource_system
+            .load_manifest("tests/build/manifest")
+            .unwrap();
 
-    resource_system.load_texture("texture.png").unwrap();
+        resource_system.load("texture.png").unwrap();
+        resource_system.load_texture("texture.png").unwrap();
+
+        assert!(resource_system.load_texture("invalid_texture.png").is_err());
+    }
+
+    {
+        assert!(database
+                    .uuid("tests/workspace/resources/invalid_resource.png")
+                    .is_none());
+
+        let uuid = database
+            .uuid("tests/workspace/resources/texture.png")
+            .unwrap();
+
+        resource_system.load_with_uuid(uuid).unwrap();
+        resource_system.load_texture_with_uuid(uuid).unwrap();
+    }
 }

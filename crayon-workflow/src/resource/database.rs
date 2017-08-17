@@ -63,6 +63,25 @@ impl ResourceDatabase {
         serialization::serialize(Deref::deref(&database), &resource_database_path, true)
     }
 
+    /// Get the uuid of resource at path.
+    pub fn uuid<P>(&self, path: P) -> Option<uuid::Uuid>
+        where P: AsRef<Path>
+    {
+        let path = if path.as_ref().is_relative() {
+            ::std::env::current_dir().unwrap().join(path)
+        } else {
+            path.as_ref().to_path_buf()
+        };
+
+        for (uuid, resource) in &self.paths {
+            if resource == &path {
+                return Some(*uuid);
+            }
+        }
+
+        None
+    }
+
     /// Build resources into serialization data which could be imported by cyon-runtime
     /// directly.
     pub fn build<P>(&self, version: &str, _: platform::BuildTarget, path: P) -> Result<()>
