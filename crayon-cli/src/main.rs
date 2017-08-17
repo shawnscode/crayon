@@ -36,11 +36,24 @@ fn main() {
                  .short("m")
                  .help("Choose crayon manifest to build"));
 
+    let cmd_import = clap::SubCommand::with_name("import")
+        .about("Import resource.")
+        .arg(clap::Arg::with_name("path")
+                 .short("p")
+                 .required(true)
+                 .index(1)
+                 .help("The path to resource."))
+        .arg(clap::Arg::with_name("type")
+                 .short("t")
+                 .takes_value(true)
+                 .help("Choose the type of resource mannually."));
+
     let matches = clap::App::new("crayon-cli")
         .version(env!("CARGO_PKG_VERSION"))
         .subcommand(cmd_new)
         .subcommand(cmd_build)
         .subcommand(cmd_run)
+        .subcommand(cmd_import)
         .get_matches();
 
     if let Some(matches) = matches.subcommand_matches("new") {
@@ -49,6 +62,12 @@ fn main() {
     }
 
     let mut workflow = workflow::Workflow::new(&BUILD_REV).unwrap();
+
+    if let Some(matches) = matches.subcommand_matches("import") {
+        subcommand::import::execute(&mut workflow, matches).unwrap();
+        return;
+    }
+
     workflow.setup().unwrap();
 
     if let Some(matches) = matches.subcommand_matches("build") {

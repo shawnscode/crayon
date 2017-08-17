@@ -8,6 +8,7 @@ use uuid;
 pub enum ResourcePayload {
     Bytes,
     Texture,
+    Atlas,
 }
 
 /// A manifest item.

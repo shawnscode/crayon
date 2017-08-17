@@ -106,7 +106,7 @@ impl ResourceDatabase {
                     file.read_to_end(&mut bytes)?;
 
                     out.clear();
-                    metadata.build(&bytes, &mut out)?;
+                    metadata.build(&self, &resource_path, &bytes, &mut out)?;
 
                     // Write to specified path.
                     let name = id.simple().to_string();
@@ -205,16 +205,28 @@ impl ResourceDatabase {
         Ok(())
     }
 
-    /// Import resource at path into `ResourceDatabase`.
-    pub fn import<P>(&mut self, path: P) -> Result<()>
+    /// Load meta file from disk. This method will treat the resource as specified type.
+    pub fn load_metadata_as<P>(&self, path: P, tt: super::Resource) -> Result<ResourceMetadata>
         where P: AsRef<Path>
     {
-        let path = self.manifest.dir().join(&path);
-        let metadata = self.load_metadata(&path)?;
+        let metadata_path = ResourceDatabase::metadata_path(&path);
 
-        self.paths.insert(metadata.uuid(), path);
-        self.resources.insert(metadata.uuid(), metadata);
-        Ok(())
+        let metadata = if metadata_path.exists() {
+            let metadata: ResourceMetadata = serialization::deserialize(&metadata_path, true)?;
+            if !metadata.is(tt) {
+                let metadata = ResourceMetadata::new_as(tt);
+                serialization::serialize(&metadata, &metadata_path, true)?;
+                metadata
+            } else {
+                metadata
+            }
+        } else {
+            let metadata = ResourceMetadata::new_as(tt);
+            serialization::serialize(&metadata, &metadata_path, true)?;
+            metadata
+        };
+
+        self.validate_metadata(path, metadata_path, metadata)
     }
 
     /// Load corresponding meta file from disk, and deserialize it into `ResourceMetadata`. A new
@@ -245,6 +257,17 @@ impl ResourceDatabase {
             }
         };
 
+        self.validate_metadata(path, metadata_path, metadata)
+    }
+
+    fn validate_metadata<P, P2>(&self,
+                                path: P,
+                                metadata_path: P2,
+                                metadata: ResourceMetadata)
+                                -> Result<ResourceMetadata>
+        where P: AsRef<Path>,
+              P2: AsRef<Path>
+    {
         // Read file from disk.
         let mut file = fs::OpenOptions::new().read(true).open(&path)?;
 

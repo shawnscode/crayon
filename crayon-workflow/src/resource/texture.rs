@@ -58,7 +58,7 @@ impl TextureMetadata {
             bytes: bytes,
         };
 
-        bincode::serialize_into(&mut out, &payload, bincode::Infinite).unwrap();
+        bincode::serialize_into(&mut out, &payload, bincode::Infinite)?;
 
         Ok(())
     }

@@ -1,14 +1,16 @@
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::path::Path;
 
 use uuid;
 
 use errors::*;
-use super::{Resource, texture, bytes};
+use super::{Resource, texture, bytes, atlas, database};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ResourceConcreteMetadata {
     Bytes(bytes::BytesMetadata),
     Texture(texture::TextureMetadata),
+    Atlas(atlas::AtlasMetadata),
 }
 
 /// The descriptions of a resource.
@@ -37,6 +39,7 @@ impl ResourceMetadata {
         let concrete = match tt {
             Resource::Bytes => ResourceConcreteMetadata::Bytes(bytes::BytesMetadata::new()),
             Resource::Texture => ResourceConcreteMetadata::Texture(texture::TextureMetadata::new()),
+            Resource::Atlas => ResourceConcreteMetadata::Atlas(atlas::AtlasMetadata::new()),
         };
 
         ResourceMetadata::new(concrete)
@@ -54,6 +57,7 @@ impl ResourceMetadata {
         match &self.metadata {
             &ResourceConcreteMetadata::Bytes(_) => Resource::Bytes,
             &ResourceConcreteMetadata::Texture(_) => Resource::Texture,
+            &ResourceConcreteMetadata::Atlas(_) => Resource::Atlas,
         }
     }
 
@@ -61,13 +65,22 @@ impl ResourceMetadata {
         match &self.metadata {
             &ResourceConcreteMetadata::Bytes(ref metadata) => metadata.validate(&bytes),
             &ResourceConcreteMetadata::Texture(ref metadata) => metadata.validate(&bytes),
+            &ResourceConcreteMetadata::Atlas(ref metadata) => metadata.validate(&bytes),
         }
     }
 
-    pub fn build(&self, bytes: &[u8], mut out: &mut Vec<u8>) -> Result<()> {
+    pub fn build(&self,
+                 database: &database::ResourceDatabase,
+                 path: &Path,
+                 bytes: &[u8],
+                 mut out: &mut Vec<u8>)
+                 -> Result<()> {
         match &self.metadata {
             &ResourceConcreteMetadata::Texture(ref metadata) => metadata.build(&bytes, &mut out),
             &ResourceConcreteMetadata::Bytes(ref metadata) => metadata.build(&bytes, &mut out),
+            &ResourceConcreteMetadata::Atlas(ref metadata) => {
+                metadata.build(&database, &path, &bytes, &mut out)
+            }
         }
     }
 }

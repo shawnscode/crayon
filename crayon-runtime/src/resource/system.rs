@@ -13,6 +13,7 @@ use super::*;
 pub enum ResourceItem {
     Bytes(BytesItem),
     Texture(TextureItem),
+    Atlas(AtlasItem),
 }
 
 type InstanceId = usize;
@@ -47,6 +48,7 @@ impl ResourceSystem {
         /// Register default resources.
         rs.register::<Texture>();
         rs.register::<Bytes>();
+        rs.register::<Atlas>();
 
         Ok(rs)
     }
@@ -140,6 +142,16 @@ impl ResourceSystem {
         }
     }
 
+    #[inline]
+    pub fn load_atlas<P>(&mut self, path: P) -> Result<AtlasItem>
+        where P: AsRef<Path>
+    {
+        match self.load(path.as_ref())? {
+            ResourceItem::Atlas(atlas) => Ok(atlas),
+            _ => bail!("Failed to load atlas from {:?}.", path.as_ref()),
+        }
+    }
+
     /// Load a resource with uuid.
     #[inline]
     pub fn load_with_uuid(&mut self, uuid: uuid::Uuid) -> Result<ResourceItem> {
@@ -172,6 +184,14 @@ impl ResourceSystem {
         }
     }
 
+    #[inline]
+    pub fn load_atlas_with_uuid(&mut self, uuid: uuid::Uuid) -> Result<AtlasItem> {
+        match self.load_with_uuid(uuid)? {
+            ResourceItem::Atlas(atlas) => Ok(atlas),
+            _ => bail!("Failed to load atlas with {:?}.", uuid),
+        }
+    }
+
     fn load_internal(&mut self,
                      uuid: uuid::Uuid,
                      payload: manifest::ResourcePayload)
@@ -191,6 +211,12 @@ impl ResourceSystem {
                     .index_mut::<Bytes>()
                     .load::<bytes::BytesSerializationPayload, &Path>(&self.archives, path)
                     .map(|v| ResourceItem::Bytes(v))
+            }
+            manifest::ResourcePayload::Atlas => {
+                self.backends
+                    .index_mut::<Atlas>()
+                    .load::<atlas::AtlasSerializationPayload, &Path>(&self.archives, path)
+                    .map(|v| ResourceItem::Atlas(v))
             }
         }
     }
