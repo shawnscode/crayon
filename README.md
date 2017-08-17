@@ -5,38 +5,43 @@
 ### Introduction
 Crayon is an experimental purpose project, written with a minimalistic modular design philosophy. Its built from the ground up to focus on cache friendly data layouts in multicore environments with entity-component based architecture.
 
-*Warning*: Its far from a stable version right now. You can checkout the [Roadmap](https://trello.com/b/vDqw6L0x/crayon-roadmap) for more details.
+It is loosely inspired by some amazing blogs on [bitsquid](https://bitsquid.blogspot.de) and [molecular](https://blog.molecular-matters.com). Some goals includes:
 
-### Features v0.0.1
-- [x] \[ECS\] Entity component system with a data-driven designs.
-- [x] \[TSK\] Task based multi-thread system based on awesome crate [Rayon](https://github.com/nikomatsakis/rayon.git).
-- [x] \[RES\] Abstract archive with default supports for native filesystem and zip.
-- [x] \[RES\] Resource management based on Referece-Count and LRU cache strategy.
-- [x] \[GFX\] Window and graphic context management based on [glutin](https://github.com/tomaka/glutin).
-- [x] \[GFX\] Stateless, layed, multithread `Graphics` subsystem with OpenGL(ES) 2.0+ backends.
-- [x] \[SCE\] Hierachy-based transformation of position/rotaion/scale etc.
-- [x] \[SCE\] Automatic-bath based `Sprite` that support easy and quick way to draw 2d images.
+- Stateless, layered, multithread render system with OpenGL(ES) 2.0+ backends.
+- Entity component system with a data-driven designs.
+- Flexible workflow with default supports for some common resources.
+- Ease scripts integration with Lua.
+- etc.
 
-### FAQ
+*Warning*: This project is a work in progress and far from a stable version right now.
 
-##### How to Build?
-In spite of the unstable status of this project, feel free to checkout and build to follow progress recently.
+### Usage (Workflow)
+The most recommanded way to work with `crayon` is following commands below:
 
-First of all, checkout the repository by:
 ``` sh
 git clone git@github.com:kaisc/crayon.git
+cd crayon
+cargo install --path crayon-cli --force
 ```
 
-And then you can run test cases with:
+If everything goes well, you should get a CLI tool named `crayon-cli`. Its barely useable right now, and only supports basic project creation and resource manipulations. In spite of the unstable status of this project, feel free to checkout and build to follow progress recently.
+
+### Quick Example
+For the sake of brevity, you can also run a simple and quick example with commands:
+
 ``` sh
-cargo run --example sprite
+git clone git@github.com:kaisc/crayon.git
+cd crayon
+cargo run --manifest-path crayon-runtime/Cargo.toml --example sprite
 ```
 
 <p align="center">
-  <img src="info/screenshots/sprite-particles.gif">
+  <img src="screenshots/sprite-particles.gif">
 </p>
 
-##### Why Rust ?
+### FAQ
+
+#### Why Rust ?
 
 First of all, this is a part-time toy project of myself,  so i don't really care if we ever have a game engine written in Rust.
 
