@@ -49,6 +49,6 @@ And the most importantly, it makes sense for me to take the numerous advantages 
 
 #### Why should we have a module named `crayon-workflow`?
 
-Builds a game project is not only about compile the source files into binary, it should take care of enormous trivial tasks. Its common to handle the pre-processing of resources and archiving with some kind of shell scripts, but its always tedious and error-prone. Its vital to address a flexible and robust mechanism to handle them for real-world any game engine.
+Builds a game project is not only about compile the source files into binary, it should take care of enormous trivial tasks. Its common to handle the pre-processing of resources and archiving with some kind of shell scripts, but its always tedious and error-prone. Its vital to address a flexible and robust mechanism to handle them for real-world game engine.
 
 As a result of that, we provide a basic workflow framework `crayon-workflow`, and a simple command line interface (CLI) `crayon-cli`. It should be easy to make your own workflow with it.
