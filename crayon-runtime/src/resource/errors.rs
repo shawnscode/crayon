@@ -1,6 +1,5 @@
 use std::io;
 use image;
-use graphics;
 use bincode;
 
 error_chain!{
@@ -12,10 +11,6 @@ error_chain!{
         IO(io::Error);
         Image(image::ImageError);
         Bincode(bincode::Error);
-    }
-
-    links {
-        Graphics(graphics::errors::Error, graphics::errors::ErrorKind);
     }
 
     errors {

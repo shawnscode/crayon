@@ -7,7 +7,8 @@ use ecs::VecStorage;
 /// way to draw 2D images.
 #[derive(Debug, Clone)]
 pub struct Sprite {
-    diffuse: graphics::Color,
+    visible: bool,
+    color: graphics::Color,
     additive: graphics::Color,
     texture: Option<resource::TextureItem>,
 }
@@ -17,7 +18,8 @@ declare_component!(Sprite, VecStorage);
 impl Default for Sprite {
     fn default() -> Self {
         Sprite {
-            diffuse: graphics::Color::white(),
+            visible: true,
+            color: graphics::Color::white(),
             additive: graphics::Color::black(),
             texture: None,
         }
@@ -25,31 +27,43 @@ impl Default for Sprite {
 }
 
 impl Sprite {
-    /// Return main color of `Sprite`.
+    /// Get main color of `Sprite`.
     pub fn color(&self) -> graphics::Color {
-        self.diffuse
+        self.color
     }
 
     /// Set the main color of `Sprite`.
     pub fn set_color(&mut self, color: &graphics::Color) {
-        self.diffuse = *color;
+        self.color = *color;
     }
 
-    /// Return main color of `Sprite`.
+    /// Get additive color of `Sprite`.
     pub fn additive_color(&self) -> graphics::Color {
         self.additive
     }
 
-    /// Set the main color of `Sprite`.
+    /// Set the additive color of `Sprite`.
     pub fn set_additive_color(&mut self, color: &graphics::Color) {
         self.additive = *color;
     }
 
+    /// Get the underlying texture of `Sprite`.
     pub fn texture(&self) -> Option<&resource::TextureItem> {
         self.texture.as_ref()
     }
 
+    /// Set the underlying texture of `Sprite`.
     pub fn set_texture(&mut self, texture: Option<resource::TextureItem>) {
         self.texture = texture;
+    }
+}
+
+impl super::Renderable for Sprite {
+    fn visible(&self) -> bool {
+        self.visible
+    }
+
+    fn set_visible(&mut self, visible: bool) {
+        self.visible = visible
     }
 }
