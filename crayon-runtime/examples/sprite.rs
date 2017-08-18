@@ -9,6 +9,7 @@ use rand::{Rng, SeedableRng, XorShiftRng};
 
 use crayon::graphics::Color;
 use crayon::scene::{Sprite, Transform, Rect};
+use crayon::resource;
 
 #[derive(Debug)]
 struct SpriteParticle {
@@ -22,6 +23,7 @@ struct SpriteParticle {
 
 fn main() {
     let mut scene: Option<Scene2d> = None;
+    let mut atlas: Option<resource::AtlasItem> = None;
     let mut particles = vec![];
     let mut cal = XorShiftRng::from_seed([0, 1, 2, 3]);
 
@@ -45,6 +47,11 @@ fn main() {
                     particles.push(None);
                 }
 
+                app.resources
+                    .load_manifest("crayon-runtime/examples/resources/compiled/manifest")
+                    .unwrap();
+
+                atlas = Some(app.resources.load_atlas("atlas.json").unwrap());
                 Some(v)
             };
         })
@@ -58,20 +65,18 @@ fn main() {
                             let spr = {
                                 SpriteParticle {
                                     lifetime: (cal.gen::<u32>() % 5) as f32,
-                                    velocity: math::Vector3::new((cal.gen::<i32>() % 20 - 10) as
-                                                                 f32,
-                                                                 (cal.gen::<i32>() % 20 - 10) as
-                                                                 f32,
+                                    velocity: math::Vector3::new((cal.gen::<i32>() % 10) as f32,
+                                                                 (cal.gen::<i32>() % 10) as f32,
                                                                  0.0),
-                                    acceleration: math::Vector3::new((cal.gen::<i32>() % 10 - 5) as
+                                    acceleration: math::Vector3::new((cal.gen::<i32>() % 10) as
                                                                      f32,
-                                                                     (cal.gen::<i32>() % 10 - 5) as
+                                                                     (cal.gen::<i32>() % 10) as
                                                                      f32,
                                                                      0.0),
                                     color: [cal.gen::<u8>(), cal.gen::<u8>(), cal.gen::<u8>(), 255]
                                         .into(),
-                                    size: math::Vector2::new((cal.gen::<u32>() % 10) as f32 + 5.0,
-                                                             (cal.gen::<u32>() % 10) as f32 + 5.0),
+                                    size: math::Vector2::new((cal.gen::<u32>() % 20) as f32 + 10.0,
+                                                             (cal.gen::<u32>() % 20) as f32 + 10.0),
                                     handle: Scene2d::sprite(&mut world),
                                 }
                             };
@@ -82,6 +87,16 @@ fn main() {
 
                                 let mut rect = world.fetch_mut::<Rect>(spr.handle).unwrap();
                                 rect.set_size(&spr.size);
+
+                                if let Some(ref atlas) = atlas {
+                                    let name = format!("y{:?}.png", cal.gen::<u32>() % 10);
+                                    let frame = atlas
+                                        .read()
+                                        .unwrap()
+                                        .frame(&mut app.resources, &name)
+                                        .unwrap();
+                                    sprite.set_texture(Some(frame.texture));
+                                }
                             }
 
                             *i = Some(spr);

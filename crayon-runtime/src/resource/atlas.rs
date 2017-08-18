@@ -7,10 +7,14 @@ use super::TextureItem;
 use super::errors::*;
 
 /// A atlas frame.
+#[derive(Debug)]
 pub struct AtlasFrame {
     pub texture: TextureItem,
-    pub size: (u16, u16),
-    pub position: (u16, u16),
+    /// Normalized position of the underlying texture.
+    pub position: (f32, f32),
+    /// Normalized rect of the underlying texture.
+    pub size: (f32, f32),
+    /// Normalized location of the frame's center point.
     pub pivot: (f32, f32),
 }
 
@@ -70,10 +74,20 @@ impl Atlas {
     pub fn frame(&self, mut rs: &mut super::ResourceSystem, filename: &str) -> Option<AtlasFrame> {
         if let Some(frame) = self.frames.get(filename).and_then(|v| Some(v.clone())) {
             if let Ok(texture) = rs.load_texture_with_uuid(self.texture) {
+
+                let (w, h) = {
+                    let tex = texture.read().unwrap();
+                    (tex.width() as f32 * self.scale, tex.height() as f32 * self.scale)
+                };
+
+                let nposition = (1f32 - frame.position.0 as f32 / w,
+                                 1f32 - frame.position.1 as f32 / h);
+                let nsize = (frame.size.0 as f32 / w, frame.size.1 as f32 / h);
+
                 return Some(AtlasFrame {
                                 texture: texture,
-                                position: frame.position,
-                                size: frame.size,
+                                position: nposition,
+                                size: nsize,
                                 pivot: frame.pivot,
                             });
             }

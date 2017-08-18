@@ -17,7 +17,7 @@ pub use self::system::ResourceSystem;
 
 pub use self::texture::Texture;
 pub use self::bytes::Bytes;
-pub use self::atlas::Atlas;
+pub use self::atlas::{Atlas, AtlasFrame};
 
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, RwLock};

@@ -19,7 +19,7 @@ impl_vertex! {
         position => [Position; Float; 2; false],
         diffuse => [Color0; UByte; 4; true],
         additive => [Color1; UByte; 4; true],
-        texcoord => [Texcoord0; UShort; 2; true],
+        texcoord => [Texcoord0; Float; 2; false],
     }
 }
 
@@ -43,12 +43,20 @@ impl SpriteRenderer {
             .with(graphics::VertexAttribute::Texcoord0, 2)
             .finish();
 
-        let view = application.graphics.create_view(None)?;
-        let state = graphics::RenderState::default();
+        let mut state = graphics::RenderState::default();
+        {
+            // Enable color blend with equation: src * srcAlpha + dest * (1-srcAlpha);
+            use graphics::{Equation, BlendFactor, BlendValue};
+            state.color_blend = Some((Equation::Add,
+                                      BlendFactor::Value(BlendValue::SourceAlpha),
+                                      BlendFactor::OneMinusValue(BlendValue::SourceAlpha)));
+        }
+
         let pipeline = application
             .graphics
             .create_pipeline(SPRITE_VS, SPRITE_FS, &state, &attributes)?;
 
+        let view = application.graphics.create_view(None)?;
         Ok(SpriteRenderer {
                view: view,
                pipeline: pipeline,
@@ -98,43 +106,60 @@ impl SpriteRenderer {
         // And then we can draw sprites one by one.
         let mut last_texture = None;
         for v in sprites {
-            let coners = Rect::world_corners(&arenas.0, &arenas.1, v.sprite).unwrap();
             let sprite = arenas.2.get(*v.sprite).unwrap();
-            let color = sprite.color().into();
-            let additive = sprite.additive_color().into();
 
-            self.vertices
-                .push(SpriteVertex::new(coners[0].into(), color, additive, [0, 0]));
-            self.vertices
-                .push(SpriteVertex::new(coners[3].into(), color, additive, [0, 255]));
-            self.vertices
-                .push(SpriteVertex::new(coners[2].into(), color, additive, [255, 255]));
-            self.vertices
-                .push(SpriteVertex::new(coners[0].into(), color, additive, [0, 0]));
-            self.vertices
-                .push(SpriteVertex::new(coners[2].into(), color, additive, [255, 255]));
-            self.vertices
-                .push(SpriteVertex::new(coners[1].into(), color, additive, [255, 0]));
-
+            // Commit batched vertices if necessary.
             let texture = sprite.texture();
             if !eq(last_texture, texture) || self.vertices.len() >= MAX_BATCH_VERTICES {
-                last_texture = texture;
                 self.consume(&mut application, &view_mat, &proj_mat, last_texture)?;
-                self.vertices.clear();
             }
+
+            last_texture = texture;
+
+            let coners = Rect::world_corners(&arenas.0, &arenas.1, v.sprite).unwrap();
+            let color = sprite.color().into();
+            let additive = sprite.additive_color().into();
+            let (position, size) = sprite.texture_rect();
+
+            let v1 = SpriteVertex::new(coners[0].into(), color, additive, [position.0, position.1]);
+
+            let v2 = SpriteVertex::new(coners[1].into(),
+                                       color,
+                                       additive,
+                                       [position.0 + size.0, position.1]);
+
+            let v3 = SpriteVertex::new(coners[2].into(),
+                                       color,
+                                       additive,
+                                       [position.0 + size.0, position.1 + size.1]);
+
+            let v4 = SpriteVertex::new(coners[3].into(),
+                                       color,
+                                       additive,
+                                       [position.0, position.1 + size.1]);
+
+            self.vertices.push(v1);
+            self.vertices.push(v2);
+            self.vertices.push(v4);
+
+            self.vertices.push(v2);
+            self.vertices.push(v3);
+            self.vertices.push(v4);
         }
 
         self.consume(&mut application, &view_mat, &proj_mat, last_texture)?;
-        self.vertices.clear();
         Ok(())
     }
 
-    fn consume(&self,
+    fn consume(&mut self,
                mut application: &mut application::Application,
                view_mat: &math::Matrix4<f32>,
                proj_mat: &math::Matrix4<f32>,
                texture: Option<&resource::TextureItem>)
                -> Result<()> {
+        if self.vertices.len() <= 0 {
+            return Ok(());
+        }
 
         let uniforms = [("u_View", graphics::UniformVariable::Matrix4f(*view_mat.as_ref(), true)),
                         ("u_Proj", graphics::UniformVariable::Matrix4f(*proj_mat.as_ref(), true))];
@@ -171,6 +196,7 @@ impl SpriteRenderer {
                   0,
                   self.vertices.len() as u32)?;
 
+        self.vertices.clear();
         Ok(())
     }
 }

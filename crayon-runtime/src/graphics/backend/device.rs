@@ -157,18 +157,20 @@ impl Device {
                   len: u32)
                   -> Result<()> {
         if let Some(vo) = self.views.get(view) {
-            vo.drawcalls.borrow_mut().push(GLDrawcall {
-                priority: priority,
-                view: view,
-                pipeline: pipeline,
-                textures: textures,
-                uniforms: uniforms,
-                vb: vb,
-                ib: ib,
-                primitive: primitive,
-                from: from,
-                len: len,
-            });
+            vo.drawcalls
+                .borrow_mut()
+                .push(GLDrawcall {
+                          priority: priority,
+                          view: view,
+                          pipeline: pipeline,
+                          textures: textures,
+                          uniforms: uniforms,
+                          vb: vb,
+                          ib: ib,
+                          primitive: primitive,
+                          from: from,
+                          len: len,
+                      });
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -190,10 +192,10 @@ impl Device {
 
         // Sort views by user defined priorities.
         ordered_views.sort_by(|lhs, rhs| {
-            let lv = self.views.buf[*lhs].as_ref().unwrap();
-            let rv = self.views.buf[*rhs].as_ref().unwrap();
-            rv.priority.cmp(&lv.priority)
-        });
+                                  let lv = self.views.buf[*lhs].as_ref().unwrap();
+                                  let rv = self.views.buf[*rhs].as_ref().unwrap();
+                                  rv.priority.cmp(&lv.priority)
+                              });
 
         let mut uniforms = vec![];
         let mut textures = vec![];
@@ -209,7 +211,8 @@ impl Device {
                     self.visitor.bind_framebuffer(fbo.id, true)?;
                     if !self.cleared_framebuffer.borrow_mut().contains(&fbo.id) {
                         self.cleared_framebuffer.borrow_mut().insert(fbo.id);
-                        self.visitor.clear(fbo.clear_color, fbo.clear_depth, fbo.clear_stencil)?;
+                        self.visitor
+                            .clear(fbo.clear_color, fbo.clear_depth, fbo.clear_stencil)?;
                     }
                 } else {
                     bail!(ErrorKind::InvalidHandle);
@@ -219,14 +222,17 @@ impl Device {
             }
 
             if let Some(viewport) = vo.viewport {
-                self.visitor.set_viewport(viewport.0, viewport.1.unwrap_or(dimensions))?;
+                self.visitor
+                    .set_viewport(viewport.0, viewport.1.unwrap_or(dimensions))?;
             } else {
                 self.visitor.set_viewport((0, 0), dimensions)?;
             }
 
             // Sort bucket drawcalls.
             if !vo.seq {
-                vo.drawcalls.borrow_mut().sort_by(|lhs, rhs| rhs.priority.cmp(&lhs.priority));
+                vo.drawcalls
+                    .borrow_mut()
+                    .sort_by(|lhs, rhs| rhs.priority.cmp(&lhs.priority));
             }
 
             // Submit real OpenGL drawcall in order.
@@ -261,7 +267,8 @@ impl Device {
                             bail!(format!("failed to locate texture {}.", &name));
                         }
 
-                        self.visitor.bind_uniform(location, &UniformVariable::I32(i as i32))?;
+                        self.visitor
+                            .bind_uniform(location, &UniformVariable::I32(i as i32))?;
                         self.visitor.bind_texture(i as u32, to.id)?;
                     } else {
                         bail!(format!("use invalid texture handle {:?} at {}", texture, name));
@@ -269,9 +276,12 @@ impl Device {
                 }
 
                 // Bind vertex buffer and vertex array object.
-                let vbo = self.vertex_buffers.get(dc.vb).ok_or(ErrorKind::InvalidHandle)?;
+                let vbo = self.vertex_buffers
+                    .get(dc.vb)
+                    .ok_or(ErrorKind::InvalidHandle)?;
                 self.visitor.bind_buffer(gl::ARRAY_BUFFER, vbo.id)?;
-                self.visitor.bind_attribute_layout(&pso.attributes, &vbo.layout)?;
+                self.visitor
+                    .bind_attribute_layout(&pso.attributes, &vbo.layout)?;
 
                 // Bind index buffer object if available.
                 if let Some(v) = dc.ib {
@@ -295,7 +305,9 @@ impl Device {
     }
 
     unsafe fn bind_pipeline(&self, pipeline: PipelineStateHandle) -> Result<&GLPipeline> {
-        let pso = self.pipelines.get(pipeline).ok_or(ErrorKind::InvalidHandle)?;
+        let pso = self.pipelines
+            .get(pipeline)
+            .ok_or(ErrorKind::InvalidHandle)?;
 
         if let Some(v) = self.active_pipeline.get() {
             if v == pipeline {
@@ -305,10 +317,13 @@ impl Device {
 
         self.visitor.bind_program(pso.id)?;
         self.visitor.set_cull_face(pso.state.cull_face)?;
-        self.visitor.set_front_face_order(pso.state.front_face_order)?;
+        self.visitor
+            .set_front_face_order(pso.state.front_face_order)?;
         self.visitor.set_depth_test(pso.state.depth_test)?;
-        self.visitor.set_depth_write(pso.state.depth_write, pso.state.depth_write_offset)?;
+        self.visitor
+            .set_depth_write(pso.state.depth_write, pso.state.depth_write_offset)?;
         self.visitor.set_color_blend(pso.state.color_blend)?;
+
         let c = &pso.state.color_write;
         self.visitor.set_color_write(c.0, c.1, c.2, c.3)?;
 
@@ -337,7 +352,8 @@ impl Device {
         }
 
         let vbo = GLVertexBuffer {
-            id: self.visitor.create_buffer(Resource::Vertex, hint, size, data)?,
+            id: self.visitor
+                .create_buffer(Resource::Vertex, hint, size, data)?,
             layout: *layout,
             size: size,
             hint: hint,
@@ -361,7 +377,8 @@ impl Device {
                 bail!(ErrorKind::OutOfBounds);
             }
 
-            self.visitor.update_buffer(vbo.id, Resource::Vertex, offset, data)
+            self.visitor
+                .update_buffer(vbo.id, Resource::Vertex, offset, data)
         } else {
             bail!(ErrorKind::InvalidHandle);
         }
@@ -387,7 +404,8 @@ impl Device {
         }
 
         let ibo = GLIndexBuffer {
-            id: self.visitor.create_buffer(Resource::Index, hint, size, data)?,
+            id: self.visitor
+                .create_buffer(Resource::Index, hint, size, data)?,
             format: format,
             size: size,
             hint: hint,
@@ -411,7 +429,8 @@ impl Device {
                 bail!(ErrorKind::OutOfBounds);
             }
 
-            self.visitor.update_buffer(ibo.id, Resource::Index, offset, data)
+            self.visitor
+                .update_buffer(ibo.id, Resource::Index, offset, data)
         } else {
             bail!(ErrorKind::InvalidHandle);
         }
@@ -432,12 +451,14 @@ impl Device {
                                        height: u32)
                                        -> Result<()> {
         let (internal_format, _, _) = format.into();
-        let id = self.visitor.create_render_buffer(internal_format, width, height)?;
-        self.render_textures.set(handle,
-                                 GLRenderTexture {
-                                     id: id,
-                                     format: GLTextureFormat::Render(format),
-                                 });
+        let id = self.visitor
+            .create_render_buffer(internal_format, width, height)?;
+        self.render_textures
+            .set(handle,
+                 GLRenderTexture {
+                     id: id,
+                     format: GLTextureFormat::Render(format),
+                 });
         Ok(())
     }
 
@@ -486,7 +507,9 @@ impl Device {
                                                   texture: TextureHandle,
                                                   slot: u32)
                                                   -> Result<()> {
-        let fbo = self.framebuffers.get(handle).ok_or(ErrorKind::InvalidHandle)?;
+        let fbo = self.framebuffers
+            .get(handle)
+            .ok_or(ErrorKind::InvalidHandle)?;
         let tex = self.textures.get(texture).ok_or(ErrorKind::InvalidHandle)?;
 
         if let GLTextureFormat::Render(format) = tex.format {
@@ -519,8 +542,12 @@ impl Device {
                                                        texture: RenderBufferHandle,
                                                        slot: u32)
                                                        -> Result<()> {
-        let fbo = self.framebuffers.get(handle).ok_or(ErrorKind::InvalidHandle)?;
-        let tex = self.render_textures.get(texture).ok_or(ErrorKind::InvalidHandle)?;
+        let fbo = self.framebuffers
+            .get(handle)
+            .ok_or(ErrorKind::InvalidHandle)?;
+        let tex = self.render_textures
+            .get(texture)
+            .ok_or(ErrorKind::InvalidHandle)?;
 
         if let GLTextureFormat::Render(format) = tex.format {
             self.visitor.bind_framebuffer(fbo.id, false)?;
@@ -529,7 +556,8 @@ impl Device {
                 RenderTextureFormat::RGBA4 |
                 RenderTextureFormat::RGBA8 => {
                     let location = gl::COLOR_ATTACHMENT0 + slot;
-                    self.visitor.bind_framebuffer_with_renderbuffer(location, tex.id)
+                    self.visitor
+                        .bind_framebuffer_with_renderbuffer(location, tex.id)
                 }
                 RenderTextureFormat::Depth16 |
                 RenderTextureFormat::Depth24 |
@@ -573,16 +601,17 @@ impl Device {
                             height,
                             None)?;
 
-        self.textures.set(handle,
-                          GLTexture {
-                              id: id,
-                              address: TextureAddress::Repeat,
-                              filter: TextureFilter::Linear,
-                              mipmap: false,
-                              width: width,
-                              height: height,
-                              format: GLTextureFormat::Render(format),
-                          });
+        self.textures
+            .set(handle,
+                 GLTexture {
+                     id: id,
+                     address: TextureAddress::Repeat,
+                     filter: TextureFilter::Linear,
+                     mipmap: false,
+                     width: width,
+                     height: height,
+                     format: GLTextureFormat::Render(format),
+                 });
         Ok(())
     }
 
@@ -608,16 +637,17 @@ impl Device {
                             height,
                             Some(&data))?;
 
-        self.textures.set(handle,
-                          GLTexture {
-                              id: id,
-                              address: address,
-                              filter: filter,
-                              mipmap: mipmap,
-                              width: width,
-                              height: height,
-                              format: GLTextureFormat::Normal(format),
-                          });
+        self.textures
+            .set(handle,
+                 GLTexture {
+                     id: id,
+                     address: address,
+                     filter: filter,
+                     mipmap: mipmap,
+                     width: width,
+                     height: height,
+                     format: GLTextureFormat::Normal(format),
+                 });
         Ok(())
     }
 
@@ -628,7 +658,8 @@ impl Device {
                                             -> Result<()> {
         if let Some(texture) = self.textures.get_mut(handle) {
             self.visitor.bind_texture(0, texture.id)?;
-            self.visitor.update_texture_parameters(address, filter, texture.mipmap)?;
+            self.visitor
+                .update_texture_parameters(address, filter, texture.mipmap)?;
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -746,13 +777,14 @@ impl Device {
             }
         }
 
-        self.pipelines.set(handle,
-                           GLPipeline {
-                               id: pid,
-                               state: *state,
-                               attributes: *attributes,
-                               uniforms: HashMap::new(),
-                           });
+        self.pipelines
+            .set(handle,
+                 GLPipeline {
+                     id: pid,
+                     state: *state,
+                     attributes: *attributes,
+                     uniforms: HashMap::new(),
+                 });
         check()
     }
 
@@ -807,13 +839,17 @@ impl<T> DataVec<T>
     pub fn get<H>(&self, handle: H) -> Option<&T>
         where H: Borrow<Handle>
     {
-        self.buf.get(handle.borrow().index() as usize).and_then(|v| v.as_ref())
+        self.buf
+            .get(handle.borrow().index() as usize)
+            .and_then(|v| v.as_ref())
     }
 
     pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
         where H: Borrow<Handle>
     {
-        self.buf.get_mut(handle.borrow().index() as usize).and_then(|v| v.as_mut())
+        self.buf
+            .get_mut(handle.borrow().index() as usize)
+            .and_then(|v| v.as_mut())
     }
 
     pub fn set<H>(&mut self, handle: H, value: T)

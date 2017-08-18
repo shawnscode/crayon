@@ -21,7 +21,7 @@ impl super::ResourceLoader for TextureSerializationPayload {
         let data: TextureSerializationPayload = bincode::deserialize(&bytes)?;
         assert!(!data.is_compressed);
 
-        let dynamic = image::load_from_memory(&data.bytes)?;
+        let dynamic = image::load_from_memory(&data.bytes)?.flipv();
 
         Ok(Texture {
                mipmap: data.mipmap,
@@ -99,7 +99,7 @@ impl super::ResourceLoader for Texture {
     type Item = Texture;
 
     fn load_from_memory(bytes: &[u8]) -> Result<Self::Item> {
-        let dynamic = image::load_from_memory(&bytes)?;
+        let dynamic = image::load_from_memory(&bytes)?.flipv();
 
         Ok(Texture {
                mipmap: false,
