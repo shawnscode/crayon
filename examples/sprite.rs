@@ -1,4 +1,6 @@
 extern crate crayon;
+extern crate crayon_workflow;
+
 extern crate cgmath;
 extern crate rand;
 
@@ -10,6 +12,8 @@ use rand::{Rng, SeedableRng, XorShiftRng};
 use crayon::graphics::Color;
 use crayon::scene::{Sprite, Transform, Rect};
 use crayon::resource;
+
+mod prelude;
 
 #[derive(Debug)]
 struct SpriteParticle {
@@ -27,32 +31,50 @@ fn main() {
     let mut particles = vec![];
     let mut cal = XorShiftRng::from_seed([0, 1, 2, 3]);
 
-    crayon::Application::new()
+    prelude::compile();
+
+    let mut settings = crayon::core::settings::Settings::default();
+    settings.window.width = 360;
+    settings.window.height = 240;
+
+    crayon::Application::new_with(settings)
         .unwrap()
         .perform(|mut app| {
             scene = {
                 let mut v = Scene2d::new(&mut app).unwrap();
-                let c = Scene2d::camera(&mut v.world_mut());
-                v.set_main_camera(c);
 
                 {
                     // Create and bind main camera of scene2d.
-                    let dimensions = app.window.dimensions().unwrap();
-                    let mut camera = v.world_mut().fetch_mut::<Camera>(c).unwrap();
-                    camera.set_aspect(dimensions.0 as f32 / dimensions.1 as f32);
-                    camera.set_projection(Projection::Ortho(dimensions.1 as f32 * 0.5));
+                    let c = Scene2d::camera(&mut v.world_mut());
+                    v.set_main_camera(c);
+
+                    {
+                        let dimensions = app.window.dimensions().unwrap();
+                        let mut camera = v.world_mut().fetch_mut::<Camera>(c).unwrap();
+                        camera.set_aspect(dimensions.0 as f32 / dimensions.1 as f32);
+                        camera.set_projection(Projection::Ortho(dimensions.1 as f32 * 0.5));
+                    }
+
+                    {
+                        let mut arena = v.world_mut().arena::<Transform>().unwrap();
+                        let mut position = Transform::world_position(&arena, c).unwrap();
+                        position.z = 10f32;
+                        Transform::set_world_position(&mut arena, c, position).unwrap();
+                    }
                 }
 
-                for _ in 0..200 {
+                for _ in 0..500 {
                     particles.push(None);
                 }
 
                 app.resources
-                    .load_manifest("crayon-runtime/examples/resources/compiled/manifest")
+                    .load_manifest("examples/compiled-resources/manifest")
                     .unwrap();
 
                 atlas = Some(app.resources.load_atlas("atlas.json").unwrap());
+
                 Some(v)
+
             };
         })
         .run(move |mut app| {
@@ -63,6 +85,7 @@ fn main() {
                     for i in &mut particles {
                         if i.is_none() {
                             let spr = {
+                                let size = (cal.gen::<u32>() % 20) as f32 + 10.0;
                                 SpriteParticle {
                                     lifetime: (cal.gen::<u32>() % 5) as f32,
                                     velocity: math::Vector3::new((cal.gen::<i32>() % 10) as f32,
@@ -75,15 +98,14 @@ fn main() {
                                                                      0.0),
                                     color: [cal.gen::<u8>(), cal.gen::<u8>(), cal.gen::<u8>(), 255]
                                         .into(),
-                                    size: math::Vector2::new((cal.gen::<u32>() % 20) as f32 + 10.0,
-                                                             (cal.gen::<u32>() % 20) as f32 + 10.0),
-                                    handle: Scene2d::sprite(&mut world),
+                                    size: math::Vector2::new(size, size),
+                                    handle: Sprite::new(&mut world),
                                 }
                             };
 
                             {
                                 let mut sprite = world.fetch_mut::<Sprite>(spr.handle).unwrap();
-                                sprite.set_additive_color(&spr.color);
+                                sprite.set_color(&spr.color);
 
                                 let mut rect = world.fetch_mut::<Rect>(spr.handle).unwrap();
                                 rect.set_size(&spr.size);
@@ -95,6 +117,8 @@ fn main() {
                                         .unwrap()
                                         .frame(&mut app.resources, &name)
                                         .unwrap();
+
+                                    sprite.set_texture_rect(frame.position, frame.size);
                                     sprite.set_texture(Some(frame.texture));
                                 }
                             }

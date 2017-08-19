@@ -43,6 +43,18 @@ impl Manifest {
         bail!("Failed to find manifest Crayon.toml.");
     }
 
+    pub fn load_from<P>(path: P) -> Result<Manifest>
+        where P: AsRef<Path>
+    {
+        if let Ok(file) = fs::metadata(path.as_ref()) {
+            if file.is_file() {
+                return Manifest::parse(path.as_ref());
+            }
+        }
+
+        bail!("Failed to parse manifest at {:?}.", path.as_ref());
+    }
+
     /// Setup workspace.
     pub fn setup(self) -> Result<Self> {
         if !self.workspace.exists() {

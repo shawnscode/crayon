@@ -1,2 +1,27 @@
+[package]
+name = "crayon-workspace"
+version = "0.0.3"
+authors = [ "Jingkai Mao <oammix@gmail.com>" ]
+license = "Apache-2.0"
+
 [workspace]
 members = [ "crayon-runtime", "crayon-workflow", "crayon-cli" ]
+
+[dev-dependencies]
+crayon = { path = "./crayon-runtime" }
+crayon_workflow = { path = "./crayon-workflow" }
+
+cgmath = "0.14.1"
+rand = "0.3.15"
+
+[[example]]
+name = "sprite"
+path = "examples/sprite.rs"
+
+[[example]]
+name = "texture"
+path = "examples/texture.rs"
+
+[[example]]
+name = "render_target"
+path = "examples/render_target.rs"

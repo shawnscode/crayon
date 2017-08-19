@@ -197,7 +197,7 @@ impl ResourceDatabase {
                     self.paths.insert(metadata.uuid(), file);
                     self.resources.insert(metadata.uuid(), metadata);
                 } else {
-                    println!("{:?}", rsp);
+                    // println!("{:?}", rsp);
                 }
             }
         }
