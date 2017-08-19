@@ -63,6 +63,25 @@ impl ResourceDatabase {
         serialization::serialize(Deref::deref(&database), &resource_database_path, true)
     }
 
+    /// Get the uuid of resource at path.
+    pub fn uuid<P>(&self, path: P) -> Option<uuid::Uuid>
+        where P: AsRef<Path>
+    {
+        let path = if path.as_ref().is_relative() {
+            ::std::env::current_dir().unwrap().join(path)
+        } else {
+            path.as_ref().to_path_buf()
+        };
+
+        for (uuid, resource) in &self.paths {
+            if resource == &path {
+                return Some(*uuid);
+            }
+        }
+
+        None
+    }
+
     /// Build resources into serialization data which could be imported by cyon-runtime
     /// directly.
     pub fn build<P>(&self, version: &str, _: platform::BuildTarget, path: P) -> Result<()>
@@ -87,7 +106,7 @@ impl ResourceDatabase {
                     file.read_to_end(&mut bytes)?;
 
                     out.clear();
-                    metadata.build(&bytes, &mut out)?;
+                    metadata.build(&self, &resource_path, &bytes, &mut out)?;
 
                     // Write to specified path.
                     let name = id.simple().to_string();
@@ -178,7 +197,7 @@ impl ResourceDatabase {
                     self.paths.insert(metadata.uuid(), file);
                     self.resources.insert(metadata.uuid(), metadata);
                 } else {
-                    println!("{:?}", rsp);
+                    // println!("{:?}", rsp);
                 }
             }
         }
@@ -186,16 +205,28 @@ impl ResourceDatabase {
         Ok(())
     }
 
-    /// Import resource at path into `ResourceDatabase`.
-    pub fn import<P>(&mut self, path: P) -> Result<()>
+    /// Load meta file from disk. This method will treat the resource as specified type.
+    pub fn load_metadata_as<P>(&self, path: P, tt: super::Resource) -> Result<ResourceMetadata>
         where P: AsRef<Path>
     {
-        let path = self.manifest.dir().join(&path);
-        let metadata = self.load_metadata(&path)?;
+        let metadata_path = ResourceDatabase::metadata_path(&path);
 
-        self.paths.insert(metadata.uuid(), path);
-        self.resources.insert(metadata.uuid(), metadata);
-        Ok(())
+        let metadata = if metadata_path.exists() {
+            let metadata: ResourceMetadata = serialization::deserialize(&metadata_path, true)?;
+            if !metadata.is(tt) {
+                let metadata = ResourceMetadata::new_as(tt);
+                serialization::serialize(&metadata, &metadata_path, true)?;
+                metadata
+            } else {
+                metadata
+            }
+        } else {
+            let metadata = ResourceMetadata::new_as(tt);
+            serialization::serialize(&metadata, &metadata_path, true)?;
+            metadata
+        };
+
+        self.validate_metadata(path, metadata_path, metadata)
     }
 
     /// Load corresponding meta file from disk, and deserialize it into `ResourceMetadata`. A new
@@ -226,6 +257,17 @@ impl ResourceDatabase {
             }
         };
 
+        self.validate_metadata(path, metadata_path, metadata)
+    }
+
+    fn validate_metadata<P, P2>(&self,
+                                path: P,
+                                metadata_path: P2,
+                                metadata: ResourceMetadata)
+                                -> Result<ResourceMetadata>
+        where P: AsRef<Path>,
+              P2: AsRef<Path>
+    {
         // Read file from disk.
         let mut file = fs::OpenOptions::new().read(true).open(&path)?;
 

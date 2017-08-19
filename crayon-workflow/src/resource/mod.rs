@@ -3,11 +3,14 @@ pub mod database;
 
 pub mod texture;
 pub mod bytes;
+pub mod atlas;
 
 pub use self::database::ResourceDatabase;
 pub use self::metadata::ResourceMetadata;
+
 pub use self::texture::TextureMetadata;
 pub use self::bytes::BytesMetadata;
+pub use self::atlas::AtlasMetadata;
 
 /// The enumeration of all the fundamental resources that could be imported into
 /// workspace.
@@ -15,6 +18,7 @@ pub use self::bytes::BytesMetadata;
 pub enum Resource {
     Bytes,
     Texture,
+    Atlas,
 }
 
 const METADATA_EXTENSION: &'static str = "meta";
@@ -26,6 +30,7 @@ impl Into<crayon::resource::manifest::ResourcePayload> for Resource {
         match self {
             Resource::Bytes => crayon::resource::manifest::ResourcePayload::Bytes,
             Resource::Texture => crayon::resource::manifest::ResourcePayload::Texture,
+            Resource::Atlas => crayon::resource::manifest::ResourcePayload::Atlas,
         }
     }
 }

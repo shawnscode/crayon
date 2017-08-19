@@ -7,6 +7,7 @@ pub mod system;
 
 pub mod texture;
 pub mod bytes;
+pub mod atlas;
 
 pub use self::errors::*;
 pub use self::archive::{File, Archive, FilesystemArchive, ZipArchive, ArchiveCollection};
@@ -16,6 +17,7 @@ pub use self::system::ResourceSystem;
 
 pub use self::texture::Texture;
 pub use self::bytes::Bytes;
+pub use self::atlas::{Atlas, AtlasFrame};
 
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, RwLock};
@@ -56,3 +58,6 @@ declare_resource!(Texture);
 
 pub type BytesItem = Arc<RwLock<Bytes>>;
 declare_resource!(Bytes);
+
+pub type AtlasItem = Arc<RwLock<Atlas>>;
+declare_resource!(Atlas);

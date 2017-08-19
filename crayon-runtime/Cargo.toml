@@ -1,11 +1,14 @@
 [package]
 name = "crayon"
-version = "0.0.2"
+version = "0.0.3"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
-description = "Crayon is an experimental purpose project, written with a minimalistic modular design philosophy. Its built from the ground up to focus on cache friendly data layouts in multicore environments with entity-component based architecture."
+
+description = "An experimental entity-component-based multithread game engine."
 repository = "https://github.com/kaisc/crayon"
+documentation = "http://docs.rs/crayon"
 readme = "../README.md"
 license = "Apache-2.0"
+
 keywords = ["ecs", "entity-component", "game-dev", "multithread"]
 categories = ["game-engines", "multimedia"]
 
@@ -13,7 +16,6 @@ categories = ["game-engines", "multimedia"]
 travis-ci = { repository = "kaisc/crayon", branch = "master" }
 
 [dependencies]
-
 libc = "0.2.23"
 gl = "0.6.2"
 lazy_static = "0.2.8"
@@ -36,7 +38,6 @@ deque = "0.3.2"
 serde = "1.0.8"
 serde_derive = "1.0.8"
 bincode = "0.8.0"
-json = "0.11.6"
 
 zip = "0.2.2"
 image = "0.13.0"

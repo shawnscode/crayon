@@ -1,0 +1,8 @@
+[Workflow.ProjectSettings]
+# List all the resource folders that will be included in the playable package.
+resources = [ "resources" ]
+
+[Workflow.ImportSettings]
+# Type table used when crayon-workflow import new resources.
+bytes = [ ".bytes", ".lua" ]
+textures = [ ".png", ".tga", ".bmp" ]

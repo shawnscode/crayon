@@ -1,6 +1,6 @@
 //! Core Engine
 
-pub mod arguments;
+pub mod settings;
 pub mod engine;
 pub mod window;
 pub mod input;

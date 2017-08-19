@@ -12,5 +12,6 @@ error_chain!{
         Yaml(::serde_yaml::Error);
         Bincode(boxed::Box<bincode::ErrorKind>);
         Image(::image::ImageError);
+        Json(::serde_json::Error);
     }
 }

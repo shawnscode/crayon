@@ -7,6 +7,8 @@ use toml;
 
 use errors::*;
 use resource::Resource;
+use crayon::core::settings::Settings;
+use serialization;
 
 /// Workflow manifest of crayon project.
 #[derive(Debug, Clone)]
@@ -16,6 +18,7 @@ pub struct Manifest {
 
     pub resources: Vec<PathBuf>,
     pub types: HashMap<String, Resource>,
+    pub settings: Settings,
 }
 
 impl Manifest {
@@ -40,6 +43,18 @@ impl Manifest {
         bail!("Failed to find manifest Crayon.toml.");
     }
 
+    pub fn load_from<P>(path: P) -> Result<Manifest>
+        where P: AsRef<Path>
+    {
+        if let Ok(file) = fs::metadata(path.as_ref()) {
+            if file.is_file() {
+                return Manifest::parse(path.as_ref());
+            }
+        }
+
+        bail!("Failed to parse manifest at {:?}.", path.as_ref());
+    }
+
     /// Setup workspace.
     pub fn setup(self) -> Result<Self> {
         if !self.workspace.exists() {
@@ -57,6 +72,14 @@ impl Manifest {
     /// The directory where this manifest locates.
     pub fn dir(&self) -> &Path {
         &self.dir
+    }
+
+    /// Save settings as serialization data.
+    pub fn save_settings<P>(&self, path: P) -> Result<()>
+        where P: AsRef<Path>
+    {
+        serialization::serialize(&self.settings, path, false)?;
+        Ok(())
     }
 
     fn parse(path: &Path) -> Result<Manifest> {
@@ -77,9 +100,45 @@ impl Manifest {
             let mut manifest = Manifest {
                 workspace: absolute_dir.join(".crayon"),
                 dir: absolute_dir,
+                settings: Settings::default(),
                 resources: Vec::new(),
                 types: HashMap::new(),
             };
+
+            if let Some(runtime) = value.get("Runtime").and_then(|v| v.as_table()) {
+                if let Some(engine_settings) =
+                    runtime.get("EngineSettings").and_then(|v| v.as_table()) {
+
+                    if let Some(v) = engine_settings.get("min_fps").and_then(|v| v.as_integer()) {
+                        manifest.settings.engine.min_fps = v as u32;
+                    }
+
+                    if let Some(v) = engine_settings.get("max_fps").and_then(|v| v.as_integer()) {
+                        manifest.settings.engine.max_fps = v as u32;
+                    }
+
+                    if let Some(v) = engine_settings
+                           .get("time_smooth_step")
+                           .and_then(|v| v.as_integer()) {
+                        manifest.settings.engine.time_smooth_step = v as u32;
+                    }
+                }
+
+                if let Some(window_settings) =
+                    runtime.get("WindowSettings").and_then(|v| v.as_table()) {
+                    if let Some(v) = window_settings.get("width").and_then(|v| v.as_integer()) {
+                        manifest.settings.window.width = v as u32;
+                    }
+
+                    if let Some(v) = window_settings.get("height").and_then(|v| v.as_integer()) {
+                        manifest.settings.window.height = v as u32;
+                    }
+
+                    if let Some(v) = window_settings.get("title").and_then(|v| v.as_str()) {
+                        manifest.settings.window.title = v.to_owned();
+                    }
+                }
+            }
 
             if let Some(workflow) = value.get("Workflow").and_then(|v| v.as_table()) {
                 if let Some(project_settings) =
@@ -123,15 +182,15 @@ impl Manifest {
                         }
                     }
 
-                    // if let Some(types) = import_settings.get("atlases").and_then(|v| v.as_array()) {
-                    //     for item in types {
-                    //         if let Some(v) = item.as_str() {
-                    //             manifest
-                    //                 .types
-                    //                 .insert(v.trim_matches('.').to_owned(), Resource::Atlas);
-                    //         }
-                    //     }
-                    // }
+                    if let Some(types) = import_settings.get("atlases").and_then(|v| v.as_array()) {
+                        for item in types {
+                            if let Some(v) = item.as_str() {
+                                manifest
+                                    .types
+                                    .insert(v.trim_matches('.').to_owned(), Resource::Atlas);
+                            }
+                        }
+                    }
                 }
             }
 

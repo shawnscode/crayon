@@ -13,6 +13,7 @@ use super::*;
 pub enum ResourceItem {
     Bytes(BytesItem),
     Texture(TextureItem),
+    Atlas(AtlasItem),
 }
 
 type InstanceId = usize;
@@ -47,6 +48,7 @@ impl ResourceSystem {
         /// Register default resources.
         rs.register::<Texture>();
         rs.register::<Bytes>();
+        rs.register::<Atlas>();
 
         Ok(rs)
     }
@@ -112,28 +114,12 @@ impl ResourceSystem {
                 let item = self.resources.get(*instance_id).unwrap();
                 (item.uuid, item.payload)
             } else {
-                bail!("Failed to load texture at {:?}, not found in any loaded manifest.",
+                bail!("Failed to load resource at {:?}, not found in any loaded manifest.",
                       path.as_ref());
             }
         };
 
-        let uuid = uuid.simple().to_string();
-        let path = Path::new(&uuid);
-
-        match payload {
-            manifest::ResourcePayload::Texture => {
-                self.backends
-                    .index_mut::<Texture>()
-                    .load::<texture::TextureSerializationPayload, &Path>(&self.archives, path)
-                    .map(|v| ResourceItem::Texture(v))
-            }
-            manifest::ResourcePayload::Bytes => {
-                self.backends
-                    .index_mut::<Bytes>()
-                    .load::<bytes::BytesSerializationPayload, &Path>(&self.archives, path)
-                    .map(|v| ResourceItem::Bytes(v))
-            }
-        }
+        self.load_internal(uuid, payload)
     }
 
     #[inline]
@@ -153,6 +139,85 @@ impl ResourceSystem {
         match self.load(path.as_ref())? {
             ResourceItem::Bytes(bytes) => Ok(bytes),
             _ => bail!("Failed to load bytes from {:?}.", path.as_ref()),
+        }
+    }
+
+    #[inline]
+    pub fn load_atlas<P>(&mut self, path: P) -> Result<AtlasItem>
+        where P: AsRef<Path>
+    {
+        match self.load(path.as_ref())? {
+            ResourceItem::Atlas(atlas) => Ok(atlas),
+            _ => bail!("Failed to load atlas from {:?}.", path.as_ref()),
+        }
+    }
+
+    /// Load a resource with uuid.
+    #[inline]
+    pub fn load_with_uuid(&mut self, uuid: uuid::Uuid) -> Result<ResourceItem> {
+        let payload = {
+            if let Some(instance_id) = self.ids.get(&uuid) {
+                let item = self.resources.get(*instance_id).unwrap();
+                item.payload
+            } else {
+                bail!("Failed to load resource with {:?}, not found in any loaded manifest.",
+                      uuid);
+            }
+        };
+
+        self.load_internal(uuid, payload)
+    }
+
+    #[inline]
+    pub fn load_texture_with_uuid(&mut self, uuid: uuid::Uuid) -> Result<TextureItem> {
+        match self.load_with_uuid(uuid)? {
+            ResourceItem::Texture(texture) => Ok(texture),
+            _ => bail!("Failed to load texture with {:?}.", uuid),
+        }
+    }
+
+    #[inline]
+    pub fn load_bytes_with_uuid(&mut self, uuid: uuid::Uuid) -> Result<BytesItem> {
+        match self.load_with_uuid(uuid)? {
+            ResourceItem::Bytes(bytes) => Ok(bytes),
+            _ => bail!("Failed to load bytes with {:?}.", uuid),
+        }
+    }
+
+    #[inline]
+    pub fn load_atlas_with_uuid(&mut self, uuid: uuid::Uuid) -> Result<AtlasItem> {
+        match self.load_with_uuid(uuid)? {
+            ResourceItem::Atlas(atlas) => Ok(atlas),
+            _ => bail!("Failed to load atlas with {:?}.", uuid),
+        }
+    }
+
+    fn load_internal(&mut self,
+                     uuid: uuid::Uuid,
+                     payload: manifest::ResourcePayload)
+                     -> Result<ResourceItem> {
+        let uuid = uuid.simple().to_string();
+        let path = Path::new(&uuid);
+
+        match payload {
+            manifest::ResourcePayload::Texture => {
+                self.backends
+                    .index_mut::<Texture>()
+                    .load::<texture::TextureSerializationPayload, &Path>(&self.archives, path)
+                    .map(|v| ResourceItem::Texture(v))
+            }
+            manifest::ResourcePayload::Bytes => {
+                self.backends
+                    .index_mut::<Bytes>()
+                    .load::<bytes::BytesSerializationPayload, &Path>(&self.archives, path)
+                    .map(|v| ResourceItem::Bytes(v))
+            }
+            manifest::ResourcePayload::Atlas => {
+                self.backends
+                    .index_mut::<Atlas>()
+                    .load::<atlas::AtlasSerializationPayload, &Path>(&self.archives, path)
+                    .map(|v| ResourceItem::Atlas(v))
+            }
         }
     }
 

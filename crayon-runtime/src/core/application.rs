@@ -2,7 +2,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use super::engine::Engine;
-use super::arguments::Arguments;
+use super::settings::Settings;
 use super::window;
 use super::input;
 use super::event;
@@ -21,51 +21,32 @@ pub struct Application {
 }
 
 impl Application {
-    /// Creates empty `Application`.
+    /// Setup application with default configurations.
     pub fn new() -> Result<Self> {
-        let input = input::Input::new();
-        let window = Arc::new(window::WindowBuilder::new().build(&input)?);
-        let graphics = graphics::Graphics::new(window.clone())?;
-
-        Ok(Application {
-               input: input,
-               window: window,
-               graphics: graphics,
-               engine: Engine::new(),
-               resources: resource::ResourceSystem::new()?,
-           })
+        Application::new_with(Settings::default())
     }
 
-    /// Setup application from configuration.
+    /// Setup application from configurations load at path.
     pub fn setup<T>(path: T) -> Result<Self>
         where T: AsRef<Path>
     {
-        let args = Arguments::new(path)
+        let settings = Settings::load_from(path)
             .chain_err(|| "failed to parse arguments.")?;
 
+        Application::new_with(settings)
+    }
+
+    /// Setup application with specified settings.
+    pub fn new_with(settings: Settings) -> Result<Self> {
         let mut engine = Engine::new();
-        if let Some(slice) = args.load_as_slice("Engine") {
-            let v = slice.load_as_i32("MinFPS").unwrap_or(0) as u32;
-            engine.set_min_fps(v);
-
-            let v = slice.load_as_i32("MaxFPS").unwrap_or(0) as u32;
-            engine.set_max_fps(v);
-
-            let v = slice.load_as_i32("MaxInactiveFPS").unwrap_or(0) as u32;
-            engine.set_max_inactive_fps(v);
-
-            let v = slice.load_as_i32("TimeSmoothingStep").unwrap_or(0) as u32;
-            engine.set_time_smoothing_step(v);
-        }
+        engine.set_min_fps(settings.engine.min_fps);
+        engine.set_max_fps(settings.engine.max_fps);
+        engine.set_max_inactive_fps(settings.engine.max_inactive_fps);
+        engine.set_time_smoothing_step(settings.engine.time_smooth_step);
 
         let mut wb = window::WindowBuilder::new();
-        if let Some(slice) = args.load_as_slice("Window") {
-            let name = slice.load_as_str("Title").unwrap_or("Crayon - Application");
-            let width = slice.load_as_i32("Width").unwrap_or(128) as u32;
-            let height = slice.load_as_i32("Height").unwrap_or(128) as u32;
-            wb.with_title(name.to_string())
-                .with_dimensions(width, height);
-        }
+        wb.with_title(settings.window.title.clone())
+            .with_dimensions(settings.window.width, settings.window.height);
 
         let input = input::Input::new();
         let window = Arc::new(wb.build(&input)?);
@@ -79,6 +60,7 @@ impl Application {
                resources: resource::ResourceSystem::new()?,
            })
     }
+
 
     /// Perform custom logics after engine initialization.
     pub fn perform<F>(mut self, mut closure: F) -> Self

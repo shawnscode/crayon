@@ -23,7 +23,6 @@ extern crate rayon;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
-extern crate json;
 extern crate bincode;
 
 #[macro_use]

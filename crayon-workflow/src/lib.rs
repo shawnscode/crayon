@@ -6,6 +6,7 @@ extern crate uuid;
 extern crate serde_derive;
 extern crate serde;
 extern crate serde_yaml;
+extern crate serde_json;
 extern crate toml;
 extern crate bincode;
 
