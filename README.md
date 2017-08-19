@@ -19,8 +19,7 @@ It is loosely inspired by some amazing blogs on [bitsquid](https://bitsquid.blog
 The most recommanded way to work with `crayon` is following commands below:
 
 ``` sh
-git clone git@github.com:kaisc/crayon.git
-cd crayon
+git clone git@github.com:kaisc/crayon.git && cd crayon
 cargo install --path crayon-cli --force
 ```
 
@@ -30,14 +29,9 @@ If everything goes well, you should get a CLI tool named `crayon-cli`. Its barel
 For the sake of brevity, you can also run a simple and quick example with commands:
 
 ``` sh
-git clone git@github.com:kaisc/crayon.git
-cd crayon
-cargo run --manifest-path crayon-runtime/Cargo.toml --example sprite
+git clone git@github.com:kaisc/crayon.git && cd crayon
+cargo run --example sprite
 ```
-
-<p align="center">
-  <img src="screenshots/sprite-particles.gif">
-</p>
 
 ### FAQ
 
