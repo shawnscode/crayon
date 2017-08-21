@@ -1,5 +1,3 @@
-use bincode;
-
 use errors::*;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -15,6 +13,7 @@ impl BytesMetadata {
     }
 
     pub fn build(&self, data: &[u8], mut out: &mut Vec<u8>) -> Result<()> {
+        out.resize(data.len(), 0);
         out.copy_from_slice(&data);
         Ok(())
     }
