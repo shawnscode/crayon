@@ -71,8 +71,7 @@ fn main() {
                     .load_manifest("examples/compiled-resources/manifest")
                     .unwrap();
 
-                atlas = Some(app.resources.load_atlas("atlas.json").unwrap());
-
+                atlas = Some(app.resources.load("atlas.json").unwrap());
                 Some(v)
 
             };

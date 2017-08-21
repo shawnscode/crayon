@@ -50,7 +50,7 @@ impl TextureMetadata {
         let src = image::load_from_memory(&data)?;
         src.save(&mut bytes, image::ImageFormat::PNG)?;
 
-        let payload = resource::texture::TextureSerializationPayload {
+        let payload = resource::workflow::TextureSerializationPayload {
             mipmap: self.mipmap,
             address: self.address,
             filter: self.filter,

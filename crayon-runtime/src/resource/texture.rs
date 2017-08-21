@@ -1,38 +1,8 @@
 use image;
 use image::GenericImage;
-use bincode;
 use graphics;
 
 use super::errors::*;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TextureSerializationPayload {
-    pub mipmap: bool,
-    pub address: graphics::TextureAddress,
-    pub filter: graphics::TextureFilter,
-    pub is_compressed: bool,
-    pub bytes: Vec<u8>,
-}
-
-impl super::ResourceLoader for TextureSerializationPayload {
-    type Item = Texture;
-
-    fn load_from_memory(bytes: &[u8]) -> Result<Self::Item> {
-        let data: TextureSerializationPayload = bincode::deserialize(&bytes)?;
-        assert!(!data.is_compressed);
-
-        let dynamic = image::load_from_memory(&data.bytes)?.flipv();
-
-        Ok(Texture {
-               mipmap: data.mipmap,
-               address: data.address,
-               filter: data.filter,
-               dimensions: dynamic.dimensions(),
-               buf: dynamic.to_rgba().into_raw(),
-               video: None,
-           })
-    }
-}
 
 #[derive(Debug)]
 pub struct Texture {
@@ -45,6 +15,22 @@ pub struct Texture {
 }
 
 impl Texture {
+    pub fn new(dimensions: (u32, u32),
+               buf: Vec<u8>,
+               mipmap: bool,
+               address: graphics::TextureAddress,
+               filter: graphics::TextureFilter)
+               -> Texture {
+        Texture {
+            mipmap: mipmap,
+            address: address,
+            filter: filter,
+            dimensions: dimensions,
+            buf: buf,
+            video: None,
+        }
+    }
+
     pub fn update_video_object(&mut self,
                                video: &mut graphics::Graphics)
                                -> graphics::errors::Result<()> {

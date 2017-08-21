@@ -89,7 +89,7 @@ impl ResourceDatabase {
     {
         fs::create_dir_all(path.as_ref())?;
 
-        let mut manifest = crayon::resource::manifest::ResourceManifest {
+        let mut manifest = crayon::resource::workflow::ResourceManifest {
             path: PathBuf::new(),
             version: version.to_owned(),
             items: HashMap::new(),
@@ -128,7 +128,7 @@ impl ResourceDatabase {
                         }
                     }
 
-                    let item = crayon::resource::manifest::ResourceManifestItem {
+                    let item = crayon::resource::workflow::ResourceManifestItem {
                         checksum: seahash::hash(&out),
                         path: resource_relative_path,
                         dependencies: Vec::new(),

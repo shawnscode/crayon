@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use bincode;
 use uuid;
 
-use super::TextureItem;
 use super::errors::*;
+use super::TextureItem;
 
 /// A atlas frame.
 #[derive(Debug)]
@@ -73,11 +73,11 @@ impl Atlas {
     #[inline]
     pub fn frame(&self, mut rs: &mut super::ResourceSystem, filename: &str) -> Option<AtlasFrame> {
         if let Some(frame) = self.frames.get(filename).and_then(|v| Some(v.clone())) {
-            if let Ok(texture) = rs.load_texture_with_uuid(self.texture) {
+            if let Ok(texture) = rs.load_with_uuid::<super::Texture>(self.texture) {
 
                 let (w, h) = {
-                    let tex = texture.read().unwrap();
-                    (tex.width() as f32 * self.scale, tex.height() as f32 * self.scale)
+                    let texture = texture.read().unwrap();
+                    (texture.width() as f32 * self.scale, texture.height() as f32 * self.scale)
                 };
 
                 let nposition = (1f32 - frame.position.0 as f32 / w,
@@ -103,13 +103,10 @@ impl super::Resource for Atlas {
     }
 }
 
-pub type AtlasSerializationPayload = Atlas;
-
 impl super::ResourceLoader for Atlas {
     type Item = Atlas;
 
     fn load_from_memory(bytes: &[u8]) -> Result<Self::Item> {
-        let data = bincode::deserialize(&bytes)?;
-        Ok(data)
+        Ok(bincode::deserialize(&bytes)?)
     }
 }

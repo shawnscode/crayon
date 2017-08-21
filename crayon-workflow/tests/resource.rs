@@ -42,10 +42,9 @@ fn database() {
     {
         rs.load_manifest("tests/build/manifest").unwrap();
 
-        rs.load("texture.png").unwrap();
-        rs.load_texture("texture.png").unwrap();
-
-        assert!(rs.load_texture("invalid_texture.png").is_err());
+        let _: crayon::resource::TextureItem = rs.load("texture.png").unwrap();
+        assert!(rs.load::<crayon::resource::Texture, &str>("invalid_texture.png")
+                    .is_err());
     }
 
     {
@@ -57,14 +56,14 @@ fn database() {
             .uuid("tests/workspace/resources/texture.png")
             .unwrap();
 
-        rs.load_with_uuid(uuid).unwrap();
-        rs.load_texture_with_uuid(uuid).unwrap();
+        rs.load_with_uuid::<crayon::resource::Texture>(uuid)
+            .unwrap();
     }
 
     {
-        let atlas = rs.load_atlas("atlas.json").unwrap();
+        let atlas: crayon::resource::AtlasItem = rs.load("atlas.json").unwrap();
         let uuid = atlas.read().unwrap().texture();
-        rs.load_with_uuid(uuid).unwrap();
-        rs.load_texture_with_uuid(uuid).unwrap();
+        rs.load_with_uuid::<crayon::resource::Texture>(uuid)
+            .unwrap();
     }
 }
