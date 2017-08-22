@@ -3,7 +3,6 @@ use std::collections::BinaryHeap;
 use std::cmp::{Ordering, Ord};
 use std::sync::RwLock;
 
-
 use core::application;
 use ecs;
 use graphics;
@@ -16,7 +15,7 @@ use super::{Transform, Rect, Camera, Sprite, Renderable};
 
 impl_vertex! {
     SpriteVertex {
-        position => [Position; Float; 2; false],
+        position => [Position; Float; 3; false],
         diffuse => [Color0; UByte; 4; true],
         additive => [Color1; UByte; 4; true],
         texcoord => [Texcoord0; Float; 2; false],
@@ -37,7 +36,7 @@ const MAX_BATCH_VERTICES: usize = 1024;
 impl SpriteRenderer {
     pub fn new(application: &mut application::Application) -> Result<Self> {
         let attributes = graphics::AttributeLayoutBuilder::new()
-            .with(graphics::VertexAttribute::Position, 2)
+            .with(graphics::VertexAttribute::Position, 3)
             .with(graphics::VertexAttribute::Color0, 4)
             .with(graphics::VertexAttribute::Color1, 4)
             .with(graphics::VertexAttribute::Texcoord0, 2)
