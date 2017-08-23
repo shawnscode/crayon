@@ -14,6 +14,10 @@ extern crate image;
 extern crate walkdir;
 extern crate seahash;
 
+#[macro_use]
+extern crate nom;
+extern crate libc;
+
 extern crate crayon;
 
 pub mod errors;
@@ -21,6 +25,7 @@ pub mod manifest;
 pub mod platform;
 pub mod resource;
 pub mod serialization;
+pub mod shader_compiler;
 
 pub use manifest::Manifest;
 pub use errors::*;
