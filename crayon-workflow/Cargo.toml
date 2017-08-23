@@ -20,4 +20,7 @@ seahash = "3.0.5"
 image = "0.14.0"
 walkdir = "1.0.7"
 
+nom = "^3.2"
+libc = "0.2.23"
+
 [build-dependencies]

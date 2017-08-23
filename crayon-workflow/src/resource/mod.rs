@@ -12,6 +12,8 @@ pub use self::texture::TextureMetadata;
 pub use self::bytes::BytesMetadata;
 pub use self::atlas::AtlasMetadata;
 
+use crayon;
+
 /// The enumeration of all the fundamental resources that could be imported into
 /// workspace.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -22,8 +24,6 @@ pub enum Resource {
 }
 
 const METADATA_EXTENSION: &'static str = "meta";
-
-use crayon;
 
 impl Into<crayon::resource::workflow::ResourcePayload> for Resource {
     fn into(self) -> crayon::resource::workflow::ResourcePayload {
