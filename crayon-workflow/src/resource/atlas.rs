@@ -107,7 +107,7 @@ impl AtlasMetadata {
             }
         }
 
-        let payload = resource::atlas::AtlasSerializationPayload::new(texture, scale, frames);
+        let payload = resource::workflow::AtlasSerializationPayload::new(texture, scale, frames);
         bincode::serialize_into(&mut out, &payload, bincode::Infinite)?;
 
         Ok(())

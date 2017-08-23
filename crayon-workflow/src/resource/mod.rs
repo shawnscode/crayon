@@ -25,12 +25,12 @@ const METADATA_EXTENSION: &'static str = "meta";
 
 use crayon;
 
-impl Into<crayon::resource::manifest::ResourcePayload> for Resource {
-    fn into(self) -> crayon::resource::manifest::ResourcePayload {
+impl Into<crayon::resource::workflow::ResourcePayload> for Resource {
+    fn into(self) -> crayon::resource::workflow::ResourcePayload {
         match self {
-            Resource::Bytes => crayon::resource::manifest::ResourcePayload::Bytes,
-            Resource::Texture => crayon::resource::manifest::ResourcePayload::Texture,
-            Resource::Atlas => crayon::resource::manifest::ResourcePayload::Atlas,
+            Resource::Bytes => crayon::resource::workflow::ResourcePayload::Bytes,
+            Resource::Texture => crayon::resource::workflow::ResourcePayload::Texture,
+            Resource::Atlas => crayon::resource::workflow::ResourcePayload::Atlas,
         }
     }
 }

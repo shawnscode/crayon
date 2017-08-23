@@ -1,5 +1,5 @@
 #version 150
-in vec2 Position;
+in vec3 Position;
 in vec4 Color0;
 in vec4 Color1;
 in vec2 Texcoord0;
@@ -12,7 +12,7 @@ out vec4 v_Additive;
 out vec2 v_Texcoord;
 
 void main() {
-    gl_Position = u_Proj * u_View * vec4(Position, 0.0, 1.0);
+    gl_Position = u_Proj * u_View * vec4(Position.xy, 0.0, 1.0);
     v_Color = Color0;
     v_Additive = Color1;
     v_Texcoord = Texcoord0;

@@ -80,6 +80,13 @@ impl Transform {
     }
 
     #[inline]
+    pub fn rotate<T>(&mut self, rotate: T)
+        where T: Borrow<math::Quaternion<f32>>
+    {
+        self.decomposed.rot = *rotate.borrow() * self.decomposed.rot;
+    }
+
+    #[inline]
     pub fn parent(&self) -> Option<Entity> {
         self.parent
     }
@@ -121,7 +128,7 @@ impl Transform {
             }
 
             // Retrive pose in world space.
-            let decomposed = Transform::world_decomposed(&arena, child);
+            let decomposed = Transform::world_decomposed_unchecked(&arena, child);
 
             Transform::remove_from_parent(arena, child)?;
             if let Some(parent) = parent {
@@ -137,7 +144,7 @@ impl Transform {
 
             // Revert to world pose.
             if keep_world_pose {
-                Transform::set_world_decomposed(&mut arena, child, &decomposed)?;
+                Transform::set_world_decomposed_unchecked(&mut arena, child, &decomposed)?;
             }
 
             Ok(())
@@ -231,7 +238,9 @@ impl Transform {
                 }
 
                 if !ulps_eq!(scale, 0.0) {
-                    arena.get_unchecked_mut(*handle).set_scale(world_scale / scale);
+                    arena
+                        .get_unchecked_mut(*handle)
+                        .set_scale(world_scale / scale);
                     Ok(())
                 } else {
                     bail!(ErrorKind::CanNotInverseTransform);
@@ -266,7 +275,7 @@ impl Transform {
     {
         unsafe {
             if arena.get(*handle).is_some() {
-                let decomposed = Transform::world_decomposed(&arena, handle);
+                let decomposed = Transform::world_decomposed_unchecked(&arena, handle);
                 let delta = *disp.borrow() - decomposed.disp;
                 arena.get_unchecked_mut(*handle).decomposed.disp = delta;
                 Ok(())
@@ -282,7 +291,7 @@ impl Transform {
                           -> Result<math::Vector3<f32>> {
         unsafe {
             if arena.get(*handle).is_some() {
-                Ok(Transform::world_decomposed(arena, handle).disp)
+                Ok(Transform::world_decomposed_unchecked(arena, handle).disp)
             } else {
                 bail!(ErrorKind::NonTransformFound);
             }
@@ -339,7 +348,7 @@ impl Transform {
                             -> Result<math::Vector3<f32>> {
         unsafe {
             if arena.get(*handle).is_some() {
-                let decomposed = Transform::world_decomposed(arena, handle);
+                let decomposed = Transform::world_decomposed_unchecked(arena, handle);
                 Ok(decomposed.transform_vector(vec))
             } else {
                 bail!(ErrorKind::NonTransformFound);
@@ -354,7 +363,7 @@ impl Transform {
                            -> Result<math::Vector3<f32>> {
         unsafe {
             if arena.get(*handle).is_some() {
-                let decomposed = Transform::world_decomposed(&arena, handle);
+                let decomposed = Transform::world_decomposed_unchecked(&arena, handle);
                 Ok(decomposed.rot * (vec * decomposed.scale) + decomposed.disp)
             } else {
                 bail!(ErrorKind::NonTransformFound);
@@ -388,11 +397,23 @@ impl Transform {
         Transform::transform_direction(&arena, handle, math::Vector3::new(0.0, 0.0, 1.0))
     }
 
-    unsafe fn set_world_decomposed(arena: &mut ArenaGetter<Transform>,
-                                   handle: Entity,
-                                   decomposed: &math::Decomposed<math::Vector3<f32>,
-                                                                 math::Quaternion<f32>>)
-                                   -> Result<()> {
+    /// Get the decomped data of transform.
+    pub fn world_decomposed
+        (arena: &ArenaGetter<Transform>,
+         handle: Entity)
+         -> Result<math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>> {
+        if arena.get(*handle).is_some() {
+            unsafe { Ok(Transform::world_decomposed_unchecked(&arena, handle)) }
+        } else {
+            bail!(ErrorKind::NonTransformFound);
+        }
+    }
+
+    unsafe fn set_world_decomposed_unchecked(arena: &mut ArenaGetter<Transform>,
+                                             handle: Entity,
+                                             decomposed: &math::Decomposed<math::Vector3<f32>,
+                                                                           math::Quaternion<f32>>)
+                                             -> Result<()> {
         let mut relative = math::Decomposed::one();
         for v in Transform::ancestors(arena, handle) {
             relative = relative.concat(&arena.get_unchecked(*v).decomposed);
@@ -406,9 +427,10 @@ impl Transform {
         }
     }
 
-    unsafe fn world_decomposed(arena: &ArenaGetter<Transform>,
-                               handle: Entity)
-                               -> math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>> {
+    unsafe fn world_decomposed_unchecked
+        (arena: &ArenaGetter<Transform>,
+         handle: Entity)
+         -> math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>> {
         let mut decomposed = arena.get_unchecked(*handle).decomposed;
         for v in Transform::ancestors(arena, handle) {
             decomposed = decomposed.concat(&arena.get_unchecked(*v).decomposed);

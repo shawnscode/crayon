@@ -3,13 +3,7 @@ use std::collections::HashMap;
 
 use uuid;
 
-/// Payload of serialization data.
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
-pub enum ResourcePayload {
-    Bytes,
-    Texture,
-    Atlas,
-}
+use super::ResourcePayload;
 
 /// A manifest item.
 #[derive(Debug, Serialize, Deserialize)]

@@ -20,6 +20,7 @@ struct SpriteParticle {
     lifetime: f32,
     velocity: math::Vector3<f32>,
     acceleration: math::Vector3<f32>,
+    rotation_vel: math::Quaternion<f32>,
     color: Color,
     size: math::Vector2<f32>,
     handle: crayon::ecs::Entity,
@@ -34,8 +35,9 @@ fn main() {
     prelude::compile();
 
     let mut settings = crayon::core::settings::Settings::default();
-    settings.window.width = 360;
-    settings.window.height = 240;
+    settings.engine.max_fps = 60;
+    settings.window.width = 640;
+    settings.window.height = 480;
 
     crayon::Application::new_with(settings)
         .unwrap()
@@ -71,8 +73,7 @@ fn main() {
                     .load_manifest("examples/compiled-resources/manifest")
                     .unwrap();
 
-                atlas = Some(app.resources.load_atlas("atlas.json").unwrap());
-
+                atlas = Some(app.resources.load("atlas.json").unwrap());
                 Some(v)
 
             };
@@ -85,17 +86,22 @@ fn main() {
                     for i in &mut particles {
                         if i.is_none() {
                             let spr = {
-                                let size = (cal.gen::<u32>() % 20) as f32 + 10.0;
+                                let size = (cal.gen::<u32>() % 40) as f32 + 20.0;
                                 SpriteParticle {
                                     lifetime: (cal.gen::<u32>() % 5) as f32,
-                                    velocity: math::Vector3::new((cal.gen::<i32>() % 10) as f32,
-                                                                 (cal.gen::<i32>() % 10) as f32,
-                                                                 0.0),
-                                    acceleration: math::Vector3::new((cal.gen::<i32>() % 10) as
-                                                                     f32,
-                                                                     (cal.gen::<i32>() % 10) as
-                                                                     f32,
-                                                                     0.0),
+                                    velocity: math::Vector3::new((cal.gen::<i32>() % 5) as f32 + 1f32,
+                                                                 (cal.gen::<i32>() % 5) as f32 + 1f32,
+                                                                 0f32),
+                                    rotation_vel: math::Quaternion::from(math::Euler {
+                                                                             x: math::Deg((cal.gen::<i32>() % 10) as f32),
+                                                                             y: math::Deg((cal.gen::<i32>() % 10) as f32),
+                                                                             z: math::Deg((cal.gen::<i32>() % 10) as f32),
+                                                                         }),
+                                    acceleration: math::Vector3::new((cal.gen::<i32>() % 5) as
+                                                                     f32 + 1f32,
+                                                                     (cal.gen::<i32>() % 5) as
+                                                                     f32 + 1f32,
+                                                                     0f32),
                                     color: [cal.gen::<u8>(), cal.gen::<u8>(), cal.gen::<u8>(), 255]
                                         .into(),
                                     size: math::Vector2::new(size, size),
@@ -109,6 +115,7 @@ fn main() {
 
                                 let mut rect = world.fetch_mut::<Rect>(spr.handle).unwrap();
                                 rect.set_size(&spr.size);
+                                rect.set_pivot(math::Vector2::new(0.5f32, 0.5f32));
 
                                 if let Some(ref atlas) = atlas {
                                     let name = format!("y{:?}.png", cal.gen::<u32>() % 10);
@@ -120,6 +127,7 @@ fn main() {
 
                                     sprite.set_texture_rect(frame.position, frame.size);
                                     sprite.set_texture(Some(frame.texture));
+
                                 }
                             }
 
@@ -138,11 +146,12 @@ fn main() {
                     for (i, w) in particles.iter_mut().enumerate() {
                         if let Some(ref mut particle) = *w {
                             particle.velocity += particle.acceleration * dt;
-                            arenas
-                                .0
-                                .get_mut(particle.handle)
-                                .unwrap()
-                                .translate(particle.velocity);
+
+                            {
+                                let transform = arenas.0.get_mut(particle.handle).unwrap();
+                                transform.translate(particle.velocity);
+                                transform.rotate(particle.rotation_vel);
+                            }
 
                             particle.lifetime -= dt;
                             if particle.lifetime < 0.0 {

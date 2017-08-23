@@ -23,7 +23,7 @@ fn database() {
         assert!(path.exists());
 
         let path = Path::new("tests/workspace/resources/invalid_texture.png.meta");
-        assert!(!path.exists());
+        assert!(path.exists());
     }
 
     /// Make sure processed resources could be read at runtime.
@@ -33,38 +33,30 @@ fn database() {
                "tests/build")
         .unwrap();
 
-    assert!(database
-                .uuid("tests/workspace/resources/invalid_texture.png")
-                .is_none());
-
     let mut rs = crayon::resource::ResourceSystem::new().unwrap();
 
     {
         rs.load_manifest("tests/build/manifest").unwrap();
 
-        rs.load("texture.png").unwrap();
-        rs.load_texture("texture.png").unwrap();
-
-        assert!(rs.load_texture("invalid_texture.png").is_err());
+        let _: crayon::resource::TextureItem = rs.load("texture.png").unwrap();
+        let _: crayon::resource::BytesItem = rs.load("invalid_texture.png").unwrap();
+        assert!(rs.load::<crayon::resource::Texture, &str>("invalid_texture.png")
+                    .is_err());
     }
 
     {
-        assert!(database
-                    .uuid("tests/workspace/resources/invalid_resource.png")
-                    .is_none());
-
         let uuid = database
             .uuid("tests/workspace/resources/texture.png")
             .unwrap();
 
-        rs.load_with_uuid(uuid).unwrap();
-        rs.load_texture_with_uuid(uuid).unwrap();
+        rs.load_with_uuid::<crayon::resource::Texture>(uuid)
+            .unwrap();
     }
 
     {
-        let atlas = rs.load_atlas("atlas.json").unwrap();
+        let atlas: crayon::resource::AtlasItem = rs.load("atlas.json").unwrap();
         let uuid = atlas.read().unwrap().texture();
-        rs.load_with_uuid(uuid).unwrap();
-        rs.load_texture_with_uuid(uuid).unwrap();
+        rs.load_with_uuid::<crayon::resource::Texture>(uuid)
+            .unwrap();
     }
 }

@@ -89,7 +89,7 @@ impl ResourceDatabase {
     {
         fs::create_dir_all(path.as_ref())?;
 
-        let mut manifest = crayon::resource::manifest::ResourceManifest {
+        let mut manifest = crayon::resource::workflow::ResourceManifest {
             path: PathBuf::new(),
             version: version.to_owned(),
             items: HashMap::new(),
@@ -128,7 +128,7 @@ impl ResourceDatabase {
                         }
                     }
 
-                    let item = crayon::resource::manifest::ResourceManifestItem {
+                    let item = crayon::resource::workflow::ResourceManifestItem {
                         checksum: seahash::hash(&out),
                         path: resource_relative_path,
                         dependencies: Vec::new(),
@@ -191,14 +191,15 @@ impl ResourceDatabase {
             }
 
             for (file, _) in resources {
-                let rsp = self.load_metadata(&file);
-                if let Ok(metadata) = rsp {
+                let metadata = self.load_metadata(&file)
+                    .map_err(|v| {
+                                 println!("{:?}", v);
+                                 self.load_metadata_as(&file, super::Resource::Bytes)
+                             })
+                    .unwrap();
 
-                    self.paths.insert(metadata.uuid(), file);
-                    self.resources.insert(metadata.uuid(), metadata);
-                } else {
-                    // println!("{:?}", rsp);
-                }
+                self.paths.insert(metadata.uuid(), file);
+                self.resources.insert(metadata.uuid(), metadata);
             }
         }
 
@@ -210,7 +211,6 @@ impl ResourceDatabase {
         where P: AsRef<Path>
     {
         let metadata_path = ResourceDatabase::metadata_path(&path);
-
         let metadata = if metadata_path.exists() {
             let metadata: ResourceMetadata = serialization::deserialize(&metadata_path, true)?;
             if !metadata.is(tt) {
@@ -245,16 +245,17 @@ impl ResourceDatabase {
 
         } else {
             // Make a reasonable guesss based on manifest.
-            if let Some(&v) = path.extension()
-                   .and_then(|v| self.manifest.types.get(v.to_str().unwrap())) {
-                let metadata = ResourceMetadata::new_as(v);
-                serialization::serialize(&metadata, &metadata_path, true)?;
-                metadata
-
+            let tt = if let Some(&v) =
+                path.extension()
+                    .and_then(|v| self.manifest.types.get(v.to_str().unwrap())) {
+                v
             } else {
-                bail!("Failed to import file into workspace, undefined extension with {:?}",
-                      path);
-            }
+                super::Resource::Bytes
+            };
+
+            let metadata = ResourceMetadata::new_as(tt);
+            serialization::serialize(&metadata, &metadata_path, true)?;
+            metadata
         };
 
         self.validate_metadata(path, metadata_path, metadata)

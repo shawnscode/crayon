@@ -49,54 +49,45 @@ impl Rect {
         self.pivot[0] = pivot[0].min(1.0).max(0.0);
         self.pivot[1] = pivot[1].min(1.0).max(0.0);
     }
+
+    /// Returns the corners of the calculated rectangle in the local space of
+    /// its transform.
+    pub fn corners(&self) -> [math::Vector2<f32>; 4] {
+        return [math::Vector2::new(-self.pivot[0] * self.size[0], -self.pivot[1] * self.size[1]),
+                math::Vector2::new((1.0 - self.pivot[0]) * self.size[0],
+                                   -self.pivot[1] * self.size[1]),
+                math::Vector2::new((1.0 - self.pivot[0]) * self.size[0],
+                                   (1.0 - self.pivot[1]) * self.size[1]),
+                math::Vector2::new(-self.pivot[0] * self.size[1],
+                                   (1.0 - self.pivot[1]) * self.size[1])];
+    }
 }
 
 impl Rect {
-    /// Returns the corners of the calculated rectangle in the local space of
-    /// its transform.
-    pub fn corners(transforms: &ecs::ArenaGetter<Transform>,
-                   rects: &ecs::ArenaGetter<Rect>,
-                   handle: ecs::Entity)
-                   -> Result<[math::Vector2<f32>; 4]> {
-        if let Some(transform) = transforms.get(*handle) {
-            if let Some(rect) = rects.get(*handle) {
-                let disp = transform.position();
-                let size = rect.size;
-                return Ok([math::Vector2::new(disp[0] - rect.pivot[0] * size[0],
-                                              disp[1] - rect.pivot[1] * size[1]),
-                           math::Vector2::new(disp[0] + (1.0 - rect.pivot[0]) * size[0],
-                                              disp[1] - rect.pivot[1] * size[1]),
-                           math::Vector2::new(disp[0] + (1.0 - rect.pivot[0]) * size[0],
-                                              disp[1] + (1.0 - rect.pivot[1]) * size[1]),
-                           math::Vector2::new(disp[0] - rect.pivot[0] * size[1],
-                                              disp[1] + (1.0 - rect.pivot[1]) * size[1])]);
-            }
-        }
-
-        bail!(ErrorKind::NonTransformFound);
-    }
-
     /// Returns the corners of the calculated rectangle in the world space of
     /// its transform.
     pub fn world_corners(transforms: &ecs::ArenaGetter<Transform>,
                          rects: &ecs::ArenaGetter<Rect>,
                          handle: ecs::Entity)
-                         -> Result<[math::Vector2<f32>; 4]> {
-        let disp = Transform::world_position(&transforms, handle)?;
-        let scale = Transform::world_scale(&transforms, handle)?;
+                         -> Result<[math::Vector3<f32>; 4]> {
 
+        let decomposed = Transform::world_decomposed(&transforms, handle)?;
         if let Some(rect) = rects.get(*handle) {
-            let size = rect.size * scale;
-            return Ok([math::Vector2::new(disp[0] - rect.pivot[0] * size[0],
-                                          disp[1] - rect.pivot[1] * size[1]),
-                       math::Vector2::new(disp[0] + (1.0 - rect.pivot[0]) * size[0],
-                                          disp[1] - rect.pivot[1] * size[1]),
-                       math::Vector2::new(disp[0] + (1.0 - rect.pivot[0]) * size[0],
-                                          disp[1] + (1.0 - rect.pivot[1]) * size[1]),
-                       math::Vector2::new(disp[0] - rect.pivot[0] * size[1],
-                                          disp[1] + (1.0 - rect.pivot[1]) * size[1])]);
+            let corners = rect.corners();
+
+
+            return Ok([Rect::transform(&decomposed, corners[0]),
+                       Rect::transform(&decomposed, corners[1]),
+                       Rect::transform(&decomposed, corners[2]),
+                       Rect::transform(&decomposed, corners[3])]);
         }
 
         bail!(ErrorKind::NonTransformFound)
+    }
+
+    fn transform(decomposed: &math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>,
+                 v: math::Vector2<f32>)
+                 -> math::Vector3<f32> {
+        (decomposed.rot * math::Vector3::<f32>::new(v[0], v[1], 0f32)) + decomposed.disp
     }
 }
