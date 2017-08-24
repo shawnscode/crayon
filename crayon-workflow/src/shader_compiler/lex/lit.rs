@@ -9,6 +9,8 @@ pub enum Literial {
     Float(f64),
 }
 
+impl Eq for Literial {}
+
 fn from_full_dec(digits: &[u8]) -> Literial {
     let s = str::from_utf8(digits).unwrap();
     if let Ok(n) = i64::from_str_radix(s, 10) {
