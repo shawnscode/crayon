@@ -1,7 +1,6 @@
 use super::super::lex::*;
 use super::expr::*;
 
-pub type Program = Vec<Statement>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
@@ -51,14 +50,6 @@ pub struct If {
     pub alternative: Option<Vec<FunctionStatement>>,
 }
 
-named!(pub parse<Tokens, Program>,
-    do_parse!(
-        statements: many0!(parse_statement) >>
-        tag_token!(Token::EOF) >>
-        (statements)
-    )
-);
-
 named!(pub parse_statement<Tokens, Statement>, alt_complete!(
     map!(parse_prior_variable, Statement::PriorVariable) |
     map!(parse_function, Statement::Function)
@@ -89,7 +80,7 @@ named!(pub parse_function<Tokens, Function>, do_parse!(
     params: parse_function_params >>
     tag_token!(Token::Punctuation(Punctuation::RParen)) >>
     codes: parse_function_statements >>
-    (Function { ret: ret, ident: ident, params: params, codes: Vec::new() })
+    (Function { ret: ret, ident: ident, params: params, codes: codes })
 ));
 
 named!(parse_function_params<Tokens, Vec<(Type, String)>>, map!(

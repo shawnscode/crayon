@@ -1,8 +1,5 @@
 use std::str;
 
-use nom;
-use nom::{is_alphabetic, alphanumeric};
-
 /// All the reserved keywords
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ident {
@@ -20,14 +17,14 @@ pub enum Ident {
     Str(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Qualifier {
     Attribute,
     Uniform,
     Varying,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Type {
     Void,
     Int,
@@ -41,33 +38,8 @@ pub enum Type {
     Sampler2D,
 }
 
-macro_rules! check(
-    ($input:expr, $submac:ident!( $($args:tt)* )) => (
-        {
-            let mut failed = false;
-            for &idx in $input {
-                if !$submac!(idx, $($args)*) {
-                    failed = true;
-                    break;
-                }
-            }
-            if failed {
-                nom::IResult::Error(nom::ErrorKind::Custom(20))
-            } else {
-                nom::IResult::Done(&b""[..], $input)
-            }
-        }
-    );
-    ($input:expr, $f:expr) => (
-        check!($input, call!($f));
-    );
-);
-
-fn parse_reserved(c: &str, rest: Option<&str>) -> Ident {
-    let mut string = c.to_owned();
-    string.push_str(rest.unwrap_or(""));
-
-    match string.as_ref() {
+fn parse_reserved(ident: &str) -> Ident {
+    match ident {
         "if" => Ident::If,
         "else" => Ident::Else,
         "return" => Ident::Return,
@@ -84,17 +56,33 @@ fn parse_reserved(c: &str, rest: Option<&str>) -> Ident {
         "attribute" => Ident::Qualifier(Qualifier::Attribute),
         "uniform" => Ident::Qualifier(Qualifier::Uniform),
         "varying" => Ident::Qualifier(Qualifier::Varying),
-        _ => Ident::Str(string),
+        _ => Ident::Str(ident.to_owned()),
     }
 }
 
-named!(take_1_char, flat_map!(take!(1), check!(is_alphabetic)));
-
-named!(pub parse<&[u8], Ident>, do_parse!(
-    c: map_res!(call!(take_1_char), str::from_utf8) >>
-    rest: opt!(complete!(map_res!(alphanumeric, str::from_utf8))) >>
-    (parse_reserved(c, rest))
+/// Parse an identifier (raw version).
+named!(identifier_str,
+       do_parse!(
+    name: verify!(take_while1!(identifier_pred), verify_identifier) >>
+    (name)
 ));
+
+/// Parse an identifier.
+named!(pub parse<&[u8], Ident>, do_parse!(
+    ident: map_res!(identifier_str, str::from_utf8) >>
+    (parse_reserved(ident))
+));
+
+#[inline]
+fn identifier_pred(c: u8) -> bool {
+    let ch = char::from(c);
+    ch.is_alphanumeric() || ch == '_'
+}
+
+#[inline]
+fn verify_identifier(s: &[u8]) -> bool {
+    !char::from(s[0]).is_digit(10)
+}
 
 
 #[cfg(test)]
@@ -140,7 +128,8 @@ mod tests {
                    IResult::Done(&b""[..], Ident::Str("asd123".to_owned())));
         assert_eq!(parse(&b"asd123asd123"[..]),
                    IResult::Done(&b""[..], Ident::Str("asd123asd123".to_owned())));
-        assert_eq!(parse(&b"3"[..]), IResult::Error(ErrorKind::Custom(20)));
-        assert_eq!(parse(&b"3asd"[..]), IResult::Error(ErrorKind::Custom(20)));
+
+        assert_eq!(parse(&b"3"[..]), IResult::Error(ErrorKind::Verify));
+        assert_eq!(parse(&b"3asd"[..]), IResult::Error(ErrorKind::Verify));
     }
 }
