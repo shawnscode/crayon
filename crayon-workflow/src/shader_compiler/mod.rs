@@ -13,6 +13,6 @@
 //! an abstract syntax tree (AST). That AST can then be transformed into optimized GLSL with
 //! additional informations which could be used to create pipeline state object (PSO) at runtime.
 
+#[macro_use]
 pub mod lex;
-pub mod ast;
-pub mod parser;
+pub mod syntax;
