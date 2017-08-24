@@ -25,24 +25,29 @@ pub struct Function {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FunctionStatement {
-    VariableDeclaration(VariableDeclaration),
     VariableBind(VariableBind),
-    // If(Box<Expression>, Vec<FunctionStatement>, Option<Vec<FunctionStatement>>),
-    Expression,
-    Return,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VariableDeclaration {
-    pub tt: Type,
-    pub ident: String,
-    pub expr: Expression,
+    If(If),
+    Expression(Expression),
+    Return(Return),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VariableBind {
+    pub tt: Option<Type>,
     pub ident: String,
     pub expr: Expression,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Return {
+    pub expr: Expression,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct If {
+    pub cond: Box<Expression>,
+    pub consequence: Vec<FunctionStatement>,
+    pub alternative: Option<Vec<FunctionStatement>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

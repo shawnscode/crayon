@@ -32,6 +32,14 @@ macro_rules! take_tag_token (
     });
 );
 
+named!(pub parse<Tokens, Program>,
+    do_parse!(
+        statements: many0!(parse_statement) >>
+        tag_token!(Token::EOF) >>
+        (statements)
+    )
+);
+
 named!(pub parse_statement<Tokens, Statement>, alt_complete!(
     map!(parse_prior_variable, Statement::PriorVariable) |
     map!(parse_function, Statement::Function)
@@ -88,25 +96,44 @@ named!(parse_function_statements<Tokens, Vec<FunctionStatement>>, do_parse!(
 ));
 
 named!(parse_function_statement<Tokens, FunctionStatement>, alt_complete!(
-    map!(parse_variable_decl, FunctionStatement::VariableDeclaration) |
-    map!(parse_variable_bind, FunctionStatement::VariableBind)
-));
-
-named!(parse_variable_decl<Tokens, VariableDeclaration>, do_parse!(
-    tt: parse_type_ident >>
-    ident: parse_str_ident >>
-    tag_token!(Token::Operator(Operator::Assign)) >>
-    expr: parse_expr >>
-    tag_token!(Token::Punctuation(Punctuation::SemiColon)) >>
-    (VariableDeclaration {tt: tt, ident: ident, expr: expr})
+    map!(parse_variable_bind, FunctionStatement::VariableBind) |
+    map!(parse_return, FunctionStatement::Return) |
+    map!(parse_if, FunctionStatement::If) |
+    do_parse!(
+        expr: parse_expr >>
+        tag_token!(Token::Punctuation(Punctuation::SemiColon)) >>
+        (FunctionStatement::Expression(expr))
+    )
 ));
 
 named!(parse_variable_bind<Tokens, VariableBind>, do_parse!(
+    tt: opt!(parse_type_ident) >>
     ident: parse_str_ident >>
     tag_token!(Token::Operator(Operator::Assign)) >>
     expr: parse_expr >>
     tag_token!(Token::Punctuation(Punctuation::SemiColon)) >>
-    (VariableBind {ident: ident, expr: expr})
+    (VariableBind {tt: tt, ident: ident, expr: expr})
+));
+
+named!(parse_return<Tokens, Return>, do_parse!(
+    tag_token!(Token::Ident(Ident::Return)) >>
+    expr: parse_expr >>
+    tag_token!(Token::Punctuation(Punctuation::SemiColon)) >>
+    (Return { expr: expr })
+));
+
+named!(parse_if<Tokens, If>, do_parse!(
+    tag_token!(Token::Ident(Ident::If)) >>
+    tag_token!(Token::Punctuation(Punctuation::LParen)) >>
+    expr: parse_expr >>
+    tag_token!(Token::Punctuation(Punctuation::RParen)) >>
+    c: parse_function_statements >>
+    a: opt!(do_parse!(
+        tag_token!(Token::Ident(Ident::Else)) >>
+        b: parse_function_statements >>
+        (b)
+    )) >>
+    (If { cond: Box::new(expr), consequence: c, alternative: a })
 ));
 
 named!(parse_expr<Tokens, Expression>, apply!(parse_expr_from, Precedence::Lowest));
