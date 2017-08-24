@@ -162,6 +162,78 @@ fn from_lit(lit: Literial) -> Token {
     Token::Literial(lit)
 }
 
+#[macro_export]
+macro_rules! tag_token (
+    ($i: expr, $tag: expr) => ({
+        let (i1, t1) = try_parse!($i, take!(1));
+        if t1.tokens.is_empty() {
+            ::nom::IResult::Incomplete::<_,_,u32>(::nom::Needed::Size(1))
+        } else {
+            if t1.tokens[0] == $tag {
+                ::nom::IResult::Done(i1, t1)
+            } else {
+                ::nom::IResult::Error(error_position!(::nom::ErrorKind::Count, $i))
+            }
+        }
+    });
+);
+
+#[macro_export]
+macro_rules! take_tag_token (
+    ($i: expr, $tag: expr) => ({
+        let (i1, t1) = try_parse!($i, take!(1));
+        if t1.tokens.is_empty() {
+            ::nom::IResult::Incomplete::<_,_,u32>(::nom::Needed::Size(1))
+        } else {
+            if t1.tokens[0] == $tag {
+                ::nom::IResult::Done(i1, t1.tokens[0].clone())
+            } else {
+                ::nom::IResult::Error(error_position!(::nom::ErrorKind::Count, $i))
+            }
+        }
+    });
+);
+
+macro_rules! parse_ident (
+    ($i: expr,) => ({
+        let (i1, t1) = try_parse!($i, take!(1));
+        if t1.tokens.is_empty() {
+            nom::IResult::Error(error_position!(nom::ErrorKind::Tag, $i))
+        } else {
+            match t1.tokens[0].clone() {
+                Token::Ident(v) => nom::IResult::Done(i1, v),
+                _ => nom::IResult::Error(error_position!(nom::ErrorKind::Tag, $i)),
+            }
+        }
+    });
+);
+
+named!(pub parse_type_ident<Tokens, Type>,
+    map_opt!(parse_ident!(), |v| {
+        match v {
+            Ident::Type(tt) => Some(tt),
+            _ => None,
+        }
+    })
+);
+
+named!(pub parse_qualifier_ident<Tokens, Qualifier>,
+    map_opt!(parse_ident!(), |v| {
+        match v {
+            Ident::Qualifier(qq) => Some(qq),
+            _ => None,
+        }
+    })
+);
+
+named!(pub parse_str_ident<Tokens, String>,
+    map_opt!(parse_ident!(), |v| {
+        match v {
+            Ident::Str(ss) => Some(ss),
+            _ => None,
+        }
+    })
+);
 
 #[cfg(test)]
 mod tests {
