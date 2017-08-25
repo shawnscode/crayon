@@ -23,5 +23,6 @@ pub use self::syntax::{Program, Expression, Statement, FunctionStatement};
 
 pub fn parse(bytes: &[u8]) -> Program {
     let tokens = tokenize(&bytes).to_result().unwrap();
+    println!("{:?}", tokens);
     syntax::parse(Tokens::new(&tokens)).to_result().unwrap()
 }

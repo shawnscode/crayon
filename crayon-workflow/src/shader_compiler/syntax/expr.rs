@@ -13,8 +13,12 @@ pub enum Expression {
     Binary(BinaryOperator, Box<Expression>, Box<Expression>),
     /// A functional call. It has a function identifier and a list of expressions (arguments).
     Call(Box<Expression>, Vec<Expression>),
+    ///
+    Construct(Type, Vec<Expression>),
     /// Index
     Index(Box<Expression>, Box<Expression>),
+    /// Dot
+    Dot(Box<Expression>, String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -26,6 +30,7 @@ pub enum Precedence {
     Product,
     Call,
     Index,
+    Dot,
 }
 
 /// All the unary opartors.
@@ -86,7 +91,10 @@ pub enum BinaryOperator {
     Mod,
 }
 
-named!(pub parse_expr<Tokens, Expression>, apply!(parse_expr_from, Precedence::Lowest));
+named!(pub parse_expr<Tokens, Expression>, alt!(
+    apply!(parse_expr_from, Precedence::Lowest) |
+    parse_ctor_expr
+));
 
 fn parse_expr_from(input: Tokens, precedence: Precedence) -> IResult<Tokens, Expression> {
     do_parse!(input,
@@ -95,6 +103,14 @@ fn parse_expr_from(input: Tokens, precedence: Precedence) -> IResult<Tokens, Exp
         (i)
     )
 }
+
+named!(parse_ctor_expr<Tokens, Expression>, do_parse!(
+    tt: parse_type_ident >>
+    tag_token!(Token::Punctuation(Punctuation::LParen)) >>
+    args: parse_call_params >>
+    tag_token!(Token::Punctuation(Punctuation::RParen)) >>
+    (Expression::Construct(tt, args))
+));
 
 fn parse_expr_recursive(input: Tokens,
                         precedence: Precedence,
@@ -112,6 +128,10 @@ fn parse_expr_recursive(input: Tokens,
             }
             (Precedence::Index, _) if precedence < Precedence::Index => {
                 let (i2, head2) = try_parse!(input, apply!(parse_index_expr, head));
+                parse_expr_recursive(i2, precedence, head2)
+            }
+            (Precedence::Dot, _) if precedence < Precedence::Dot => {
+                let (i2, head2) = try_parse!(input, apply!(parse_dot_expr, head));
                 parse_expr_recursive(i2, precedence, head2)
             }
             (ref prece, _) if precedence < *prece => {
@@ -150,6 +170,12 @@ fn parse_index_expr(input: Tokens, ident: Expression) -> IResult<Tokens, Express
               (Expression::Index(Box::new(ident), Box::new(index))))
 }
 
+fn parse_dot_expr(input: Tokens, ident: Expression) -> IResult<Tokens, Expression> {
+    do_parse!(input,
+              tag_token!(Token::Punctuation(Punctuation::Dot)) >> index: parse_str_ident >>
+              (Expression::Dot(Box::new(ident), index)))
+}
+
 fn parse_binary_expr(input: Tokens, lhs: Expression) -> IResult<Tokens, Expression> {
     let (i1, t1) = try_parse!(input, take!(1));
     if t1.tokens.is_empty() {
@@ -160,7 +186,9 @@ fn parse_binary_expr(input: Tokens, lhs: Expression) -> IResult<Tokens, Expressi
         match maybe_op {
             None => IResult::Error(error_position!(ErrorKind::Tag, input)),
             Some(op) => {
-                let (i2, rhs) = try_parse!(i1, apply!(parse_expr_from, precedence));
+                let (i2, rhs) = try_parse!(i1,
+                                           alt!(apply!(parse_expr_from, precedence) |
+                                                parse_ctor_expr));
                 IResult::Done(i2, Expression::Binary(op, Box::new(lhs), Box::new(rhs)))
             }
         }
@@ -190,6 +218,7 @@ fn parse_next_expr_token(token: &Token) -> (Precedence, Option<BinaryOperator>) 
         }
         Token::Punctuation(Punctuation::LParen) => (Precedence::Call, None),
         Token::Punctuation(Punctuation::LBracket) => (Precedence::Index, None),
+        Token::Punctuation(Punctuation::Dot) => (Precedence::Dot, None),
         _ => (Precedence::Lowest, None),
     }
 }

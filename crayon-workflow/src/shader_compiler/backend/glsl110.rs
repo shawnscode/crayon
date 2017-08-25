@@ -196,18 +196,13 @@ fn write_expr<'a, W>(mut w: &mut Writer<'a, W>, expr: &Expression) -> Result
             write_expr(&mut w, &rhs)?;
             w.write(")")?;
         }
+        Expression::Construct(ref lhs, ref params) => {
+            write_type(&mut w, lhs)?;
+            write_params(&mut w, &params)?;
+        }
         Expression::Call(ref lhs, ref params) => {
             write_expr(&mut w, lhs)?;
-            w.write("(")?;
-
-            for (i, ref param) in params.iter().enumerate() {
-                write_expr(w, param)?;
-                if i < (params.len() - 1) {
-                    w.write(", ")?;
-                }
-            }
-
-            w.write(")")?;
+            write_params(&mut w, &params)?;
         }
         Expression::Index(ref lhs, ref rhs) => {
             write_expr(&mut w, lhs)?;
@@ -215,7 +210,29 @@ fn write_expr<'a, W>(mut w: &mut Writer<'a, W>, expr: &Expression) -> Result
             write_expr(&mut w, rhs)?;
             w.write("]")?;
         }
+        Expression::Dot(ref lhs, ref rhs) => {
+            write_expr(&mut w, lhs)?;
+            w.write(".")?;
+            w.write(&rhs)?;
+        }
     }
+
+    Ok(())
+}
+
+fn write_params<'a, W>(mut w: &mut Writer<'a, W>, params: &Vec<Expression>) -> Result
+    where W: Write + 'static
+{
+    w.write("(")?;
+
+    for (i, ref param) in params.iter().enumerate() {
+        write_expr(w, param)?;
+        if i < (params.len() - 1) {
+            w.write(", ")?;
+        }
+    }
+
+    w.write(")")?;
 
     Ok(())
 }

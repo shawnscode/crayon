@@ -17,6 +17,8 @@ pub enum Punctuation {
     LBracket,
     /// `]`
     RBracket,
+    /// `.`
+    Dot,
 }
 
 named!(pub parse<Punctuation>, alt_complete!(
@@ -27,7 +29,8 @@ named!(pub parse<Punctuation>, alt_complete!(
     value!(Punctuation::LBrace, tag!("{")) |
     value!(Punctuation::RBrace, tag!("}")) |
     value!(Punctuation::LBracket, tag!("[")) |
-    value!(Punctuation::RBracket, tag!("]"))
+    value!(Punctuation::RBracket, tag!("]")) |
+    value!(Punctuation::Dot, tag!("."))
 ));
 
 #[cfg(test)]
@@ -53,5 +56,6 @@ mod tests {
                    IResult::Done(&b""[..], Punctuation::LBracket));
         assert_eq!(parse(&b"]"[..]),
                    IResult::Done(&b""[..], Punctuation::RBracket));
+        assert_eq!(parse(&b"."[..]), IResult::Done(&b""[..], Punctuation::Dot));
     }
 }
