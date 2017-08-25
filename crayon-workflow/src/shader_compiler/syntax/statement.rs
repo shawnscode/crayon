@@ -1,11 +1,21 @@
 use super::super::lex::*;
 use super::expr::*;
-
+use crayon::graphics::pipeline;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
+    MetadataBind(Metadata),
     PriorVariable(PriorVariable),
     Function(Function),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Metadata {
+    VertexShader(String),
+    FragmentShader(String),
+    DepthTest(pipeline::Comparison),
+    DepthWrite(bool),
+    Blend((pipeline::Equation, pipeline::BlendFactor, pipeline::BlendFactor)),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,8 +61,9 @@ pub struct If {
 }
 
 named!(pub parse_statement<Tokens, Statement>, alt_complete!(
+    map!(parse_metadata, Statement::MetadataBind) |
     map!(parse_prior_variable, Statement::PriorVariable) |
-    map!(parse_function, Statement::Function)
+    map!(parse_function, Statement::Function) 
 ));
 
 /// All the variables that a shader is going to use must be declared prior to use.
@@ -145,6 +156,91 @@ named!(parse_if<Tokens, If>, do_parse!(
     )) >>
     (If { cond: Box::new(expr), consequence: c, alternative: a })
 ));
+
+named!(pub parse_metadata<Tokens, Metadata>, alt_complete!(
+    parse_metadata_vs |
+    parse_metadata_fs |
+    parse_metadata_depth_write |
+    parse_metadata_depth_test |
+    parse_metadata_blend
+));
+
+named!(parse_metadata_vs<Tokens, Metadata>, do_parse!(
+    tag_token!(Token::Ident(Ident::Metadata)) >>
+    tag_token_str_case_insensitive!("VertexShader") >>
+    ident: parse_str_ident >>
+    (Metadata::VertexShader(ident))
+));
+
+named!(parse_metadata_fs<Tokens, Metadata>, do_parse!(
+    tag_token!(Token::Ident(Ident::Metadata)) >>
+    tag_token_str_case_insensitive!("FragmentShader") >>
+    ident: parse_str_ident >>
+    (Metadata::FragmentShader(ident))
+));
+
+named!(parse_metadata_depth_write<Tokens, Metadata>, do_parse!(
+    tag_token!(Token::Ident(Ident::Metadata)) >>
+    tag_token_str_case_insensitive!("DepthWrite") >>
+    enable: parse_metadata_bool >>
+    (Metadata::DepthWrite(enable))
+));
+
+named!(parse_metadata_depth_test<Tokens, Metadata>, do_parse!(
+    tag_token!(Token::Ident(Ident::Metadata)) >>
+    tag_token_str_case_insensitive!("DepthTest") >>
+    cmp: parse_metadata_comparsion >>
+    (Metadata::DepthTest(cmp))
+));
+
+named!(parse_metadata_blend<Tokens, Metadata>, do_parse!(
+    tag_token!(Token::Ident(Ident::Metadata)) >>
+    tag_token_str_case_insensitive!("Blend") >>
+    eq: parse_metadata_equation >>
+    f1: parse_metadata_blend_factor >>
+    f2: parse_metadata_blend_factor >>
+    (Metadata::Blend((eq, f1, f2)))
+));
+
+named!(parse_metadata_bool<Tokens, bool>, alt_complete!(
+    value!(true, tag_token_str_case_insensitive!("true")) |
+    value!(false, tag_token_str_case_insensitive!("false"))
+));
+
+named!(parse_metadata_comparsion<Tokens, pipeline::Comparison>, alt_complete! (
+    value!(pipeline::Comparison::Never, tag_token_str_case_insensitive!("Never")) |
+    value!(pipeline::Comparison::Less, tag_token_str_case_insensitive!("Less")) |
+    value!(pipeline::Comparison::LessOrEqual, tag_token_str_case_insensitive!("LessOrEq")) |
+    value!(pipeline::Comparison::Greater, tag_token_str_case_insensitive!("Greater")) |
+    value!(pipeline::Comparison::GreaterOrEqual, tag_token_str_case_insensitive!("GreaterOrEq")) |
+    value!(pipeline::Comparison::Equal, tag_token_str_case_insensitive!("Eq")) |
+    value!(pipeline::Comparison::NotEqual, tag_token_str_case_insensitive!("Neq")) |
+    value!(pipeline::Comparison::Always, tag_token_str_case_insensitive!("Always"))
+));
+
+named!(parse_metadata_equation<Tokens, pipeline::Equation>, alt_complete!(
+    value!(pipeline::Equation::Add, tag_token_str_case_insensitive!("Add")) |
+    value!(pipeline::Equation::Subtract, tag_token_str_case_insensitive!("Sub")) |
+    value!(pipeline::Equation::ReverseSubtract, tag_token_str_case_insensitive!("ReverseSub"))
+));
+
+named!(parse_metadata_blend_factor<Tokens, pipeline::BlendFactor>, alt_complete!(
+    value!(pipeline::BlendFactor::Zero, tag_token_str_case_insensitive!("Zero")) |
+    value!(pipeline::BlendFactor::One, tag_token_str_case_insensitive!("One")) |
+    value!(
+        pipeline::BlendFactor::Value(pipeline::BlendValue::SourceAlpha),
+        tag_token_str_case_insensitive!("SrcAlpha")) |
+    value!(
+        pipeline::BlendFactor::Value(pipeline::BlendValue::DestinationAlpha),
+        tag_token_str_case_insensitive!("DstAlpha")) |
+    value!(
+        pipeline::BlendFactor::OneMinusValue(pipeline::BlendValue::SourceAlpha),
+        tag_token_str_case_insensitive!("OneSubSrcAlpha")) |
+    value!(
+        pipeline::BlendFactor::OneMinusValue(pipeline::BlendValue::DestinationAlpha),
+        tag_token_str_case_insensitive!("OneSubDstAlpha"))
+));
+
 
 #[cfg(test)]
 mod tests {

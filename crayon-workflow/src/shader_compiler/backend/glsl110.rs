@@ -30,7 +30,7 @@ impl<'a, W: Write + 'static> Writer<'a, W> {
     }
 }
 
-pub fn write<W>(w: &mut W, program: &Program) -> Result
+pub fn write<W>(w: &mut W, program: &Vec<Statement>) -> Result
     where W: Write + 'static
 {
     let mut wrapper = Writer {
@@ -45,6 +45,7 @@ pub fn write<W>(w: &mut W, program: &Program) -> Result
         match v {
             &Statement::PriorVariable(ref v) => write_prior_variable(&mut wrapper, v)?,
             &Statement::Function(ref v) => write_function(&mut wrapper, v)?,
+            _ => {}
         }
     }
 
