@@ -16,3 +16,12 @@
 #[macro_use]
 pub mod lex;
 pub mod syntax;
+pub mod backend;
+
+pub use self::lex::*;
+pub use self::syntax::{Program, Expression, Statement, FunctionStatement};
+
+pub fn parse(bytes: &[u8]) -> Program {
+    let tokens = tokenize(&bytes).to_result().unwrap();
+    syntax::parse(Tokens::new(&tokens)).to_result().unwrap()
+}
