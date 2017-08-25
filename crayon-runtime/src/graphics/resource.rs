@@ -38,7 +38,7 @@ pub enum VertexFormat {
     Float,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum VertexAttribute {
     Position = 0,
     Normal = 1,
@@ -73,6 +73,31 @@ impl Into<&'static str> for VertexAttribute {
     }
 }
 
+impl VertexAttribute {
+    pub fn from_str(v: &str) -> Option<VertexAttribute> {
+        let attributes = [VertexAttribute::Position,
+                          VertexAttribute::Normal,
+                          VertexAttribute::Tangent,
+                          VertexAttribute::Bitangent,
+                          VertexAttribute::Color0,
+                          VertexAttribute::Color1,
+                          VertexAttribute::Indices,
+                          VertexAttribute::Weight,
+                          VertexAttribute::Texcoord0,
+                          VertexAttribute::Texcoord1,
+                          VertexAttribute::Texcoord2,
+                          VertexAttribute::Texcoord3];
+        for at in &attributes {
+            let w: &'static str = (*at).into();
+            if v == w {
+                return Some(*at);
+            }
+        }
+
+        None
+    }
+}
+
 // VertexAttribute defines an generic vertex element data.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct VertexAttributeDesc {
@@ -98,7 +123,7 @@ impl Default for VertexAttributeDesc {
 }
 
 // AttributeLayout defines an layout of attributes into program.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct AttributeLayout {
     len: u8,
     elements: [(VertexAttribute, u8); MAX_ATTRIBUTES],
