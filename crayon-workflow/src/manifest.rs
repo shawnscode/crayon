@@ -191,6 +191,16 @@ impl Manifest {
                             }
                         }
                     }
+
+                    if let Some(types) = import_settings.get("shaders").and_then(|v| v.as_array()) {
+                        for item in types {
+                            if let Some(v) = item.as_str() {
+                                manifest
+                                    .types
+                                    .insert(v.trim_matches('.').to_owned(), Resource::Shader);
+                            }
+                        }
+                    }
                 }
             }
 

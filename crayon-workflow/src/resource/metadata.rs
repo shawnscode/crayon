@@ -4,13 +4,14 @@ use std::path::Path;
 use uuid;
 
 use errors::*;
-use super::{Resource, texture, bytes, atlas, database};
+use super::{Resource, database, texture, bytes, atlas, shader};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ResourceConcreteMetadata {
     Bytes(bytes::BytesMetadata),
     Texture(texture::TextureMetadata),
     Atlas(atlas::AtlasMetadata),
+    Shader(shader::ShaderMetadata),
 }
 
 /// The descriptions of a resource.
@@ -40,6 +41,7 @@ impl ResourceMetadata {
             Resource::Bytes => ResourceConcreteMetadata::Bytes(bytes::BytesMetadata::new()),
             Resource::Texture => ResourceConcreteMetadata::Texture(texture::TextureMetadata::new()),
             Resource::Atlas => ResourceConcreteMetadata::Atlas(atlas::AtlasMetadata::new()),
+            Resource::Shader => ResourceConcreteMetadata::Shader(shader::ShaderMetadata::new()),
         };
 
         ResourceMetadata::new(concrete)
@@ -58,6 +60,7 @@ impl ResourceMetadata {
             &ResourceConcreteMetadata::Bytes(_) => Resource::Bytes,
             &ResourceConcreteMetadata::Texture(_) => Resource::Texture,
             &ResourceConcreteMetadata::Atlas(_) => Resource::Atlas,
+            &ResourceConcreteMetadata::Shader(_) => Resource::Shader,
         }
     }
 
@@ -66,6 +69,7 @@ impl ResourceMetadata {
             &ResourceConcreteMetadata::Bytes(ref metadata) => metadata.validate(&bytes),
             &ResourceConcreteMetadata::Texture(ref metadata) => metadata.validate(&bytes),
             &ResourceConcreteMetadata::Atlas(ref metadata) => metadata.validate(&bytes),
+            &ResourceConcreteMetadata::Shader(ref metadata) => metadata.validate(&bytes),
         }
     }
 
@@ -81,6 +85,7 @@ impl ResourceMetadata {
             &ResourceConcreteMetadata::Atlas(ref metadata) => {
                 metadata.build(&database, &path, &bytes, &mut out)
             }
+            &ResourceConcreteMetadata::Shader(ref metadata) => metadata.build(&bytes, &mut out),
         }
     }
 }

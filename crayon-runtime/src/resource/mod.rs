@@ -8,6 +8,7 @@ pub mod workflow;
 pub mod texture;
 pub mod bytes;
 pub mod atlas;
+pub mod shader;
 
 pub use self::errors::*;
 pub use self::archive::{File, Archive, FilesystemArchive, ZipArchive, ArchiveCollection};
@@ -18,6 +19,7 @@ pub use self::system::ResourceSystem;
 pub use self::texture::Texture;
 pub use self::bytes::Bytes;
 pub use self::atlas::{Atlas, AtlasFrame};
+pub use self::shader::Shader;
 
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, RwLock};
@@ -78,3 +80,6 @@ declare_resource!(Bytes);
 
 pub type AtlasItem = Arc<RwLock<Atlas>>;
 declare_resource!(Atlas);
+
+pub type ShaderItem = Arc<RwLock<Shader>>;
+declare_resource!(Shader);

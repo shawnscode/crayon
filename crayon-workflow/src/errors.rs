@@ -1,5 +1,6 @@
 use bincode;
 use std::boxed;
+use shader_compiler;
 
 error_chain!{
     types {
@@ -13,5 +14,9 @@ error_chain!{
         Bincode(boxed::Box<bincode::ErrorKind>);
         Image(::image::ImageError);
         Json(::serde_json::Error);
+    }
+
+    links {
+        Shader(shader_compiler::errors::Error, shader_compiler::errors::ErrorKind);
     }
 }

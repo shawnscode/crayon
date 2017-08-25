@@ -8,4 +8,8 @@ error_chain!{
     foreign_links {
         Nom(nom::ErrorKind);
     }
+
+    errors {
+        NotSupportVertexAttribute
+    }
 }

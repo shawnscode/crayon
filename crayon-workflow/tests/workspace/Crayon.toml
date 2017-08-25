@@ -6,6 +6,7 @@ resources = [ "resources", "no-exists-path" ]
 # Type table used when crayon-cli import new resources.
 bytes = [ ".bytes", ".lua" ]
 textures = [ ".png", ".tga", ".bmp" ]
+shaders = [ ".shader" ]
 
 [Runtime.EngineSettings]
 # Set the minimal frames per second. If fps goes lower than this,
