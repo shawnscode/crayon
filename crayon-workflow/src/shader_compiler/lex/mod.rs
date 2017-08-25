@@ -179,6 +179,48 @@ macro_rules! tag_token (
 );
 
 #[macro_export]
+macro_rules! tag_token_str (
+    ($i: expr, $tag: expr) => ({
+        let (i1, t1) = try_parse!($i, take!(1));
+        if t1.tokens.is_empty() {
+            ::nom::IResult::Incomplete::<_,_,u32>(::nom::Needed::Size(1))
+        } else {
+            match &t1.tokens[0] {
+                &Token::Ident(Ident::Str(ref v)) => {
+                    if v == $tag {
+                        ::nom::IResult::Done(i1, t1)
+                    } else {
+                        ::nom::IResult::Error(error_position!(::nom::ErrorKind::Count, $i))
+                    }
+                }
+                _ => ::nom::IResult::Error(error_position!(::nom::ErrorKind::Count, $i))
+            }
+        }
+    });
+);
+
+#[macro_export]
+macro_rules! tag_token_str_case_insensitive (
+    ($i: expr, $tag: expr) => ({
+        let (i1, t1) = try_parse!($i, take!(1));
+        if t1.tokens.is_empty() {
+            ::nom::IResult::Incomplete::<_,_,u32>(::nom::Needed::Size(1))
+        } else {
+            match &t1.tokens[0] {
+                &Token::Ident(Ident::Str(ref v)) => {
+                    if v.to_lowercase() == $tag.to_lowercase() {
+                        ::nom::IResult::Done(i1, t1)
+                    } else {
+                        ::nom::IResult::Error(error_position!(::nom::ErrorKind::Count, $i))
+                    }
+                }
+                _ => ::nom::IResult::Error(error_position!(::nom::ErrorKind::Count, $i))
+            }
+        }
+    });
+);
+
+#[macro_export]
 macro_rules! take_tag_token (
     ($i: expr, $tag: expr) => ({
         let (i1, t1) = try_parse!($i, take!(1));

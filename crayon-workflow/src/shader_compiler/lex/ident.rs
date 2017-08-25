@@ -3,6 +3,8 @@ use std::str;
 /// All the reserved keywords
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ident {
+    /// `#metadata
+    Metadata,
     /// `if`
     If,
     /// `else`
@@ -40,6 +42,7 @@ pub enum Type {
 
 fn parse_reserved(ident: &str) -> Ident {
     match ident {
+        "#define" => Ident::Metadata,
         "if" => Ident::If,
         "else" => Ident::Else,
         "return" => Ident::Return,
@@ -69,7 +72,7 @@ named!(identifier_str,
 
 /// Parse an identifier.
 named!(pub parse<&[u8], Ident>, do_parse!(
-    ident: map_res!(identifier_str, str::from_utf8) >>
+    ident: map_res!(alt_complete!(identifier_str | tag!("#define")), str::from_utf8) >>
     (parse_reserved(ident))
 ));
 
@@ -92,6 +95,8 @@ mod tests {
 
     #[test]
     fn ident() {
+        assert_eq!(parse(&b"#define"[..]),
+                   IResult::Done(&b""[..], Ident::Metadata));
         assert_eq!(parse(&b"if"[..]), IResult::Done(&b""[..], Ident::If));
         assert_eq!(parse(&b"else"[..]), IResult::Done(&b""[..], Ident::Else));
         assert_eq!(parse(&b"return"[..]),
@@ -129,7 +134,7 @@ mod tests {
         assert_eq!(parse(&b"asd123asd123"[..]),
                    IResult::Done(&b""[..], Ident::Str("asd123asd123".to_owned())));
 
-        assert_eq!(parse(&b"3"[..]), IResult::Error(ErrorKind::Verify));
-        assert_eq!(parse(&b"3asd"[..]), IResult::Error(ErrorKind::Verify));
+        assert_eq!(parse(&b"3"[..]), IResult::Error(ErrorKind::Alt));
+        assert_eq!(parse(&b"3asd"[..]), IResult::Error(ErrorKind::Alt));
     }
 }
