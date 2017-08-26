@@ -4,14 +4,59 @@ use std::path::Path;
 use uuid;
 
 use errors::*;
-use super::{Resource, database, texture, bytes, atlas, shader};
+use super::*;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum ResourceConcreteMetadata {
-    Bytes(bytes::BytesMetadata),
-    Texture(texture::TextureMetadata),
-    Atlas(atlas::AtlasMetadata),
-    Shader(shader::ShaderMetadata),
+macro_rules! concrete_metadata_decl {
+    ($($name: ident => $metadata: ident,)*) => (
+        #[derive(Debug, Serialize, Deserialize)]
+        pub enum ResourceConcreteMetadata {
+            $($name($metadata),)*
+        }
+        
+        impl ResourceConcreteMetadata {
+            pub fn new(tt: Resource) -> Self {
+                match tt {
+                    $(ResourcePayload::$name => ResourceConcreteMetadata::$name($metadata::new()),)*
+                }
+            }
+
+            pub fn payload(&self) -> Resource {
+                match self {
+                    $(&ResourceConcreteMetadata::$name(_) => ResourcePayload::$name,)*
+                }
+            }
+
+            pub fn is(&self, tt: Resource) -> bool {
+                self.payload() == tt
+            }
+
+            pub fn underlying(&self) -> &ResourceUnderlyingMetadata {
+                match self {
+                    $(&ResourceConcreteMetadata::$name(ref mt) => mt,)*
+                }
+            }
+        }
+    )
+}
+
+concrete_metadata_decl! {
+    Bytes => BytesMetadata,
+    Texture => TextureMetadata,
+    Atlas => AtlasMetadata,
+    Shader => ShaderMetadata,
+}
+
+pub trait ResourceUnderlyingMetadata {
+    /// Check the validation of resource.
+    fn validate(&self, bytes: &[u8]) -> Result<()>;
+
+    /// Build the resource into runtime serialization data.
+    fn build(&self,
+             database: &ResourceDatabase,
+             path: &Path,
+             bytes: &[u8],
+             out: &mut Vec<u8>)
+             -> Result<()>;
 }
 
 /// The descriptions of a resource.
@@ -37,55 +82,38 @@ impl ResourceMetadata {
     }
 
     pub fn new_as(tt: Resource) -> ResourceMetadata {
-        let concrete = match tt {
-            Resource::Bytes => ResourceConcreteMetadata::Bytes(bytes::BytesMetadata::new()),
-            Resource::Texture => ResourceConcreteMetadata::Texture(texture::TextureMetadata::new()),
-            Resource::Atlas => ResourceConcreteMetadata::Atlas(atlas::AtlasMetadata::new()),
-            Resource::Shader => ResourceConcreteMetadata::Shader(shader::ShaderMetadata::new()),
-        };
-
-        ResourceMetadata::new(concrete)
+        ResourceMetadata::new(ResourceConcreteMetadata::new(tt))
     }
 
+    #[inline]
     pub fn uuid(&self) -> uuid::Uuid {
         self.uuid
     }
 
-    pub fn is(&self, tt: Resource) -> bool {
-        self.file_type() == tt
+    #[inline]
+    pub fn is(&self, tt: ResourcePayload) -> bool {
+        self.metadata.payload() == tt
     }
 
-    pub fn file_type(&self) -> Resource {
-        match &self.metadata {
-            &ResourceConcreteMetadata::Bytes(_) => Resource::Bytes,
-            &ResourceConcreteMetadata::Texture(_) => Resource::Texture,
-            &ResourceConcreteMetadata::Atlas(_) => Resource::Atlas,
-            &ResourceConcreteMetadata::Shader(_) => Resource::Shader,
-        }
+    #[inline]
+    pub fn payload(&self) -> ResourcePayload {
+        self.metadata.payload()
     }
 
+    #[inline]
     pub fn validate(&self, bytes: &[u8]) -> Result<()> {
-        match &self.metadata {
-            &ResourceConcreteMetadata::Bytes(ref metadata) => metadata.validate(&bytes),
-            &ResourceConcreteMetadata::Texture(ref metadata) => metadata.validate(&bytes),
-            &ResourceConcreteMetadata::Atlas(ref metadata) => metadata.validate(&bytes),
-            &ResourceConcreteMetadata::Shader(ref metadata) => metadata.validate(&bytes),
-        }
+        self.metadata.underlying().validate(&bytes)
     }
 
+    #[inline]
     pub fn build(&self,
                  database: &database::ResourceDatabase,
                  path: &Path,
                  bytes: &[u8],
                  mut out: &mut Vec<u8>)
                  -> Result<()> {
-        match &self.metadata {
-            &ResourceConcreteMetadata::Texture(ref metadata) => metadata.build(&bytes, &mut out),
-            &ResourceConcreteMetadata::Bytes(ref metadata) => metadata.build(&bytes, &mut out),
-            &ResourceConcreteMetadata::Atlas(ref metadata) => {
-                metadata.build(&database, &path, &bytes, &mut out)
-            }
-            &ResourceConcreteMetadata::Shader(ref metadata) => metadata.build(&bytes, &mut out),
-        }
+        self.metadata
+            .underlying()
+            .build(&database, &path, &bytes, &mut out)
     }
 }

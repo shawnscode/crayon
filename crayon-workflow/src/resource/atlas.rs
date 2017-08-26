@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::collections::HashMap;
 
 use uuid;
@@ -6,8 +5,10 @@ use bincode;
 use serde_json;
 use crayon::resource;
 
+use std::path::Path;
 use errors::*;
-use super::database::ResourceDatabase;
+use super::ResourceDatabase;
+use super::metadata::ResourceUnderlyingMetadata;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AtlasPlugins {
@@ -19,28 +20,30 @@ pub struct AtlasMetadata {
     pub plugin: AtlasPlugins,
 }
 
-impl AtlasMetadata {
-    pub fn new() -> AtlasMetadata {
-        AtlasMetadata { plugin: AtlasPlugins::TexturePacker }
-    }
-
-    pub fn validate(&self, bytes: &[u8]) -> Result<()> {
+impl ResourceUnderlyingMetadata for AtlasMetadata {
+    fn validate(&self, bytes: &[u8]) -> Result<()> {
         match self.plugin {
             AtlasPlugins::TexturePacker => self.validate_with_texture_packer(&bytes),
         }
     }
 
-    pub fn build(&self,
-                 database: &ResourceDatabase,
-                 path: &Path,
-                 data: &[u8],
-                 mut out: &mut Vec<u8>)
-                 -> Result<()> {
+    fn build(&self,
+             database: &ResourceDatabase,
+             path: &Path,
+             bytes: &[u8],
+             mut out: &mut Vec<u8>)
+             -> Result<()> {
         match self.plugin {
             AtlasPlugins::TexturePacker => {
-                self.build_with_texture_packer(&database, &path, data, &mut out)
+                self.build_with_texture_packer(&database, &path, bytes, &mut out)
             }
         }
+    }
+}
+
+impl AtlasMetadata {
+    pub fn new() -> Self {
+        AtlasMetadata { plugin: AtlasPlugins::TexturePacker }
     }
 
     fn validate_with_texture_packer(&self, bytes: &[u8]) -> Result<()> {

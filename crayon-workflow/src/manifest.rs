@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::Read;
@@ -27,7 +27,7 @@ impl Manifest {
     {
         if let Ok(dir) = fs::metadata(&path) {
             if dir.is_dir() {
-                let file_path = path.as_ref().join("Crayon.toml");
+                let file_path = path.as_ref().join("workspace.toml");
                 if let Ok(file) = fs::metadata(&file_path) {
                     if file.is_file() {
                         return Manifest::parse(&file_path);
@@ -40,7 +40,8 @@ impl Manifest {
             }
         }
 
-        bail!("Failed to find manifest Crayon.toml.");
+        bail!("Failed to find manifest workspace.toml at {:?}.",
+              path.as_ref());
     }
 
     pub fn load_from<P>(path: P) -> Result<Manifest>
@@ -160,53 +161,36 @@ impl Manifest {
 
                 if let Some(import_settings) =
                     workflow.get("ImportSettings").and_then(|v| v.as_table()) {
-
-                    if let Some(types) = import_settings.get("bytes").and_then(|v| v.as_array()) {
-                        for item in types {
-                            if let Some(v) = item.as_str() {
-                                manifest
-                                    .types
-                                    .insert(v.trim_matches('.').to_owned(), Resource::Bytes);
-                            }
-                        }
-                    }
-
-                    if let Some(types) =
-                        import_settings.get("textures").and_then(|v| v.as_array()) {
-                        for item in types {
-                            if let Some(v) = item.as_str() {
-                                manifest
-                                    .types
-                                    .insert(v.trim_matches('.').to_owned(), Resource::Texture);
-                            }
-                        }
-                    }
-
-                    if let Some(types) = import_settings.get("atlases").and_then(|v| v.as_array()) {
-                        for item in types {
-                            if let Some(v) = item.as_str() {
-                                manifest
-                                    .types
-                                    .insert(v.trim_matches('.').to_owned(), Resource::Atlas);
-                            }
-                        }
-                    }
-
-                    if let Some(types) = import_settings.get("shaders").and_then(|v| v.as_array()) {
-                        for item in types {
-                            if let Some(v) = item.as_str() {
-                                manifest
-                                    .types
-                                    .insert(v.trim_matches('.').to_owned(), Resource::Shader);
-                            }
-                        }
-                    }
+                    use_extensions_as(&mut manifest, import_settings);
                 }
             }
 
             Ok(manifest)
         } else {
-            bail!("Crayon.toml at {:?} is not valid.", path);
+            bail!("workspace.toml at {:?} is not valid.", path);
         }
     }
+}
+
+macro_rules! extensions {
+    ($($name: expr => $resource: ident,)*) => (
+        fn use_extensions_as(manifest: &mut Manifest, table: &BTreeMap<String, toml::Value>) {
+            $(
+                if let Some(types) = table.get($name).and_then(|v| v.as_array()) {
+                    for v in types {
+                        if let Some(v) = v.as_str() {
+                            manifest.types.insert(v.trim_matches('.').to_owned(), Resource::$resource);
+                        }
+                    }
+                }
+            )*
+        }
+    )
+}
+
+extensions! {
+    "bytes" => Bytes,
+    "textures" => Texture,
+    "atlases" => Atlas,
+    "shaders" => Shader,
 }

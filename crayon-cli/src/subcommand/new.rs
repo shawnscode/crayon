@@ -8,7 +8,7 @@ use std::fs;
 use std::io::Write;
 
 const MAIN: &[u8] = include_bytes!("../../template/src/main.rs");
-const MANIFEST: &[u8] = include_bytes!("../../template/Crayon.toml");
+const MANIFEST: &[u8] = include_bytes!("../../template/workspace.toml");
 
 pub fn execute(rev: &str, matches: &clap::ArgMatches) -> Result<()> {
     let path = matches.value_of("path").unwrap();
@@ -31,7 +31,7 @@ pub fn execute(rev: &str, matches: &clap::ArgMatches) -> Result<()> {
 
     // Add default crayon manifest.
     {
-        let manifest = Path::new(&path).join("Crayon.toml");
+        let manifest = Path::new(&path).join("workspace.toml");
         let mut file = fs::OpenOptions::new()
             .create(true)
             .write(true)

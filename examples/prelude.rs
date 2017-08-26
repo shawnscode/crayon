@@ -1,8 +1,8 @@
 use crayon_workflow as workflow;
 
 pub fn compile() {
-    // Get the example manifest `Crayon.toml`.
-    let manifest = workflow::Manifest::load_from("examples/resources.toml")
+    // Get the example manifest `workspace.toml`.
+    let manifest = workflow::Manifest::load_from("examples/workspace.toml")
         .unwrap()
         .setup()
         .unwrap();
