@@ -1,4 +1,5 @@
 use nom;
+use std::fmt;
 
 error_chain!{
     types {
@@ -7,6 +8,7 @@ error_chain!{
 
     foreign_links {
         Nom(nom::ErrorKind);
+        Fmt(fmt::Error);
     }
 
     errors {

@@ -1,14 +1,16 @@
 use super::super::lex::*;
 use super::super::syntax::*;
+use super::super::{Shader, ShaderPhase};
 
 use std::fmt::{Write, Result};
+use super::super::errors;
 
-struct Writer<'a, W: Write + 'static> {
-    writer: &'a mut W,
+struct Writer {
+    writer: String,
     indent: u32,
 }
 
-impl<'a, W: Write + 'static> Writer<'a, W> {
+impl Writer {
     pub fn write(&mut self, v: &str) -> Result {
         self.writer.write_str(v)
     }
@@ -30,31 +32,47 @@ impl<'a, W: Write + 'static> Writer<'a, W> {
     }
 }
 
-pub fn write<W>(w: &mut W, program: &Vec<Statement>) -> Result
-    where W: Write + 'static
-{
-    let mut wrapper = Writer {
-        writer: w,
-        indent: 0,
-    };
+pub struct GLSL110;
 
-    wrapper.write("#version 110")?;
-    wrapper.newline()?;
+impl super::ShaderBackend for GLSL110 {
+    fn build(shader: &Shader, phase: ShaderPhase) -> errors::Result<String> {
+        let main = shader.main(phase);
+        let statements = shader.statements(phase);
 
-    for v in program {
-        match v {
-            &Statement::PriorVariable(ref v) => write_prior_variable(&mut wrapper, v)?,
-            &Statement::Function(ref v) => write_function(&mut wrapper, v)?,
-            _ => {}
+        let mut wrapper = Writer {
+            writer: String::new(),
+            indent: 0,
+        };
+
+        wrapper.write("#version 110")?;
+        wrapper.newline()?;
+
+        for v in statements {
+            match v {
+                &Statement::PriorVariable(ref v) => write_prior_variable(&mut wrapper, v)?,
+                &Statement::Function(ref v) => write_function(&mut wrapper, v)?,
+                _ => {}
+            }
         }
-    }
 
-    Ok(())
+        match phase {
+            ShaderPhase::Vertex => {
+                wrapper
+                    .write(&format!("void main() {{ gl_Position = {}(); }}", main))?;
+            }
+            ShaderPhase::Fragment => {
+                wrapper
+                    .write(&format!("void main() {{ gl_FragColor = {}(); }}", main))?;
+            }
+        }
+
+        wrapper.newline()?;
+
+        Ok(wrapper.writer)
+    }
 }
 
-fn write_prior_variable<'a, W>(mut w: &mut Writer<'a, W>, pv: &statement::PriorVariable) -> Result
-    where W: Write + 'static
-{
+fn write_prior_variable(mut w: &mut Writer, pv: &statement::PriorVariable) -> Result {
     write_qualifier(&mut w, &pv.qualifier)?;
     w.write(" ")?;
     write_type(w, &pv.tt)?;
@@ -66,9 +84,7 @@ fn write_prior_variable<'a, W>(mut w: &mut Writer<'a, W>, pv: &statement::PriorV
     Ok(())
 }
 
-fn write_function<'a, W>(mut w: &mut Writer<'a, W>, f: &statement::Function) -> Result
-    where W: Write + 'static
-{
+fn write_function(mut w: &mut Writer, f: &statement::Function) -> Result {
     write_type(&mut w, &f.ret)?;
     w.write(" ")?;
     w.write(&f.ident)?;
@@ -91,11 +107,7 @@ fn write_function<'a, W>(mut w: &mut Writer<'a, W>, f: &statement::Function) -> 
     Ok(())
 }
 
-fn write_block<'a, W>(mut w: &mut Writer<'a, W>,
-                      stmts: &Vec<statement::FunctionStatement>)
-                      -> Result
-    where W: Write + 'static
-{
+fn write_block(mut w: &mut Writer, stmts: &Vec<statement::FunctionStatement>) -> Result {
     w.push();
     w.newline()?;
     for stmt in stmts {
@@ -107,11 +119,7 @@ fn write_block<'a, W>(mut w: &mut Writer<'a, W>,
     Ok(())
 }
 
-fn write_function_statement<'a, W>(mut w: &mut Writer<'a, W>,
-                                   stmt: &statement::FunctionStatement)
-                                   -> Result
-    where W: Write + 'static
-{
+fn write_function_statement(mut w: &mut Writer, stmt: &statement::FunctionStatement) -> Result {
     match *stmt {
         statement::FunctionStatement::VariableBind(ref v) => write_variable_bind(&mut w, v)?,
         statement::FunctionStatement::Expression(ref v) => {
@@ -126,9 +134,7 @@ fn write_function_statement<'a, W>(mut w: &mut Writer<'a, W>,
     Ok(())
 }
 
-fn write_variable_bind<'a, W>(mut w: &mut Writer<'a, W>, bind: &statement::VariableBind) -> Result
-    where W: Write + 'static
-{
+fn write_variable_bind(mut w: &mut Writer, bind: &statement::VariableBind) -> Result {
     if let Some(tt) = bind.tt {
         write_type(w, &tt)?;
         w.write(" ")?;
@@ -143,9 +149,7 @@ fn write_variable_bind<'a, W>(mut w: &mut Writer<'a, W>, bind: &statement::Varia
     Ok(())
 }
 
-fn write_return<'a, W>(mut w: &mut Writer<'a, W>, ret: &statement::Return) -> Result
-    where W: Write + 'static
-{
+fn write_return(mut w: &mut Writer, ret: &statement::Return) -> Result {
     w.write("return ")?;
     write_expr(&mut w, &ret.expr)?;
     w.write(";")?;
@@ -153,9 +157,7 @@ fn write_return<'a, W>(mut w: &mut Writer<'a, W>, ret: &statement::Return) -> Re
     Ok(())
 }
 
-fn write_if<'a, W>(mut w: &mut Writer<'a, W>, v: &statement::If) -> Result
-    where W: Write + 'static
-{
+fn write_if(mut w: &mut Writer, v: &statement::If) -> Result {
     w.write("if( ")?;
     write_expr(&mut w, &v.cond)?;
     w.write(" ) {")?;
@@ -173,9 +175,7 @@ fn write_if<'a, W>(mut w: &mut Writer<'a, W>, v: &statement::If) -> Result
     Ok(())
 }
 
-fn write_expr<'a, W>(mut w: &mut Writer<'a, W>, expr: &Expression) -> Result
-    where W: Write + 'static
-{
+fn write_expr(mut w: &mut Writer, expr: &Expression) -> Result {
     match *expr {
         Expression::Ident(ref v) => w.write(v)?,
         Expression::Literial(ref v) => {
@@ -221,9 +221,7 @@ fn write_expr<'a, W>(mut w: &mut Writer<'a, W>, expr: &Expression) -> Result
     Ok(())
 }
 
-fn write_params<'a, W>(mut w: &mut Writer<'a, W>, params: &Vec<Expression>) -> Result
-    where W: Write + 'static
-{
+fn write_params(mut w: &mut Writer, params: &Vec<Expression>) -> Result {
     w.write("(")?;
 
     for (i, ref param) in params.iter().enumerate() {
@@ -238,9 +236,7 @@ fn write_params<'a, W>(mut w: &mut Writer<'a, W>, params: &Vec<Expression>) -> R
     Ok(())
 }
 
-fn write_qualifier<'a, W>(mut w: &mut Writer<'a, W>, qualifier: &Qualifier) -> Result
-    where W: Write + 'static
-{
+fn write_qualifier(mut w: &mut Writer, qualifier: &Qualifier) -> Result {
     match *qualifier {
         Qualifier::Attribute => w.write("attribute")?,
         Qualifier::Uniform => w.write("uniform")?,
@@ -250,9 +246,7 @@ fn write_qualifier<'a, W>(mut w: &mut Writer<'a, W>, qualifier: &Qualifier) -> R
     Ok(())
 }
 
-fn write_type<'a, W>(mut w: &mut Writer<'a, W>, tt: &Type) -> Result
-    where W: Write + 'static
-{
+fn write_type(mut w: &mut Writer, tt: &Type) -> Result {
     match *tt {
         Type::Void => w.write("void")?,
         Type::Int => w.write("int")?,
@@ -269,9 +263,7 @@ fn write_type<'a, W>(mut w: &mut Writer<'a, W>, tt: &Type) -> Result
     Ok(())
 }
 
-fn write_unary_op<'a, W>(mut w: &mut Writer<'a, W>, op: expr::UnaryOperator) -> Result
-    where W: Write + 'static
-{
+fn write_unary_op(mut w: &mut Writer, op: expr::UnaryOperator) -> Result {
     match op {
         expr::UnaryOperator::Inc => w.write("++")?,
         expr::UnaryOperator::Dec => w.write("++")?,
@@ -284,9 +276,7 @@ fn write_unary_op<'a, W>(mut w: &mut Writer<'a, W>, op: expr::UnaryOperator) -> 
     Ok(())
 }
 
-fn write_binary_op<'a, W>(mut w: &mut Writer<'a, W>, op: expr::BinaryOperator) -> Result
-    where W: Write + 'static
-{
+fn write_binary_op(mut w: &mut Writer, op: expr::BinaryOperator) -> Result {
     use self::expr::BinaryOperator as ebo;
     match op {
         ebo::Or => w.write("||")?,
