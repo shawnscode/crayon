@@ -18,7 +18,7 @@ use errors::*;
 use super::{ResourceMetadata, METADATA_EXTENSION};
 
 /// An interface for accessing and performing operations on resources. All paths are
-/// relative to the workspace folder, which is indicated by the path of `Crayon.toml`.
+/// relative to the workspace folder, which is indicated by the path of `workspace.toml`.
 pub struct ResourceDatabase {
     manifest: Manifest,
 
@@ -133,7 +133,7 @@ impl ResourceDatabase {
                         path: resource_relative_path,
                         dependencies: Vec::new(),
                         uuid: *id,
-                        payload: metadata.file_type().into(),
+                        payload: metadata.payload(),
                     };
 
                     manifest.items.insert(*id, item);
@@ -287,7 +287,7 @@ impl ResourceDatabase {
                 if validation.is_err() {
                     fs::remove_file(&metadata_path)?;
                     bail!("Failed to import file into workspace, can not validate it as {:?}. \n\t{:?}.",
-                          metadata.file_type(),
+                          metadata.payload(),
                           validation);
                 }
             }

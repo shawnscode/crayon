@@ -3,7 +3,10 @@ use crayon::resource;
 use image;
 use bincode;
 
+use std::path::Path;
 use errors::*;
+use super::ResourceDatabase;
+use super::metadata::ResourceUnderlyingMetadata;
 
 /// Compression settings of texture.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -29,7 +32,7 @@ pub struct TextureMetadata {
 }
 
 impl TextureMetadata {
-    pub fn new() -> TextureMetadata {
+    pub fn new() -> Self {
         TextureMetadata {
             mipmap: false,
             address: graphics::TextureAddress::Clamp,
@@ -37,13 +40,20 @@ impl TextureMetadata {
             compression: TextureCompressionMetadata::None,
         }
     }
+}
 
-    pub fn validate(&self, bytes: &[u8]) -> Result<()> {
+impl ResourceUnderlyingMetadata for TextureMetadata {
+    fn validate(&self, bytes: &[u8]) -> Result<()> {
         image::guess_format(&bytes)?;
         Ok(())
     }
 
-    pub fn build(&self, data: &[u8], mut out: &mut Vec<u8>) -> Result<()> {
+    fn build(&self,
+             _: &ResourceDatabase,
+             _: &Path,
+             data: &[u8],
+             mut out: &mut Vec<u8>)
+             -> Result<()> {
         assert!(self.compression == TextureCompressionMetadata::None);
 
         let mut bytes = Vec::new();
