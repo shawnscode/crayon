@@ -11,7 +11,6 @@ use uuid;
 use super::*;
 use super::workflow;
 
-type ResourceItem<T> = Arc<RwLock<T>>;
 type InstanceId = usize;
 
 /// `ResourceSystem` allows you to find and access resources. When building resources
@@ -21,7 +20,7 @@ pub struct ResourceSystem {
     ids: HashMap<uuid::Uuid, InstanceId>,
     paths: HashMap<PathBuf, InstanceId>,
     resources: Vec<workflow::ResourceManifestItem>,
-
+    pendings: Vec<InstanceId>,
     archives: ArchiveCollection,
     backends: ResourceSystemBackendVec,
 }
@@ -39,6 +38,7 @@ impl ResourceSystem {
             ids: HashMap::new(),
             paths: HashMap::new(),
             resources: Vec::new(),
+            pendings: Vec::new(),
         };
 
         /// Register default resources.
@@ -100,7 +100,7 @@ impl ResourceSystem {
     /// Load a resource item at path. The path is some kind of readable identifier
     /// instead of actual path in filesystem.
     pub fn load<T, P>(&mut self, path: P) -> Result<ResourceItem<T>>
-        where T: workflow::ResourceSerialization + 'static,
+        where T: workflow::BuildinResource + 'static,
               P: AsRef<Path>
     {
         let instance_id = if let Some(instance_id) = self.paths.get(path.as_ref()) {
@@ -116,7 +116,7 @@ impl ResourceSystem {
     /// Load a resource with uuid.
     #[inline]
     pub fn load_with_uuid<T>(&mut self, uuid: uuid::Uuid) -> Result<ResourceItem<T>>
-        where T: workflow::ResourceSerialization
+        where T: workflow::BuildinResource + 'static
     {
         let instance_id = if let Some(instance_id) = self.ids.get(&uuid) {
             *instance_id
@@ -128,8 +128,31 @@ impl ResourceSystem {
         self.load_internal::<T>(instance_id)
     }
 
+    #[inline]
+    pub fn load_custom<T, P>(&mut self, path: P) -> Result<ResourceItem<T::Item>>
+        where T: ResourceLoader,
+              P: AsRef<Path>
+    {
+        if let Some(rc) = self.backends.index_mut::<T::Item>().get(&path) {
+            return Ok(rc);
+        }
+
+        // FIX THIS; CIRCULAR REFERENCE
+        let rc = {
+            let mut file = self.archives.open(&path)?;
+            let resource = T::load_from_file(self, file.as_mut())?;
+            Arc::new(RwLock::new(resource))
+        };
+
+        self.backends
+            .index_mut::<T::Item>()
+            .insert(&path, rc.clone())
+            .unwrap();
+        Ok(rc)
+    }
+
     fn load_internal<T>(&mut self, instance_id: InstanceId) -> Result<ResourceItem<T>>
-        where T: workflow::ResourceSerialization
+        where T: workflow::BuildinResource + 'static
     {
         let (uuid, payload) = {
             let item = self.resources.get(instance_id).unwrap();
@@ -137,25 +160,36 @@ impl ResourceSystem {
         };
 
         if payload != T::payload() {
-            bail!("Incompatible type.");
+            bail!(ErrorKind::ResourceDeclarationMismath);
         }
 
         let uuid = uuid.simple().to_string();
+        let path = Path::new(&uuid);
+        if let Some(rc) = self.backends.index_mut::<T>().get(&path) {
+            return Ok(rc);
+        }
+
+        // Check circular references.
+        for i in &self.pendings {
+            if *i == instance_id {
+                bail!(ErrorKind::CircularReferenceFound);
+            }
+        }
+
+        let rc = {
+            self.pendings.push(instance_id);
+            let mut file = self.archives.open(&path)?;
+            let resource = T::Loader::load_from_file(self, file.as_mut())?;
+            self.pendings.pop();
+
+            Arc::new(RwLock::new(resource))
+        };
+
         self.backends
             .index_mut::<T>()
-            .load::<T::Loader, &Path>(&self.archives, Path::new(&uuid))
-    }
-
-    /// Load a resource item at path of filesystem directly. This function does not have
-    /// any requirements on the manifest, and user have to specify the loader manually.
-    #[inline]
-    pub fn load_from<L, P>(&mut self, path: P) -> Result<Arc<RwLock<L::Item>>>
-        where L: ResourceLoader,
-              P: AsRef<Path>
-    {
-        self.backends
-            .index_mut::<L::Item>()
-            .load::<L, P>(&self.archives, path)
+            .insert(&path, rc.clone())
+            .unwrap();
+        Ok(rc)
     }
 }
 

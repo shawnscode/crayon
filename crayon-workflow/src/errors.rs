@@ -19,4 +19,11 @@ error_chain!{
     links {
         Shader(shader_compiler::errors::Error, shader_compiler::errors::ErrorKind);
     }
+
+    errors {
+        FileNotFound
+        ValidationFailed
+        UuidDuplicationFound
+        ShaderNotFound
+    }
 }

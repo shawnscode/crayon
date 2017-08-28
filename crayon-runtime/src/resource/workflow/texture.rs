@@ -1,11 +1,10 @@
 use image;
 use image::GenericImage;
-
 use bincode;
 
 use graphics;
 use super::super::errors::*;
-use super::super::texture;
+use super::super::{ResourceLoader, ResourceSystem, texture};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TextureSerializationPayload {
@@ -16,10 +15,10 @@ pub struct TextureSerializationPayload {
     pub bytes: Vec<u8>,
 }
 
-impl super::super::ResourceLoader for TextureSerializationPayload {
+impl ResourceLoader for TextureSerializationPayload {
     type Item = texture::Texture;
 
-    fn load_from_memory(bytes: &[u8]) -> Result<Self::Item> {
+    fn load_from_memory(_: &mut ResourceSystem, bytes: &[u8]) -> Result<Self::Item> {
         let data: TextureSerializationPayload = bincode::deserialize(&bytes)?;
         assert!(!data.is_compressed);
 
@@ -29,13 +28,5 @@ impl super::super::ResourceLoader for TextureSerializationPayload {
                                  data.mipmap,
                                  data.address,
                                  data.filter))
-    }
-}
-
-impl super::ResourceSerialization for texture::Texture {
-    type Loader = TextureSerializationPayload;
-
-    fn payload() -> super::ResourcePayload {
-        super::ResourcePayload::Texture
     }
 }

@@ -54,9 +54,11 @@ fn main() {
                                  &attributes)
                 .unwrap();
 
-            let texture = app.resources
-                .load_from::<resource::Texture, &str>("crayon-runtime/examples/resources/texture.png")
+            app.resources
+                .load_manifest("examples/compiled-resources/manifest")
                 .unwrap();
+
+            let texture: resource::TextureItem = app.resources.load("texture.png").unwrap();
 
             texture
                 .write()

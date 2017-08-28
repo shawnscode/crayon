@@ -3,9 +3,7 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 use super::errors::*;
-use super::archive;
-use super::cache;
-use super::{Resource, ResourceIndex, ResourceLoader};
+use super::*;
 
 use utility::hash::HashValue;
 
@@ -43,14 +41,8 @@ impl<T> ResourceSystemBackend<T>
         self.size
     }
 
-    /// Load resource from archive collections at specified path. It could
-    /// be returned from internal cache or load from disk directly.
-    pub fn load<L, P>(&mut self,
-                      archives: &archive::ArchiveCollection,
-                      path: P)
-                      -> Result<Arc<RwLock<T>>>
-        where L: ResourceLoader<Item = T>,
-              P: AsRef<Path>
+    pub fn get<P>(&mut self, path: P) -> Option<ResourceItem<T>>
+        where P: AsRef<Path>
     {
         let hash = path.as_ref().into();
 
@@ -58,22 +50,31 @@ impl<T> ResourceSystemBackend<T>
             if let Some(mut c) = self.cache.as_mut() {
                 c.insert(&path, rc.read().unwrap().size(), rc.clone());
             }
-            return Ok(rc.clone());
+
+            return Some(rc.clone());
         }
 
-        let mut file = archives.open(&path.as_ref())?;
-        let resource = L::load_from_file(file.as_mut())?;
-        let size = resource.size();
-        let rc = Arc::new(RwLock::new(resource));
+        None
+    }
 
-        self.resources.insert(hash, rc.clone());
+    pub fn insert<P>(&mut self, path: P, item: ResourceItem<T>) -> Result<()>
+        where P: AsRef<Path>
+    {
+        let hash = path.as_ref().into();
+
+        if self.resources.contains_key(&hash) {
+            bail!("duplicated insert.");
+        }
+
+        let size = item.read().unwrap().size();
+        if let Some(mut c) = self.cache.as_mut() {
+            c.insert(&path, size, item.clone());
+        }
+
+        self.resources.insert(hash, item);
         self.size += size;
 
-        if let Some(mut c) = self.cache.as_mut() {
-            c.insert(&path, size, rc.clone());
-        }
-
-        Ok(rc)
+        Ok(())
     }
 
     /// Remove internal reference of resources if there is not any external reference exists.

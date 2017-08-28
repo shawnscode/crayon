@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use bincode;
 use uuid;
-
-use super::errors::*;
 use super::TextureItem;
 
 /// A atlas frame.
@@ -100,13 +97,5 @@ impl Atlas {
 impl super::Resource for Atlas {
     fn size(&self) -> usize {
         0
-    }
-}
-
-impl super::ResourceLoader for Atlas {
-    type Item = Atlas;
-
-    fn load_from_memory(bytes: &[u8]) -> Result<Self::Item> {
-        Ok(bincode::deserialize(&bytes)?)
     }
 }

@@ -16,13 +16,13 @@ macro_rules! concrete_metadata_decl {
         impl ResourceConcreteMetadata {
             pub fn new(tt: Resource) -> Self {
                 match tt {
-                    $(ResourcePayload::$name => ResourceConcreteMetadata::$name($metadata::new()),)*
+                    $(BuildinResourceType::$name => ResourceConcreteMetadata::$name($metadata::new()),)*
                 }
             }
 
             pub fn payload(&self) -> Resource {
                 match self {
-                    $(&ResourceConcreteMetadata::$name(_) => ResourcePayload::$name,)*
+                    $(&ResourceConcreteMetadata::$name(_) => BuildinResourceType::$name,)*
                 }
             }
 
@@ -44,6 +44,7 @@ concrete_metadata_decl! {
     Texture => TextureMetadata,
     Atlas => AtlasMetadata,
     Shader => ShaderMetadata,
+    Material => MaterialMetadata,
 }
 
 pub trait ResourceUnderlyingMetadata {
@@ -91,12 +92,12 @@ impl ResourceMetadata {
     }
 
     #[inline]
-    pub fn is(&self, tt: ResourcePayload) -> bool {
+    pub fn is(&self, tt: BuildinResourceType) -> bool {
         self.metadata.payload() == tt
     }
 
     #[inline]
-    pub fn payload(&self) -> ResourcePayload {
+    pub fn payload(&self) -> BuildinResourceType {
         self.metadata.payload()
     }
 

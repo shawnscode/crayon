@@ -30,6 +30,7 @@ pub use self::lex::*;
 pub use self::syntax::{Expression, Statement, FunctionStatement, Metadata};
 pub use self::backend::ShaderBackend;
 
+use std::collections::HashMap;
 use crayon::graphics;
 use self::errors::*;
 
@@ -39,6 +40,7 @@ pub struct Shader {
     vs: Vec<Statement>,
     fs_main: String,
     fs: Vec<Statement>,
+    uniforms: HashMap<String, graphics::UniformVariableType>,
     render_state: graphics::RenderState,
     layout: graphics::AttributeLayout,
 }
@@ -58,8 +60,9 @@ impl Shader {
         let mut fs = Vec::new();
         let mut vs_main = "vs";
         let mut fs_main = "fs";
-        let mut layout = graphics::AttributeLayoutBuilder::new();
         let mut render_state = graphics::RenderState::default();
+        let mut layout = graphics::AttributeLayoutBuilder::new();
+        let mut uniforms = HashMap::new();
 
         for stmt in &statements {
             match stmt {
@@ -75,20 +78,30 @@ impl Shader {
                     }
                 }
                 &Statement::PriorVariable(ref variable) => {
-                    if variable.qualifier == Qualifier::Attribute {
-                        let num = match variable.tt {
-                            Type::Vec2 => 2,
-                            Type::Vec3 => 3,
-                            Type::Vec4 => 4,
-                            _ => bail!(ErrorKind::NotSupportVertexAttribute),
-                        };
+                    match variable.qualifier {
+                        Qualifier::Attribute => {
+                            let num = match variable.tt {
+                                Type::Vec2 => 2,
+                                Type::Vec3 => 3,
+                                Type::Vec4 => 4,
+                                _ => bail!(ErrorKind::NotSupportVertexAttribute),
+                            };
 
-                        if let Some(attribute) =
-                            graphics::VertexAttribute::from_str(&variable.ident) {
-                            layout.with(attribute, num);
-                        } else {
-                            bail!(ErrorKind::NotSupportVertexAttribute);
+                            if let Some(attribute) =
+                                graphics::VertexAttribute::from_str(&variable.ident) {
+                                layout.with(attribute, num);
+                            } else {
+                                bail!(ErrorKind::NotSupportVertexAttribute);
+                            }
                         }
+                        Qualifier::Uniform => {
+                            if let Some(tt) = variable.tt.into() {
+                                uniforms.insert(variable.ident.clone(), tt);
+                            } else {
+                                bail!(ErrorKind::NotSupportUniform);
+                            }
+                        }
+                        _ => {}
                     }
                 }
                 _ => {}
@@ -136,6 +149,7 @@ impl Shader {
                fs_main: fs_main.to_owned(),
                render_state: render_state,
                layout: layout.finish(),
+               uniforms: uniforms,
            })
     }
 
@@ -159,5 +173,27 @@ impl Shader {
 
     pub fn layout(&self) -> &graphics::AttributeLayout {
         &self.layout
+    }
+
+    pub fn uniforms(&self) -> &HashMap<String, graphics::UniformVariableType> {
+        &self.uniforms
+    }
+}
+
+impl Into<Option<graphics::UniformVariableType>> for Type {
+    fn into(self) -> Option<graphics::UniformVariableType> {
+        use self::graphics::UniformVariableType as uvt;
+        match self {
+            Type::Sampler2D => Some(uvt::Texture),
+            Type::Int => Some(uvt::I32),
+            Type::Float => Some(uvt::F32),
+            Type::Vec2 => Some(uvt::Vector2f),
+            Type::Vec3 => Some(uvt::Vector3f),
+            Type::Vec4 => Some(uvt::Vector4f),
+            Type::Mat2 => Some(uvt::Matrix2f),
+            Type::Mat3 => Some(uvt::Matrix3f),
+            Type::Mat4 => Some(uvt::Matrix4f),
+            _ => None,
+        }
     }
 }

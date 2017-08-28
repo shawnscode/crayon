@@ -193,4 +193,5 @@ extensions! {
     "textures" => Texture,
     "atlases" => Atlas,
     "shaders" => Shader,
+    "materials" => Material,
 }
