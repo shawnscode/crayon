@@ -1,8 +1,4 @@
-use image;
-use image::GenericImage;
 use graphics;
-
-use super::errors::*;
 
 #[derive(Debug)]
 pub struct Texture {
@@ -78,22 +74,5 @@ impl Texture {
 impl super::Resource for Texture {
     fn size(&self) -> usize {
         self.buf.len()
-    }
-}
-
-impl super::ResourceLoader for Texture {
-    type Item = Texture;
-
-    fn load_from_memory(bytes: &[u8]) -> Result<Self::Item> {
-        let dynamic = image::load_from_memory(&bytes)?.flipv();
-
-        Ok(Texture {
-               mipmap: false,
-               address: graphics::TextureAddress::Clamp,
-               filter: graphics::TextureFilter::Linear,
-               dimensions: dynamic.dimensions(),
-               buf: dynamic.to_rgba().into_raw(),
-               video: None,
-           })
     }
 }

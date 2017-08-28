@@ -1,11 +1,14 @@
-use super::super::atlas;
+use bincode;
+
+use super::super::errors::*;
+use super::super::{ResourceLoader, ResourceSystem, atlas};
 
 pub type AtlasSerializationPayload = atlas::Atlas;
 
-impl super::ResourceSerialization for atlas::Atlas {
-    type Loader = AtlasSerializationPayload;
+impl ResourceLoader for AtlasSerializationPayload {
+    type Item = atlas::Atlas;
 
-    fn payload() -> super::ResourcePayload {
-        super::ResourcePayload::Atlas
+    fn load_from_memory(_: &mut ResourceSystem, bytes: &[u8]) -> Result<Self::Item> {
+        Ok(bincode::deserialize(&bytes)?)
     }
 }

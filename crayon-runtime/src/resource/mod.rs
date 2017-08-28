@@ -9,6 +9,7 @@ pub mod texture;
 pub mod bytes;
 pub mod atlas;
 pub mod shader;
+pub mod material;
 
 pub use self::errors::*;
 pub use self::archive::{File, Archive, FilesystemArchive, ZipArchive, ArchiveCollection};
@@ -20,6 +21,7 @@ pub use self::texture::Texture;
 pub use self::bytes::Bytes;
 pub use self::atlas::{Atlas, AtlasFrame};
 pub use self::shader::Shader;
+pub use self::material::Material;
 
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, RwLock};
@@ -42,14 +44,16 @@ pub trait ResourceLoader: Debug {
     type Item: Resource + ResourceIndex + 'static;
 
     /// Load resource from a file on disk.
-    fn load_from_file(file: &mut archive::File) -> Result<Self::Item> {
+    fn load_from_file(mut sys: &mut ResourceSystem,
+                      file: &mut archive::File)
+                      -> Result<Self::Item> {
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)?;
-        Self::load_from_memory(&buf)
+        Self::load_from_memory(sys, &buf)
     }
 
     /// Create resource from memory region.
-    fn load_from_memory(bytes: &[u8]) -> Result<Self::Item>;
+    fn load_from_memory(sys: &mut ResourceSystem, bytes: &[u8]) -> Result<Self::Item>;
 }
 
 lazy_static! {
@@ -72,14 +76,19 @@ macro_rules! declare_resource {
     };
 }
 
-pub type TextureItem = Arc<RwLock<Texture>>;
+pub type ResourceItem<T> = Arc<RwLock<T>>;
+
+pub type TextureItem = ResourceItem<Texture>;
 declare_resource!(Texture);
 
-pub type BytesItem = Arc<RwLock<Bytes>>;
+pub type BytesItem = ResourceItem<Bytes>;
 declare_resource!(Bytes);
 
-pub type AtlasItem = Arc<RwLock<Atlas>>;
+pub type AtlasItem = ResourceItem<Atlas>;
 declare_resource!(Atlas);
 
-pub type ShaderItem = Arc<RwLock<Shader>>;
+pub type ShaderItem = ResourceItem<Shader>;
 declare_resource!(Shader);
+
+pub type MaterialItem = ResourceItem<Material>;
+declare_resource!(Material);

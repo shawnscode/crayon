@@ -111,3 +111,16 @@ pub enum UniformVariable {
     Matrix3f([[f32; 3]; 3], bool),
     Matrix4f([[f32; 4]; 4], bool),
 }
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub enum UniformVariableType {
+    Texture,
+    I32,
+    F32,
+    Vector2f,
+    Vector3f,
+    Vector4f,
+    Matrix2f,
+    Matrix3f,
+    Matrix4f,
+}

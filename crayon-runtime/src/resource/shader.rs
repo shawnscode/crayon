@@ -1,25 +1,29 @@
+use std::collections::HashMap;
 use graphics;
 
 #[derive(Debug)]
 pub struct Shader {
     vs: String,
     fs: String,
-    layout: graphics::AttributeLayout,
     render_state: graphics::RenderState,
+    layout: graphics::AttributeLayout,
+    uniforms: HashMap<String, graphics::UniformVariableType>,
     pso: Option<graphics::PipelineStateRef>,
 }
 
 impl Shader {
     pub fn new(vs: String,
                fs: String,
-               render_state: &graphics::RenderState,
-               layout: &graphics::AttributeLayout)
+               render_state: graphics::RenderState,
+               layout: graphics::AttributeLayout,
+               uniforms: HashMap<String, graphics::UniformVariableType>)
                -> Shader {
         Shader {
             vs: vs,
             fs: fs,
-            layout: *layout,
-            render_state: *render_state,
+            render_state: render_state,
+            layout: layout,
+            uniforms: uniforms,
             pso: None,
         }
     }

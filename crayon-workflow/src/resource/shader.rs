@@ -37,8 +37,9 @@ impl ResourceUnderlyingMetadata for ShaderMetadata {
         let payload = workflow::ShaderSerializationPayload {
             vs: vs,
             fs: fs,
-            layout: *shader.layout(),
             render_state: *shader.render_state(),
+            layout: *shader.layout(),
+            uniforms: shader.uniforms().clone(),
         };
 
         bincode::serialize_into(&mut out, &payload, bincode::Infinite)?;

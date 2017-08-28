@@ -7,6 +7,7 @@ resources = [ "resources", "no-exists-path" ]
 bytes = [ ".bytes", ".lua" ]
 textures = [ ".png", ".tga", ".bmp" ]
 shaders = [ ".shader" ]
+materials = [ ".mat" ]
 
 [Runtime.EngineSettings]
 # Set the minimal frames per second. If fps goes lower than this,

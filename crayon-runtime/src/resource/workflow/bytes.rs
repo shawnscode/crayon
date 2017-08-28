@@ -1,11 +1,14 @@
-use super::super::bytes;
+use super::super::errors::*;
+use super::super::{ResourceLoader, ResourceSystem, bytes};
 
 pub type BytesSerializationPayload = bytes::Bytes;
 
-impl super::ResourceSerialization for bytes::Bytes {
-    type Loader = BytesSerializationPayload;
+impl ResourceLoader for BytesSerializationPayload {
+    type Item = bytes::Bytes;
 
-    fn payload() -> super::ResourcePayload {
-        super::ResourcePayload::Bytes
+    fn load_from_memory(_: &mut ResourceSystem, bytes: &[u8]) -> Result<Self::Item> {
+        let mut n = Vec::with_capacity(bytes.len());
+        n.copy_from_slice(&bytes);
+        Ok(n)
     }
 }

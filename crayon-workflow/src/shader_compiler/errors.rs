@@ -13,5 +13,6 @@ error_chain!{
 
     errors {
         NotSupportVertexAttribute
+        NotSupportUniform
     }
 }

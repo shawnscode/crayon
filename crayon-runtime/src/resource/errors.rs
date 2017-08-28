@@ -16,5 +16,7 @@ error_chain!{
     errors {
         ResourceDeclarationMismath
         NotFound
+        CircularReferenceFound
+        ShaderNotFound
     }
 }
