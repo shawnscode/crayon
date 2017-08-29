@@ -8,9 +8,9 @@ use crayon::resource::workflow;
 use crayon::graphics;
 
 use errors::*;
-use super::ResourceDatabase;
-use super::metadata::ResourceUnderlyingMetadata;
-use shader_compiler::Shader;
+use workspace::Database;
+use super::ResourceUnderlyingMetadata;
+use shaderc::Shader;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MaterialMetadata;
@@ -27,7 +27,7 @@ impl ResourceUnderlyingMetadata for MaterialMetadata {
     }
 
     fn build(&self,
-             database: &ResourceDatabase,
+             database: &Database,
              path: &Path,
              bytes: &[u8],
              mut out: &mut Vec<u8>)

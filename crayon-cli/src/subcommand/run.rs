@@ -5,8 +5,8 @@ use cargo;
 
 use workflow::Workflow;
 
-pub fn execute(mut workflow: &mut Workflow, matches: &clap::ArgMatches) -> Result<()> {
-    super::build::compile(&mut workflow)?;
+pub fn execute(workflow: &mut Workflow, matches: &clap::ArgMatches) -> Result<()> {
+    workflow.build()?;
 
     let mut args = vec!["run", "--color=always"];
 

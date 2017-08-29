@@ -82,8 +82,11 @@ impl World {
             for _ in self.storages.len()..(T::type_index() + 1) {
                 // Keeps downcast type info in closure.
                 let eraser = Box::new(|any: &mut Box<Any>, id: HandleIndex| {
-                    any.downcast_mut::<RefCell<T::Storage>>().unwrap().borrow_mut().remove(id);
-                });
+                                          any.downcast_mut::<RefCell<T::Storage>>()
+                                              .unwrap()
+                                              .borrow_mut()
+                                              .remove(id);
+                                      });
 
                 self.erasers.push(eraser);
                 self.storages.push(None);

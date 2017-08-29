@@ -6,6 +6,7 @@ resources = [ "resources", "no-exists-path" ]
 # Type table used when crayon-cli import new resources.
 bytes = [ ".bytes", ".lua" ]
 textures = [ ".png", ".tga", ".bmp" ]
+atlases = [ ".atlas" ]
 shaders = [ ".shader" ]
 materials = [ ".mat" ]
 

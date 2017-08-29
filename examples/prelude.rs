@@ -2,23 +2,15 @@ use crayon_workflow as workflow;
 
 pub fn compile() {
     // Get the example manifest `workspace.toml`.
-    let manifest = workflow::Manifest::load_from("examples/workspace.toml")
-        .unwrap()
-        .setup()
-        .unwrap();
+    let workspace = workflow::Workspace::load_from("examples/workspace.toml").unwrap();
 
     // Build resources into `compiled-resources.'
-    let mut database = workflow::resource::ResourceDatabase::new(manifest).unwrap();
     let os = workflow::platform::BuildTarget::MacOS;
 
-    database
-        .load_metadata_as("examples/resources/atlas.json",
-                          workflow::resource::Resource::Atlas)
+    workspace
+        .reimport("examples/resources/atlas.json", workflow::Resource::Atlas)
         .unwrap();
 
-    database.refresh().unwrap();
-    database.save().unwrap();
-    database
-        .build("0.0.1", os, "examples/compiled-resources")
-        .unwrap();
+    workspace.save().unwrap();
+    workspace.build(os, "examples/compiled-resources").unwrap();
 }
