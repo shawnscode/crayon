@@ -10,6 +10,8 @@ use errors::*;
 use workspace::Database;
 use super::ResourceUnderlyingMetadata;
 
+use utils::json::*;
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AtlasPlugins {
     TexturePacker,
@@ -70,34 +72,26 @@ impl AtlasMetadata {
         let value: serde_json::Value = serde_json::from_reader(bytes)?;
         let root = value.as_object().unwrap();
 
-        let mut scale = 1.0f32;
-        let mut texture = uuid::Uuid::nil();
+        let scale = load_as_f32(&value, &["meta", "scale"]).unwrap_or(1f32);
+        let texture = load_as_str(&value, &["meta", "image"])
+            .and_then(|image| {
+                          path.parent()
+                              .and_then(|v| Some(v.join(Path::new(image))))
+                              .and_then(|v| database.uuid(v))
+                      })
+            .unwrap_or(uuid::Uuid::nil());
+
         let mut frames = HashMap::new();
 
-        if let Some(meta) = root.get("meta").and_then(|v| v.as_object()) {
-            if let Some(s) = meta.get("scale").and_then(|v| v.as_f64()) {
-                scale = s as f32;
-            }
-
-            if let Some(image) = meta.get("image").and_then(|v| v.as_str()) {
-                let texture_path = path.parent().unwrap().join(Path::new(image));
-                if let Some(uuid) = database.uuid(texture_path) {
-                    texture = uuid;
-                }
-            }
-        }
 
         if let Some(table) = root.get("frames").and_then(|v| v.as_array()) {
             for v in table {
-                let frame_value = v.get("frame").unwrap();
-                let pivot_value = v.get("pivot").unwrap();
-
-                let position = (frame_value["x"].as_u64().unwrap() as u16,
-                                frame_value["y"].as_u64().unwrap() as u16);
-                let size = (frame_value["w"].as_u64().unwrap() as u16,
-                            frame_value["h"].as_u64().unwrap() as u16);
-                let pivot = (pivot_value["x"].as_f64().unwrap() as f32,
-                             pivot_value["y"].as_f64().unwrap() as f32);
+                let position = (load_as_u16(&v, &["frame", "x"]).unwrap_or(0),
+                                load_as_u16(&v, &["frame", "y"]).unwrap_or(0));
+                let size = (load_as_u16(&v, &["frame", "w"]).unwrap_or(0),
+                            load_as_u16(&v, &["frame", "h"]).unwrap_or(0));
+                let pivot = (load_as_f32(&v, &["pivot", "x"]).unwrap_or(0f32),
+                             load_as_f32(&v, &["pivot", "y"]).unwrap_or(0f32));
 
                 let frame = resource::atlas::AtlasInternalFrame {
                     position: position,
@@ -105,7 +99,9 @@ impl AtlasMetadata {
                     pivot: pivot,
                 };
 
-                let filename = v["filename"].as_str().unwrap().to_owned();
+                let filename = load_as_str(&v, &["filename"])
+                    .and_then(|v| Some(v.to_owned()))
+                    .unwrap();
                 frames.insert(filename, frame);
             }
         }
