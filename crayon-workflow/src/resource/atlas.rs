@@ -7,8 +7,8 @@ use crayon::resource;
 
 use std::path::Path;
 use errors::*;
-use super::ResourceDatabase;
-use super::metadata::ResourceUnderlyingMetadata;
+use workspace::Database;
+use super::ResourceUnderlyingMetadata;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AtlasPlugins {
@@ -28,7 +28,7 @@ impl ResourceUnderlyingMetadata for AtlasMetadata {
     }
 
     fn build(&self,
-             database: &ResourceDatabase,
+             database: &Database,
              path: &Path,
              bytes: &[u8],
              mut out: &mut Vec<u8>)
@@ -62,7 +62,7 @@ impl AtlasMetadata {
     }
 
     fn build_with_texture_packer(&self,
-                                 database: &ResourceDatabase,
+                                 database: &Database,
                                  path: &Path,
                                  bytes: &[u8],
                                  mut out: &mut Vec<u8>)

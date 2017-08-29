@@ -1,13 +1,13 @@
 use crayon::resource::workflow;
 use bincode;
 
-use shader_compiler::*;
-use shader_compiler::backend::ShaderBackend;
+use shaderc::*;
+use shaderc::backend::ShaderBackend;
 
 use std::path::Path;
 use errors::*;
-use super::ResourceDatabase;
-use super::metadata::ResourceUnderlyingMetadata;
+use workspace::Database;
+use super::ResourceUnderlyingMetadata;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ShaderMetadata;
@@ -23,12 +23,7 @@ impl ResourceUnderlyingMetadata for ShaderMetadata {
         Ok(())
     }
 
-    fn build(&self,
-             _: &ResourceDatabase,
-             _: &Path,
-             bytes: &[u8],
-             mut out: &mut Vec<u8>)
-             -> Result<()> {
+    fn build(&self, _: &Database, _: &Path, bytes: &[u8], mut out: &mut Vec<u8>) -> Result<()> {
         let shader = Shader::load(bytes)?;
 
         let vs = backend::GLSL110::build(&shader, ShaderPhase::Vertex).unwrap();

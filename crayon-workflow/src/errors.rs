@@ -1,6 +1,6 @@
 use bincode;
 use std::boxed;
-use shader_compiler;
+use shaderc;
 
 error_chain!{
     types {
@@ -9,7 +9,8 @@ error_chain!{
 
     foreign_links {
         IO(::std::io::Error);
-        Toml(::toml::de::Error);
+        TomlDeser(::toml::de::Error);
+        TomlSer(::toml::ser::Error);
         Yaml(::serde_yaml::Error);
         Bincode(boxed::Box<bincode::ErrorKind>);
         Image(::image::ImageError);
@@ -17,13 +18,13 @@ error_chain!{
     }
 
     links {
-        Shader(shader_compiler::errors::Error, shader_compiler::errors::ErrorKind);
+        Shader(shaderc::errors::Error, shaderc::errors::ErrorKind);
     }
 
     errors {
         FileNotFound
-        ValidationFailed
-        UuidDuplicationFound
+        WorkspaceNotFound
+
         ShaderNotFound
     }
 }

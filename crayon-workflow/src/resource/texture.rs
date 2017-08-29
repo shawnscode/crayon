@@ -5,8 +5,8 @@ use bincode;
 
 use std::path::Path;
 use errors::*;
-use super::ResourceDatabase;
-use super::metadata::ResourceUnderlyingMetadata;
+use workspace::Database;
+use super::ResourceUnderlyingMetadata;
 
 /// Compression settings of texture.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -48,12 +48,7 @@ impl ResourceUnderlyingMetadata for TextureMetadata {
         Ok(())
     }
 
-    fn build(&self,
-             _: &ResourceDatabase,
-             _: &Path,
-             data: &[u8],
-             mut out: &mut Vec<u8>)
-             -> Result<()> {
+    fn build(&self, _: &Database, _: &Path, data: &[u8], mut out: &mut Vec<u8>) -> Result<()> {
         assert!(self.compression == TextureCompressionMetadata::None);
 
         let mut bytes = Vec::new();

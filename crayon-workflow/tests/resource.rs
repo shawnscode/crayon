@@ -2,20 +2,14 @@ extern crate crayon;
 extern crate crayon_workflow;
 extern crate image;
 
-use crayon_workflow::resource;
-use crayon_workflow::Manifest;
-
 use std::path::Path;
 
 #[test]
 fn database() {
-    use resource::ResourceDatabase;
 
     ///
-    let manifest = Manifest::find("tests/workspace").unwrap().setup().unwrap();
-    let mut database = ResourceDatabase::new(manifest).unwrap();
-    database.refresh().unwrap();
-    database.save().unwrap();
+    let workspace = crayon_workflow::Workspace::find("tests/workspace").unwrap();
+    workspace.save().unwrap();
 
     ///
     {
@@ -27,10 +21,8 @@ fn database() {
     }
 
     /// Make sure processed resources could be read at runtime.
-    database
-        .build("0.0.1",
-               crayon_workflow::platform::BuildTarget::MacOS,
-               "tests/build")
+    workspace
+        .build(crayon_workflow::BuildTarget::MacOS, "tests/build")
         .unwrap();
 
     let mut rs = crayon::resource::ResourceSystem::new().unwrap();
@@ -45,7 +37,8 @@ fn database() {
     }
 
     {
-        let uuid = database
+        let uuid = workspace
+            .database
             .uuid("tests/workspace/resources/texture.png")
             .unwrap();
 
@@ -54,6 +47,11 @@ fn database() {
     }
 
     {
+        workspace
+            .reimport("tests/workspace/resources/atlas.json",
+                      crayon_workflow::Resource::Atlas)
+            .unwrap();
+
         let atlas: crayon::resource::AtlasItem = rs.load("atlas.json").unwrap();
         let uuid = atlas.read().unwrap().texture();
         rs.load_with_uuid::<crayon::resource::Texture>(uuid)

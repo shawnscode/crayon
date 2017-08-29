@@ -1,7 +1,7 @@
 use std::path::Path;
 use errors::*;
-use super::ResourceDatabase;
-use super::metadata::ResourceUnderlyingMetadata;
+use workspace::Database;
+use super::ResourceUnderlyingMetadata;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BytesMetadata;
@@ -17,12 +17,7 @@ impl ResourceUnderlyingMetadata for BytesMetadata {
         Ok(())
     }
 
-    fn build(&self,
-             _: &ResourceDatabase,
-             _: &Path,
-             bytes: &[u8],
-             mut out: &mut Vec<u8>)
-             -> Result<()> {
+    fn build(&self, _: &Database, _: &Path, bytes: &[u8], mut out: &mut Vec<u8>) -> Result<()> {
         out.resize(bytes.len(), 0);
         out.copy_from_slice(&bytes);
         Ok(())

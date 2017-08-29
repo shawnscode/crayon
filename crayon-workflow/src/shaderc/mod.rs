@@ -18,7 +18,7 @@
 //! The syntax of this shader language is designed to be very similiar to GLSL for a lower learning-
 //! curve.
 //!
-//! - TODO
+//! TODO: Specification of syntsxs
 
 #[macro_use]
 pub mod lex;

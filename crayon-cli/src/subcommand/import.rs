@@ -12,13 +12,17 @@ pub fn execute(workflow: &mut Workflow, matches: &clap::ArgMatches) -> Result<()
         let tt = tt.to_lowercase();
         if tt == "atlas" {
             workflow
+                .workspace
                 .database
-                .load_metadata_as(path, crayon_workflow::Resource::Atlas)?
+                .reimport(path, crayon_workflow::Resource::Atlas)?
         } else {
             bail!("not supports!");
         }
     } else {
-        workflow.database.load_metadata(path)?
+        workflow
+            .workspace
+            .database
+            .import(path, &workflow.workspace.manifest.workspace())?
     };
 
     Ok(())
