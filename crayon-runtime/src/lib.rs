@@ -9,7 +9,6 @@ extern crate libc;
 extern crate zip;
 extern crate glutin;
 extern crate gl;
-extern crate cgmath;
 extern crate uuid;
 
 #[macro_use]
@@ -25,6 +24,8 @@ extern crate serde_derive;
 extern crate serde;
 extern crate bincode;
 
+pub extern crate cgmath;
+
 #[macro_use]
 pub mod utility;
 pub mod core;
@@ -38,10 +39,4 @@ pub mod scene;
 pub use core::Application;
 pub use ecs::*;
 
-use cgmath as math;
-use core::engine::Subsystem;
-
-unsafe impl Send for World {}
-unsafe impl Sync for World {}
-
-impl Subsystem for World {}
+pub use cgmath as math;
