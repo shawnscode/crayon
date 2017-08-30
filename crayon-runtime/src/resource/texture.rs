@@ -27,9 +27,7 @@ impl Texture {
         }
     }
 
-    pub fn update_video_object(&mut self,
-                               video: &mut graphics::Graphics)
-                               -> graphics::errors::Result<()> {
+    pub fn update_video_object(&mut self, video: &mut graphics::Graphics) -> graphics::Result<()> {
         if self.video.is_none() {
             let v = video
                 .create_texture(graphics::TextureFormat::U8U8U8U8,

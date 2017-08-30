@@ -278,9 +278,9 @@ impl ViewStateObject {
     /// Update the render target of `View` bucket. If `framebuffer` is none, default
     /// framebuffer will be used as render target
     #[inline]
-    pub fn update_framebuffer(&mut self, framebuffer: Option<&FrameBufferRef>) {
-        self.framebuffer = framebuffer.map(|v| v.clone());
-        self.update_framebuffer = Some(framebuffer.map(|v| v.handle));
+    pub fn update_framebuffer(&mut self, framebuffer: Option<FrameBufferRef>) {
+        self.framebuffer = framebuffer;
+        self.update_framebuffer = Some(self.framebuffer.as_ref().map(|v| v.handle))
     }
 
     /// By defaults view are sorted in ascending oreder by ids when rendering.
@@ -325,9 +325,10 @@ impl Deref for ViewStateRef {
 impl Graphics {
     /// Creates an view with optional `FrameBuffer`. If `FrameBuffer` is none, default
     /// framebuffer will be used as render target.
-    pub fn create_view(&mut self, framebuffer: Option<&FrameBufferRef>) -> Result<ViewStateRef> {
+    pub fn create_view(&mut self, framebuffer: Option<FrameBufferRef>) -> Result<ViewStateRef> {
+        let fb = framebuffer.as_ref().map(|v| v.handle);
         let object = Arc::new(RwLock::new(ViewStateObject {
-                                              framebuffer: framebuffer.map(|v| v.clone()),
+                                              framebuffer: framebuffer,
                                               update_framebuffer: None,
                                               update_order: None,
                                               update_seq_mode: None,
@@ -336,9 +337,7 @@ impl Graphics {
 
         let mut frame = self.frames.front();
         let handle = self.views.create(object.clone()).into();
-        frame
-            .pre
-            .push(PreFrameTask::CreateView(handle, framebuffer.map(|v| v.handle)));
+        frame.pre.push(PreFrameTask::CreateView(handle, fb));
 
         Ok(ViewStateRef {
                handle: handle,

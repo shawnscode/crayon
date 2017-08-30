@@ -63,9 +63,10 @@ impl Version {
         let desc = gl::GetString(gl::VERSION);
         let desc = String::from_utf8(ffi::CStr::from_ptr(desc as *const _).to_bytes().to_vec())
             .map_err(|_| {
-                let tips = "glGetString(GL_VERSION) returned an unfomaled string.".to_string();
-                ErrorKind::Msg(tips)
-            })?;
+                         let tips = "glGetString(GL_VERSION) returned an unfomaled string."
+                             .to_string();
+                         ErrorKind::Msg(tips)
+                     })?;
 
         let (es, desc) = if desc.starts_with("OpenGL ES ") {
             (true, &desc[10..])
@@ -75,16 +76,24 @@ impl Version {
             (false, &desc[..])
         };
 
-        let desc = desc.split(' ')
-            .next()
-            .ok_or(ErrorKind::Msg("glGetString(GL_VERSION) returned an empty string".to_string()))?;
+        let desc =
+            desc.split(' ')
+                .next()
+                .ok_or(ErrorKind::Msg("glGetString(GL_VERSION) returned an empty string"
+                                          .to_string()))?;
 
         let mut iter = desc.split(move |c: char| c == '.');
         let major = iter.next().unwrap();
         let minor = iter.next().unwrap();
 
-        let major = major.parse().ok().expect("failed to parse GL major version");
-        let minor = minor.parse().ok().expect("failed to parse GL minor version");
+        let major = major
+            .parse()
+            .ok()
+            .expect("failed to parse GL major version");
+        let minor = minor
+            .parse()
+            .ok()
+            .expect("failed to parse GL minor version");
 
         if es {
             Ok(Version::ES(major, minor))
@@ -233,18 +242,19 @@ impl Capabilities {
         };
 
         Ok(Capabilities {
-            version: version,
-            extensions: extensions,
-            vendor: Capabilities::parse_str(gl::VENDOR)?,
-            renderer: Capabilities::parse_str(gl::RENDERER)?,
-            profile: Capabilities::parse_profile(version),
-            debug: debug,
-            forward_compatible: forward_compatible,
-            max_viewport_dims: Capabilities::parse_viewport_dims(),
-            max_combined_texture_image_units: Capabilities::parse_texture_image_units(),
-            max_indexed_uniform_buffer: Capabilities::parse_uniform_buffers(version, &extensions),
-            max_color_attachments: Capabilities::parse_color_attachments(version, &extensions),
-        })
+               version: version,
+               extensions: extensions,
+               vendor: Capabilities::parse_str(gl::VENDOR)?,
+               renderer: Capabilities::parse_str(gl::RENDERER)?,
+               profile: Capabilities::parse_profile(version),
+               debug: debug,
+               forward_compatible: forward_compatible,
+               max_viewport_dims: Capabilities::parse_viewport_dims(),
+               max_combined_texture_image_units: Capabilities::parse_texture_image_units(),
+               max_indexed_uniform_buffer: Capabilities::parse_uniform_buffers(version,
+                                                                               &extensions),
+               max_color_attachments: Capabilities::parse_color_attachments(version, &extensions),
+           })
     }
 
     #[inline]

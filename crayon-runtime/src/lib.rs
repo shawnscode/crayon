@@ -1,6 +1,4 @@
 #[macro_use]
-extern crate lazy_static;
-#[macro_use]
 extern crate error_chain;
 extern crate bit_set;
 extern crate deque;
@@ -24,6 +22,8 @@ extern crate serde_derive;
 extern crate serde;
 extern crate bincode;
 
+#[macro_use]
+pub extern crate lazy_static;
 pub extern crate cgmath;
 
 #[macro_use]

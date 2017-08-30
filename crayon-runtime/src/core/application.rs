@@ -77,7 +77,6 @@ impl Application {
     {
         println!("Launch crayon-runtim with working directory {:?}.",
                  ::std::env::current_dir());
-
         let mut exec = true;
         let mut events = Vec::new();
         'main: while exec {

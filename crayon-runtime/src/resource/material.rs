@@ -49,7 +49,7 @@ impl Material {
     }
 
     /// Render queue of this material, renderer will draw objects in order.
-    pub fn render_queue(&self) -> i32 {
+    pub fn render_order(&self) -> i32 {
         self.priority
     }
 
@@ -96,14 +96,14 @@ impl Material {
     }
 
     /// Sets a named matrix uniform.
-    set_uniform_mat!(set_uniform_matrix2, Matrix2f, Matrix2);
-    set_uniform_mat!(set_uniform_matrix3, Matrix4f, Matrix4);
-    set_uniform_mat!(set_uniform_matrix4, Matrix4f, Matrix4);
+    set_uniform_mat!(set_matrix2f, Matrix2f, Matrix2);
+    set_uniform_mat!(set_matrix3f, Matrix4f, Matrix4);
+    set_uniform_mat!(set_matrix4f, Matrix4f, Matrix4);
 
     /// Sets a named vector uniform.
-    set_uniform_vec!(set_uniform_vector2, Vector2f, Vector2);
-    set_uniform_vec!(set_uniform_vector3, Vector3f, Vector3);
-    set_uniform_vec!(set_uniform_vector4, Vector4f, Vector4);
+    set_uniform_vec!(set_vector2f, Vector2f, Vector2);
+    set_uniform_vec!(set_vector3f, Vector3f, Vector3);
+    set_uniform_vec!(set_vector4f, Vector4f, Vector4);
 
     fn uniform_mut(&mut self, name: &str) -> Option<&mut (String, UniformVariable)> {
         for pair in &mut self.uniforms {
