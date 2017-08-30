@@ -30,6 +30,8 @@ impl Context {
             gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
             let capabilities = Capabilities::parse()?;
+            println!("{:#?}", capabilities);
+
             Context::check_minimal_requirements(&capabilities)?;
 
             let context = Context {
@@ -38,7 +40,6 @@ impl Context {
                 capabilities: capabilities,
                 device: device::Device::new(),
             };
-
             Ok(context)
         }
     }

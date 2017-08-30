@@ -7,7 +7,6 @@ use core::application;
 use ecs;
 use graphics;
 use math;
-use math::EuclideanSpace;
 use resource;
 
 use super::errors::*;
@@ -24,7 +23,6 @@ impl_vertex! {
 
 /// A simple and quick forward sprite renderer with automatic batching.
 pub struct SpriteRenderer {
-    view: graphics::ViewStateRef,
     pipeline: graphics::PipelineStateRef,
     vertices: Vec<SpriteVertex>,
 }
@@ -55,9 +53,7 @@ impl SpriteRenderer {
             .graphics
             .create_pipeline(SPRITE_VS, SPRITE_FS, &state, &attributes)?;
 
-        let view = application.graphics.create_view(None)?;
         Ok(SpriteRenderer {
-               view: view,
                pipeline: pipeline,
                vertices: Vec::with_capacity(MAX_BATCH_VERTICES),
            })
@@ -75,17 +71,14 @@ impl SpriteRenderer {
 
         let view_mat = {
             let arena = world.arena::<Transform>().unwrap();
-            let dir = math::Vector3::new(0.0, 0.0, 1.0);
-            let forward = Transform::transform_point(&arena, camera, dir)?;
-            let center = Transform::world_position(&arena, camera)?;
-            let up = Transform::up(&arena, camera)?;
-            math::Matrix4::<f32>::look_at(math::Point3::from_vec(forward),
-                                          math::Point3::from_vec(center),
-                                          up)
+            Transform::view(&arena, camera)?
         };
 
-        let camera = world.fetch::<Camera>(camera).unwrap();
-        let proj_mat = camera.projection_matrix();
+        let (vso, proj_mat) = {
+            let mut camera = world.fetch_mut::<Camera>(camera).unwrap();
+            camera.update_video_object(&mut application.graphics)?;
+            (camera.video_object().unwrap(), camera.projection_matrix())
+        };
 
         let (view, arenas) = world.view_with_3::<Transform, Rect, Sprite>();
 
@@ -110,7 +103,7 @@ impl SpriteRenderer {
             // Commit batched vertices if necessary.
             let texture = sprite.texture();
             if !eq(last_texture, texture) || self.vertices.len() >= MAX_BATCH_VERTICES {
-                self.consume(&mut application, &view_mat, &proj_mat, last_texture)?;
+                self.consume(&mut application, &vso, &view_mat, &proj_mat, last_texture)?;
             }
 
             last_texture = texture;
@@ -146,12 +139,13 @@ impl SpriteRenderer {
             self.vertices.push(v4);
         }
 
-        self.consume(&mut application, &view_mat, &proj_mat, last_texture)?;
+        self.consume(&mut application, &vso, &view_mat, &proj_mat, last_texture)?;
         Ok(())
     }
 
     fn consume(&mut self,
                mut application: &mut application::Application,
+               vso: &graphics::ViewHandle,
                view_mat: &math::Matrix4<f32>,
                proj_mat: &math::Matrix4<f32>,
                texture: Option<&resource::TextureItem>)
@@ -185,7 +179,7 @@ impl SpriteRenderer {
         application
             .graphics
             .draw(0,
-                  *self.view,
+                  *vso,
                   *self.pipeline,
                   &textures,
                   &uniforms,

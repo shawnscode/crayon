@@ -70,7 +70,7 @@ fn main() {
                 item.update_clear(Some(Color::gray()), None, None);
             }
 
-            let view_fb = app.graphics.create_view(Some(&fbo)).unwrap();
+            let view_fb = app.graphics.create_view(Some(fbo)).unwrap();
             let pipeline_fb = app.graphics
                 .create_pipeline(include_str!("resources/shaders/render_target_p1.vs"),
                                  include_str!("resources/shaders/render_target_p1.fs"),
