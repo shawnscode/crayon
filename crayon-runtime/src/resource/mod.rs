@@ -10,6 +10,7 @@ pub mod bytes;
 pub mod atlas;
 pub mod shader;
 pub mod material;
+pub mod primitive;
 
 pub use self::errors::*;
 pub use self::archive::{File, Archive, FilesystemArchive, ZipArchive, ArchiveCollection};
@@ -22,6 +23,7 @@ pub use self::bytes::Bytes;
 pub use self::atlas::{Atlas, AtlasFrame};
 pub use self::shader::Shader;
 pub use self::material::Material;
+pub use self::primitive::Primitive;
 
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, RwLock};
@@ -92,3 +94,6 @@ declare_resource!(Shader);
 
 pub type MaterialItem = ResourceItem<Material>;
 declare_resource!(Material);
+
+pub type PrimitiveItem = ResourceItem<Primitive>;
+declare_resource!(Primitive);
