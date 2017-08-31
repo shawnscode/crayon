@@ -14,7 +14,7 @@ struct Window {
     view: ViewStateRef,
     pso: PipelineStateRef,
     vbo: VertexBufferRef,
-    texture: resource::TextureItem,
+    texture: resource::TexturePtr,
 }
 
 fn main() {
@@ -58,7 +58,7 @@ fn main() {
                 .load_manifest("examples/compiled-resources/manifest")
                 .unwrap();
 
-            let texture: resource::TextureItem = app.resources.load("texture.png").unwrap();
+            let texture: resource::TexturePtr = app.resources.load("texture.png").unwrap();
 
             texture
                 .write()

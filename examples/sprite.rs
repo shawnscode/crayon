@@ -28,7 +28,7 @@ struct SpriteParticle {
 
 fn main() {
     let mut scene: Option<Scene2d> = None;
-    let mut atlas: Option<resource::AtlasItem> = None;
+    let mut atlas: Option<resource::AtlasPtr> = None;
     let mut particles = vec![];
     let mut cal = XorShiftRng::from_seed([0, 1, 2, 3]);
 

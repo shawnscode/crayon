@@ -69,7 +69,7 @@ impl Resource for Text {
 impl ResourceLoader for Text {
     type Item = Text;
 
-    fn load_from_memory(_: &mut ResourceSystem, bytes: &[u8]) -> Result<Self::Item> {
+    fn load_from_memory(_: &mut ResourceFrontend, bytes: &[u8]) -> Result<Self::Item> {
         Ok(Text { value: String::from_utf8_lossy(&bytes).into_owned() })
     }
 }
@@ -78,7 +78,7 @@ declare_resource!(Text);
 
 #[test]
 fn load_from() {
-    let mut rs = ResourceSystem::new().unwrap();
+    let mut rs = ResourceFrontend::new().unwrap();
     rs.register::<Text>();
 
     {
@@ -93,7 +93,7 @@ fn clean() {
     // let mut collection = ArchiveCollection::new();
     // collection.register(FilesystemArchive::new("tests/resources").unwrap());
 
-    // let mut rs = ResourceSystemBackend::new();
+    // let mut rs = ResourceBackend::new();
 
     // {
     //     let t1 = rs.load::<Text, &str>(&collection, "mock.prefab").unwrap();

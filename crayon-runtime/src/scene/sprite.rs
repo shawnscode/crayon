@@ -12,7 +12,7 @@ pub struct Sprite {
     visible: bool,
     color: graphics::Color,
     additive: graphics::Color,
-    texture: Option<resource::TextureItem>,
+    texture: Option<resource::TexturePtr>,
     texture_rect: ((f32, f32), (f32, f32)),
 }
 
@@ -52,12 +52,12 @@ impl Sprite {
     }
 
     /// Get the underlying texture of `Sprite`.
-    pub fn texture(&self) -> Option<&resource::TextureItem> {
+    pub fn texture(&self) -> Option<&resource::TexturePtr> {
         self.texture.as_ref()
     }
 
     /// Set the underlying texture of `Sprite`.
-    pub fn set_texture(&mut self, texture: Option<resource::TextureItem>) {
+    pub fn set_texture(&mut self, texture: Option<resource::TexturePtr>) {
         self.texture = texture;
     }
 

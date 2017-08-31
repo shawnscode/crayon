@@ -1,12 +1,12 @@
 use math;
 use graphics::UniformVariable;
-use super::{TextureItem, ShaderItem};
+use super::{TexturePtr, ShaderPtr};
 
 /// `Material` exposes all properties from a shader and allowing you to acess them.
 #[derive(Debug, Clone)]
 pub struct Material {
-    shader: ShaderItem,
-    textures: Vec<(String, Option<TextureItem>)>,
+    shader: ShaderPtr,
+    textures: Vec<(String, Option<TexturePtr>)>,
     uniforms: Vec<(String, UniformVariable)>,
     priority: i32,
 }
@@ -36,8 +36,8 @@ macro_rules! set_uniform_vec {
 }
 
 impl Material {
-    pub fn new(shader: ShaderItem,
-               textures: Vec<(String, Option<TextureItem>)>,
+    pub fn new(shader: ShaderPtr,
+               textures: Vec<(String, Option<TexturePtr>)>,
                uniforms: Vec<(String, UniformVariable)>)
                -> Material {
         Material {
@@ -70,12 +70,12 @@ impl Material {
     }
 
     /// Get the textures of this material.
-    pub fn textures(&self) -> &[(String, Option<TextureItem>)] {
+    pub fn textures(&self) -> &[(String, Option<TexturePtr>)] {
         &self.textures
     }
 
     /// Get the texture with given name.
-    pub fn texture(&self, name: &str) -> Option<TextureItem> {
+    pub fn texture(&self, name: &str) -> Option<TexturePtr> {
         for pair in &self.textures {
             if pair.0 == name {
                 return pair.1.clone();
@@ -86,7 +86,7 @@ impl Material {
     }
 
     /// Set the texture with given name.
-    pub fn set_texture(&mut self, name: &str, tex: Option<TextureItem>) {
+    pub fn set_texture(&mut self, name: &str, tex: Option<TexturePtr>) {
         for pair in &mut self.textures {
             if pair.0 == name {
                 pair.1 = tex;

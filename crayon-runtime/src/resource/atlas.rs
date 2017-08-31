@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use uuid;
-use super::TextureItem;
+use super::TexturePtr;
 
 /// A atlas frame.
 #[derive(Debug)]
 pub struct AtlasFrame {
-    pub texture: TextureItem,
+    pub texture: TexturePtr,
     /// Normalized position of the underlying texture.
     pub position: (f32, f32),
     /// Normalized rect of the underlying texture.
@@ -68,7 +68,10 @@ impl Atlas {
 impl Atlas {
     /// Get a atlas frame with filename.
     #[inline]
-    pub fn frame(&self, mut rs: &mut super::ResourceSystem, filename: &str) -> Option<AtlasFrame> {
+    pub fn frame(&self,
+                 mut rs: &mut super::ResourceFrontend,
+                 filename: &str)
+                 -> Option<AtlasFrame> {
         if let Some(frame) = self.frames.get(filename).and_then(|v| Some(v.clone())) {
             if let Ok(texture) = rs.load_with_uuid::<super::Texture>(self.texture) {
 

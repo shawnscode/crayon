@@ -17,7 +17,7 @@ pub struct Application {
     pub window: Arc<window::Window>,
     pub engine: Engine,
     pub graphics: graphics::Graphics,
-    pub resources: resource::ResourceSystem,
+    pub resources: resource::ResourceFrontend,
 }
 
 impl Application {
@@ -57,7 +57,7 @@ impl Application {
                window: window,
                engine: engine,
                graphics: graphics,
-               resources: resource::ResourceSystem::new()?,
+               resources: resource::ResourceFrontend::new()?,
            })
     }
 

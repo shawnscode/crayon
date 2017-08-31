@@ -4,7 +4,7 @@ use bincode;
 use graphics;
 
 use super::super::errors::*;
-use super::super::{ResourceLoader, ResourceSystem, shader};
+use super::super::{ResourceLoader, ResourceFrontend, shader};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ShaderSerializationPayload {
@@ -18,7 +18,7 @@ pub struct ShaderSerializationPayload {
 impl ResourceLoader for ShaderSerializationPayload {
     type Item = shader::Shader;
 
-    fn load_from_memory(_: &mut ResourceSystem, bytes: &[u8]) -> Result<Self::Item> {
+    fn load_from_memory(_: &mut ResourceFrontend, bytes: &[u8]) -> Result<Self::Item> {
         let data: ShaderSerializationPayload = bincode::deserialize(&bytes)?;
         Ok(shader::Shader::new(data.vs,
                                data.fs,

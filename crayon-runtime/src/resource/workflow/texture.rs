@@ -4,7 +4,7 @@ use bincode;
 
 use graphics;
 use super::super::errors::*;
-use super::super::{ResourceLoader, ResourceSystem, texture};
+use super::super::{ResourceLoader, ResourceFrontend, texture};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TextureSerializationPayload {
@@ -18,7 +18,7 @@ pub struct TextureSerializationPayload {
 impl ResourceLoader for TextureSerializationPayload {
     type Item = texture::Texture;
 
-    fn load_from_memory(_: &mut ResourceSystem, bytes: &[u8]) -> Result<Self::Item> {
+    fn load_from_memory(_: &mut ResourceFrontend, bytes: &[u8]) -> Result<Self::Item> {
         let data: TextureSerializationPayload = bincode::deserialize(&bytes)?;
         assert!(!data.is_compressed);
 

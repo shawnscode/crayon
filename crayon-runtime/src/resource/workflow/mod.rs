@@ -31,7 +31,7 @@ macro_rules! declare_buildin_resource {
         }
 
         /// Register all the resource type which has build-in supports with `crayon-workflow`.
-        pub fn register(frontend: &mut super::ResourceSystem) {
+        pub fn register(frontend: &mut super::ResourceFrontend) {
             $(frontend.register::<super::$name>();)*
         }
         

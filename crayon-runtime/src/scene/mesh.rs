@@ -3,12 +3,12 @@ use ecs::HashMapStorage;
 
 pub struct Mesh {
     visible: bool,
-    primitive: resource::PrimitiveItem,
-    mat: resource::MaterialItem,
+    primitive: resource::PrimitivePtr,
+    mat: resource::MaterialPtr,
 }
 
 impl Mesh {
-    pub fn new(primitive: resource::PrimitiveItem, mat: resource::MaterialItem) -> Self {
+    pub fn new(primitive: resource::PrimitivePtr, mat: resource::MaterialPtr) -> Self {
         Mesh {
             visible: true,
             primitive: primitive,
@@ -16,11 +16,11 @@ impl Mesh {
         }
     }
 
-    pub fn material(&self) -> resource::MaterialItem {
+    pub fn material(&self) -> resource::MaterialPtr {
         self.mat.clone()
     }
 
-    pub fn primitive(&self) -> resource::PrimitiveItem {
+    pub fn primitive(&self) -> resource::PrimitivePtr {
         self.primitive.clone()
     }
 }

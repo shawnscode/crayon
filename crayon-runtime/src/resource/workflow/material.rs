@@ -3,7 +3,7 @@ use graphics;
 use uuid;
 
 use super::super::errors::*;
-use super::super::{ResourceLoader, ResourceSystem, material, shader, texture};
+use super::super::{ResourceLoader, ResourceFrontend, material, shader, texture};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MaterialSerializationPayload {
@@ -16,7 +16,7 @@ pub struct MaterialSerializationPayload {
 impl ResourceLoader for MaterialSerializationPayload {
     type Item = material::Material;
 
-    fn load_from_memory(sys: &mut ResourceSystem, bytes: &[u8]) -> Result<Self::Item> {
+    fn load_from_memory(sys: &mut ResourceFrontend, bytes: &[u8]) -> Result<Self::Item> {
         let data: MaterialSerializationPayload = bincode::deserialize(&bytes)?;
         let mut textures = Vec::new();
 

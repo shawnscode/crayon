@@ -68,6 +68,10 @@ impl Primitive {
             None
         }
     }
+
+    pub fn layout(&self) -> &graphics::VertexLayout {
+        &self.vertices.layout
+    }
 }
 
 impl super::Resource for Primitive {
@@ -79,10 +83,6 @@ impl super::Resource for Primitive {
             .unwrap_or(0)
     }
 }
-
-// impl Primitive {
-//     pub fn cube() -> Primitive {}
-// }
 
 #[derive(Debug)]
 struct PrimitiveVertexData {

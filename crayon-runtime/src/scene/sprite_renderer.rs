@@ -148,7 +148,7 @@ impl SpriteRenderer {
                vso: &graphics::ViewHandle,
                view_mat: &math::Matrix4<f32>,
                proj_mat: &math::Matrix4<f32>,
-               texture: Option<&resource::TextureItem>)
+               texture: Option<&resource::TexturePtr>)
                -> Result<()> {
         if self.vertices.len() <= 0 {
             return Ok(());
@@ -219,7 +219,7 @@ impl PartialOrd for SpriteOrd {
     }
 }
 
-fn eq(lhs: Option<&resource::TextureItem>, rhs: Option<&resource::TextureItem>) -> bool {
+fn eq(lhs: Option<&resource::TexturePtr>, rhs: Option<&resource::TexturePtr>) -> bool {
     if lhs.is_none() && rhs.is_none() {
         return true;
     }
