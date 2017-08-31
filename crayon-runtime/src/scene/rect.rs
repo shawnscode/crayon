@@ -75,7 +75,6 @@ impl Rect {
         if let Some(rect) = rects.get(*handle) {
             let corners = rect.corners();
 
-
             return Ok([Rect::transform(&decomposed, corners[0]),
                        Rect::transform(&decomposed, corners[1]),
                        Rect::transform(&decomposed, corners[2]),

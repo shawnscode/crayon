@@ -5,7 +5,7 @@ extern crate cgmath;
 extern crate rand;
 
 use crayon::scene::camera::{Camera, Projection};
-use crayon::scene::scene2d::Scene2d;
+use crayon::scene::Scene;
 use cgmath as math;
 use rand::{Rng, SeedableRng, XorShiftRng};
 
@@ -27,7 +27,7 @@ struct SpriteParticle {
 }
 
 fn main() {
-    let mut scene: Option<Scene2d> = None;
+    let mut scene: Option<Scene> = None;
     let mut atlas: Option<resource::AtlasPtr> = None;
     let mut particles = vec![];
     let mut cal = XorShiftRng::from_seed([0, 1, 2, 3]);
@@ -43,11 +43,11 @@ fn main() {
         .unwrap()
         .perform(|mut app| {
             scene = {
-                let mut v = Scene2d::new(&mut app).unwrap();
+                let mut v = Scene::new(&mut app).unwrap();
 
                 {
                     // Create and bind main camera of scene2d.
-                    let c = Scene2d::camera(&mut v.world_mut());
+                    let c = Scene::camera(&mut v.world_mut());
                     v.set_main_camera(c);
 
                     {
@@ -60,7 +60,7 @@ fn main() {
                     {
                         let mut arena = v.world_mut().arena::<Transform>().unwrap();
                         let mut position = Transform::world_position(&arena, c).unwrap();
-                        position.z = 10f32;
+                        position.z = -10f32;
                         Transform::set_world_position(&mut arena, c, position).unwrap();
                     }
                 }

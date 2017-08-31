@@ -5,7 +5,9 @@ use std::borrow::Borrow;
 
 use super::errors::*;
 
-/// `Transform` is used to store and manipulation the postiion, rotation and scale
+pub type Decomposed = math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>;
+
+/// `Transform` is used to store and manipulate the postiion, rotation and scale
 /// of the object. Every `Transform` can have a parent, which allows you to apply
 /// position, rotation and scale hierarchically.
 ///
@@ -15,7 +17,7 @@ use super::errors::*;
 /// send or shared across threads safely. This enables e.g. parallel tree traversals.
 #[derive(Debug, Clone, Copy)]
 pub struct Transform {
-    decomposed: math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>,
+    decomposed: Decomposed,
     parent: Option<Entity>,
     next_sib: Option<Entity>,
     prev_sib: Option<Entity>,
@@ -28,7 +30,7 @@ declare_component!(Transform, VecStorage);
 impl Default for Transform {
     fn default() -> Self {
         Transform {
-            decomposed: math::Decomposed::one(),
+            decomposed: Decomposed::one(),
             parent: None,
             next_sib: None,
             prev_sib: None,
@@ -398,10 +400,7 @@ impl Transform {
     }
 
     /// Get the decomped data of transform.
-    pub fn world_decomposed
-        (arena: &ArenaGetter<Transform>,
-         handle: Entity)
-         -> Result<math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>> {
+    pub fn world_decomposed(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<Decomposed> {
         if arena.get(*handle).is_some() {
             unsafe { Ok(Transform::world_decomposed_unchecked(&arena, handle)) }
         } else {
@@ -425,10 +424,9 @@ impl Transform {
 
     unsafe fn set_world_decomposed_unchecked(arena: &mut ArenaGetter<Transform>,
                                              handle: Entity,
-                                             decomposed: &math::Decomposed<math::Vector3<f32>,
-                                                                           math::Quaternion<f32>>)
+                                             decomposed: &Decomposed)
                                              -> Result<()> {
-        let mut relative = math::Decomposed::one();
+        let mut relative = Decomposed::one();
         for v in Transform::ancestors(arena, handle) {
             relative = relative.concat(&arena.get_unchecked(*v).decomposed);
         }
@@ -441,10 +439,9 @@ impl Transform {
         }
     }
 
-    unsafe fn world_decomposed_unchecked
-        (arena: &ArenaGetter<Transform>,
-         handle: Entity)
-         -> math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>> {
+    unsafe fn world_decomposed_unchecked(arena: &ArenaGetter<Transform>,
+                                         handle: Entity)
+                                         -> Decomposed {
         let mut decomposed = arena.get_unchecked(*handle).decomposed;
         for v in Transform::ancestors(arena, handle) {
             decomposed = decomposed.concat(&arena.get_unchecked(*v).decomposed);

@@ -1,4 +1,6 @@
-use graphics::{UniformVariable, UniformVariableType};
+use std::collections::HashMap;
+use graphics;
+use graphics::{UniformVariable, UniformVariableType, TextureHandle};
 
 use super::errors::*;
 use super::{TexturePtr, ShaderPtr};
@@ -7,8 +9,8 @@ use super::{TexturePtr, ShaderPtr};
 #[derive(Debug, Clone)]
 pub struct Material {
     shader: ShaderPtr,
-    textures: Vec<(String, Option<TexturePtr>)>,
-    uniforms: Vec<(String, UniformVariable)>,
+    textures: HashMap<String, Option<TexturePtr>>,
+    uniforms: HashMap<String, UniformVariable>,
     order: i32,
 }
 
@@ -16,47 +18,43 @@ impl Material {
     pub fn new(shader: ShaderPtr) -> Material {
         Material {
             shader: shader,
-            textures: Vec::new(),
-            uniforms: Vec::new(),
+            textures: HashMap::new(),
+            uniforms: HashMap::new(),
             order: 0,
         }
     }
 
+    /// Get underlying shader of this material.
+    pub fn shader(&self) -> ShaderPtr {
+        self.shader.clone()
+    }
+
     /// Render queue of this material, renderer will draw objects in order.
-    pub fn render_order(&self) -> i32 {
+    #[inline]
+    pub fn order(&self) -> i32 {
         self.order
     }
 
-    /// Get the uniforms of this material.
-    pub fn uniforms(&self) -> &[(String, UniformVariable)] {
-        &self.uniforms
-    }
-
     /// Get the uniform variable with given name.
-    pub fn uniform(&self, name: &str) -> Option<UniformVariable> {
-        for pair in &self.uniforms {
-            if pair.0 == name {
-                return Some(pair.1);
-            }
-        }
-
-        None
-    }
-
-    /// Get the textures of this material.
-    pub fn textures(&self) -> &[(String, Option<TexturePtr>)] {
-        &self.textures
+    #[inline]
+    pub fn uniform_variable(&self, name: &str) -> Option<UniformVariable> {
+        self.uniforms.get(name).map(|v| *v)
     }
 
     /// Get the texture with given name.
+    #[inline]
     pub fn texture(&self, name: &str) -> Option<TexturePtr> {
-        for pair in &self.textures {
-            if pair.0 == name {
-                return pair.1.clone();
-            }
-        }
+        self.textures.get(name).map(|v| v.clone()).unwrap_or(None)
+    }
 
-        None
+    /// Return true if we have a uniform variable with specified type.
+    #[inline]
+    pub fn has_uniform_variable(&self, name: &str, lhs: UniformVariableType) -> bool {
+        if let Some(rhs) = self.shader.read().unwrap().uniform_variable(name) {
+            lhs == rhs
+        } else {
+            false
+        }
     }
 
     /// Set the texture with given name.
@@ -71,14 +69,7 @@ impl Material {
             bail!(ErrorKind::UniformDeclarationMismatch);
         }
 
-        for pair in &mut self.textures {
-            if pair.0 == name {
-                pair.1 = texture;
-                return Ok(());
-            }
-        }
-
-        self.textures.push((name.to_owned(), texture));
+        self.textures.insert(name.to_owned(), texture);
         Ok(())
     }
 
@@ -94,14 +85,28 @@ impl Material {
             bail!(ErrorKind::UniformDeclarationMismatch);
         }
 
-        for pair in &mut self.uniforms {
-            if pair.0 == name {
-                pair.1 = variable;
-                return Ok(());
+        self.uniforms.insert(name.to_owned(), variable);
+        Ok(())
+    }
+
+    ///
+    pub fn build_uniform_variables<'a>(&'a self,
+                                       mut frontend: &mut graphics::Graphics,
+                                       textures: &mut Vec<(&'a str, TextureHandle)>,
+                                       uniforms: &mut Vec<(&'a str, UniformVariable)>)
+                                       -> graphics::Result<()> {
+        for (name, v) in &self.uniforms {
+            uniforms.push((name, *v));
+        }
+
+        for (name, v) in &self.textures {
+            if let &Some(ref texture) = v {
+                let mut texture = texture.write().unwrap();
+                texture.update_video_object(&mut frontend)?;
+                textures.push((name, texture.video_object().unwrap()));
             }
         }
 
-        self.uniforms.push((name.to_owned(), variable));
         Ok(())
     }
 }

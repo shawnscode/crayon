@@ -10,10 +10,14 @@ use math;
 #[derive(Debug, Clone)]
 pub struct Sprite {
     visible: bool,
+
     color: graphics::Color,
     additive: graphics::Color,
+
     texture: Option<resource::TexturePtr>,
     texture_rect: ((f32, f32), (f32, f32)),
+
+    mat: Option<resource::MaterialPtr>,
 }
 
 declare_component!(Sprite, VecStorage);
@@ -26,6 +30,7 @@ impl Default for Sprite {
             additive: graphics::Color::transparent(),
             texture: None,
             texture_rect: ((0f32, 0f32), (1f32, 1f32)),
+            mat: None,
         }
     }
 }
@@ -52,8 +57,8 @@ impl Sprite {
     }
 
     /// Get the underlying texture of `Sprite`.
-    pub fn texture(&self) -> Option<&resource::TexturePtr> {
-        self.texture.as_ref()
+    pub fn texture(&self) -> Option<resource::TexturePtr> {
+        self.texture.clone()
     }
 
     /// Set the underlying texture of `Sprite`.
@@ -79,6 +84,10 @@ impl super::Renderable for Sprite {
 
     fn set_visible(&mut self, visible: bool) {
         self.visible = visible
+    }
+
+    fn material(&self) -> Option<&resource::MaterialPtr> {
+        self.mat.as_ref()
     }
 }
 
