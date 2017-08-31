@@ -40,6 +40,10 @@ impl Shader {
         Ok(())
     }
 
+    pub fn uniform_variable(&self, name: &str) -> Option<graphics::UniformVariableType> {
+        self.uniforms.get(name).and_then(|v| Some(*v))
+    }
+
     pub fn layout(&self) -> &graphics::AttributeLayout {
         &self.layout
     }

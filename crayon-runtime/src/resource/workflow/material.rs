@@ -18,11 +18,10 @@ impl ResourceLoader for MaterialSerializationPayload {
 
     fn load_from_memory(sys: &mut ResourceFrontend, bytes: &[u8]) -> Result<Self::Item> {
         let data: MaterialSerializationPayload = bincode::deserialize(&bytes)?;
-        let mut textures = Vec::new();
-
         let shader = sys.load_with_uuid::<shader::Shader>(data.shader)
             .chain_err(|| ErrorKind::ShaderNotFound)?;
 
+        let mut mat = material::Material::new(shader);
         for (name, v) in data.textures {
             let texture = if let Some(uuid) = v {
                 sys.load_with_uuid::<texture::Texture>(uuid).ok()
@@ -30,9 +29,13 @@ impl ResourceLoader for MaterialSerializationPayload {
                 None
             };
 
-            textures.push((name, texture));
+            mat.set_texture(&name, texture)?;
         }
 
-        Ok(material::Material::new(shader, textures, data.uniforms))
+        for (name, v) in data.uniforms {
+            mat.set_uniform_variable(&name, v)?;
+        }
+
+        Ok(mat)
     }
 }

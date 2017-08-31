@@ -18,5 +18,7 @@ error_chain!{
         NotFound
         CircularReferenceFound
         ShaderNotFound
+        UniformVariableNotFound
+        UniformDeclarationMismatch
     }
 }

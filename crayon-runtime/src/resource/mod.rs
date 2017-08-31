@@ -4,6 +4,7 @@ pub mod cache;
 pub mod backend;
 pub mod frontend;
 pub mod workflow;
+pub mod factory;
 
 pub mod texture;
 pub mod bytes;

@@ -1,5 +1,6 @@
-use math;
-use graphics::UniformVariable;
+use graphics::{UniformVariable, UniformVariableType};
+
+use super::errors::*;
 use super::{TexturePtr, ShaderPtr};
 
 /// `Material` exposes all properties from a shader and allowing you to acess them.
@@ -8,49 +9,22 @@ pub struct Material {
     shader: ShaderPtr,
     textures: Vec<(String, Option<TexturePtr>)>,
     uniforms: Vec<(String, UniformVariable)>,
-    priority: i32,
-}
-
-macro_rules! set_uniform_mat {
-    ($name: ident, $variable: ident, $input: ident) => (
-        pub fn $name(&mut self, name: &str, matrix: &math::$input<f32>, transpose: bool) {
-            if let Some(pair) = self.uniform_mut(name) {
-                if let &mut (_, UniformVariable::$variable(_, _)) = pair {
-                    pair.1 = UniformVariable::$variable(*matrix.as_ref(), transpose);
-                }
-            }
-        }
-    )
-}
-
-macro_rules! set_uniform_vec {
-    ($name: ident, $variable: ident, $input: ident) => (
-        pub fn $name(&mut self, name: &str, vec: &math::$input<f32>) {
-            if let Some(pair) = self.uniform_mut(name) {
-                if let &mut (_, UniformVariable::$variable(_)) = pair {
-                    pair.1 = UniformVariable::$variable(*vec.as_ref());
-                }
-            }
-        }
-    )
+    order: i32,
 }
 
 impl Material {
-    pub fn new(shader: ShaderPtr,
-               textures: Vec<(String, Option<TexturePtr>)>,
-               uniforms: Vec<(String, UniformVariable)>)
-               -> Material {
+    pub fn new(shader: ShaderPtr) -> Material {
         Material {
             shader: shader,
-            textures: textures,
-            uniforms: uniforms,
-            priority: 0,
+            textures: Vec::new(),
+            uniforms: Vec::new(),
+            order: 0,
         }
     }
 
     /// Render queue of this material, renderer will draw objects in order.
     pub fn render_order(&self) -> i32 {
-        self.priority
+        self.order
     }
 
     /// Get the uniforms of this material.
@@ -86,33 +60,49 @@ impl Material {
     }
 
     /// Set the texture with given name.
-    pub fn set_texture(&mut self, name: &str, tex: Option<TexturePtr>) {
+    pub fn set_texture(&mut self, name: &str, texture: Option<TexturePtr>) -> Result<()> {
+        let tt = self.shader
+            .read()
+            .unwrap()
+            .uniform_variable(name)
+            .ok_or(ErrorKind::UniformVariableNotFound)?;
+
+        if tt != UniformVariableType::Texture {
+            bail!(ErrorKind::UniformDeclarationMismatch);
+        }
+
         for pair in &mut self.textures {
             if pair.0 == name {
-                pair.1 = tex;
-                break;
+                pair.1 = texture;
+                return Ok(());
             }
         }
+
+        self.textures.push((name.to_owned(), texture));
+        Ok(())
     }
 
-    /// Sets a named matrix uniform.
-    set_uniform_mat!(set_matrix2f, Matrix2f, Matrix2);
-    set_uniform_mat!(set_matrix3f, Matrix4f, Matrix4);
-    set_uniform_mat!(set_matrix4f, Matrix4f, Matrix4);
+    /// Set uniform with variable.
+    pub fn set_uniform_variable(&mut self, name: &str, variable: UniformVariable) -> Result<()> {
+        let tt = self.shader
+            .read()
+            .unwrap()
+            .uniform_variable(name)
+            .ok_or(ErrorKind::UniformVariableNotFound)?;
 
-    /// Sets a named vector uniform.
-    set_uniform_vec!(set_vector2f, Vector2f, Vector2);
-    set_uniform_vec!(set_vector3f, Vector3f, Vector3);
-    set_uniform_vec!(set_vector4f, Vector4f, Vector4);
+        if tt != variable.variable_type() {
+            bail!(ErrorKind::UniformDeclarationMismatch);
+        }
 
-    fn uniform_mut(&mut self, name: &str) -> Option<&mut (String, UniformVariable)> {
         for pair in &mut self.uniforms {
             if pair.0 == name {
-                return Some(pair);
+                pair.1 = variable;
+                return Ok(());
             }
         }
 
-        None
+        self.uniforms.push((name.to_owned(), variable));
+        Ok(())
     }
 }
 

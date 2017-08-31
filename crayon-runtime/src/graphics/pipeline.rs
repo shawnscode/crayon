@@ -112,7 +112,22 @@ pub enum UniformVariable {
     Matrix4f([[f32; 4]; 4], bool),
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+impl UniformVariable {
+    pub fn variable_type(&self) -> UniformVariableType {
+        match self {
+            &UniformVariable::I32(_) => UniformVariableType::I32,
+            &UniformVariable::F32(_) => UniformVariableType::F32,
+            &UniformVariable::Vector2f(_) => UniformVariableType::Vector2f,
+            &UniformVariable::Vector3f(_) => UniformVariableType::Vector3f,
+            &UniformVariable::Vector4f(_) => UniformVariableType::Vector4f,
+            &UniformVariable::Matrix2f(_, _) => UniformVariableType::Matrix2f,
+            &UniformVariable::Matrix3f(_, _) => UniformVariableType::Matrix3f,
+            &UniformVariable::Matrix4f(_, _) => UniformVariableType::Matrix4f,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UniformVariableType {
     Texture,
     I32,
