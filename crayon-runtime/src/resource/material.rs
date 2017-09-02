@@ -1,118 +1,113 @@
-use math;
-use graphics::UniformVariable;
-use super::{TextureItem, ShaderItem};
+use std::collections::HashMap;
+use graphics;
+use graphics::{UniformVariable, UniformVariableType, TextureHandle};
+
+use super::errors::*;
+use super::{TexturePtr, ShaderPtr};
 
 /// `Material` exposes all properties from a shader and allowing you to acess them.
 #[derive(Debug, Clone)]
 pub struct Material {
-    shader: ShaderItem,
-    textures: Vec<(String, Option<TextureItem>)>,
-    uniforms: Vec<(String, UniformVariable)>,
-    priority: i32,
-}
-
-macro_rules! set_uniform_mat {
-    ($name: ident, $variable: ident, $input: ident) => (
-        pub fn $name(&mut self, name: &str, matrix: &math::$input<f32>, transpose: bool) {
-            if let Some(pair) = self.uniform_mut(name) {
-                if let &mut (_, UniformVariable::$variable(_, _)) = pair {
-                    pair.1 = UniformVariable::$variable(*matrix.as_ref(), transpose);
-                }
-            }
-        }
-    )
-}
-
-macro_rules! set_uniform_vec {
-    ($name: ident, $variable: ident, $input: ident) => (
-        pub fn $name(&mut self, name: &str, vec: &math::$input<f32>) {
-            if let Some(pair) = self.uniform_mut(name) {
-                if let &mut (_, UniformVariable::$variable(_)) = pair {
-                    pair.1 = UniformVariable::$variable(*vec.as_ref());
-                }
-            }
-        }
-    )
+    shader: ShaderPtr,
+    textures: HashMap<String, Option<TexturePtr>>,
+    uniforms: HashMap<String, UniformVariable>,
+    order: i32,
 }
 
 impl Material {
-    pub fn new(shader: ShaderItem,
-               textures: Vec<(String, Option<TextureItem>)>,
-               uniforms: Vec<(String, UniformVariable)>)
-               -> Material {
+    pub fn new(shader: ShaderPtr) -> Material {
         Material {
             shader: shader,
-            textures: textures,
-            uniforms: uniforms,
-            priority: 0,
+            textures: HashMap::new(),
+            uniforms: HashMap::new(),
+            order: 0,
         }
+    }
+
+    /// Get underlying shader of this material.
+    pub fn shader(&self) -> &ShaderPtr {
+        &self.shader
     }
 
     /// Render queue of this material, renderer will draw objects in order.
-    pub fn render_order(&self) -> i32 {
-        self.priority
-    }
-
-    /// Get the uniforms of this material.
-    pub fn uniforms(&self) -> &[(String, UniformVariable)] {
-        &self.uniforms
+    #[inline]
+    pub fn order(&self) -> i32 {
+        self.order
     }
 
     /// Get the uniform variable with given name.
-    pub fn uniform(&self, name: &str) -> Option<UniformVariable> {
-        for pair in &self.uniforms {
-            if pair.0 == name {
-                return Some(pair.1);
-            }
-        }
-
-        None
-    }
-
-    /// Get the textures of this material.
-    pub fn textures(&self) -> &[(String, Option<TextureItem>)] {
-        &self.textures
+    #[inline]
+    pub fn uniform_variable(&self, name: &str) -> Option<UniformVariable> {
+        self.uniforms.get(name).map(|v| *v)
     }
 
     /// Get the texture with given name.
-    pub fn texture(&self, name: &str) -> Option<TextureItem> {
-        for pair in &self.textures {
-            if pair.0 == name {
-                return pair.1.clone();
-            }
-        }
+    #[inline]
+    pub fn texture(&self, name: &str) -> Option<TexturePtr> {
+        self.textures.get(name).map(|v| v.clone()).unwrap_or(None)
+    }
 
-        None
+    /// Return true if we have a uniform variable with specified type.
+    #[inline]
+    pub fn has_uniform_variable(&self, name: &str, lhs: UniformVariableType) -> bool {
+        if let Some(rhs) = self.shader.read().unwrap().uniform_variable(name) {
+            lhs == rhs
+        } else {
+            false
+        }
     }
 
     /// Set the texture with given name.
-    pub fn set_texture(&mut self, name: &str, tex: Option<TextureItem>) {
-        for pair in &mut self.textures {
-            if pair.0 == name {
-                pair.1 = tex;
-                break;
-            }
+    pub fn set_texture(&mut self, name: &str, texture: Option<TexturePtr>) -> Result<()> {
+        let tt = self.shader
+            .read()
+            .unwrap()
+            .uniform_variable(name)
+            .ok_or(ErrorKind::UniformVariableNotFound)?;
+
+        if tt != UniformVariableType::Texture {
+            bail!(ErrorKind::UniformDeclarationMismatch);
         }
+
+        self.textures.insert(name.to_owned(), texture);
+        Ok(())
     }
 
-    /// Sets a named matrix uniform.
-    set_uniform_mat!(set_matrix2f, Matrix2f, Matrix2);
-    set_uniform_mat!(set_matrix3f, Matrix4f, Matrix4);
-    set_uniform_mat!(set_matrix4f, Matrix4f, Matrix4);
+    /// Set uniform with variable.
+    pub fn set_uniform_variable(&mut self, name: &str, variable: UniformVariable) -> Result<()> {
+        let tt = self.shader
+            .read()
+            .unwrap()
+            .uniform_variable(name)
+            .ok_or(ErrorKind::UniformVariableNotFound)?;
 
-    /// Sets a named vector uniform.
-    set_uniform_vec!(set_vector2f, Vector2f, Vector2);
-    set_uniform_vec!(set_vector3f, Vector3f, Vector3);
-    set_uniform_vec!(set_vector4f, Vector4f, Vector4);
+        if tt != variable.variable_type() {
+            bail!(ErrorKind::UniformDeclarationMismatch);
+        }
 
-    fn uniform_mut(&mut self, name: &str) -> Option<&mut (String, UniformVariable)> {
-        for pair in &mut self.uniforms {
-            if pair.0 == name {
-                return Some(pair);
+        self.uniforms.insert(name.to_owned(), variable);
+        Ok(())
+    }
+
+    ///
+    pub fn build_uniform_variables<'a>(&'a self,
+                                       mut frontend: &mut graphics::Graphics,
+                                       textures: &mut Vec<(&'a str, TextureHandle)>,
+                                       uniforms: &mut Vec<(&'a str, UniformVariable)>)
+                                       -> graphics::errors::Result<()> {
+        for (name, v) in &self.uniforms {
+            uniforms.push((name, *v));
+        }
+
+        for (name, v) in &self.textures {
+            if let &Some(ref texture) = v {
+                let mut texture = texture.write().unwrap();
+                texture.update_video_object(&mut frontend)?;
+                textures.push((name, texture.video_object().unwrap()));
             }
         }
 
-        None
+        Ok(())
     }
 }
 

@@ -7,7 +7,7 @@ use super::*;
 
 use utility::hash::HashValue;
 
-pub struct ResourceSystemBackend<T>
+pub struct ResourceBackend<T>
     where T: Resource + ResourceIndex + 'static
 {
     cache: Option<cache::Cache<RwLock<T>>>,
@@ -15,11 +15,11 @@ pub struct ResourceSystemBackend<T>
     size: usize,
 }
 
-impl<T> ResourceSystemBackend<T>
+impl<T> ResourceBackend<T>
     where T: Resource + ResourceIndex + 'static
 {
     pub fn new() -> Self {
-        ResourceSystemBackend {
+        ResourceBackend {
             cache: None,
             resources: HashMap::new(),
             size: 0,
@@ -36,12 +36,12 @@ impl<T> ResourceSystemBackend<T>
         self.cache = Some(cache::Cache::<RwLock<T>>::new(size));
     }
 
-    /// Returns size of all loaded assets from this `ResourceSystemBackend`.
+    /// Returns size of all loaded assets from this `ResourceBackend`.
     pub fn size(&self) -> usize {
         self.size
     }
 
-    pub fn get<P>(&mut self, path: P) -> Option<ResourceItem<T>>
+    pub fn get<P>(&mut self, path: P) -> Option<ResourcePtr<T>>
         where P: AsRef<Path>
     {
         let hash = path.as_ref().into();
@@ -57,7 +57,7 @@ impl<T> ResourceSystemBackend<T>
         None
     }
 
-    pub fn insert<P>(&mut self, path: P, item: ResourceItem<T>) -> Result<()>
+    pub fn insert<P>(&mut self, path: P, item: ResourcePtr<T>) -> Result<()>
         where P: AsRef<Path>
     {
         let hash = path.as_ref().into();

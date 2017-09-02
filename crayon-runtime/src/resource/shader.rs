@@ -40,6 +40,14 @@ impl Shader {
         Ok(())
     }
 
+    pub fn video_object(&self) -> Option<graphics::PipelineStateHandle> {
+        self.pso.as_ref().map(|v| v.handle)
+    }
+
+    pub fn uniform_variable(&self, name: &str) -> Option<graphics::UniformVariableType> {
+        self.uniforms.get(name).and_then(|v| Some(*v))
+    }
+
     pub fn layout(&self) -> &graphics::AttributeLayout {
         &self.layout
     }

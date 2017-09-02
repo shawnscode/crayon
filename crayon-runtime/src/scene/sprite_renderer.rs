@@ -1,16 +1,15 @@
 
 use std::collections::BinaryHeap;
 use std::cmp::{Ordering, Ord};
-use std::sync::RwLock;
+use std::sync::Arc;
 
 use core::application;
 use ecs;
 use graphics;
-use math;
 use resource;
 
 use super::errors::*;
-use super::{Transform, Rect, Camera, Sprite, Renderable};
+use super::{Transform, Rect, Sprite, Renderable, RenderCamera};
 
 impl_vertex! {
     SpriteVertex {
@@ -23,63 +22,25 @@ impl_vertex! {
 
 /// A simple and quick forward sprite renderer with automatic batching.
 pub struct SpriteRenderer {
-    pipeline: graphics::PipelineStateRef,
+    mat: resource::MaterialPtr,
     vertices: Vec<SpriteVertex>,
 }
 
-const SPRITE_VS: &'static str = include_str!("resources/sprite.vs");
-const SPRITE_FS: &'static str = include_str!("resources/sprite.fs");
-const MAX_BATCH_VERTICES: usize = 1024;
+const MAX_BATCH_VERTICES: usize = 2048;
 
 impl SpriteRenderer {
     pub fn new(application: &mut application::Application) -> Result<Self> {
-        let attributes = graphics::AttributeLayoutBuilder::new()
-            .with(graphics::VertexAttribute::Position, 3)
-            .with(graphics::VertexAttribute::Color0, 4)
-            .with(graphics::VertexAttribute::Color1, 4)
-            .with(graphics::VertexAttribute::Texcoord0, 2)
-            .finish();
-
-        let mut state = graphics::RenderState::default();
-        {
-            // Enable color blend with equation: src * srcAlpha + dest * (1-srcAlpha);
-            use graphics::{Equation, BlendFactor, BlendValue};
-            state.color_blend = Some((Equation::Add,
-                                      BlendFactor::Value(BlendValue::SourceAlpha),
-                                      BlendFactor::OneMinusValue(BlendValue::SourceAlpha)));
-        }
-
-        let pipeline = application
-            .graphics
-            .create_pipeline(SPRITE_VS, SPRITE_FS, &state, &attributes)?;
-
         Ok(SpriteRenderer {
-               pipeline: pipeline,
+               mat: resource::factory::material::sprite(&mut application.resources)?,
                vertices: Vec::with_capacity(MAX_BATCH_VERTICES),
            })
     }
 
-    pub fn render(&mut self,
-                  mut application: &mut application::Application,
-                  world: &ecs::World,
-                  camera: ecs::Entity)
-                  -> Result<()> {
-        // Parse the essential matrixs from camera.
-        if !world.has::<Transform>(camera) || !world.has::<Camera>(camera) {
-            bail!(ErrorKind::CanNotDrawWithoutCamera);
-        }
-
-        let view_mat = {
-            let arena = world.arena::<Transform>().unwrap();
-            Transform::view(&arena, camera)?
-        };
-
-        let (vso, proj_mat) = {
-            let mut camera = world.fetch_mut::<Camera>(camera).unwrap();
-            camera.update_video_object(&mut application.graphics)?;
-            (camera.video_object().unwrap(), camera.projection_matrix())
-        };
-
+    pub fn draw(&mut self,
+                mut application: &mut application::Application,
+                world: &ecs::World,
+                camera: &RenderCamera)
+                -> Result<()> {
         let (view, arenas) = world.view_with_3::<Transform, Rect, Sprite>();
 
         // To batch the sprite vertices, we need to sort the order by the distance
@@ -87,48 +48,54 @@ impl SpriteRenderer {
         let mut sprites = BinaryHeap::new();
         for v in view {
             if arenas.2.get(*v).unwrap().visible() {
-                let position = Transform::world_position(&arenas.0, v).unwrap();
-                sprites.push(SpriteOrd {
-                                 sprite: v,
-                                 priority: position[2],
-                             });
+                let position = Transform::world_position(&arenas.0, v)?;
+                let csp = camera.transform(&position);
+
+                if camera.is_inside(&csp) {
+                    let zorder = (csp.z.min(camera.clip.0).max(camera.clip.1) * 1000f32) as u32;
+                    sprites.push(SpriteOrd {
+                                     sprite: v,
+                                     zorder: zorder,
+                                 });
+                }
             }
         }
 
         // And then we can draw sprites one by one.
+        let mut last_mat = None;
         let mut last_texture = None;
+
         for v in sprites {
             let sprite = arenas.2.get(*v.sprite).unwrap();
 
             // Commit batched vertices if necessary.
+            let mat = sprite.material().map(|v| v.clone());
             let texture = sprite.texture();
-            if !eq(last_texture, texture) || self.vertices.len() >= MAX_BATCH_VERTICES {
-                self.consume(&mut application, &vso, &view_mat, &proj_mat, last_texture)?;
+
+            if eq(&last_mat, &mat) || eq(&last_texture, &texture) ||
+               self.vertices.len() >= MAX_BATCH_VERTICES {
+                self.consume(&mut application, &camera, last_mat, last_texture)?;
             }
 
+            last_mat = mat;
             last_texture = texture;
 
             let coners = Rect::world_corners(&arenas.0, &arenas.1, v.sprite).unwrap();
             let color = sprite.color().into();
             let additive = sprite.additive_color().into();
-            let (position, size) = sprite.texture_rect();
 
-            let v1 = SpriteVertex::new(coners[0].into(), color, additive, [position.0, position.1]);
+            let texcoords = {
+                let (position, size) = sprite.texture_rect();
+                [[position.0, position.1],
+                 [position.0 + size.0, position.1],
+                 [position.0 + size.0, position.1 + size.1],
+                 [position.0, position.1 + size.1]]
+            };
 
-            let v2 = SpriteVertex::new(coners[1].into(),
-                                       color,
-                                       additive,
-                                       [position.0 + size.0, position.1]);
-
-            let v3 = SpriteVertex::new(coners[2].into(),
-                                       color,
-                                       additive,
-                                       [position.0 + size.0, position.1 + size.1]);
-
-            let v4 = SpriteVertex::new(coners[3].into(),
-                                       color,
-                                       additive,
-                                       [position.0, position.1 + size.1]);
+            let v1 = SpriteVertex::new(coners[0].into(), color, additive, texcoords[0]);
+            let v2 = SpriteVertex::new(coners[1].into(), color, additive, texcoords[1]);
+            let v3 = SpriteVertex::new(coners[2].into(), color, additive, texcoords[2]);
+            let v4 = SpriteVertex::new(coners[3].into(), color, additive, texcoords[3]);
 
             self.vertices.push(v1);
             self.vertices.push(v2);
@@ -139,23 +106,21 @@ impl SpriteRenderer {
             self.vertices.push(v4);
         }
 
-        self.consume(&mut application, &vso, &view_mat, &proj_mat, last_texture)?;
+        self.consume(&mut application, &camera, last_mat, last_texture)?;
         Ok(())
     }
 
     fn consume(&mut self,
                mut application: &mut application::Application,
-               vso: &graphics::ViewHandle,
-               view_mat: &math::Matrix4<f32>,
-               proj_mat: &math::Matrix4<f32>,
-               texture: Option<&resource::TextureItem>)
+               camera: &RenderCamera,
+               mat: Option<resource::MaterialPtr>,
+               texture: Option<resource::TexturePtr>)
                -> Result<()> {
+        use graphics::UniformVariable as UV;
         if self.vertices.len() <= 0 {
             return Ok(());
         }
 
-        let uniforms = [("u_View", graphics::UniformVariable::Matrix4f(*view_mat.as_ref(), true)),
-                        ("u_Proj", graphics::UniformVariable::Matrix4f(*proj_mat.as_ref(), true))];
         let layout = SpriteVertex::layout();
         let vbo =
             application
@@ -165,22 +130,34 @@ impl SpriteRenderer {
                                       (self.vertices.len() * layout.stride() as usize) as u32,
                                       Some(SpriteVertex::as_bytes(self.vertices.as_slice())))?;
 
-        let mut textures = Vec::new();
-        if let Some(texture) = texture {
-            let mut locked_texture = texture.write().unwrap();
-            locked_texture
-                .update_video_object(&mut application.graphics)?;
+        let mat = mat.unwrap_or(self.mat.clone());
+        let mat = mat.write().unwrap();
 
-            if let Some(texture_handle) = locked_texture.video_object() {
-                textures.push(("u_MainTex", texture_handle));
-            }
+        let mut uniforms = Vec::new();
+        let mut textures = Vec::new();
+        mat.build_uniform_variables(&mut application.graphics, &mut textures, &mut uniforms)?;
+
+        if let Some(texture) = texture {
+            let mut texture = texture.write().unwrap();
+            texture.update_video_object(&mut application.graphics)?;
+            textures.push(("bi_MainTex", texture.video_object().unwrap()));
         }
+
+        uniforms.push(("bi_ViewMatrix", UV::Matrix4f(*camera.view.as_ref(), true)));
+        uniforms.push(("bi_ProjectionMatrix", UV::Matrix4f(*camera.projection.as_ref(), true)));
+
+        let pso = {
+            let shader = mat.shader();
+            let mut shader = shader.write().unwrap();
+            shader.update_video_object(&mut application.graphics)?;
+            shader.video_object().unwrap()
+        };
 
         application
             .graphics
             .draw(0,
-                  *vso,
-                  *self.pipeline,
+                  camera.vso,
+                  pso,
                   &textures,
                   &uniforms,
                   *vbo,
@@ -196,12 +173,12 @@ impl SpriteRenderer {
 
 struct SpriteOrd {
     sprite: ecs::Entity,
-    priority: f32,
+    zorder: u32,
 }
 
 impl PartialEq for SpriteOrd {
     fn eq(&self, rhs: &SpriteOrd) -> bool {
-        self.priority == rhs.priority
+        self.zorder == rhs.zorder
     }
 }
 
@@ -215,22 +192,18 @@ impl Ord for SpriteOrd {
 
 impl PartialOrd for SpriteOrd {
     fn partial_cmp(&self, rhs: &SpriteOrd) -> Option<Ordering> {
-        self.priority.partial_cmp(&rhs.priority)
+        self.zorder.partial_cmp(&rhs.zorder)
     }
 }
 
-fn eq(lhs: Option<&resource::TextureItem>, rhs: Option<&resource::TextureItem>) -> bool {
+fn eq<T>(lhs: &Option<Arc<T>>, rhs: &Option<Arc<T>>) -> bool {
+    if (lhs.is_none() && rhs.is_some()) || (lhs.is_some() && rhs.is_none()) {
+        return false;
+    }
+
     if lhs.is_none() && rhs.is_none() {
         return true;
     }
 
-    if lhs.is_none() || rhs.is_none() {
-        return false;
-    }
-
-    let lhs = lhs.unwrap();
-    let rhs = rhs.unwrap();
-    let lhs: *const RwLock<resource::Texture> = &**lhs;
-    let rhs: *const RwLock<resource::Texture> = &**rhs;
-    lhs == rhs
+    Arc::ptr_eq(lhs.as_ref().unwrap(), rhs.as_ref().unwrap())
 }

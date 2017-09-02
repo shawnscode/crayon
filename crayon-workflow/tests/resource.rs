@@ -25,13 +25,13 @@ fn database() {
         .build(crayon_workflow::BuildTarget::MacOS, "tests/build")
         .unwrap();
 
-    let mut rs = crayon::resource::ResourceSystem::new().unwrap();
+    let mut rs = crayon::resource::ResourceFrontend::new().unwrap();
 
     {
         rs.load_manifest("tests/build/manifest").unwrap();
 
-        let _: crayon::resource::TextureItem = rs.load("texture.png").unwrap();
-        let _: crayon::resource::BytesItem = rs.load("invalid_texture.png").unwrap();
+        let _: crayon::resource::TexturePtr = rs.load("texture.png").unwrap();
+        let _: crayon::resource::BytesPtr = rs.load("invalid_texture.png").unwrap();
         assert!(rs.load::<crayon::resource::Texture, &str>("invalid_texture.png")
                     .is_err());
     }
@@ -52,7 +52,7 @@ fn database() {
                       crayon_workflow::Resource::Atlas)
             .unwrap();
 
-        let atlas: crayon::resource::AtlasItem = rs.load("atlas.json").unwrap();
+        let atlas: crayon::resource::AtlasPtr = rs.load("atlas.json").unwrap();
         let uuid = atlas.read().unwrap().texture();
         rs.load_with_uuid::<crayon::resource::Texture>(uuid)
             .unwrap();

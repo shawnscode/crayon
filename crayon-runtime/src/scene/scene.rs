@@ -2,28 +2,29 @@ use core::application;
 use ecs;
 
 use super::errors::*;
-use super::{Camera, Rect, Transform, Sprite, SpriteRenderer};
+use super::*;
 
-/// The `Scene2d` system represents the abstract space in which the 2d widgets is laid
+/// The `Scene` system represents the abstract space in which the 2d widgets is laid
 /// out and rendered.
-pub struct Scene2d {
+pub struct Scene {
     world: ecs::World,
     camera: Option<ecs::Entity>,
-    sprite_renderer: SpriteRenderer,
+    renderer: Renderer,
 }
 
-impl Scene2d {
+impl Scene {
     pub fn new(mut application: &mut application::Application) -> Result<Self> {
         let mut world = ecs::World::new();
         world.register::<Transform>();
         world.register::<Rect>();
         world.register::<Sprite>();
         world.register::<Camera>();
+        world.register::<Mesh>();
 
-        Ok(Scene2d {
+        Ok(Scene {
                world: world,
                camera: None,
-               sprite_renderer: SpriteRenderer::new(&mut application)?,
+               renderer: Renderer::new(&mut application)?,
            })
     }
 
@@ -48,17 +49,12 @@ impl Scene2d {
     }
 
     pub fn run_one_frame(&mut self, mut application: &mut application::Application) -> Result<()> {
-        // We can't render the sprites without a camera.
-        if let Some(camera) = self.camera {
-            self.sprite_renderer
-                .render(&mut application, &self.world, camera)?;
-        }
-
+        self.renderer.draw(&mut application, &self.world)?;
         Ok(())
     }
 }
 
-impl Scene2d {
+impl Scene {
     /// Create a empty sprite.
     pub fn sprite(world: &mut ecs::World) -> ecs::Entity {
         world

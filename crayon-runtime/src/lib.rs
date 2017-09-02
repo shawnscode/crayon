@@ -31,12 +31,10 @@ pub mod utility;
 pub mod core;
 #[macro_use]
 pub mod ecs;
-pub mod resource;
 #[macro_use]
 pub mod graphics;
+pub mod resource;
 pub mod scene;
-
-pub use core::Application;
-pub use ecs::*;
+pub mod prelude;
 
 pub use cgmath as math;

@@ -11,13 +11,30 @@ use super::errors::*;
 use graphics;
 use resource;
 
+pub trait ApplicationInstance {
+    /// `ApplicationInstance::on_update` is called every frame.
+    fn on_update(&mut self, application: &mut Application) -> Result<()>;
+
+    /// `ApplicationInstance::on_render` is called before we starts rendering the scene.
+    fn on_render(&mut self, _: &mut Application) -> Result<()> {
+        Ok(())
+    }
+
+    /// `ApplicationInstnace::on_post_render` is called after camera has rendered the scene.
+    fn on_post_render(&mut self, _: &mut Application) -> Result<()> {
+        Ok(())
+    }
+}
+
 /// User-friendly facade for building applications.
 pub struct Application {
     pub input: input::Input,
     pub window: Arc<window::Window>,
     pub engine: Engine,
     pub graphics: graphics::Graphics,
-    pub resources: resource::ResourceSystem,
+    pub resources: resource::ResourceFrontend,
+
+    alive: bool,
 }
 
 impl Application {
@@ -57,38 +74,36 @@ impl Application {
                window: window,
                engine: engine,
                graphics: graphics,
-               resources: resource::ResourceSystem::new()?,
+               resources: resource::ResourceFrontend::new()?,
+               alive: true,
            })
     }
 
-
-    /// Perform custom logics after engine initialization.
-    pub fn perform<F>(mut self, mut closure: F) -> Self
-        where F: FnMut(&mut Application)
-    {
-        closure(&mut self);
-        self
+    /// Stop the whole application.
+    pub fn stop(&mut self) {
+        self.alive = false;
     }
 
     /// Run the main loop of `Application`, this will block the working
     /// thread until we finished.
-    pub fn run<F>(mut self, mut closure: F) -> Self
-        where F: FnMut(&mut Application) -> bool
-    {
-        println!("Launch crayon-runtim with working directory {:?}.",
-                 ::std::env::current_dir());
-        let mut exec = true;
+    pub fn run(mut self, mut instance: &mut ApplicationInstance) -> Result<Self> {
+        let dir = ::std::env::current_dir()?;
+        println!("Run crayon-runtim with working directory {:?}.", dir);
+
         let mut events = Vec::new();
-        'main: while exec {
+        'main: while self.alive {
             // Poll any possible events first.
             events.clear();
-            self.input.run_one_frame(&mut events);
 
+            self.input.run_one_frame(&mut events);
             for v in events.drain(..) {
                 match v {
                     event::Event::Application(value) => {
                         match value {
-                            event::ApplicationEvent::Closed => break 'main,
+                            event::ApplicationEvent::Closed => {
+                                self.stop();
+                                break 'main;
+                            }
                             other => println!("Drop {:?}.", other),
                         };
                     }
@@ -98,9 +113,13 @@ impl Application {
             }
 
             self.engine.run_one_frame();
-            self.graphics.run_one_frame().unwrap();
-            exec = closure(&mut self);
+            instance.on_update(&mut self)?;
+
+            instance.on_render(&mut self)?;
+            self.graphics.run_one_frame()?;
+            instance.on_post_render(&mut self)?;
         }
-        self
+
+        Ok(self)
     }
 }
