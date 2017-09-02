@@ -72,6 +72,14 @@ impl Primitive {
     pub fn layout(&self) -> &graphics::VertexLayout {
         &self.vertices.layout
     }
+
+    pub fn vlen(&self) -> usize {
+        self.vertices.len
+    }
+
+    pub fn ilen(&self) -> Option<usize> {
+        self.indices.as_ref().map(|v| v.len)
+    }
 }
 
 impl super::Resource for Primitive {

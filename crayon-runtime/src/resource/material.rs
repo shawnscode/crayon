@@ -25,8 +25,8 @@ impl Material {
     }
 
     /// Get underlying shader of this material.
-    pub fn shader(&self) -> ShaderPtr {
-        self.shader.clone()
+    pub fn shader(&self) -> &ShaderPtr {
+        &self.shader
     }
 
     /// Render queue of this material, renderer will draw objects in order.

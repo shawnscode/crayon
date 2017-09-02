@@ -18,11 +18,15 @@ pub trait Renderable {
 
 pub struct Renderer {
     sprite_renderer: SpriteRenderer,
+    mesh_renderer: MeshRenderer,
 }
 
 impl Renderer {
     pub fn new(mut app: &mut Application) -> Result<Renderer> {
-        Ok(Renderer { sprite_renderer: SpriteRenderer::new(&mut app)? })
+        Ok(Renderer {
+               sprite_renderer: SpriteRenderer::new(&mut app)?,
+               mesh_renderer: MeshRenderer::new(&mut app)?,
+           })
     }
 
     pub fn draw(&mut self, mut app: &mut Application, world: &World) -> Result<()> {
@@ -42,6 +46,7 @@ impl Renderer {
 
         // Draw from the viewport of camera.
         for v in cameras {
+            self.mesh_renderer.draw(&mut app, &world, &v)?;
             self.sprite_renderer.draw(&mut app, &world, &v)?;
         }
 
