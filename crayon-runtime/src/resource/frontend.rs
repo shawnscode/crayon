@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use utility::hash::HashValue;
 use super::*;
-use super::workflow;
+use super::errors::*;
 
 /// `ResourceFrontend` allows you to find and access resources. When building resources
 /// during development, a manifest for all the resources will be generated. You should

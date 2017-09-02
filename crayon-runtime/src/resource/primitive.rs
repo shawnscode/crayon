@@ -29,7 +29,9 @@ impl Primitive {
         }
     }
 
-    pub fn update_video_object(&mut self, video: &mut graphics::Graphics) -> graphics::Result<()> {
+    pub fn update_video_object(&mut self,
+                               video: &mut graphics::Graphics)
+                               -> graphics::errors::Result<()> {
         if self.vertices.vbo.is_none() {
             let vbo = video
                 .create_vertex_buffer(&self.vertices.layout,

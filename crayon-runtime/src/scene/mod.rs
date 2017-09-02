@@ -10,10 +10,9 @@ pub mod mesh_renderer;
 pub mod camera;
 pub mod scene;
 
-pub use self::errors::*;
 pub use self::transform::{Transform, Decomposed};
 pub use self::rect::Rect;
-pub use self::camera::Camera;
+pub use self::camera::{Camera, Projection};
 
 pub use self::renderer::{Renderable, Renderer, RenderCamera};
 pub use self::sprite::Sprite;

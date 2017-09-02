@@ -97,7 +97,9 @@ impl Camera {
 
     /// Update internal video objects of this camera.
     #[inline]
-    pub fn update_video_object(&mut self, video: &mut graphics::Graphics) -> graphics::Result<()> {
+    pub fn update_video_object(&mut self,
+                               video: &mut graphics::Graphics)
+                               -> graphics::errors::Result<()> {
         if let Some(ref fb) = self.framebuffer {
             fb.object
                 .write()

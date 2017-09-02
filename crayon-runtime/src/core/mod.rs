@@ -8,5 +8,5 @@ pub mod application;
 pub mod errors;
 pub mod event;
 
-pub use self::errors::*;
-pub use self::application::Application;
+pub use self::settings::Settings;
+pub use self::application::{Application, ApplicationInstance};

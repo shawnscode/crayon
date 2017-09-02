@@ -10,7 +10,6 @@ pub mod errors;
 pub mod macros;
 pub mod backend;
 
-pub use self::errors::*;
 pub use self::resource::*;
 pub use self::pipeline::*;
 pub use self::color::Color;

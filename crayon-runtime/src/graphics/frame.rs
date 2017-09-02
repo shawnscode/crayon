@@ -5,7 +5,9 @@ use std::slice;
 use std::mem;
 
 use super::*;
-use super::resource::{ResourceHint, IndexFormat, VertexLayout, AttributeLayout, FrameBufferAttachment};
+use super::errors::*;
+use super::resource::{ResourceHint, IndexFormat, VertexLayout, AttributeLayout,
+                      FrameBufferAttachment};
 use super::pipeline::{UniformVariable, Primitive};
 use super::backend::Context;
 
@@ -149,7 +151,7 @@ impl Frame {
         self.buf.clear();
     }
 
-    pub unsafe fn dispatch(&mut self, context: &mut Context)  -> Result<()> {
+    pub unsafe fn dispatch(&mut self, context: &mut Context) -> Result<()> {
         let dimensions = context.dimensions().ok_or(ErrorKind::WindowNotExist)?;
         let mut device = &mut context.device();
 
@@ -157,90 +159,124 @@ impl Frame {
             match *v {
                 PreFrameTask::CreateView(handle, framebuffer) => {
                     device.create_view(handle, framebuffer)?;
-                },
+                }
                 PreFrameTask::UpdateViewRect(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
                     device.update_view_rect(handle, desc.position, desc.size)?;
-                },
+                }
                 PreFrameTask::UpdateViewOrder(handle, priority) => {
                     device.update_view_order(handle, priority)?;
-                },
+                }
                 PreFrameTask::UpdateViewSequential(handle, seq) => {
                     device.update_view_sequential_mode(handle, seq)?;
-                },
+                }
                 PreFrameTask::UpdateViewFrameBuffer(handle, framebuffer) => {
                     device.update_view_framebuffer(handle, framebuffer)?;
                 }
                 PreFrameTask::CreatePipeline(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
-                    device.create_pipeline(handle, &desc.state, self.buf.as_str(desc.vs), self.buf.as_str(desc.fs), &desc.attributes)?;
-                },
+                    device
+                        .create_pipeline(handle,
+                                         &desc.state,
+                                         self.buf.as_str(desc.vs),
+                                         self.buf.as_str(desc.fs),
+                                         &desc.attributes)?;
+                }
                 PreFrameTask::UpdatePipelineState(handle, state) => {
                     let state = &self.buf.as_ref(state);
                     device.update_pipeline_state(handle, &state)?;
-                },
+                }
                 PreFrameTask::UpdatePipelineUniform(handle, name, variable) => {
                     let name = &self.buf.as_str(name);
                     let variable = &self.buf.as_ref(variable);
                     device.update_pipeline_uniform(handle, name, &variable)?;
-                },
+                }
                 PreFrameTask::CreateVertexBuffer(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
                     let data = desc.data.map(|ptr| self.buf.as_bytes(ptr));
-                    device.create_vertex_buffer(handle, &desc.layout, desc.hint, desc.size, data)?;
-                },
+                    device
+                        .create_vertex_buffer(handle, &desc.layout, desc.hint, desc.size, data)?;
+                }
                 PreFrameTask::UpdateVertexBuffer(handle, offset, data) => {
                     let data = &self.buf.as_bytes(data);
                     device.update_vertex_buffer(handle, offset, &data)?;
-                },
+                }
                 PreFrameTask::CreateIndexBuffer(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
                     let data = desc.data.map(|ptr| self.buf.as_bytes(ptr));
-                    device.create_index_buffer(handle, desc.format, desc.hint, desc.size, data)?;
-                },
+                    device
+                        .create_index_buffer(handle, desc.format, desc.hint, desc.size, data)?;
+                }
                 PreFrameTask::UpdateIndexBuffer(handle, offset, data) => {
                     let data = &self.buf.as_bytes(data);
                     device.update_index_buffer(handle, offset, &data)?;
-                },
+                }
                 PreFrameTask::CreateTexture(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
                     let data = &self.buf.as_bytes(desc.data);
-                    device.create_texture(handle, desc.format, desc.address, desc.filter, desc.mipmap, desc.width, desc.height, &data)?;
-                },
+                    device
+                        .create_texture(handle,
+                                        desc.format,
+                                        desc.address,
+                                        desc.filter,
+                                        desc.mipmap,
+                                        desc.width,
+                                        desc.height,
+                                        &data)?;
+                }
                 PreFrameTask::CreateRenderTexture(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
-                    device.create_render_texture(handle, desc.format, desc.width, desc.height)?;
-                },
+                    device
+                        .create_render_texture(handle, desc.format, desc.width, desc.height)?;
+                }
                 PreFrameTask::UpdateTextureParameters(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
-                    device.update_texture_parameters(handle, desc.address, desc.filter)?;
-                },
+                    device
+                        .update_texture_parameters(handle, desc.address, desc.filter)?;
+                }
                 PreFrameTask::CreateRenderBuffer(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
-                    device.create_render_buffer(handle, desc.format, desc.width, desc.height)?;
+                    device
+                        .create_render_buffer(handle, desc.format, desc.width, desc.height)?;
                 }
                 PreFrameTask::CreateFrameBuffer(handle) => {
                     device.create_framebuffer(handle)?;
-                },
+                }
                 PreFrameTask::UpdateFrameBufferAttachment(handle, slot, attachment) => {
                     match attachment {
                         FrameBufferAttachment::RenderBuffer(rb) => {
-                            device.update_framebuffer_with_renderbuffer(handle, rb, slot)?;
+                            device
+                                .update_framebuffer_with_renderbuffer(handle, rb, slot)?;
                         }
                         FrameBufferAttachment::Texture(texture) => {
-                            device.update_framebuffer_with_texture(handle, texture, slot)?;
+                            device
+                                .update_framebuffer_with_texture(handle, texture, slot)?;
                         }
                     };
-                },
+                }
                 PreFrameTask::UpdateFrameBufferClear(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
-                    device.update_framebuffer_clear(handle, desc.clear_color, desc.clear_depth, desc.clear_stencil)?;
+                    device
+                        .update_framebuffer_clear(handle,
+                                                  desc.clear_color,
+                                                  desc.clear_depth,
+                                                  desc.clear_stencil)?;
                 }
             }
         }
 
         for dc in &self.drawcalls {
-            device.submit(dc.priority, dc.view, dc.pipeline, dc.textures, dc.uniforms, dc.vb, dc.ib, dc.primitive, dc.from, dc.len)?;
+            device
+                .submit(dc.priority,
+                        dc.view,
+                        dc.pipeline,
+                        dc.textures,
+                        dc.uniforms,
+                        dc.vb,
+                        dc.ib,
+                        dc.primitive,
+                        dc.from,
+                        dc.len)?;
         }
         device.flush(&self.buf, dimensions)?;
 
@@ -248,22 +284,22 @@ impl Frame {
             match *v {
                 PostFrameTask::DeleteView(handle) => {
                     device.delete_view(handle)?;
-                },
+                }
                 PostFrameTask::DeletePipeline(handle) => {
                     device.delete_pipeline(handle)?;
-                },
+                }
                 PostFrameTask::DeleteVertexBuffer(handle) => {
                     device.delete_vertex_buffer(handle)?;
-                },
+                }
                 PostFrameTask::DeleteIndexBuffer(handle) => {
                     device.delete_index_buffer(handle)?;
-                },
+                }
                 PostFrameTask::DeleteTexture(handle) => {
                     device.delete_texture(handle)?;
-                },
+                }
                 PostFrameTask::DeleteRenderBuffer(handle) => {
                     device.delete_render_buffer(handle)?;
-                },
+                }
                 PostFrameTask::DeleteFrameBuffer(handle) => {
                     device.delete_framebuffer(handle)?;
                 }
@@ -287,10 +323,11 @@ impl TaskBuffer {
         self.0.clear();
     }
 
-    pub fn extend<T>(&mut self, value: &T) -> TaskBufferPtr<T> where T: Copy {
-        let data = unsafe {
-            slice::from_raw_parts(value as *const T as *const u8, mem::size_of::<T>())  
-        };
+    pub fn extend<T>(&mut self, value: &T) -> TaskBufferPtr<T>
+        where T: Copy
+    {
+        let data =
+            unsafe { slice::from_raw_parts(value as *const T as *const u8, mem::size_of::<T>()) };
 
         self.0.extend_from_slice(data);
         TaskBufferPtr {
@@ -315,7 +352,8 @@ impl TaskBuffer {
     }
 
     /// Clones and append all bytes in a string slice to the buffer.
-    pub fn extend_from_str<T>(&mut self, value: T) -> TaskBufferPtr<str> where T: Borrow<str>
+    pub fn extend_from_str<T>(&mut self, value: T) -> TaskBufferPtr<str>
+        where T: Borrow<str>
     {
         let slice = self.extend_from_slice(value.borrow().as_bytes());
         TaskBufferPtr {
@@ -353,20 +391,26 @@ impl TaskBuffer {
     }
 
     #[inline]
-    pub fn as_bytes<T>(&self, slice:TaskBufferPtr<T>) -> &[u8] where T: ?Sized {
+    pub fn as_bytes<T>(&self, slice: TaskBufferPtr<T>) -> &[u8]
+        where T: ?Sized
+    {
         &self.0[slice.position as usize..(slice.position + slice.size) as usize]
     }
 }
 
 /// A view into our `DataBuffer`, indicates where the object `T` stored.
 #[derive(Debug)]
-pub struct TaskBufferPtr<T> where T: ?Sized {
+pub struct TaskBufferPtr<T>
+    where T: ?Sized
+{
     position: u32,
     size: u32,
     _phantom: PhantomData<T>,
 }
 
-impl<T> Clone for TaskBufferPtr<T> where T: ?Sized {
+impl<T> Clone for TaskBufferPtr<T>
+    where T: ?Sized
+{
     fn clone(&self) -> Self {
         TaskBufferPtr {
             position: self.position,

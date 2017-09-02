@@ -35,8 +35,6 @@ pub mod ecs;
 pub mod graphics;
 pub mod resource;
 pub mod scene;
-
-pub use core::Application;
-pub use ecs::*;
+pub mod prelude;
 
 pub use cgmath as math;

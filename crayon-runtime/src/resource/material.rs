@@ -94,7 +94,7 @@ impl Material {
                                        mut frontend: &mut graphics::Graphics,
                                        textures: &mut Vec<(&'a str, TextureHandle)>,
                                        uniforms: &mut Vec<(&'a str, UniformVariable)>)
-                                       -> graphics::Result<()> {
+                                       -> graphics::errors::Result<()> {
         for (name, v) in &self.uniforms {
             uniforms.push((name, *v));
         }

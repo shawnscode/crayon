@@ -3,7 +3,7 @@ extern crate crayon;
 #[macro_use]
 extern crate lazy_static;
 
-use crayon::resource::*;
+use crayon::prelude::*;
 use std::fs;
 
 #[test]
@@ -69,7 +69,9 @@ impl Resource for Text {
 impl ResourceLoader for Text {
     type Item = Text;
 
-    fn load_from_memory(_: &mut ResourceFrontend, bytes: &[u8]) -> Result<Self::Item> {
+    fn load_from_memory(_: &mut ResourceFrontend,
+                        bytes: &[u8])
+                        -> resource::errors::Result<Self::Item> {
         Ok(Text { value: String::from_utf8_lossy(&bytes).into_owned() })
     }
 }

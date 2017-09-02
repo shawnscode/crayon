@@ -13,7 +13,6 @@ pub mod shader;
 pub mod material;
 pub mod primitive;
 
-pub use self::errors::*;
 pub use self::archive::{File, Archive, FilesystemArchive, ZipArchive, ArchiveCollection};
 pub use self::cache::Cache;
 pub use self::backend::ResourceBackend;
@@ -49,14 +48,14 @@ pub trait ResourceLoader: Debug {
     /// Load resource from a file on disk.
     fn load_from_file(mut sys: &mut ResourceFrontend,
                       file: &mut archive::File)
-                      -> Result<Self::Item> {
+                      -> errors::Result<Self::Item> {
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)?;
         Self::load_from_memory(sys, &buf)
     }
 
     /// Create resource from memory region.
-    fn load_from_memory(sys: &mut ResourceFrontend, bytes: &[u8]) -> Result<Self::Item>;
+    fn load_from_memory(sys: &mut ResourceFrontend, bytes: &[u8]) -> errors::Result<Self::Item>;
 }
 
 lazy_static! {
