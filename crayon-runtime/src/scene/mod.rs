@@ -8,11 +8,13 @@ pub mod sprite_renderer;
 pub mod mesh;
 pub mod mesh_renderer;
 pub mod camera;
+pub mod light;
 pub mod scene;
 
 pub use self::transform::{Transform, Decomposed};
 pub use self::rect::Rect;
 pub use self::camera::{Camera, Projection};
+pub use self::light::Light;
 
 pub use self::renderer::{Renderable, Renderer, RenderCamera};
 pub use self::sprite::Sprite;

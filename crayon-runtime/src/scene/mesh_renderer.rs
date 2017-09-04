@@ -1,6 +1,8 @@
 use core::application;
 use ecs;
 use graphics;
+use math::SquareMatrix;
+use math::Matrix;
 
 use super::errors::*;
 use super::{Transform, Mesh, Renderable, RenderCamera};
@@ -33,11 +35,10 @@ impl MeshRenderer {
               arenas: &mut (ecs::ArenaGetter<Transform>, ecs::ArenaGetter<Mesh>),
               v: ecs::Entity)
               -> Result<()> {
-        use graphics::UniformVariable as UV;
         use graphics::UniformVariableType as UVT;
 
         let mesh = arenas.1.get(*v).unwrap();
-        if !mesh.visible() || mesh.material().is_none() {
+        if !mesh.is_visible() || mesh.material().is_none() {
             return Ok(());
         }
 
@@ -55,12 +56,35 @@ impl MeshRenderer {
         mat.build_uniform_variables(&mut application.graphics, &mut textures, &mut uniforms)?;
 
         // Assemble uniform variables with build-in uniforms.
+        // TODO: Optimize this into one request per frame.
+        let m = Transform::view(&arenas.0, v)?;
+        if mat.has_uniform_variable("bi_ModelMatrix", UVT::Matrix4f) {
+            uniforms.push(("bi_ModelMatrix", m.into()));
+        }
+
+        let mv = m * camera.view;
+        if mat.has_uniform_variable("bi_ModelViewMatrix", UVT::Matrix4f) {
+            uniforms.push(("bi_ModelViewMatrix", mv.into()));
+        }
+
+        if mat.has_uniform_variable("bi_NormalMatrix", UVT::Matrix4f) {
+            // Use a special normal matrix to remove the effect of wrongly scaling the normal
+            // vector with `bi_ModelViewMatrix`.
+            let n = if let Some(normal) = mv.invert() {
+                normal.transpose()
+            } else {
+                mv
+            };
+
+            uniforms.push(("bi_NormalMatrix", n.into()));
+        }
+
         if mat.has_uniform_variable("bi_ViewMatrix", UVT::Matrix4f) {
-            uniforms.push(("bi_ViewMatrix", UV::Matrix4f(*camera.view.as_ref(), true)));
+            uniforms.push(("bi_ViewMatrix", camera.view.into()));
         }
 
         if mat.has_uniform_variable("bi_ProjectionMatrix", UVT::Matrix4f) {
-            uniforms.push(("bi_ProjectionMatrix", UV::Matrix4f(*camera.view.as_ref(), true)));
+            uniforms.push(("bi_ProjectionMatrix", camera.projection.into()));
         }
 
         // Get pipeline state object from shader.

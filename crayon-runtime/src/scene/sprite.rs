@@ -78,7 +78,7 @@ impl Sprite {
 }
 
 impl super::Renderable for Sprite {
-    fn visible(&self) -> bool {
+    fn is_visible(&self) -> bool {
         self.visible
     }
 

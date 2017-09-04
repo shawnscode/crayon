@@ -47,7 +47,7 @@ impl SpriteRenderer {
         // from camera.
         let mut sprites = BinaryHeap::new();
         for v in view {
-            if arenas.2.get(*v).unwrap().visible() {
+            if arenas.2.get(*v).unwrap().is_visible() {
                 let position = Transform::world_position(&arenas.0, v)?;
                 let csp = camera.transform(&position);
 
@@ -116,7 +116,8 @@ impl SpriteRenderer {
                mat: Option<resource::MaterialPtr>,
                texture: Option<resource::TexturePtr>)
                -> Result<()> {
-        use graphics::UniformVariable as UV;
+        use graphics::UniformVariableType as UVT;
+
         if self.vertices.len() <= 0 {
             return Ok(());
         }
@@ -140,11 +141,19 @@ impl SpriteRenderer {
         if let Some(texture) = texture {
             let mut texture = texture.write().unwrap();
             texture.update_video_object(&mut application.graphics)?;
-            textures.push(("bi_MainTex", texture.video_object().unwrap()));
+
+            if mat.has_uniform_variable("bi_MainTex", UVT::Texture) {
+                textures.push(("bi_MainTex", texture.video_object().unwrap()));
+            }
         }
 
-        uniforms.push(("bi_ViewMatrix", UV::Matrix4f(*camera.view.as_ref(), true)));
-        uniforms.push(("bi_ProjectionMatrix", UV::Matrix4f(*camera.projection.as_ref(), true)));
+        if mat.has_uniform_variable("bi_ViewMatrix", UVT::Matrix4f) {
+            uniforms.push(("bi_ViewMatrix", camera.view.into()));
+        }
+
+        if mat.has_uniform_variable("bi_ProjectionMatrix", UVT::Matrix4f) {
+            uniforms.push(("bi_ProjectionMatrix", camera.projection.into()));
+        }
 
         let pso = {
             let shader = mat.shader();

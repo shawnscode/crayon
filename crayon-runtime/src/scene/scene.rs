@@ -1,5 +1,6 @@
 use core::application;
 use ecs;
+use graphics;
 
 use super::errors::*;
 use super::*;
@@ -10,6 +11,9 @@ pub struct Scene {
     world: ecs::World,
     camera: Option<ecs::Entity>,
     renderer: Renderer,
+
+    ambient: graphics::Color,
+    ambient_intensity: f32,
 }
 
 impl Scene {
@@ -25,6 +29,8 @@ impl Scene {
                world: world,
                camera: None,
                renderer: Renderer::new(&mut application)?,
+               ambient: graphics::Color::white(),
+               ambient_intensity: 1.0,
            })
     }
 
@@ -41,6 +47,26 @@ impl Scene {
     /// Get the main camera.
     pub fn main_camera(&self) -> Option<ecs::Entity> {
         self.camera
+    }
+
+    /// Set the ambient color of this scene.
+    pub fn set_ambient_color(&mut self, color: graphics::Color) {
+        self.ambient = color;
+    }
+
+    /// Get the ambient color.
+    pub fn ambient_color(&mut self) -> graphics::Color {
+        self.ambient
+    }
+
+    /// Set the ambient intensity of this scene.
+    pub fn set_ambient_intensity(&mut self, intensity: f32) {
+        self.ambient_intensity = intensity;
+    }
+
+    /// Get the ambient intensity.
+    pub fn ambient_intensity(&self) -> f32 {
+        self.ambient_intensity
     }
 
     /// Set the main camera.

@@ -22,7 +22,7 @@ impl Mesh {
 }
 
 impl super::Renderable for Mesh {
-    fn visible(&self) -> bool {
+    fn is_visible(&self) -> bool {
         self.visible
     }
 

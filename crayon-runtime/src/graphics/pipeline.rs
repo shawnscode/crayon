@@ -1,3 +1,5 @@
+use math;
+
 /// Specifies what kind of primitives to render.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Primitive {
@@ -124,6 +126,24 @@ impl UniformVariable {
             &UniformVariable::Matrix3f(_, _) => UniformVariableType::Matrix3f,
             &UniformVariable::Matrix4f(_, _) => UniformVariableType::Matrix4f,
         }
+    }
+}
+
+impl Into<UniformVariable> for math::Matrix2<f32> {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Matrix2f(*self.as_ref(), true)
+    }
+}
+
+impl Into<UniformVariable> for math::Matrix3<f32> {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Matrix3f(*self.as_ref(), true)
+    }
+}
+
+impl Into<UniformVariable> for math::Matrix4<f32> {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Matrix4f(*self.as_ref(), true)
     }
 }
 

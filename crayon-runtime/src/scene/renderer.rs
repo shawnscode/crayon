@@ -11,7 +11,7 @@ use super::*;
 use super::errors::*;
 
 pub trait Renderable {
-    fn visible(&self) -> bool;
+    fn is_visible(&self) -> bool;
     fn set_visible(&mut self, visible: bool);
     fn material(&self) -> Option<&resource::MaterialPtr>;
 }

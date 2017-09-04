@@ -72,7 +72,7 @@ void main() {
     let mut uniforms = HashMap::new();
     uniforms.insert("bi_ViewMatrix".to_owned(), UVT::Matrix4f);
     uniforms.insert("bi_ProjectionMatrix".to_owned(), UVT::Matrix4f);
-    uniforms.insert("u_MainTex".to_owned(), UVT::Texture);
+    uniforms.insert("bi_MainTex".to_owned(), UVT::Texture);
 
     let sprite = Shader::new(vs, fs, state, layout, uniforms);
     frontend.insert(BUILTIN_SPRITE_PATH, sprite)
