@@ -760,6 +760,10 @@ impl Graphics {
                                 size: u32,
                                 data: Option<&[u8]>)
                                 -> Result<VertexBufferRef> {
+        if let Some(buf) = data {
+            assert!(buf.len() <= size as usize, "out of bounds");
+        }
+
         let object = Arc::new(RwLock::new(VertexBufferObject {
                                               hint: hint,
                                               len: size,
@@ -864,6 +868,10 @@ impl Graphics {
                                size: u32,
                                data: Option<&[u8]>)
                                -> Result<IndexBufferRef> {
+        if let Some(buf) = data {
+            assert!(buf.len() <= size as usize, "out of bounds");
+        }
+
         let object = Arc::new(RwLock::new(IndexBufferObject {
                                               hint: hint,
                                               len: size,

@@ -10,3 +10,4 @@ pub mod event;
 
 pub use self::settings::Settings;
 pub use self::application::{Application, ApplicationInstance};
+pub use self::event::{KeyboardButton, MouseButton};

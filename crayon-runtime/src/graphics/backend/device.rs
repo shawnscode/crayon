@@ -112,7 +112,7 @@ pub struct Device {
 }
 
 impl Device {
-    pub fn new() -> Self {
+    pub unsafe fn new() -> Self {
         Device {
             visitor: OpenGLVisitor::new(),
             vertex_buffers: DataVec::new(),
@@ -141,7 +141,7 @@ impl Device {
         self.cleared_framebuffer.borrow_mut().clear();
 
         self.visitor.bind_framebuffer(0, false)?;
-        self.visitor.clear(Some(Color::gray()), None, None)
+        self.visitor.clear(Some(Color::black()), Some(-1.0), None)
     }
 
     pub fn submit(&self,

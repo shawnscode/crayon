@@ -15,6 +15,10 @@ cgmath = "0.14.1"
 rand = "0.3.15"
 
 [[example]]
+name = "cube"
+path = "examples/cube.rs"
+
+[[example]]
 name = "sprite"
 path = "examples/sprite.rs"
 

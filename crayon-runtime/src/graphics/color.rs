@@ -39,6 +39,12 @@ impl From<[u8; 4]> for Color {
     }
 }
 
+impl Into<[f32; 4]> for Color {
+    fn into(self) -> [f32; 4] {
+        [self.0, self.1, self.2, self.3]
+    }
+}
+
 impl Color {
     /// Returns the `grayscale` representation of RGB values.
     pub fn grayscale(&self) -> f32 {
@@ -53,6 +59,11 @@ impl Color {
         color.2 = clamp(self.2, 0.0, 1.0);
         color.3 = clamp(self.3, 0.0, 1.0);
         color
+    }
+
+    ///
+    pub fn rgb(&self) -> [f32; 3] {
+        [self.0, self.1, self.2]
     }
 }
 

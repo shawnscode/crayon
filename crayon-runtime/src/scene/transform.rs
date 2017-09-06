@@ -408,18 +408,17 @@ impl Transform {
         }
     }
 
-    /// Get the view matrix of this transform.
-    pub fn view(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<math::Matrix4<f32>> {
-        use math::EuclideanSpace;
-
-        let dir = math::Vector3::new(0.0, 0.0, 1.0);
-        let forward = Transform::transform_point(&arena, handle, dir)?;
-        let center = Transform::world_position(&arena, handle)?;
-        let up = Transform::up(&arena, handle)?;
-
-        Ok(math::Matrix4::<f32>::look_at(math::Point3::from_vec(forward),
-                                         math::Point3::from_vec(center),
-                                         up))
+    /// Get the transform matrix of this transform.
+    pub fn as_matrix(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<math::Matrix4<f32>> {
+        if arena.get(*handle).is_some() {
+            unsafe {
+                let decomposed = Transform::world_decomposed_unchecked(&arena, handle);
+                let matrix = math::Matrix4::from(decomposed);
+                Ok(matrix)
+            }
+        } else {
+            bail!(ErrorKind::NonTransformFound);
+        }
     }
 
     unsafe fn set_world_decomposed_unchecked(arena: &mut ArenaGetter<Transform>,

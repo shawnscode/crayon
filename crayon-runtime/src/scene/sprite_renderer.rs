@@ -155,6 +155,8 @@ impl SpriteRenderer {
             uniforms.push(("bi_ProjectionMatrix", camera.projection.into()));
         }
 
+        // println!("Sprite {:#?}", uniforms);
+
         let pso = {
             let shader = mat.shader();
             let mut shader = shader.write().unwrap();

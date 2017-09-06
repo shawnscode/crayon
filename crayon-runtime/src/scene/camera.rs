@@ -13,7 +13,8 @@ pub enum Projection {
     Perspective(f32),
 }
 
-/// A `Camera` is a device through which the player views the world.
+/// A `Camera` is a device through which the player views the world. We use
+/// left-handed coordinates system as default.
 #[derive(Debug, Clone)]
 pub struct Camera {
     aspect: f32,
@@ -30,7 +31,7 @@ impl Default for Camera {
     fn default() -> Self {
         Camera {
             aspect: 1.0,
-            clip: (0.1, 100.0),
+            clip: (0.1, 1000.0),
             projection: Projection::Ortho(128.0),
 
             order: 0,
@@ -72,7 +73,7 @@ impl Camera {
     /// Return the projection matrix based on projector.
     #[inline]
     pub fn projection_matrix(&self) -> math::Matrix4<f32> {
-        match self.projection {
+        let mut lhs: math::Matrix4<f32> = match self.projection {
             Projection::Ortho(vsize) => {
                 let hsize = vsize * self.aspect;
                 math::ortho(-hsize, hsize, -vsize, vsize, self.clip.0, self.clip.1).into()
@@ -80,7 +81,11 @@ impl Camera {
             Projection::Perspective(fov) => {
                 math::perspective(math::Deg(fov), self.aspect, self.clip.0, self.clip.1).into()
             }
-        }
+        };
+
+        lhs[2][3] *= -1.0;
+        lhs[3][2] *= -1.0;
+        lhs
     }
 
     /// Return the projection type and its payload.
@@ -161,5 +166,34 @@ impl Camera {
     #[inline]
     pub fn render_order(&self) -> u32 {
         self.order
+    }
+}
+
+use super::Transform;
+use super::errors::*;
+
+impl Camera {
+    /// Get the view matrix of this transform, which is looking down the positive
+    /// z-axis.
+    pub fn view_matrix(arena: &ArenaGetter<Transform>,
+                       handle: Entity)
+                       -> Result<math::Matrix4<f32>> {
+        use math::EuclideanSpace;
+        use math::Transform as MathTransform;
+
+        let decomposed = Transform::world_decomposed(&arena, handle)?;
+
+        let dir = math::Vector3::new(0.0, 0.0, 1.0);
+        let target = decomposed.transform_point(math::Point3::from_vec(dir));
+        let eye = math::Point3::from_vec(decomposed.disp);
+        let up = decomposed.rot * math::Vector3::new(0.0, 1.0, 0.0);
+
+        let mut lhs = math::Matrix4::<f32>::look_at(eye, target, up);
+
+        lhs[3][0] *= -1.0;
+        lhs[3][1] *= -1.0;
+        lhs[3][2] *= -1.0;
+
+        Ok(lhs)
     }
 }
