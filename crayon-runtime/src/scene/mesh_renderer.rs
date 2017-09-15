@@ -50,9 +50,9 @@ impl MeshRenderer {
         let position = Transform::world_position(&arenas.0, v)?;
         let csp = camera.transform(&position);
 
-        // if !camera.is_inside(&csp) {
-        //     return Ok(());
-        // }
+        if !camera.is_inside(&csp) {
+            return Ok(());
+        }
 
         let mat = mesh.material().unwrap();
         let mat = mat.write().unwrap();

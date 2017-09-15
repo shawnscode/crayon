@@ -6,6 +6,7 @@ use resource::{ResourceFrontend, Shader, ShaderPtr};
 
 const BUILTIN_SPRITE_PATH: &'static str = "_CRAYON_/shader/sprite";
 const BUILTIN_PHONG_PATH: &'static str = "_CRAYON_/shader/phong";
+const BUILTIN_COLOR_PATH: &'static str = "_CRAYON_/shader/color";
 
 pub fn sprite(frontend: &mut ResourceFrontend) -> Result<ShaderPtr> {
     if let Some(rc) = frontend.get(BUILTIN_SPRITE_PATH) {
@@ -121,6 +122,11 @@ varying vec3 v_EyeNormal;
 varying vec2 v_Texcoord;
 varying vec4 v_Color;
 
+// uniform int bi_DirLightNum;
+// uniform vec3 bi_EyeDirLightPos[4];
+// uniform vec3 bi_DirLightColor[4];
+// uniform int bi_
+
 uniform vec3 bi_EyeLightPos;
 uniform vec3 bi_LightColor;
 
@@ -183,4 +189,58 @@ void main() {
 
     let sprite = Shader::new(vs, fs, state, layout, uniforms);
     frontend.insert(BUILTIN_PHONG_PATH, sprite)
+}
+
+pub fn color(frontend: &mut ResourceFrontend) -> Result<ShaderPtr> {
+    if let Some(rc) = frontend.get(BUILTIN_COLOR_PATH) {
+        return Ok(rc);
+    }
+
+    let vs = "
+#version 100
+precision lowp float;
+
+attribute vec3 Position;
+
+uniform mat4 bi_ViewModelMatrix;
+uniform mat4 bi_ProjectionMatrix;
+
+void main() {
+    gl_Position = bi_ProjectionMatrix * bi_ViewModelMatrix * vec4(Position, 1.0);
+}
+    "
+            .to_owned();
+
+    let fs = "
+#version 100
+precision lowp float;
+
+uniform vec3 u_Color;
+
+void main() {
+    gl_FragColor = vec4(u_Color, 1.0);
+}
+    "
+            .to_owned();
+
+    let layout = graphics::AttributeLayoutBuilder::new()
+        .with(graphics::VertexAttribute::Position, 3)
+        .finish();
+
+    let mut state = graphics::RenderState::default();
+    {
+        use graphics::Comparison;
+        state.depth_test = Comparison::Greater;
+        state.depth_write = true;
+    }
+
+    use graphics::UniformVariableType as UVT;
+    let mut uniforms = HashMap::new();
+    uniforms.insert("bi_ViewModelMatrix".to_owned(), UVT::Matrix4f);
+    uniforms.insert("bi_ProjectionMatrix".to_owned(), UVT::Matrix4f);
+
+    uniforms.insert("u_Color".to_owned(), UVT::Vector3f);
+
+    let sprite = Shader::new(vs, fs, state, layout, uniforms);
+    frontend.insert(BUILTIN_COLOR_PATH, sprite)
 }
