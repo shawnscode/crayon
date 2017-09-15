@@ -167,7 +167,7 @@ void main() {
     let mut state = graphics::RenderState::default();
     {
         use graphics::Comparison;
-        state.depth_test = Comparison::Greater;
+        state.depth_test = Comparison::Less;
         state.depth_write = true;
 
         state.cull_face = graphics::CullFace::Back;
@@ -230,7 +230,7 @@ void main() {
     let mut state = graphics::RenderState::default();
     {
         use graphics::Comparison;
-        state.depth_test = Comparison::Greater;
+        state.depth_test = Comparison::Less;
         state.depth_write = true;
     }
 

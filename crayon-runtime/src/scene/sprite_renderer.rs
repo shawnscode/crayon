@@ -49,8 +49,7 @@ impl SpriteRenderer {
         for v in view {
             if arenas.2.get(*v).unwrap().is_visible() {
                 let position = Transform::world_position(&arenas.0, v)?;
-                let csp = camera.transform(&position);
-
+                let csp = camera.into_view_space(&position);
                 if camera.is_inside(&csp) {
                     let zorder = (csp.z.min(camera.clip.0).max(camera.clip.1) * 1000f32) as u32;
                     sprites.push(SpriteOrd {

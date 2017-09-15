@@ -48,8 +48,7 @@ impl MeshRenderer {
         }
 
         let position = Transform::world_position(&arenas.0, v)?;
-        let csp = camera.transform(&position);
-
+        let csp = camera.into_view_space(&position);
         if !camera.is_inside(&csp) {
             return Ok(());
         }

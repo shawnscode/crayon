@@ -2,8 +2,6 @@ use core::application::Application;
 use ecs::{World, Entity, ArenaGetter};
 
 use math;
-use math::Transform as MathTransform;
-
 use resource;
 use graphics;
 
@@ -65,18 +63,16 @@ impl Renderer {
                            arenas: &mut (ArenaGetter<Transform>, ArenaGetter<Camera>),
                            camera: Entity)
                            -> Result<RenderCamera> {
+        let (view, project) = {
+            (Camera::view_matrix(&arenas.0, camera)?, Camera::projection_matrix(&arenas.1, camera)?)
+        };
+
         let mut c = arenas.1.get_mut(camera).unwrap();
         c.update_video_object(&mut video)?;
 
-        let decomposed = Transform::world_decomposed(&arenas.0, camera)?;
-        let inverse = decomposed
-            .inverse_transform()
-            .ok_or(ErrorKind::CanNotInverseTransform)?;
-
         Ok(RenderCamera {
-               view: Camera::view_matrix(&arenas.0, camera)?,
-               projection: c.projection_matrix(),
-               inverse_transform: inverse,
+               view: view,
+               projection: project,
                clip: c.clip_plane(),
                vso: c.video_object().unwrap(),
            })
@@ -116,21 +112,23 @@ pub struct RenderEnvironment {
     pub light_color: graphics::Color,
 }
 
+#[derive(Debug)]
 pub struct RenderCamera {
     pub view: math::Matrix4<f32>,
     pub projection: math::Matrix4<f32>,
-    pub inverse_transform: Decomposed,
     pub vso: graphics::ViewHandle,
     pub clip: (f32, f32),
 }
 
 impl RenderCamera {
-    pub fn transform(&self, position: &math::Vector3<f32>) -> math::Vector3<f32> {
-        self.inverse_transform.rot * (position * self.inverse_transform.scale) +
-        self.inverse_transform.disp
+    pub fn into_view_space(&self, position: &math::Vector3<f32>) -> math::Vector3<f32> {
+        let homo = math::Vector4::new(position.x, position.y, position.z, 1.0f32);
+        let p = self.view * homo;
+        let p = p / p.w;
+        p.truncate()
     }
 
     pub fn is_inside(&self, position: &math::Vector3<f32>) -> bool {
-        position.z >= self.clip.0 && position.z < self.clip.1
+        position.z <= -self.clip.0 && position.z > -self.clip.1
     }
 }

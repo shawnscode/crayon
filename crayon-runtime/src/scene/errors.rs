@@ -13,6 +13,7 @@ error_chain!{
 
     errors {
         NonTransformFound
+        NonCameraFound
         CanNotInverseTransform
         CanNotAttachSelfAsParent
         CanNotDrawWithoutCamera

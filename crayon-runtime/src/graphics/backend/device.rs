@@ -141,7 +141,7 @@ impl Device {
         self.cleared_framebuffer.borrow_mut().clear();
 
         self.visitor.bind_framebuffer(0, false)?;
-        self.visitor.clear(Some(Color::black()), Some(-1.0), None)
+        self.visitor.clear(Some(Color::black()), Some(1.0), None)
     }
 
     pub fn submit(&self,

@@ -11,7 +11,6 @@ members = [ "crayon-runtime", "crayon-workflow", "crayon-cli" ]
 crayon = { path = "./crayon-runtime" }
 crayon_workflow = { path = "./crayon-workflow" }
 
-cgmath = "0.14.1"
 rand = "0.3.15"
 
 [[example]]
