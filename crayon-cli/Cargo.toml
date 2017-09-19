@@ -1,6 +1,6 @@
 [package]
 name = "crayon-cli"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["Jingkai Mao <oammix@gmail.com>"]
 build = "build.rs"
 
