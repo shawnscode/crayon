@@ -1,7 +1,8 @@
 #[macro_use]
 extern crate crayon;
 extern crate crayon_workflow;
-mod env;
+
+mod utils;
 
 use crayon::prelude::*;
 
@@ -87,7 +88,7 @@ impl ApplicationInstance for Window {
 }
 
 fn main() {
-    env::compile();
+    utils::compile();
 
     let mut settings = Settings::default();
     settings.window.width = 232;

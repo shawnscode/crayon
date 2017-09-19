@@ -3,7 +3,7 @@
 extern crate crayon;
 extern crate crayon_workflow;
 extern crate rand;
-mod env;
+mod utils;
 
 use rand::{Rng, SeedableRng, XorShiftRng};
 use crayon::prelude::*;
@@ -46,7 +46,7 @@ impl Window {
             {
                 let mut arena = scene.world_mut().arena::<Transform>().unwrap();
                 let mut position = Transform::world_position(&arena, c).unwrap();
-                position.z = -10f32;
+                position.z = 10f32;
                 Transform::set_world_position(&mut arena, c, position).unwrap();
             }
         }
@@ -162,7 +162,7 @@ impl ApplicationInstance for Window {
 }
 
 fn main() {
-    env::compile();
+    utils::compile();
 
     let mut settings = Settings::default();
     settings.engine.max_fps = 60;
