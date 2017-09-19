@@ -63,13 +63,22 @@ impl Input {
 
         self.events
             .poll_events(|event| {
-                let glutin::Event::WindowEvent {
-                    window_id: _,
-                    event: v,
-                } = event;
+                let event = event;
+                match event {
+                    glutin::Event::WindowEvent {
+                        window_id: _,
+                        event: v,
+                    } => {
+                        if let Some(parse_event) = Input::parse_window_event(v) {
+                            collects.push(parse_event);
+                        }
+                    }
 
-                if let Some(parse_event) = Input::parse_window_event(v) {
-                    collects.push(parse_event);
+                    glutin::Event::Awakened => {
+                        collects.push(event::Event::Application(event::ApplicationEvent::Awakened))
+                    }
+
+                    _ => {}
                 }
             });
     }
@@ -78,9 +87,6 @@ impl Input {
     #[doc(hidden)]
     fn parse_window_event(event: glutin::WindowEvent) -> Option<event::Event> {
         match event {
-            glutin::WindowEvent::Awakened => {
-                Some(event::Event::Application(event::ApplicationEvent::Awakened))
-            }
             glutin::WindowEvent::Suspended(v) => {
                 Some(event::Event::Application(if v {
                                                    event::ApplicationEvent::Suspended
@@ -98,24 +104,47 @@ impl Input {
                                                    event::InputDeviceEvent::LostFocus
                                                }))
             }
-            glutin::WindowEvent::MouseMoved(x, y) => {
-                Some(event::Event::InputDevice(event::InputDeviceEvent::MouseMoved(x, y)))
+
+            glutin::WindowEvent::MouseMoved {
+                device_id: _,
+                position: (x, y),
+            } => {
+                Some(event::Event::InputDevice(event::InputDeviceEvent::MouseMoved(x as i32,
+                                                                                   y as i32)))
             }
-            glutin::WindowEvent::MouseInput(glutin::ElementState::Pressed, button) => {
-                Some(event::Event::InputDevice(event::InputDeviceEvent::MousePressed(button)))
-            }
-            glutin::WindowEvent::MouseInput(glutin::ElementState::Released, button) => {
-                Some(event::Event::InputDevice(event::InputDeviceEvent::MouseReleased(button)))
-            }
-            glutin::WindowEvent::KeyboardInput(glutin::ElementState::Pressed, _, Some(vkey), _) => {
-                Some(event::Event::InputDevice(event::InputDeviceEvent::KeyboardPressed(vkey)))
-            }
-            glutin::WindowEvent::KeyboardInput(glutin::ElementState::Released,
-                                               _,
-                                               Some(vkey),
-                                               _) => {
-                Some(event::Event::InputDevice(event::InputDeviceEvent::KeyboardReleased(vkey)))
-            }
+
+            glutin::WindowEvent::MouseInput {
+                device_id: _,
+                state: glutin::ElementState::Pressed,
+                button,
+            } => Some(event::Event::InputDevice(event::InputDeviceEvent::MousePressed(button))),
+
+            glutin::WindowEvent::MouseInput {
+                device_id: _,
+                state: glutin::ElementState::Released,
+                button,
+            } => Some(event::Event::InputDevice(event::InputDeviceEvent::MouseReleased(button))),
+
+            glutin::WindowEvent::KeyboardInput {
+                device_id: _,
+                input: glutin::KeyboardInput {
+                    scancode: _,
+                    state: glutin::ElementState::Pressed,
+                    virtual_keycode: Some(vkey),
+                    modifiers: _,
+                },
+            } => Some(event::Event::InputDevice(event::InputDeviceEvent::KeyboardPressed(vkey))),
+
+            glutin::WindowEvent::KeyboardInput {
+                device_id: _,
+                input: glutin::KeyboardInput {
+                    scancode: _,
+                    state: glutin::ElementState::Released,
+                    virtual_keycode: Some(vkey),
+                    modifiers: _,
+                },
+            } => Some(event::Event::InputDevice(event::InputDeviceEvent::KeyboardReleased(vkey))),
+
             _ => None,
         }
     }

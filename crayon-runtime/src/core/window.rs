@@ -2,6 +2,7 @@ use std::default::Default;
 use std::sync::Arc;
 use gl;
 use glutin;
+use glutin::GlContext;
 
 use super::input;
 
@@ -19,7 +20,7 @@ error_chain!{
 /// Represents an OpenGL context and the Window or environment around it, its just
 /// simple wrappers to [glutin](https://github.com/tomaka/glutin) right now.
 pub struct Window {
-    window: Arc<glutin::Window>,
+    window: Arc<glutin::GlWindow>,
 }
 
 impl Window {
@@ -163,19 +164,18 @@ impl WindowBuilder {
             }
         };
 
-        let mut builder = glutin::WindowBuilder::new()
+        let window = glutin::WindowBuilder::new()
             .with_title(self.title.clone())
             .with_dimensions(self.size.0, self.size.1)
+            .with_multitouch();
+
+        let context = glutin::ContextBuilder::new()
             .with_multisampling(self.multisample)
-            .with_multitouch()
             .with_gl_profile(profile)
-            .with_gl(api);
+            .with_gl(api)
+            .with_vsync(self.vsync);
 
-        if self.vsync {
-            builder = builder.with_vsync();
-        }
-
-        let window = builder.build(&events.underlaying())?;
+        let window = glutin::GlWindow::new(window, context, &events.underlaying())?;
 
         unsafe {
             window.make_current()?;

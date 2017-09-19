@@ -21,7 +21,7 @@ pub enum WindowEvent {
 }
 
 pub use glutin::VirtualKeyCode as KeyboardButton;
-pub use glutin::MouseButton as MouseButton;
+pub use glutin::MouseButton;
 
 /// Input device event, supports mouse and keyboard only.
 #[derive(Debug)]

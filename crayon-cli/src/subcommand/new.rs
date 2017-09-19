@@ -24,7 +24,7 @@ pub fn execute(rev: &str, matches: &clap::ArgMatches) -> Result<()> {
             .append(true)
             .open(manifest)?;
 
-        file.write(format!("crayon = {{ git = \"https://github.com/kaisc/crayon\", rev = \"{0}\" }}",
+        file.write(format!("crayon = {{ git = \"https://github.com/shawnscode/crayon\", rev = \"{0}\" }}",
                            rev).as_ref())?;
         file.flush()?;
     }
