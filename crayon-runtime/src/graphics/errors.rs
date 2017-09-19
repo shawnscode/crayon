@@ -10,5 +10,8 @@ error_chain!{
     errors {
         InvalidHandle
         WindowNotExist
+        CanNotDrawWithoutView
+        CanNotDrawWithoutPipelineState
+        CanNotDrawWihtoutVertexBuffer
     }
 }

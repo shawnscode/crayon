@@ -100,6 +100,15 @@ impl Default for RenderState {
     }
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub enum AtomicUniformVariable {
+    I32(i32),
+    F32(f32),
+    Vector2f([f32; 2]),
+    Vector3f([f32; 3]),
+    Vector4f([f32; 4]),
+}
+
 /// Uniform variable for graphics program object. Each matrix based `UniformVariable`
 /// is assumed to be supplied in row major order with a optional transpose.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]

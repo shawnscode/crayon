@@ -8,8 +8,8 @@ use crayon::prelude::*;
 struct Window {
     scene: Scene,
     cubes: Vec<Entity>,
-    light: Entity,
-    far: f32,
+
+    dir: Entity,
     camera: Entity,
 }
 
@@ -45,50 +45,38 @@ impl Window {
                 let cube = Window::spwan(&mut app, &mut scene)?;
                 let mut transform = scene.world().fetch_mut::<Transform>(cube).unwrap();
 
-                transform.set_scale(25.0);
+                transform.set_scale(30.0);
                 transform.translate(math::Vector3::unit_x() * i as f32 * 60.0);
                 cubes.push(cube);
             }
             cubes
         };
 
-        let light = {
-            let parent = scene
+        let dir = {
+            let unit = math::Vector3::unit_x();
+            Window::spawn_point_light(&mut app, &mut scene, Color::red(), unit * 80.0)?;
+            Window::spawn_point_light(&mut app, &mut scene, Color::green(), unit * -80.0)?;
+
+            let unit = math::Vector3::unit_z();
+            let light = Window::spawn_dir_light(&mut app, &mut scene, Color::white(), unit * 80.0)?;
+            let center = scene
                 .world_mut()
                 .build()
                 .with_default::<Transform>()
                 .finish();
 
-            let light = Window::spawn_color_cube(&mut app, &mut scene)?;
-
-            {
-                let data = DirectionalLight::default();
-                scene
-                    .world_mut()
-                    .assign::<Light>(light, Light::Directional(data));
-            }
-
             {
                 let mut arena = scene.world().arena::<Transform>().unwrap();
-
-                {
-                    let mut transform = arena.get_mut(*light).unwrap();
-                    transform.set_scale(15.0);
-                    transform.translate(math::Vector3::unit_z() * 80.0);
-                }
-
-                Transform::set_parent(&mut arena, light, Some(parent), true)?;
-                Transform::look_at(&mut arena, light, parent, math::Vector3::unit_y())?;
+                Transform::set_parent(&mut arena, light, Some(center), true)?;
             }
 
-            parent
+            center
         };
 
         Ok(Window {
                scene: scene,
                cubes: cubes,
-               light: light,
-               far: 1000.0,
+               dir: dir,
                camera: camera,
            })
     }
@@ -115,13 +103,17 @@ impl Window {
         Ok(cube)
     }
 
-    fn spawn_color_cube(mut app: &mut Application, scene: &mut Scene) -> errors::Result<Entity> {
+    fn spawn_color_cube(mut app: &mut Application,
+                        scene: &mut Scene,
+                        color: Color,
+                        position: math::Vector3<f32>)
+                        -> errors::Result<Entity> {
         let mesh = crayon::resource::factory::primitive::cube(&mut app.resources)?;
         let mat = crayon::resource::factory::material::color(&mut app.resources)?;
 
         {
             let mut mat = mat.write().unwrap();
-            let color = graphics::UniformVariable::Vector3f(Color::gray().rgb());
+            let color = graphics::UniformVariable::Vector3f(color.rgb());
             mat.set_uniform_variable("u_Color", color)?;
         }
 
@@ -131,6 +123,43 @@ impl Window {
             .with_default::<Transform>()
             .with::<Mesh>(Mesh::new(mesh, Some(mat)))
             .finish();
+
+        {
+            let mut arena = scene.world_mut().arena::<Transform>().unwrap();
+            Transform::set_world_position(&mut arena, cube, position)?;
+            Transform::set_world_scale(&mut arena, cube, 5f32)?;
+        }
+
+        Ok(cube)
+    }
+
+    fn spawn_point_light(mut app: &mut Application,
+                         mut scene: &mut Scene,
+                         color: Color,
+                         position: math::Vector3<f32>)
+                         -> errors::Result<Entity> {
+        let cube = Window::spawn_color_cube(&mut app, &mut scene, color, position)?;
+
+        let mut data = PointLight::default();
+        data.color = color;
+        scene.world_mut().assign::<Light>(cube, Light::Point(data));
+
+        Ok(cube)
+    }
+
+    fn spawn_dir_light(mut app: &mut Application,
+                       mut scene: &mut Scene,
+                       color: Color,
+                       position: math::Vector3<f32>)
+                       -> errors::Result<Entity> {
+        let cube = Window::spawn_color_cube(&mut app, &mut scene, color, position)?;
+
+        let mut data = DirectionalLight::default();
+        data.color = color;
+        scene
+            .world_mut()
+            .assign::<Light>(cube, Light::Directional(data));
+
         Ok(cube)
     }
 }
@@ -154,39 +183,26 @@ impl ApplicationInstance for Window {
             Vector3::new(0.0, 0.0, 0.0)
         };
 
-        let rotation = Quaternion::from(math::Euler {
-                                            x: math::Deg(0.0f32),
-                                            y: math::Deg(1.0f32),
-                                            z: math::Deg(0.0f32),
-                                        });
-
         for cube in &self.cubes {
             self.scene
                 .world()
                 .fetch_mut::<Transform>(*cube)
                 .unwrap()
                 .translate(translation);
-
-            // self.scene
-            //     .world()
-            //     .fetch_mut::<Transform>(*cube)
-            //     .unwrap()
-            //     .rotate(rotation);
         }
+
+
+        let rotation = Quaternion::from(math::Euler {
+                                            x: math::Deg(0.0f32),
+                                            y: math::Deg(1.0f32),
+                                            z: math::Deg(0.0f32),
+                                        });
 
         self.scene
             .world()
-            .fetch_mut::<Transform>(self.light)
+            .fetch_mut::<Transform>(self.dir)
             .unwrap()
             .rotate(rotation);
-
-        {
-            let mut camera = self.scene
-                .world_mut()
-                .fetch_mut::<Camera>(self.camera)
-                .unwrap();
-            camera.set_clip_plane(0.1, self.far);
-        }
 
         // Run one frame of scene.
         self.scene.run_one_frame(&mut app)?;
