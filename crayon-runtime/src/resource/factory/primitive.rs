@@ -19,51 +19,68 @@ pub fn cube(frontend: &mut ResourceFrontend) -> Result<PrimitivePtr> {
 
     use self::PrimitiveVertex as PV;
 
-    let white = [255, 255, 255, 255];
-    let corners = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
-    let verts = vec![PV::new([-0.5, -0.5, -0.5], white, corners[0], [0.0, 0.0, -1.0]),
-                     PV::new([0.5, -0.5, -0.5], white, corners[1], [0.0, 0.0, -1.0]),
-                     PV::new([0.5, 0.5, -0.5], white, corners[2], [0.0, 0.0, -1.0]),
-                     PV::new([0.5, 0.5, -0.5], white, corners[2], [0.0, 0.0, -1.0]),
-                     PV::new([-0.5, 0.5, -0.5], white, corners[3], [0.0, 0.0, -1.0]),
-                     PV::new([-0.5, -0.5, -0.5], white, corners[0], [0.0, 0.0, -1.0]),
+    let color = [155, 155, 155, 255];
+    let texcoords = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
 
-                     PV::new([-0.5, -0.5, 0.5], white, corners[0], [0.0, 0.0, 1.0]),
-                     PV::new([0.5, -0.5, 0.5], white, corners[1], [0.0, 0.0, 1.0]),
-                     PV::new([0.5, 0.5, 0.5], white, corners[2], [0.0, 0.0, 1.0]),
-                     PV::new([0.5, 0.5, 0.5], white, corners[2], [0.0, 0.0, 1.0]),
-                     PV::new([-0.5, 0.5, 0.5], white, corners[3], [0.0, 0.0, 1.0]),
-                     PV::new([-0.5, -0.5, 0.5], white, corners[0], [0.0, 0.0, 1.0]),
+    let points = [[-1.0, -1.0, 1.0],
+                  [1.0, -1.0, 1.0],
+                  [1.0, 1.0, 1.0],
+                  [-1.0, 1.0, 1.0],
+                  [-1.0, -1.0, -1.0],
+                  [1.0, -1.0, -1.0],
+                  [1.0, 1.0, -1.0],
+                  [-1.0, 1.0, -1.0]];
 
-                     PV::new([-0.5, 0.5, 0.5], white, corners[0], [-1.0, 0.0, 0.0]),
-                     PV::new([-0.5, 0.5, -0.5], white, corners[1], [-1.0, 0.0, 0.0]),
-                     PV::new([-0.5, -0.5, -0.5], white, corners[2], [-1.0, 0.0, 0.0]),
-                     PV::new([-0.5, -0.5, -0.5], white, corners[2], [-1.0, 0.0, 0.0]),
-                     PV::new([-0.5, -0.5, 0.5], white, corners[3], [-1.0, 0.0, 0.0]),
-                     PV::new([-0.5, 0.5, 0.5], white, corners[0], [-1.0, 0.0, 0.0]),
+    let normals = [[0.0, 0.0, 1.0],
+                   [1.0, 0.0, 0.0],
+                   [0.0, 0.0, -1.0],
+                   [-1.0, 0.0, 0.0],
+                   [0.0, 1.0, 0.0],
+                   [0.0, -1.0, 0.0]];
 
-                     PV::new([0.5, 0.5, 0.5], white, corners[0], [1.0, 0.0, 0.0]),
-                     PV::new([0.5, 0.5, -0.5], white, corners[1], [1.0, 0.0, 0.0]),
-                     PV::new([0.5, -0.5, -0.5], white, corners[2], [1.0, 0.0, 0.0]),
-                     PV::new([0.5, -0.5, -0.5], white, corners[2], [1.0, 0.0, 0.0]),
-                     PV::new([0.5, -0.5, 0.5], white, corners[3], [1.0, 0.0, 0.0]),
-                     PV::new([0.5, 0.5, 0.5], white, corners[0], [1.0, 0.0, 0.0]),
+    let verts = vec![PV::new(points[0], color, texcoords[0], normals[0]),
+                     PV::new(points[1], color, texcoords[1], normals[0]),
+                     PV::new(points[2], color, texcoords[2], normals[0]),
+                     PV::new(points[2], color, texcoords[2], normals[0]),
+                     PV::new(points[3], color, texcoords[3], normals[0]),
+                     PV::new(points[0], color, texcoords[0], normals[0]),
 
-                     PV::new([-0.5, -0.5, -0.5], white, corners[0], [0.0, -1.0, 0.0]),
-                     PV::new([0.5, -0.5, -0.5], white, corners[1], [0.0, -1.0, 0.0]),
-                     PV::new([0.5, -0.5, 0.5], white, corners[2], [0.0, -1.0, 0.0]),
-                     PV::new([0.5, -0.5, 0.5], white, corners[2], [0.0, -1.0, 0.0]),
-                     PV::new([-0.5, -0.5, 0.5], white, corners[3], [0.0, -1.0, 0.0]),
-                     PV::new([-0.5, -0.5, -0.5], white, corners[0], [0.0, -1.0, 0.0]),
+                     PV::new(points[1], color, texcoords[0], normals[1]),
+                     PV::new(points[5], color, texcoords[1], normals[1]),
+                     PV::new(points[6], color, texcoords[2], normals[1]),
+                     PV::new(points[6], color, texcoords[2], normals[1]),
+                     PV::new(points[2], color, texcoords[3], normals[1]),
+                     PV::new(points[1], color, texcoords[0], normals[1]),
 
-                     PV::new([-0.5, 0.5, -0.5], white, corners[0], [0.0, 1.0, 0.0]),
-                     PV::new([0.5, 0.5, -0.5], white, corners[1], [0.0, 1.0, 0.0]),
-                     PV::new([0.5, 0.5, 0.5], white, corners[2], [0.0, 1.0, 0.0]),
-                     PV::new([0.5, 0.5, 0.5], white, corners[2], [0.0, 1.0, 0.0]),
-                     PV::new([-0.5, 0.5, 0.5], white, corners[3], [0.0, 1.0, 0.0]),
-                     PV::new([-0.5, 0.5, -0.5], white, corners[0], [0.0, 1.0, 0.0])];
+                     PV::new(points[5], color, texcoords[0], normals[2]),
+                     PV::new(points[4], color, texcoords[1], normals[2]),
+                     PV::new(points[7], color, texcoords[2], normals[2]),
+                     PV::new(points[7], color, texcoords[2], normals[2]),
+                     PV::new(points[6], color, texcoords[3], normals[2]),
+                     PV::new(points[5], color, texcoords[0], normals[2]),
 
-    let bytes = PrimitiveVertex::as_bytes(verts.as_slice()).to_vec();
+                     PV::new(points[4], color, texcoords[0], normals[3]),
+                     PV::new(points[0], color, texcoords[1], normals[3]),
+                     PV::new(points[3], color, texcoords[2], normals[3]),
+                     PV::new(points[3], color, texcoords[2], normals[3]),
+                     PV::new(points[7], color, texcoords[3], normals[3]),
+                     PV::new(points[4], color, texcoords[0], normals[3]),
+
+                     PV::new(points[3], color, texcoords[0], normals[4]),
+                     PV::new(points[2], color, texcoords[1], normals[4]),
+                     PV::new(points[6], color, texcoords[2], normals[4]),
+                     PV::new(points[6], color, texcoords[2], normals[4]),
+                     PV::new(points[7], color, texcoords[3], normals[4]),
+                     PV::new(points[3], color, texcoords[0], normals[4]),
+
+                     PV::new(points[4], color, texcoords[0], normals[5]),
+                     PV::new(points[5], color, texcoords[1], normals[5]),
+                     PV::new(points[1], color, texcoords[2], normals[5]),
+                     PV::new(points[1], color, texcoords[2], normals[5]),
+                     PV::new(points[0], color, texcoords[3], normals[5]),
+                     PV::new(points[4], color, texcoords[0], normals[5])];
+
+    let bytes = PrimitiveVertex::as_bytes(&verts).to_vec();
     let cube = Primitive::new(bytes, PrimitiveVertex::layout(), verts.len());
     frontend.insert(BUILTIN_CUBE_PATH, cube)
 }

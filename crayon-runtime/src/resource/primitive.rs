@@ -36,7 +36,7 @@ impl Primitive {
             let vbo = video
                 .create_vertex_buffer(&self.vertices.layout,
                                       graphics::ResourceHint::Static,
-                                      self.vertices.len as u32,
+                                      self.vertices.size() as u32,
                                       Some(&self.vertices.buf))?;
             self.vertices.vbo = Some(vbo);
         }
@@ -46,7 +46,7 @@ impl Primitive {
                 let ibo = video
                     .create_index_buffer(indices.format,
                                          graphics::ResourceHint::Static,
-                                         indices.len as u32,
+                                         indices.size() as u32,
                                          Some(&indices.buf))?;
                 indices.ibo = Some(ibo);
             }
@@ -104,12 +104,18 @@ struct PrimitiveVertexData {
 
 impl PrimitiveVertexData {
     pub fn new(buf: Vec<u8>, layout: graphics::VertexLayout, len: usize) -> Self {
+        assert!(layout.stride() as usize * len == buf.len());
+
         PrimitiveVertexData {
             buf: buf,
             len: len,
             layout: layout,
             vbo: None,
         }
+    }
+
+    pub fn size(&self) -> usize {
+        self.layout.stride() as usize * self.len
     }
 }
 
@@ -123,11 +129,17 @@ struct PrimitiveIndexData {
 
 impl PrimitiveIndexData {
     pub fn new(buf: Vec<u8>, format: graphics::IndexFormat, len: usize) -> Self {
+        assert!(buf.len() == (format.size() * len));
+
         PrimitiveIndexData {
             buf: buf,
             len: len,
             format: format,
             ibo: None,
         }
+    }
+
+    pub fn size(&self) -> usize {
+        self.format.size() * self.len
     }
 }

@@ -35,9 +35,18 @@ pub struct OpenGLVisitor {
 }
 
 impl OpenGLVisitor {
-    pub fn new() -> OpenGLVisitor {
+    pub unsafe fn new() -> OpenGLVisitor {
+        // Reset all states to default.
+        gl::Disable(gl::CULL_FACE);
+        gl::FrontFace(gl::CCW);
+        gl::Disable(gl::DEPTH_TEST);
+        gl::DepthMask(gl::FALSE);
+        gl::Disable(gl::POLYGON_OFFSET_FILL);
+        gl::Disable(gl::BLEND);
+        gl::ColorMask(1, 1, 1, 1);
+
         OpenGLVisitor {
-            cull_face: Cell::new(CullFace::Back),
+            cull_face: Cell::new(CullFace::Nothing),
             front_face_order: Cell::new(FrontFaceOrder::CounterClockwise),
             depth_test: Cell::new(Comparison::Always),
             depth_write: Cell::new(false),
@@ -89,8 +98,10 @@ impl OpenGLVisitor {
                                         layout: &VertexLayout)
                                         -> Result<()> {
         let pid = self.active_program.get().ok_or(ErrorKind::InvalidHandle)?;
-        let vid =
-            *self.active_bufs.borrow().get(&gl::ARRAY_BUFFER).ok_or(ErrorKind::InvalidHandle)?;
+        let vid = *self.active_bufs
+                       .borrow()
+                       .get(&gl::ARRAY_BUFFER)
+                       .ok_or(ErrorKind::InvalidHandle)?;
 
         if let Some(vao) = self.vertex_array_objects.borrow().get(&VAOPair(pid, vid)) {
             if let Some(v) = self.active_vao.get() {
@@ -118,8 +129,7 @@ impl OpenGLVisitor {
                                   size));
                 }
 
-                let offset = layout.offset(name)
-                    .unwrap() as *const u8 as *const c_void;
+                let offset = layout.offset(name).unwrap() as *const u8 as *const c_void;
 
                 let location = self.get_uniform_location(pid, name.into())?;
                 gl::EnableVertexAttribArray(location as GLuint);
@@ -136,7 +146,9 @@ impl OpenGLVisitor {
         }
 
         check()?;
-        self.vertex_array_objects.borrow_mut().insert(VAOPair(pid, vid), vao);
+        self.vertex_array_objects
+            .borrow_mut()
+            .insert(VAOPair(pid, vid), vao);
         Ok(())
     }
 
@@ -248,10 +260,10 @@ impl OpenGLVisitor {
             if face != CullFace::Nothing {
                 gl::Enable(gl::CULL_FACE);
                 gl::CullFace(match face {
-                    CullFace::Front => gl::FRONT,
-                    CullFace::Back => gl::BACK,
-                    CullFace::Nothing => unreachable!(""),
-                });
+                                 CullFace::Front => gl::FRONT,
+                                 CullFace::Back => gl::BACK,
+                                 CullFace::Nothing => unreachable!(""),
+                             });
             } else {
                 gl::Disable(gl::CULL_FACE);
             }
@@ -267,9 +279,9 @@ impl OpenGLVisitor {
     pub unsafe fn set_front_face_order(&self, front: FrontFaceOrder) -> Result<()> {
         if self.front_face_order.get() != front {
             gl::FrontFace(match front {
-                FrontFaceOrder::Clockwise => gl::CW,
-                FrontFaceOrder::CounterClockwise => gl::CCW,
-            });
+                              FrontFaceOrder::Clockwise => gl::CW,
+                              FrontFaceOrder::CounterClockwise => gl::CCW,
+                          });
             self.front_face_order.set(front);
             check()
         } else {

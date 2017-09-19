@@ -29,6 +29,15 @@ pub enum IndexFormat {
     UShort,
 }
 
+impl IndexFormat {
+    pub fn size(&self) -> usize {
+        match self {
+            &IndexFormat::UByte => 1,
+            &IndexFormat::UShort => 2,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum VertexFormat {
     Byte,

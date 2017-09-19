@@ -1,5 +1,7 @@
 use core::application;
 use ecs;
+use graphics;
+use resource;
 
 use super::errors::*;
 use super::*;
@@ -14,12 +16,15 @@ pub struct Scene {
 
 impl Scene {
     pub fn new(mut application: &mut application::Application) -> Result<Self> {
+        application.resources.register::<resource::Primitive>();
+
         let mut world = ecs::World::new();
         world.register::<Transform>();
         world.register::<Rect>();
         world.register::<Sprite>();
         world.register::<Camera>();
         world.register::<Mesh>();
+        world.register::<Light>();
 
         Ok(Scene {
                world: world,
@@ -41,6 +46,11 @@ impl Scene {
     /// Get the main camera.
     pub fn main_camera(&self) -> Option<ecs::Entity> {
         self.camera
+    }
+
+    /// Set the ambient color of this scene.
+    pub fn set_ambient_color(&mut self, color: graphics::Color, intensity: f32) {
+        self.renderer.set_ambient_color(color, intensity);
     }
 
     /// Set the main camera.

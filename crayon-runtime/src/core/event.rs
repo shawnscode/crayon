@@ -1,5 +1,3 @@
-use glutin;
-
 /// The status of application.
 #[derive(Debug)]
 pub enum ApplicationEvent {
@@ -22,8 +20,8 @@ pub enum WindowEvent {
     Moved(u32, u32),
 }
 
-pub type KeyboardButton = glutin::VirtualKeyCode;
-pub type MouseButton = glutin::MouseButton;
+pub use glutin::VirtualKeyCode as KeyboardButton;
+pub use glutin::MouseButton as MouseButton;
 
 /// Input device event, supports mouse and keyboard only.
 #[derive(Debug)]

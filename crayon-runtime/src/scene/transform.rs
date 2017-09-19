@@ -394,9 +394,24 @@ impl Transform {
         Transform::transform_direction(&arena, handle, math::Vector3::new(0.0, 1.0, 0.0))
     }
 
-    /// Return the forward direction in world space.
+    /// Return the forward direction in world space, which is looking down the negative z-axis.
     pub fn forward(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<math::Vector3<f32>> {
-        Transform::transform_direction(&arena, handle, math::Vector3::new(0.0, 0.0, 1.0))
+        Transform::transform_direction(&arena, handle, math::Vector3::new(0.0, 0.0, -1.0))
+    }
+
+    /// Rotate the transform so the forward vector points at target's current position.
+    pub fn look_at(mut arena: &mut ArenaGetter<Transform>,
+                   handle: Entity,
+                   target: Entity,
+                   up: math::Vector3<f32>)
+                   -> Result<()> {
+        use math::Transform as MT;
+        use math::EuclideanSpace;
+
+        let from = math::Point3::from_vec(Transform::world_position(&arena, handle)?);
+        let to = math::Point3::from_vec(Transform::world_position(&arena, target)?);
+        let decomposed = Decomposed::look_at(from, to, up);
+        unsafe { Transform::set_world_decomposed_unchecked(&mut arena, handle, &decomposed) }
     }
 
     /// Get the decomped data of transform.
@@ -408,18 +423,17 @@ impl Transform {
         }
     }
 
-    /// Get the view matrix of this transform.
-    pub fn view(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<math::Matrix4<f32>> {
-        use math::EuclideanSpace;
-
-        let dir = math::Vector3::new(0.0, 0.0, 1.0);
-        let forward = Transform::transform_point(&arena, handle, dir)?;
-        let center = Transform::world_position(&arena, handle)?;
-        let up = Transform::up(&arena, handle)?;
-
-        Ok(math::Matrix4::<f32>::look_at(math::Point3::from_vec(forward),
-                                         math::Point3::from_vec(center),
-                                         up))
+    /// Get the transform matrix of this transform.
+    pub fn as_matrix(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<math::Matrix4<f32>> {
+        if arena.get(*handle).is_some() {
+            unsafe {
+                let decomposed = Transform::world_decomposed_unchecked(&arena, handle);
+                let matrix = math::Matrix4::from(decomposed);
+                Ok(matrix)
+            }
+        } else {
+            bail!(ErrorKind::NonTransformFound);
+        }
     }
 
     unsafe fn set_world_decomposed_unchecked(arena: &mut ArenaGetter<Transform>,
@@ -428,11 +442,11 @@ impl Transform {
                                              -> Result<()> {
         let mut relative = Decomposed::one();
         for v in Transform::ancestors(arena, handle) {
-            relative = relative.concat(&arena.get_unchecked(*v).decomposed);
+            relative = arena.get_unchecked(*v).decomposed.concat(&relative);
         }
 
         if let Some(inverse) = relative.inverse_transform() {
-            arena.get_unchecked_mut(*handle).decomposed = decomposed.concat(&inverse);
+            arena.get_unchecked_mut(*handle).decomposed = inverse.concat(&decomposed);
             Ok(())
         } else {
             bail!(ErrorKind::CanNotInverseTransform);
@@ -444,7 +458,7 @@ impl Transform {
                                          -> Decomposed {
         let mut decomposed = arena.get_unchecked(*handle).decomposed;
         for v in Transform::ancestors(arena, handle) {
-            decomposed = decomposed.concat(&arena.get_unchecked(*v).decomposed);
+            decomposed = arena.get_unchecked(*v).decomposed.concat(&decomposed);
         }
         decomposed
     }

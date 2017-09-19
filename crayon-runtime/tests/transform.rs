@@ -1,12 +1,11 @@
 extern crate crayon;
-extern crate cgmath;
 #[macro_use]
 extern crate approx;
 extern crate rand;
 
-use cgmath as math;
-use crayon::scene::transform::*;
+use crayon::scene::*;
 use crayon::ecs::World;
+use crayon::math;
 use math::Zero;
 use rand::{Rng, SeedableRng, XorShiftRng};
 
@@ -44,6 +43,9 @@ pub fn space() {
                    math::Vector3::new(1.0, 0.0, 0.0));
 
         Transform::set_world_scale(&mut arena, e4, 2.0).unwrap();
+        let disp = Transform::world_position(&mut arena, e4).unwrap();
+        assert_eq!(disp, math::Vector3::new(2.0, 0.0, 2.0));
+
         let euler = math::Euler::new(math::Deg(0.0), math::Deg(0.0), math::Deg(90.0));
         Transform::set_world_rotation(&mut arena, e4, math::Quaternion::from(euler)).unwrap();
 
@@ -57,7 +59,7 @@ pub fn space() {
 
         let pos = Transform::transform_point(&arena, e4, math::Vector3::new(1.0, 0.0, 0.0))
             .unwrap();
-        assert!(ulps_eq!(pos, math::Vector3::new(1.0, 4.0, 4.0)));
+        assert!(ulps_eq!(pos, math::Vector3::new(2.0, 2.0, 2.0)));
     }
 }
 
@@ -176,4 +178,56 @@ fn random_iteration() {
 
     let len = Transform::descendants(&arena, constructed[0]).count();
     assert_eq!(len, 254);
+}
+
+#[test]
+fn camera() {
+    use math::Transform as MathTransform;
+
+    let mut world = World::new();
+    world.register::<Transform>();
+    world.register::<Camera>();
+
+    let camera = world
+        .build()
+        .with_default::<Transform>()
+        .with_default::<Camera>()
+        .finish();
+
+    {
+        let mut arena = world.arena::<Transform>().unwrap();
+        Transform::set_world_position(&mut arena, camera, math::Vector3::new(0.0, 0.0, -5.0))
+            .unwrap();
+    }
+
+    {
+        let view_matrix = Camera::view_matrix(&world.arena::<Transform>().unwrap(), camera)
+            .unwrap();
+
+        let point = math::Point3::new(0.0, 0.0, 1.0);
+        let view_point = view_matrix.transform_point(point);
+
+        assert!(ulps_eq!(view_point, math::Point3::new(0.0, 0.0, 6.0)));
+    }
+
+    {
+        let mut arena = world.arena::<Transform>().unwrap();
+        Transform::set_world_rotation(&mut arena,
+                                      camera,
+                                      math::Quaternion::from(math::Euler {
+                                                                 x: math::Deg(0f32),
+                                                                 y: math::Deg(0f32),
+                                                                 z: math::Deg(90f32),
+                                                             }))
+                .unwrap();
+    }
+
+    {
+        let view_matrix = Camera::view_matrix(&world.arena::<Transform>().unwrap(), camera)
+            .unwrap();
+        let point = math::Point3::new(1.0, 0.0, 0.0);
+        let view_point = view_matrix.transform_point(point);
+
+        assert!(ulps_eq!(view_point, math::Point3::new(0.0, -1.0, 5.0)));
+    }
 }

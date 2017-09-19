@@ -13,7 +13,8 @@ pub enum Projection {
     Perspective(f32),
 }
 
-/// A `Camera` is a device through which the player views the world.
+/// A `Camera` is a device through which the player views the world. We use
+/// right-handed coordinates system as default.
 #[derive(Debug, Clone)]
 pub struct Camera {
     aspect: f32,
@@ -30,9 +31,8 @@ impl Default for Camera {
     fn default() -> Self {
         Camera {
             aspect: 1.0,
-            clip: (0.1, 100.0),
+            clip: (0.1, 1000.0),
             projection: Projection::Ortho(128.0),
-
             order: 0,
             framebuffer: None,
             clear: (None, None, None),
@@ -67,20 +67,6 @@ impl Camera {
     #[inline]
     pub fn set_clip_plane(&mut self, near: f32, far: f32) {
         self.clip = (near.min(far), far.max(near));
-    }
-
-    /// Return the projection matrix based on projector.
-    #[inline]
-    pub fn projection_matrix(&self) -> math::Matrix4<f32> {
-        match self.projection {
-            Projection::Ortho(vsize) => {
-                let hsize = vsize * self.aspect;
-                math::ortho(-hsize, hsize, -vsize, vsize, self.clip.0, self.clip.1).into()
-            }
-            Projection::Perspective(fov) => {
-                math::perspective(math::Deg(fov), self.aspect, self.clip.0, self.clip.1).into()
-            }
-        }
     }
 
     /// Return the projection type and its payload.
@@ -161,5 +147,44 @@ impl Camera {
     #[inline]
     pub fn render_order(&self) -> u32 {
         self.order
+    }
+}
+
+use super::Transform;
+use super::errors::*;
+
+impl Camera {
+    /// Get the projection matrix based on projector.
+    pub fn projection_matrix(arena: &ArenaGetter<Camera>,
+                             hande: Entity)
+                             -> Result<math::Matrix4<f32>> {
+        let camera = arena.get(*hande).ok_or(ErrorKind::NonCameraFound)?;
+        Ok(match camera.projection {
+               Projection::Ortho(vsize) => {
+                   let hsize = vsize * camera.aspect;
+                   math::ortho(-hsize, hsize, -vsize, vsize, camera.clip.0, camera.clip.1).into()
+               }
+               Projection::Perspective(fov) => {
+                   math::perspective(math::Deg(fov), camera.aspect, camera.clip.0, camera.clip.1)
+                       .into()
+               }
+           })
+    }
+
+    /// Get the view matrix of this transform, which is looking down the negative
+    /// z-axis.
+    pub fn view_matrix(arena: &ArenaGetter<Transform>,
+                       handle: Entity)
+                       -> Result<math::Matrix4<f32>> {
+        use math::EuclideanSpace;
+        use math::Transform as MathTransform;
+
+        let decomposed = Transform::world_decomposed(&arena, handle)?;
+        let dir = math::Vector3::new(0.0, 0.0, -1.0);
+        let center = decomposed.transform_point(math::Point3::from_vec(dir));
+        let eye = math::Point3::from_vec(decomposed.disp);
+        let up = decomposed.rot * math::Vector3::new(0.0, 1.0, 0.0);
+
+        Ok(math::Matrix4::<f32>::look_at(eye, center, up))
     }
 }
