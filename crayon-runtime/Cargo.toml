@@ -4,7 +4,7 @@ version = "0.0.3"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 
 description = "An experimental entity-component-based multithread game engine."
-repository = "https://github.com/kaisc/crayon"
+repository = "https://github.com/shawnscode/crayon"
 documentation = "http://docs.rs/crayon"
 readme = "../README.md"
 license = "Apache-2.0"
@@ -13,7 +13,7 @@ keywords = ["ecs", "entity-component", "game-dev", "multithread"]
 categories = ["game-engines", "multimedia"]
 
 [badges]
-travis-ci = { repository = "kaisc/crayon", branch = "master" }
+travis-ci = { repository = "shawnscode/crayon", branch = "master" }
 
 [dependencies]
 libc = "0.2.30"

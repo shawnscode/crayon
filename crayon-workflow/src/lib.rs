@@ -8,7 +8,7 @@
 //!
 //! The whole workflow mechanism is provided as a libaray to serve as backend for various kind of interfaces,
 //! even by third parties or written in-house. You can find a build-in command line version named
-//! [crayon-cli](https://github.com/kaisc/crayon/tree/master/crayon-cli).
+//! [crayon-cli](https://github.com/shawnscode/crayon/tree/master/crayon-cli).
 //!
 //! ## Workspace
 //!
