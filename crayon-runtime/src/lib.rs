@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate error_chain;
 extern crate bit_set;
-extern crate deque;
 extern crate rand;
 extern crate libc;
 extern crate zip;

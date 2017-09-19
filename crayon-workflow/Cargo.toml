@@ -5,22 +5,22 @@ authors = ["Jingkai Mao <oammix@gmail.com>"]
 
 [dependencies]
 crayon = { path = "../crayon-runtime" }
-error-chain = "0.10.0"
+error-chain = "0.11.0"
 
-serde = "1.0.8"
-serde_derive = "1.0.8"
+serde = "1.0.15"
+serde_derive = "1.0.15"
 serde_yaml = "0.7.1"
-serde_json = "1.0"
+serde_json = "1.0.3"
 bincode = "0.8.0"
-toml = "0.4"
+toml = "0.4.5"
 
 uuid = { version = "0.5.1", features = ["serde", "v4"] }
 seahash = "3.0.5"
 
-image = "0.14.0"
+image = "0.15.0"
 walkdir = "1.0.7"
 
 nom = "^3.2"
-libc = "0.2.23"
+libc = "0.2.30"
 
 [build-dependencies]
