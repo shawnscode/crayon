@@ -153,7 +153,7 @@ impl MeshRenderer {
         }
 
         for i in 0..4 {
-            if let Some(v) = heap.peek() {
+            if let Some(v) = heap.pop() {
                 let field = format!("bi_PointLightEyePos[{:?}]", i);
                 if mat.has_uniform_variable(&field, UVT::Vector3f) {
                     let pos = v.1.disp;

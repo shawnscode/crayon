@@ -167,31 +167,21 @@ impl Window {
 impl ApplicationInstance for Window {
     fn on_update(&mut self, mut app: &mut Application) -> errors::Result<()> {
         // Rotate cube.
-        let translation = if app.input.is_key_down(KeyboardButton::W) {
-            Vector3::unit_z()
-        } else if app.input.is_key_down(KeyboardButton::S) {
-            Vector3::unit_z() * -1.0
-        } else if app.input.is_key_down(KeyboardButton::D) {
-            Vector3::unit_x()
-        } else if app.input.is_key_down(KeyboardButton::A) {
-            Vector3::unit_x() * -1.0
-        } else if app.input.is_key_down(KeyboardButton::Q) {
-            Vector3::unit_y()
-        } else if app.input.is_key_down(KeyboardButton::E) {
-            Vector3::unit_y() * -1.0
-        } else {
-            Vector3::new(0.0, 0.0, 0.0)
-        };
+        let rotation = Quaternion::from(math::Euler {
+                                            x: math::Deg(1.0f32),
+                                            y: math::Deg(1.0f32),
+                                            z: math::Deg(0.0f32),
+                                        });
 
         for cube in &self.cubes {
             self.scene
                 .world()
                 .fetch_mut::<Transform>(*cube)
                 .unwrap()
-                .translate(translation);
+                .rotate(rotation);
         }
 
-
+        // Rotate directional light.
         let rotation = Quaternion::from(math::Euler {
                                             x: math::Deg(0.0f32),
                                             y: math::Deg(1.0f32),
