@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use std::borrow::Borrow;
+use std::sync::MutexGuard;
 use std::str;
 use std::slice;
 use std::mem;
@@ -306,6 +307,98 @@ impl Frame {
             }
         }
 
+        Ok(())
+    }
+}
+
+/// A frame task builder.
+pub struct FrameTaskBuilder<'a> {
+    frame: MutexGuard<'a, Frame>,
+
+    order: u64,
+    uniforms: Vec<(TaskBufferPtr<str>, UniformVariable)>,
+    textures: Vec<(TaskBufferPtr<str>, TextureHandle)>,
+
+    vb: Option<VertexBufferHandle>,
+    ib: Option<IndexBufferHandle>,
+    view: Option<ViewHandle>,
+    pso: Option<PipelineStateHandle>,
+}
+
+impl<'a> FrameTaskBuilder<'a> {
+    pub fn new<'b>(frame: MutexGuard<'b, Frame>) -> Self
+        where 'b: 'a
+    {
+        FrameTaskBuilder {
+            frame: frame,
+            order: 0,
+            view: None,
+            pso: None,
+            uniforms: Vec::new(),
+            textures: Vec::new(),
+            vb: None,
+            ib: None,
+        }
+    }
+
+    pub fn with_order(&mut self, order: u64) -> &mut Self {
+        self.order = order;
+        self
+    }
+
+    pub fn with_view(&mut self, view: ViewHandle) -> &mut Self {
+        self.view = Some(view);
+        self
+    }
+
+    pub fn with_pipeline(&mut self, pso: PipelineStateHandle) -> &mut Self {
+        self.pso = Some(pso);
+        self
+    }
+
+    pub fn with_data(&mut self,
+                     vb: VertexBufferHandle,
+                     ib: Option<IndexBufferHandle>)
+                     -> &mut Self {
+        self.vb = Some(vb);
+        self.ib = ib;
+        self
+    }
+
+    pub fn with_uniform_variable(&mut self, field: &str, variable: UniformVariable) -> &mut Self {
+        let field = self.frame.buf.extend_from_str(field);
+        self.uniforms.push((field, variable));
+        self
+    }
+
+    pub fn with_texture(&mut self, field: &str, texture: TextureHandle) -> &mut Self {
+        let field = self.frame.buf.extend_from_str(field);
+        self.textures.push((field, texture));
+        self
+    }
+
+    pub fn submit(&mut self, primitive: Primitive, from: u32, len: u32) -> Result<()> {
+        let view = self.view.ok_or(ErrorKind::CanNotDrawWithoutView)?;
+        let pso = self.pso.ok_or(ErrorKind::CanNotDrawWithoutPipelineState)?;
+        let vb = self.vb.ok_or(ErrorKind::CanNotDrawWihtoutVertexBuffer)?;
+
+        let uniforms = self.frame.buf.extend_from_slice(self.uniforms.as_slice());
+        let textures = self.frame.buf.extend_from_slice(self.textures.as_slice());
+
+        let task = FrameTask {
+            priority: self.order,
+            view: view,
+            pipeline: pso,
+            textures: textures,
+            uniforms: uniforms,
+            vb: vb,
+            ib: self.ib,
+            primitive: primitive,
+            from: from,
+            len: len,
+        };
+
+        self.frame.drawcalls.push(task);
         Ok(())
     }
 }

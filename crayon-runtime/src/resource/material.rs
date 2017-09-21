@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use graphics;
-use graphics::{UniformVariable, UniformVariableType, TextureHandle};
+use graphics::{UniformVariable, UniformVariableType};
 
 use super::errors::*;
 use super::{TexturePtr, ShaderPtr};
@@ -89,25 +89,32 @@ impl Material {
         Ok(())
     }
 
-    ///
-    pub fn build_uniform_variables<'a>(&'a self,
-                                       mut frontend: &mut graphics::Graphics,
-                                       textures: &mut Vec<(&'a str, TextureHandle)>,
-                                       uniforms: &mut Vec<(&'a str, UniformVariable)>)
-                                       -> graphics::errors::Result<()> {
-        for (name, v) in &self.uniforms {
-            uniforms.push((name, *v));
-        }
-
-        for (name, v) in &self.textures {
+    pub fn update_video_object(&mut self,
+                               mut video: &mut graphics::Graphics)
+                               -> graphics::errors::Result<()> {
+        for (_, v) in &self.textures {
             if let &Some(ref texture) = v {
                 let mut texture = texture.write().unwrap();
-                texture.update_video_object(&mut frontend)?;
-                textures.push((name, texture.video_object().unwrap()));
+                texture.update_video_object(&mut video)?;
             }
         }
 
         Ok(())
+    }
+
+    pub fn extract(&self, task: &mut graphics::FrameTaskBuilder) {
+        for (name, v) in &self.uniforms {
+            task.with_uniform_variable(&name, *v);
+        }
+
+        for (name, v) in &self.textures {
+            if let &Some(ref texture) = v {
+                let texture = texture.write().unwrap();
+                if let Some(handle) = texture.video_object() {
+                    task.with_texture(&name, handle);
+                }
+            }
+        }
     }
 }
 

@@ -15,6 +15,7 @@ pub use self::pipeline::*;
 pub use self::color::Color;
 pub use self::graphics::{Graphics, ViewStateRef, PipelineStateRef, FrameBufferRef, TextureRef,
                          RenderBufferRef, VertexBufferRef, IndexBufferRef};
+pub use self::frame::FrameTaskBuilder;
 
 impl_handle!(ViewHandle);
 impl_handle!(PipelineStateHandle);

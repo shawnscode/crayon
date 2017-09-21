@@ -929,20 +929,27 @@ impl Graphics {
 }
 
 impl Graphics {
+    /// Create a frame task builder.
+    #[inline]
+    pub fn create_frame_task(&self) -> FrameTaskBuilder {
+        FrameTaskBuilder::new(self.frames.front())
+    }
+
     /// Submit primitive for drawing, within view all draw commands are executed after
-    /// resource manipulation, such like `create_vertex_buffer`, `update_vertex_buffer`, etc.
-    pub fn draw(&mut self,
-                priority: u64,
-                view: ViewHandle,
-                pipeline: PipelineStateHandle,
-                textures: &[(&str, TextureHandle)],
-                uniforms: &[(&str, UniformVariable)],
-                vb: VertexBufferHandle,
-                ib: Option<IndexBufferHandle>,
-                primitive: Primitive,
-                from: u32,
-                len: u32)
-                -> Result<()> {
+    /// resource manipulation, such like `create_vertex_buffer`, `update_vertex_buffer`,
+    /// etc.
+    pub fn submit(&mut self,
+                  priority: u64,
+                  view: ViewHandle,
+                  pipeline: PipelineStateHandle,
+                  textures: &[(&str, TextureHandle)],
+                  uniforms: &[(&str, UniformVariable)],
+                  vb: VertexBufferHandle,
+                  ib: Option<IndexBufferHandle>,
+                  primitive: Primitive,
+                  from: u32,
+                  len: u32)
+                  -> Result<()> {
         let mut frame = self.frames.front();
 
         let uniforms = {
