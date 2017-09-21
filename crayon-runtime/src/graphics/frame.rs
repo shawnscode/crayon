@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 use std::borrow::Borrow;
 use std::sync::MutexGuard;
+use std::collections::HashMap;
 use std::str;
 use std::slice;
 use std::mem;
@@ -11,6 +12,8 @@ use super::resource::{ResourceHint, IndexFormat, VertexLayout, AttributeLayout,
                       FrameBufferAttachment};
 use super::pipeline::{UniformVariable, Primitive};
 use super::backend::Context;
+
+use utility;
 
 #[derive(Debug, Clone, Copy)]
 pub enum PreFrameTask {
@@ -404,16 +407,17 @@ impl<'a> FrameTaskBuilder<'a> {
 }
 
 /// Where we store all the intermediate bytes.
-pub struct TaskBuffer(Vec<u8>);
+pub struct TaskBuffer(Vec<u8>, HashMap<u64, TaskBufferPtr<str>>);
 
 impl TaskBuffer {
     /// Creates a new task buffer with specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
-        TaskBuffer(Vec::with_capacity(capacity))
+        TaskBuffer(Vec::with_capacity(capacity), HashMap::new())
     }
 
     pub fn clear(&mut self) {
         self.0.clear();
+        self.1.clear();
     }
 
     pub fn extend<T>(&mut self, value: &T) -> TaskBufferPtr<T>
@@ -448,12 +452,20 @@ impl TaskBuffer {
     pub fn extend_from_str<T>(&mut self, value: T) -> TaskBufferPtr<str>
         where T: Borrow<str>
     {
+        let v = utility::hash(&value.borrow());
+        if let Some(ptr) = self.1.get(&v) {
+            return *ptr;
+        }
+
         let slice = self.extend_from_slice(value.borrow().as_bytes());
-        TaskBufferPtr {
+        let ptr = TaskBufferPtr {
             position: slice.position,
             size: slice.size,
             _phantom: PhantomData,
-        }
+        };
+
+        self.1.insert(v, ptr);
+        ptr
     }
 
     /// Returns reference to object indicated by `TaskBufferPtr`.

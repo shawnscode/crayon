@@ -1,6 +1,8 @@
-#version 150
-in vec2 f_Color;
-out vec4 out_color;
+#version 100
+precision lowp float;
+
+varying vec2 v_Color;
+
 void main() {
-    out_color = vec4(f_Color, 0.0, 1.0);
+    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
 }

@@ -8,16 +8,14 @@ use crayon::prelude::*;
 struct Window {
     scene: Scene,
     cubes: Vec<Entity>,
-
     dir: Entity,
-    camera: Entity,
 }
 
 impl Window {
     fn new(mut app: &mut Application) -> errors::Result<Window> {
         let mut scene = Scene::new(&mut app)?;
 
-        let camera = {
+        {
             // Create and bind main camera of scene.
             let c = Scene::camera(&mut scene.world_mut());
             scene.set_main_camera(c);
@@ -35,9 +33,7 @@ impl Window {
                 position.z = 500f32;
                 Transform::set_world_position(&mut arena, c, position).unwrap();
             }
-
-            c
-        };
+        }
 
         let cubes = {
             let mut cubes = Vec::new();
@@ -77,7 +73,6 @@ impl Window {
                scene: scene,
                cubes: cubes,
                dir: dir,
-               camera: camera,
            })
     }
 

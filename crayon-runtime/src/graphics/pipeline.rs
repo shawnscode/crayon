@@ -89,7 +89,7 @@ pub struct RenderState {
 impl Default for RenderState {
     fn default() -> Self {
         RenderState {
-            cull_face: CullFace::Back,
+            cull_face: CullFace::Nothing,
             front_face_order: FrontFaceOrder::CounterClockwise,
             depth_test: Comparison::Always, // no depth test,
             depth_write: false, // no depth write,
@@ -98,15 +98,6 @@ impl Default for RenderState {
             color_write: (false, false, false, false),
         }
     }
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub enum AtomicUniformVariable {
-    I32(i32),
-    F32(f32),
-    Vector2f([f32; 2]),
-    Vector3f([f32; 3]),
-    Vector4f([f32; 4]),
 }
 
 /// Uniform variable for graphics program object. Each matrix based `UniformVariable`

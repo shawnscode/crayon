@@ -62,26 +62,19 @@ impl Window {
 
 impl ApplicationInstance for Window {
     fn on_update(&mut self, app: &mut Application) -> errors::Result<()> {
-        let uniforms = vec![];
-        let mut textures = vec![];
+        let mut texture = self.texture.write().unwrap();
+        texture.update_video_object(&mut app.graphics)?;
 
         {
-            let mut texture = self.texture.write().unwrap();
-            texture.update_video_object(&mut app.graphics)?;
-            textures.push(("renderedTexture", texture.video_object().unwrap()));
+            let len = self.vbo.object.read().unwrap().len();
+            let mut task = app.graphics.create_frame_task();
+            task.with_order(0)
+                .with_view(*self.view)
+                .with_pipeline(*self.pso)
+                .with_data(*self.vbo, None)
+                .with_texture("renderedTexture", texture.video_object().unwrap())
+                .submit(graphics::Primitive::Triangles, 0, len)?;
         }
-
-        app.graphics
-            .draw(0,
-                  *self.view,
-                  *self.pso,
-                  textures.as_slice(),
-                  uniforms.as_slice(),
-                  *self.vbo,
-                  None,
-                  graphics::Primitive::Triangles,
-                  0,
-                  self.vbo.object.read().unwrap().len())?;
 
         Ok(())
     }

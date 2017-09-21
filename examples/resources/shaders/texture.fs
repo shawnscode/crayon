@@ -1,7 +1,10 @@
-#version 330 core
-in vec2 UV;
-out vec3 color;
+#version 100
+precision lowp float;
+
+varying vec2 v_Texcoord;
+
 uniform sampler2D renderedTexture;
+
 void main() {
-    color = texture( renderedTexture, UV ).xyz;
+    gl_FragColor = vec4(texture2D( renderedTexture, v_Texcoord ).xyz, 1.0);
 }
