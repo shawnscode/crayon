@@ -1,3 +1,5 @@
+/// The `Light` component that support `Point` and `Directional` right now.
+
 use graphics;
 use ecs::HashMapStorage;
 

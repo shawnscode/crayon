@@ -30,7 +30,7 @@ impl Primitive {
     }
 
     pub fn update_video_object(&mut self,
-                               video: &mut graphics::Graphics)
+                               video: &mut graphics::GraphicsFrontend)
                                -> graphics::errors::Result<()> {
         if self.vertices.vbo.is_none() {
             let vbo = video

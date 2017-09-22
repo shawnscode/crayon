@@ -1,3 +1,5 @@
+//! Functions for loading game settings.
+
 use std::path::Path;
 use std::fs::File;
 use std::io::Read;
@@ -6,6 +8,9 @@ use bincode;
 
 use super::errors::*;
 
+/// A structure containing configuration data for the game engine, which are
+/// used to specify hardware setup stuff to create the window and other
+/// context information.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Settings {
     pub engine: EngineSettings,

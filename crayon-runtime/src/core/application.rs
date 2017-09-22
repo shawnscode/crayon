@@ -1,3 +1,5 @@
+//! User-friendly facade for building applications.
+
 use std::path::Path;
 use std::sync::Arc;
 
@@ -11,8 +13,11 @@ use super::errors::*;
 use graphics;
 use resource;
 
+/// Trait `ApplicationInstance` defines a number of event functions that get executed
+/// in a pre-determined order.
 pub trait ApplicationInstance {
-    /// `ApplicationInstance::on_update` is called every frame.
+    /// `ApplicationInstance::on_update` is called every frame. Its the main workhorse
+    /// function for frame updates.
     fn on_update(&mut self, application: &mut Application) -> Result<()>;
 
     /// `ApplicationInstance::on_render` is called before we starts rendering the scene.
@@ -26,12 +31,14 @@ pub trait ApplicationInstance {
     }
 }
 
-/// User-friendly facade for building applications.
+/// An `Application` is the root object of the game engne. It binds various subsystems in a
+/// centeral place and takes care of trivial tasks like the execution order or life-time
+/// management.
 pub struct Application {
     pub input: input::Input,
     pub window: Arc<window::Window>,
     pub engine: Engine,
-    pub graphics: graphics::Graphics,
+    pub graphics: graphics::GraphicsFrontend,
     pub resources: resource::ResourceFrontend,
 
     alive: bool,
@@ -67,7 +74,7 @@ impl Application {
 
         let input = input::Input::new();
         let window = Arc::new(wb.build(&input)?);
-        let graphics = graphics::Graphics::new(window.clone())?;
+        let graphics = graphics::GraphicsFrontend::new(window.clone())?;
 
         Ok(Application {
                input: input,

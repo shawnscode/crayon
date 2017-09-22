@@ -59,7 +59,7 @@ impl Renderer {
         Ok(())
     }
 
-    fn parse_render_camera(mut video: &mut graphics::Graphics,
+    fn parse_render_camera(mut video: &mut graphics::GraphicsFrontend,
                            arenas: &mut (ArenaGetter<Transform>, ArenaGetter<Camera>),
                            camera: Entity)
                            -> Result<RenderCamera> {

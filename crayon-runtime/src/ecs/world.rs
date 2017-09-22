@@ -1,3 +1,5 @@
+//! The `World` struct contains entities and its the component storages.
+
 use std::any::Any;
 use std::borrow::Borrow;
 use std::cell::{Ref, RefMut, RefCell};

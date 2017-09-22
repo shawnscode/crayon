@@ -15,7 +15,7 @@ error_chain!{
     }
 
     links {
-        Graphics(graphics::errors::Error, graphics::errors::ErrorKind);
+        GraphicsFrontend(graphics::errors::Error, graphics::errors::ErrorKind);
         Window(window::Error, window::ErrorKind);
         Resource(resource::errors::Error, resource::errors::ErrorKind);
         Scene(scene::errors::Error, scene::errors::ErrorKind);

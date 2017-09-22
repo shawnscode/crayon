@@ -1,3 +1,5 @@
+//! The enumerations of all events that come from various kinds of user input.
+
 /// The status of application.
 #[derive(Debug)]
 pub enum ApplicationEvent {

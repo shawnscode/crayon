@@ -1,17 +1,17 @@
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, Mutex, MutexGuard};
-use utility::HandleObjectSet;
+use utility::{HandleObjectSet, Handle};
 use core::window;
 
 use super::*;
 use super::errors::*;
 use super::frame::*;
-use super::resource::*;
-use super::pipeline::*;
 use super::color::Color;
 use super::backend::Context;
 
-pub struct Graphics {
+
+/// The frontend of graphics module.
+pub struct GraphicsFrontend {
     context: Context,
 
     views: HandleObjectSet<Arc<RwLock<ViewStateObject>>>,
@@ -27,10 +27,10 @@ pub struct Graphics {
     multithread: bool,
 }
 
-impl Graphics {
-    /// Create a new `Graphics` with one `Window` context.
+impl GraphicsFrontend {
+    /// Create a new `GraphicsFrontend` with one `Window` context.
     pub fn new(window: Arc<window::Window>) -> Result<Self> {
-        Ok(Graphics {
+        Ok(GraphicsFrontend {
                context: Context::new(window)?,
                views: HandleObjectSet::new(),
                pipelines: HandleObjectSet::new(),
@@ -145,7 +145,7 @@ impl Graphics {
         // Update framebuffer parameters or free framebuffer object if neccessary.
         for handle in self.framebuffers.iter() {
             let item = self.framebuffers.get(handle).unwrap();
-            // If this framebuffer is owned by `Graphics` only, then free it.
+            // If this framebuffer is owned by `GraphicsFrontend` only, then free it.
             if Arc::strong_count(&item) == 1 {
                 self.handle_buf.push(handle);
             } else {
@@ -331,7 +331,9 @@ impl Deref for ViewStateRef {
     }
 }
 
-impl Graphics {
+impl_handle!(ViewHandle);
+
+impl GraphicsFrontend {
     /// Creates an view with optional `FrameBuffer`. If `FrameBuffer` is none, default
     /// framebuffer will be used as render target.
     pub fn create_view(&mut self, framebuffer: Option<FrameBufferRef>) -> Result<ViewStateRef> {
@@ -356,6 +358,8 @@ impl Graphics {
     }
 }
 
+/// A `PipelineStateObject` encapusulate all the informations we need to configurate
+/// OpenGL before real drawing, like shaders, render states, etc.
 #[derive(Debug)]
 pub struct PipelineStateObject {
     attributes: AttributeLayout,
@@ -388,7 +392,9 @@ impl Deref for PipelineStateRef {
     }
 }
 
-impl Graphics {
+impl_handle!(PipelineStateHandle);
+
+impl GraphicsFrontend {
     /// Create a pipeline with initial shaders and render state. Pipeline encapusulate
     /// all the informations we need to configurate OpenGL before real drawing.
     pub fn create_pipeline(&mut self,
@@ -425,6 +431,8 @@ impl Graphics {
     }
 }
 
+/// `FrameBufferObject` is a collection of 2D arrays or storages, including
+/// color buffers, depth buffer, stencil buffer.
 #[derive(Debug)]
 pub struct FrameBufferObject {
     renderbuffers: [Option<RenderBufferRef>; MAX_ATTACHMENTS],
@@ -508,7 +516,9 @@ impl Deref for FrameBufferRef {
     }
 }
 
-impl Graphics {
+impl_handle!(FrameBufferHandle);
+
+impl GraphicsFrontend {
     /// Create a framebuffer object. A framebuffer allows you to render primitives directly to a texture,
     /// which can then be used in other rendering operations.
     ///
@@ -572,7 +582,9 @@ impl Deref for TextureRef {
     }
 }
 
-impl Graphics {
+impl_handle!(TextureHandle);
+
+impl GraphicsFrontend {
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
     pub fn create_texture(&mut self,
@@ -680,7 +692,9 @@ impl Deref for RenderBufferRef {
     }
 }
 
-impl Graphics {
+impl_handle!(RenderBufferHandle);
+
+impl GraphicsFrontend {
     /// Create a render buffer object, which could be attached to framebuffer.
     pub fn create_render_buffer(&mut self,
                                 format: RenderTextureFormat,
@@ -751,7 +765,9 @@ impl Deref for VertexBufferRef {
     }
 }
 
-impl Graphics {
+impl_handle!(VertexBufferHandle);
+
+impl GraphicsFrontend {
     /// Create vertex buffer object with vertex layout declaration and optional data.
     pub fn create_vertex_buffer(&mut self,
                                 layout: &VertexLayout,
@@ -859,7 +875,9 @@ impl Deref for IndexBufferRef {
     }
 }
 
-impl Graphics {
+impl_handle!(IndexBufferHandle);
+
+impl GraphicsFrontend {
     /// Create index buffer object with optional data.
     pub fn create_index_buffer(&mut self,
                                format: IndexFormat,
@@ -927,7 +945,7 @@ impl Graphics {
     }
 }
 
-impl Graphics {
+impl GraphicsFrontend {
     /// Create a frame task builder.
     #[inline]
     pub fn create_frame_task(&self) -> FrameTaskBuilder {

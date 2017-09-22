@@ -7,7 +7,7 @@ error_chain!{
     }
 
     links {
-        Graphics(graphics::errors::Error, graphics::errors::ErrorKind);
+        GraphicsFrontend(graphics::errors::Error, graphics::errors::ErrorKind);
         Resource(resource::errors::Error, resource::errors::ErrorKind);
     }
 

@@ -1,3 +1,5 @@
+//! A texture mapped planar mesh.
+
 use graphics;
 use resource;
 use ecs;

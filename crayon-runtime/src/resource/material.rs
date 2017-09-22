@@ -90,7 +90,7 @@ impl Material {
     }
 
     pub fn update_video_object(&mut self,
-                               mut video: &mut graphics::Graphics)
+                               mut video: &mut graphics::GraphicsFrontend)
                                -> graphics::errors::Result<()> {
         for (_, v) in &self.textures {
             if let &Some(ref texture) = v {
