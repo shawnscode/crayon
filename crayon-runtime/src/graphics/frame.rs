@@ -22,6 +22,7 @@ pub enum PreFrameTask {
     UpdateViewOrder(ViewHandle, u32),
     UpdateViewSequential(ViewHandle, bool),
     UpdateViewFrameBuffer(ViewHandle, Option<FrameBufferHandle>),
+    UpdateViewClear(ViewHandle, TaskBufferPtr<ViewClearDesc>),
 
     CreatePipeline(PipelineStateHandle, TaskBufferPtr<PipelineDesc>),
     UpdatePipelineState(PipelineStateHandle, TaskBufferPtr<RenderState>),
@@ -41,7 +42,6 @@ pub enum PreFrameTask {
 
     CreateFrameBuffer(FrameBufferHandle),
     UpdateFrameBufferAttachment(FrameBufferHandle, u32, FrameBufferAttachment),
-    UpdateFrameBufferClear(FrameBufferHandle, TaskBufferPtr<FrameBufferClearDesc>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -124,7 +124,7 @@ pub struct TextureParametersDesc {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct FrameBufferClearDesc {
+pub struct ViewClearDesc {
     pub clear_color: Option<Color>,
     pub clear_depth: Option<f32>,
     pub clear_stencil: Option<i32>,
@@ -176,6 +176,14 @@ impl Frame {
                 }
                 PreFrameTask::UpdateViewFrameBuffer(handle, framebuffer) => {
                     device.update_view_framebuffer(handle, framebuffer)?;
+                }
+                PreFrameTask::UpdateViewClear(handle, desc) => {
+                    let desc = &self.buf.as_ref(desc);
+                    device
+                        .update_view_clear(handle,
+                                           desc.clear_color,
+                                           desc.clear_depth,
+                                           desc.clear_stencil)?;
                 }
                 PreFrameTask::CreatePipeline(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
@@ -257,14 +265,6 @@ impl Frame {
                                 .update_framebuffer_with_texture(handle, texture, slot)?;
                         }
                     };
-                }
-                PreFrameTask::UpdateFrameBufferClear(handle, desc) => {
-                    let desc = &self.buf.as_ref(desc);
-                    device
-                        .update_framebuffer_clear(handle,
-                                                  desc.clear_color,
-                                                  desc.clear_depth,
-                                                  desc.clear_stencil)?;
                 }
             }
         }

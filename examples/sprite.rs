@@ -41,6 +41,7 @@ impl Window {
                 let mut camera = scene.world_mut().fetch_mut::<Camera>(c).unwrap();
                 camera.set_aspect(dimensions.0 as f32 / dimensions.1 as f32);
                 camera.set_projection(Projection::Ortho(dimensions.1 as f32 * 0.5));
+                camera.set_clear(Some(Color::gray()), None, None);
             }
 
             {

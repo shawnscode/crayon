@@ -69,6 +69,19 @@ impl Graphics {
                     vso.update_framebuffer = None;
                 }
 
+                // Update view's clear option.
+                if let Some(clear) = vso.update_clear {
+                    let ptr = frame
+                        .buf
+                        .extend(&ViewClearDesc {
+                                    clear_color: clear.0.map(|v| v.into()),
+                                    clear_depth: clear.1,
+                                    clear_stencil: clear.2,
+                                });
+                    frame.pre.push(PreFrameTask::UpdateViewClear(handle, ptr));
+                    vso.update_clear = None;
+                }
+
                 // Update view's draw order.
                 if let Some(order) = vso.update_order {
                     frame.pre.push(PreFrameTask::UpdateViewOrder(handle, order));
@@ -138,21 +151,6 @@ impl Graphics {
             } else {
                 let mut fbo = item.write().unwrap();
                 let handle = handle.into();
-
-                // Update framebuffer's clear option.
-                if let Some(clear) = fbo.update_clear {
-                    let ptr = frame
-                        .buf
-                        .extend(&FrameBufferClearDesc {
-                                    clear_color: clear.0.map(|v| v.into()),
-                                    clear_depth: clear.1,
-                                    clear_stencil: clear.2,
-                                });
-                    frame
-                        .pre
-                        .push(PreFrameTask::UpdateFrameBufferClear(handle, ptr));
-                    fbo.update_clear = None;
-                }
 
                 // Update framebuffer's attachments.
                 for i in 0..MAX_ATTACHMENTS {
@@ -269,6 +267,7 @@ impl Graphics {
 pub struct ViewStateObject {
     framebuffer: Option<FrameBufferRef>,
     update_framebuffer: Option<Option<FrameBufferHandle>>,
+    update_clear: Option<(Option<Color>, Option<f32>, Option<i32>)>,
     update_order: Option<u32>,
     update_seq_mode: Option<bool>,
     update_viewport: Option<((u16, u16), Option<(u16, u16)>)>,
@@ -282,6 +281,16 @@ impl ViewStateObject {
         self.framebuffer = framebuffer;
         self.update_framebuffer = Some(self.framebuffer.as_ref().map(|v| v.handle))
     }
+
+    /// Update the clear color of `ViewStateObject`.
+    #[inline]
+    pub fn update_clear(&mut self,
+                        color: Option<Color>,
+                        depth: Option<f32>,
+                        stencil: Option<i32>) {
+        self.update_clear = Some((color, depth, stencil));
+    }
+
 
     /// By defaults view are sorted in ascending oreder by ids when rendering.
     /// For dynamic renderers where order might not be known until the last moment,
@@ -330,6 +339,7 @@ impl Graphics {
         let object = Arc::new(RwLock::new(ViewStateObject {
                                               framebuffer: framebuffer,
                                               update_framebuffer: None,
+                                              update_clear: None,
                                               update_order: None,
                                               update_seq_mode: None,
                                               update_viewport: None,
@@ -419,20 +429,10 @@ impl Graphics {
 pub struct FrameBufferObject {
     renderbuffers: [Option<RenderBufferRef>; MAX_ATTACHMENTS],
     textures: [Option<TextureRef>; MAX_ATTACHMENTS],
-    update_clear: Option<(Option<Color>, Option<f32>, Option<i32>)>,
     update_attachments: [Option<FrameBufferAttachment>; MAX_ATTACHMENTS],
 }
 
 impl FrameBufferObject {
-    /// Update the clear color of `FrameBufferObject`.
-    #[inline]
-    pub fn update_clear(&mut self,
-                        color: Option<Color>,
-                        depth: Option<f32>,
-                        stencil: Option<i32>) {
-        self.update_clear = Some((color, depth, stencil));
-    }
-
     /// Attach a `RenderBufferObject` as a logical buffer to the `FrameBufferObject`.
     ///
     /// `FrameBufferObject` will keep a reference to this attachment, so its perfectly
@@ -519,7 +519,6 @@ impl Graphics {
                                                               None, None],
                                               textures: [None, None, None, None, None, None, None,
                                                          None],
-                                              update_clear: None,
                                               update_attachments: [None; MAX_ATTACHMENTS],
                                           }));
 

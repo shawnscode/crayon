@@ -57,10 +57,14 @@ impl Window {
         {
             let mut item = fbo.object.write().unwrap();
             item.update_texture_attachment(&rendered_texture, Some(0))?;
-            item.update_clear(Some(Color::gray()), None, None);
         }
 
         let view_fb = app.graphics.create_view(Some(fbo))?;
+        {
+            let mut item = view_fb.object.write().unwrap();
+            item.update_clear(Some(Color::gray()), None, None);
+        }
+
         let pipeline_fb = app.graphics
             .create_pipeline(include_str!("resources/shaders/render_target_p1.vs"),
                              include_str!("resources/shaders/render_target_p1.fs"),

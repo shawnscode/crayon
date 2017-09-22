@@ -1,7 +1,7 @@
 use std::str;
 use std::cell::{Cell, RefCell};
 use std::borrow::Borrow;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use gl;
 use gl::types::*;
@@ -49,6 +49,9 @@ struct GLView {
     priority: u32,
     seq: bool,
     drawcalls: RefCell<Vec<GLDrawcall>>,
+    clear_color: Option<Color>,
+    clear_depth: Option<f32>,
+    clear_stencil: Option<i32>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -77,9 +80,6 @@ struct GLRenderTexture {
 #[derive(Debug, Copy, Clone)]
 struct GLFrameBuffer {
     id: ResourceID,
-    clear_color: Option<Color>,
-    clear_depth: Option<f32>,
-    clear_stencil: Option<i32>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -108,7 +108,6 @@ pub struct Device {
     framebuffers: DataVec<GLFrameBuffer>,
 
     active_pipeline: Cell<Option<PipelineStateHandle>>,
-    cleared_framebuffer: RefCell<HashSet<GLuint>>,
 }
 
 impl Device {
@@ -124,7 +123,6 @@ impl Device {
             framebuffers: DataVec::new(),
 
             active_pipeline: Cell::new(None),
-            cleared_framebuffer: RefCell::new(HashSet::new()),
         }
     }
 }
@@ -138,10 +136,8 @@ impl Device {
         }
 
         self.active_pipeline.set(None);
-        self.cleared_framebuffer.borrow_mut().clear();
-
         self.visitor.bind_framebuffer(0, false)?;
-        self.visitor.clear(Some(Color::black()), Some(1.0), None)
+        Ok(())
     }
 
     pub fn submit(&self,
@@ -209,11 +205,6 @@ impl Device {
             if let Some(fbo) = vo.framebuffer {
                 if let Some(fbo) = self.framebuffers.get(fbo) {
                     self.visitor.bind_framebuffer(fbo.id, true)?;
-                    if !self.cleared_framebuffer.borrow_mut().contains(&fbo.id) {
-                        self.cleared_framebuffer.borrow_mut().insert(fbo.id);
-                        self.visitor
-                            .clear(fbo.clear_color, fbo.clear_depth, fbo.clear_stencil)?;
-                    }
                 } else {
                     bail!(ErrorKind::InvalidHandle);
                 }
@@ -221,6 +212,11 @@ impl Device {
                 self.visitor.bind_framebuffer(0, false)?;
             }
 
+            // Clear frame buffer.
+            self.visitor
+                .clear(vo.clear_color, vo.clear_depth, vo.clear_stencil)?;
+
+            // Bind the viewport.
             if let Some(viewport) = vo.viewport {
                 self.visitor
                     .set_viewport(viewport.0, viewport.1.unwrap_or(dimensions))?;
@@ -475,31 +471,10 @@ impl Device {
             bail!(ErrorKind::DuplicatedHandle)
         }
 
-        let fbo = GLFrameBuffer {
-            id: self.visitor.create_framebuffer()?,
-            clear_color: None,
-            clear_depth: None,
-            clear_stencil: None,
-        };
+        let fbo = GLFrameBuffer { id: self.visitor.create_framebuffer()? };
 
         self.framebuffers.set(handle, fbo);
         Ok(())
-    }
-
-    pub fn update_framebuffer_clear(&mut self,
-                                    handle: FrameBufferHandle,
-                                    clear_color: Option<Color>,
-                                    clear_depth: Option<f32>,
-                                    clear_stencil: Option<i32>)
-                                    -> Result<()> {
-        if let Some(fbo) = self.framebuffers.get_mut(handle) {
-            fbo.clear_color = clear_color;
-            fbo.clear_depth = clear_depth;
-            fbo.clear_stencil = clear_stencil;
-            Ok(())
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
     }
 
     pub unsafe fn update_framebuffer_with_texture(&mut self,
@@ -686,6 +661,9 @@ impl Device {
             seq: false,
             priority: 0,
             drawcalls: RefCell::new(Vec::new()),
+            clear_color: None,
+            clear_depth: None,
+            clear_stencil: None,
         };
 
         self.views.set(handle, view);
@@ -742,6 +720,22 @@ impl Device {
                                    -> Result<()> {
         if let Some(view) = self.views.get_mut(handle) {
             view.framebuffer = framebuffer;
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    pub fn update_view_clear(&mut self,
+                             handle: ViewHandle,
+                             clear_color: Option<Color>,
+                             clear_depth: Option<f32>,
+                             clear_stencil: Option<i32>)
+                             -> Result<()> {
+        if let Some(view) = self.views.get_mut(handle) {
+            view.clear_color = clear_color;
+            view.clear_depth = clear_depth;
+            view.clear_stencil = clear_stencil;
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
