@@ -1,17 +1,17 @@
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, Mutex, MutexGuard};
-use utility::HandleObjectSet;
+use utility::{HandleObjectSet, Handle};
 use core::window;
 
 use super::*;
 use super::errors::*;
 use super::frame::*;
-use super::resource::*;
-use super::pipeline::*;
 use super::color::Color;
 use super::backend::Context;
 
-pub struct Graphics {
+
+/// The frontend of graphics module.
+pub struct GraphicsFrontend {
     context: Context,
 
     views: HandleObjectSet<Arc<RwLock<ViewStateObject>>>,
@@ -27,10 +27,10 @@ pub struct Graphics {
     multithread: bool,
 }
 
-impl Graphics {
-    /// Create a new `Graphics` with one `Window` context.
+impl GraphicsFrontend {
+    /// Create a new `GraphicsFrontend` with one `Window` context.
     pub fn new(window: Arc<window::Window>) -> Result<Self> {
-        Ok(Graphics {
+        Ok(GraphicsFrontend {
                context: Context::new(window)?,
                views: HandleObjectSet::new(),
                pipelines: HandleObjectSet::new(),
@@ -67,6 +67,19 @@ impl Graphics {
                         .pre
                         .push(PreFrameTask::UpdateViewFrameBuffer(handle, framebuffer));
                     vso.update_framebuffer = None;
+                }
+
+                // Update view's clear option.
+                if let Some(clear) = vso.update_clear {
+                    let ptr = frame
+                        .buf
+                        .extend(&ViewClearDesc {
+                                    clear_color: clear.0.map(|v| v.into()),
+                                    clear_depth: clear.1,
+                                    clear_stencil: clear.2,
+                                });
+                    frame.pre.push(PreFrameTask::UpdateViewClear(handle, ptr));
+                    vso.update_clear = None;
                 }
 
                 // Update view's draw order.
@@ -132,27 +145,12 @@ impl Graphics {
         // Update framebuffer parameters or free framebuffer object if neccessary.
         for handle in self.framebuffers.iter() {
             let item = self.framebuffers.get(handle).unwrap();
-            // If this framebuffer is owned by `Graphics` only, then free it.
+            // If this framebuffer is owned by `GraphicsFrontend` only, then free it.
             if Arc::strong_count(&item) == 1 {
                 self.handle_buf.push(handle);
             } else {
                 let mut fbo = item.write().unwrap();
                 let handle = handle.into();
-
-                // Update framebuffer's clear option.
-                if let Some(clear) = fbo.update_clear {
-                    let ptr = frame
-                        .buf
-                        .extend(&FrameBufferClearDesc {
-                                    clear_color: clear.0.map(|v| v.into()),
-                                    clear_depth: clear.1,
-                                    clear_stencil: clear.2,
-                                });
-                    frame
-                        .pre
-                        .push(PreFrameTask::UpdateFrameBufferClear(handle, ptr));
-                    fbo.update_clear = None;
-                }
 
                 // Update framebuffer's attachments.
                 for i in 0..MAX_ATTACHMENTS {
@@ -269,6 +267,7 @@ impl Graphics {
 pub struct ViewStateObject {
     framebuffer: Option<FrameBufferRef>,
     update_framebuffer: Option<Option<FrameBufferHandle>>,
+    update_clear: Option<(Option<Color>, Option<f32>, Option<i32>)>,
     update_order: Option<u32>,
     update_seq_mode: Option<bool>,
     update_viewport: Option<((u16, u16), Option<(u16, u16)>)>,
@@ -282,6 +281,16 @@ impl ViewStateObject {
         self.framebuffer = framebuffer;
         self.update_framebuffer = Some(self.framebuffer.as_ref().map(|v| v.handle))
     }
+
+    /// Update the clear color of `ViewStateObject`.
+    #[inline]
+    pub fn update_clear(&mut self,
+                        color: Option<Color>,
+                        depth: Option<f32>,
+                        stencil: Option<i32>) {
+        self.update_clear = Some((color, depth, stencil));
+    }
+
 
     /// By defaults view are sorted in ascending oreder by ids when rendering.
     /// For dynamic renderers where order might not be known until the last moment,
@@ -322,7 +331,9 @@ impl Deref for ViewStateRef {
     }
 }
 
-impl Graphics {
+impl_handle!(ViewHandle);
+
+impl GraphicsFrontend {
     /// Creates an view with optional `FrameBuffer`. If `FrameBuffer` is none, default
     /// framebuffer will be used as render target.
     pub fn create_view(&mut self, framebuffer: Option<FrameBufferRef>) -> Result<ViewStateRef> {
@@ -330,6 +341,7 @@ impl Graphics {
         let object = Arc::new(RwLock::new(ViewStateObject {
                                               framebuffer: framebuffer,
                                               update_framebuffer: None,
+                                              update_clear: None,
                                               update_order: None,
                                               update_seq_mode: None,
                                               update_viewport: None,
@@ -346,6 +358,8 @@ impl Graphics {
     }
 }
 
+/// A `PipelineStateObject` encapusulate all the informations we need to configurate
+/// OpenGL before real drawing, like shaders, render states, etc.
 #[derive(Debug)]
 pub struct PipelineStateObject {
     attributes: AttributeLayout,
@@ -378,7 +392,9 @@ impl Deref for PipelineStateRef {
     }
 }
 
-impl Graphics {
+impl_handle!(PipelineStateHandle);
+
+impl GraphicsFrontend {
     /// Create a pipeline with initial shaders and render state. Pipeline encapusulate
     /// all the informations we need to configurate OpenGL before real drawing.
     pub fn create_pipeline(&mut self,
@@ -415,24 +431,16 @@ impl Graphics {
     }
 }
 
+/// `FrameBufferObject` is a collection of 2D arrays or storages, including
+/// color buffers, depth buffer, stencil buffer.
 #[derive(Debug)]
 pub struct FrameBufferObject {
     renderbuffers: [Option<RenderBufferRef>; MAX_ATTACHMENTS],
     textures: [Option<TextureRef>; MAX_ATTACHMENTS],
-    update_clear: Option<(Option<Color>, Option<f32>, Option<i32>)>,
     update_attachments: [Option<FrameBufferAttachment>; MAX_ATTACHMENTS],
 }
 
 impl FrameBufferObject {
-    /// Update the clear color of `FrameBufferObject`.
-    #[inline]
-    pub fn update_clear(&mut self,
-                        color: Option<Color>,
-                        depth: Option<f32>,
-                        stencil: Option<i32>) {
-        self.update_clear = Some((color, depth, stencil));
-    }
-
     /// Attach a `RenderBufferObject` as a logical buffer to the `FrameBufferObject`.
     ///
     /// `FrameBufferObject` will keep a reference to this attachment, so its perfectly
@@ -508,7 +516,9 @@ impl Deref for FrameBufferRef {
     }
 }
 
-impl Graphics {
+impl_handle!(FrameBufferHandle);
+
+impl GraphicsFrontend {
     /// Create a framebuffer object. A framebuffer allows you to render primitives directly to a texture,
     /// which can then be used in other rendering operations.
     ///
@@ -519,7 +529,6 @@ impl Graphics {
                                                               None, None],
                                               textures: [None, None, None, None, None, None, None,
                                                          None],
-                                              update_clear: None,
                                               update_attachments: [None; MAX_ATTACHMENTS],
                                           }));
 
@@ -573,7 +582,9 @@ impl Deref for TextureRef {
     }
 }
 
-impl Graphics {
+impl_handle!(TextureHandle);
+
+impl GraphicsFrontend {
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
     pub fn create_texture(&mut self,
@@ -681,7 +692,9 @@ impl Deref for RenderBufferRef {
     }
 }
 
-impl Graphics {
+impl_handle!(RenderBufferHandle);
+
+impl GraphicsFrontend {
     /// Create a render buffer object, which could be attached to framebuffer.
     pub fn create_render_buffer(&mut self,
                                 format: RenderTextureFormat,
@@ -752,7 +765,9 @@ impl Deref for VertexBufferRef {
     }
 }
 
-impl Graphics {
+impl_handle!(VertexBufferHandle);
+
+impl GraphicsFrontend {
     /// Create vertex buffer object with vertex layout declaration and optional data.
     pub fn create_vertex_buffer(&mut self,
                                 layout: &VertexLayout,
@@ -860,7 +875,9 @@ impl Deref for IndexBufferRef {
     }
 }
 
-impl Graphics {
+impl_handle!(IndexBufferHandle);
+
+impl GraphicsFrontend {
     /// Create index buffer object with optional data.
     pub fn create_index_buffer(&mut self,
                                format: IndexFormat,
@@ -928,21 +945,28 @@ impl Graphics {
     }
 }
 
-impl Graphics {
+impl GraphicsFrontend {
+    /// Create a frame task builder.
+    #[inline]
+    pub fn create_frame_task(&self) -> FrameTaskBuilder {
+        FrameTaskBuilder::new(self.frames.front())
+    }
+
     /// Submit primitive for drawing, within view all draw commands are executed after
-    /// resource manipulation, such like `create_vertex_buffer`, `update_vertex_buffer`, etc.
-    pub fn draw(&mut self,
-                priority: u64,
-                view: ViewHandle,
-                pipeline: PipelineStateHandle,
-                textures: &[(&str, TextureHandle)],
-                uniforms: &[(&str, UniformVariable)],
-                vb: VertexBufferHandle,
-                ib: Option<IndexBufferHandle>,
-                primitive: Primitive,
-                from: u32,
-                len: u32)
-                -> Result<()> {
+    /// resource manipulation, such like `create_vertex_buffer`, `update_vertex_buffer`,
+    /// etc.
+    pub fn submit(&mut self,
+                  priority: u64,
+                  view: ViewHandle,
+                  pipeline: PipelineStateHandle,
+                  textures: &[(&str, TextureHandle)],
+                  uniforms: &[(&str, UniformVariable)],
+                  vb: VertexBufferHandle,
+                  ib: Option<IndexBufferHandle>,
+                  primitive: Primitive,
+                  from: u32,
+                  len: u32)
+                  -> Result<()> {
         let mut frame = self.frames.front();
 
         let uniforms = {

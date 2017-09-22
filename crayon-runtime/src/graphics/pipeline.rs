@@ -89,7 +89,7 @@ pub struct RenderState {
 impl Default for RenderState {
     fn default() -> Self {
         RenderState {
-            cull_face: CullFace::Back,
+            cull_face: CullFace::Nothing,
             front_face_order: FrontFaceOrder::CounterClockwise,
             depth_test: Comparison::Always, // no depth test,
             depth_write: false, // no depth write,

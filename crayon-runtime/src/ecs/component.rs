@@ -1,3 +1,5 @@
+//! Abstract `Component` trait and some common storage stratedy.
+
 use std::ptr;
 use std::any::Any;
 use std::collections::HashMap;
@@ -109,8 +111,8 @@ impl<T> ComponentStorage<T> for HashMapStorage<T>
     }
 }
 
-/// Vec based storage, supposed to have maximum performance
-/// for the components mostly present in entities.
+/// Vec based storage, supposed to have maximum performance for the components
+/// mostly present in entities.
 pub struct VecStorage<T>
     where T: Component + ::std::fmt::Debug
 {

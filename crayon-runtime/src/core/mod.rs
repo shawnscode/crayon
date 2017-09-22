@@ -1,4 +1,4 @@
-//! Core Engine
+//! The root module of the game engine. It binds all the sub-system in a central place.
 
 pub mod settings;
 pub mod engine;

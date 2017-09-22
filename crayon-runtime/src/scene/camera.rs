@@ -1,3 +1,5 @@
+//! A device through which the player views the world.
+
 use math;
 use ecs::*;
 use graphics;
@@ -35,7 +37,7 @@ impl Default for Camera {
             projection: Projection::Ortho(128.0),
             order: 0,
             framebuffer: None,
-            clear: (None, None, None),
+            clear: (Some(Color::black()), Some(1.0), None),
             view: None,
         }
     }
@@ -84,17 +86,17 @@ impl Camera {
     /// Update internal video objects of this camera.
     #[inline]
     pub fn update_video_object(&mut self,
-                               video: &mut graphics::Graphics)
+                               video: &mut graphics::GraphicsFrontend)
                                -> graphics::errors::Result<()> {
-        if let Some(ref fb) = self.framebuffer {
-            fb.object
+        if self.view.is_none() {
+            self.view = Some(video.create_view(self.framebuffer.clone())?);
+        }
+
+        if let Some(ref vo) = self.view {
+            vo.object
                 .write()
                 .unwrap()
                 .update_clear(self.clear.0, self.clear.1, self.clear.2);
-        }
-
-        if self.view.is_none() {
-            self.view = Some(video.create_view(self.framebuffer.clone())?);
         }
 
         Ok(())

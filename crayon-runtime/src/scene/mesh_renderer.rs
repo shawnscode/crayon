@@ -1,12 +1,15 @@
+use std::collections::BinaryHeap;
+use std::cmp::{Ordering, Ord};
+
 use core::application;
 use ecs;
 use graphics;
 
 use math;
-use math::{Matrix, SquareMatrix};
+use math::{Matrix, SquareMatrix, MetricSpace, InnerSpace, Transform as MT};
 
 use super::errors::*;
-use super::{Transform, Mesh, Renderable, RenderCamera, RenderEnvironment};
+use super::{Transform, Decomposed, Mesh, Renderable, RenderCamera, RenderEnvironment, PointLight};
 
 pub struct MeshRenderer {}
 
@@ -53,67 +56,10 @@ impl MeshRenderer {
             return Ok(());
         }
 
+        // Update material.
         let mat = mesh.material().unwrap();
-        let mat = mat.write().unwrap();
-        let mut uniforms = Vec::new();
-        let mut textures = Vec::new();
-        mat.build_uniform_variables(&mut application.graphics, &mut textures, &mut uniforms)?;
-
-        // Assemble uniform variables with build-in uniforms.
-        let m = Transform::as_matrix(&arenas.0, v)?;
-        if mat.has_uniform_variable("bi_ModelMatrix", UVT::Matrix4f) {
-            uniforms.push(("bi_ModelMatrix", m.into()));
-        }
-
-        let vm = camera.view * m;
-        if mat.has_uniform_variable("bi_ViewModelMatrix", UVT::Matrix4f) {
-            uniforms.push(("bi_ViewModelMatrix", vm.into()));
-        }
-
-        if mat.has_uniform_variable("bi_NormalMatrix", UVT::Matrix4f) {
-            // Use a special normal matrix to remove the effect of wrongly scaling the normal
-            // vector with `bi_ViewModelMatrix`.
-            let n = if let Some(normal) = vm.invert() {
-                normal.transpose()
-            } else {
-                vm
-            };
-
-            uniforms.push(("bi_NormalMatrix", n.into()));
-        }
-
-        // TODO: Optimize uniform variable that shared by all the objects into one request
-        // per frame.
-        if mat.has_uniform_variable("bi_ViewMatrix", UVT::Matrix4f) {
-            uniforms.push(("bi_ViewMatrix", camera.view.into()));
-        }
-
-        if mat.has_uniform_variable("bi_ProjectionMatrix", UVT::Matrix4f) {
-            uniforms.push(("bi_ProjectionMatrix", camera.projection.into()));
-        }
-
-        if mat.has_uniform_variable("bi_WorldLightPos", UVT::Vector3f) {
-            let pos = env.light_pos;
-            uniforms.push(("bi_WorldLightPos", pos.into()));
-        }
-
-        if mat.has_uniform_variable("bi_EyeLightPos", UVT::Vector3f) {
-            let elp = camera.view *
-                      math::Vector4::new(env.light_pos.x, env.light_pos.y, env.light_pos.z, 1.0);
-            let elp = math::Vector3::new(elp.x, elp.y, elp.z);
-            uniforms.push(("bi_EyeLightPos", elp.into()));
-        }
-
-        if mat.has_uniform_variable("bi_LightColor", UVT::Vector3f) {
-            let color = env.light_color;
-            uniforms.push(("bi_LightColor", UV::Vector3f(color.rgb())));
-        }
-
-        if mat.has_uniform_variable("bi_AmbientColor", UVT::Vector3f) {
-            let v: [f32; 4] = env.ambient.into();
-            let color = math::Vector4::from(v) * 0.5;
-            uniforms.push(("bi_AmbientColor", color.truncate().into()));
-        }
+        let mut mat = mat.write().unwrap();
+        mat.update_video_object(&mut application.graphics)?;
 
         // Get pipeline state object from shader.
         let pso = {
@@ -147,19 +93,110 @@ impl MeshRenderer {
             }
         };
 
-        application
-            .graphics
-            .draw(order.into(),
-                  camera.vso,
-                  pso,
-                  &textures,
-                  &uniforms,
-                  vbo,
-                  ibo,
-                  graphics::Primitive::Triangles,
-                  0,
-                  len)?;
+        // Create drawcall task.
+        let mut drawcall = application.graphics.create_frame_task();
 
+        // Extract uniform variables specified in material.
+        mat.extract(&mut drawcall);
+
+        // Assemble uniform variables with build-in uniforms.
+        // Transformations.
+        let m = Transform::as_matrix(&arenas.0, v)?;
+        if mat.has_uniform_variable("bi_ModelMatrix", UVT::Matrix4f) {
+            drawcall.with_uniform_variable("bi_ModelMatrix", m.into());
+        }
+
+        let vm = camera.view * m;
+        if mat.has_uniform_variable("bi_ViewModelMatrix", UVT::Matrix4f) {
+            drawcall.with_uniform_variable("bi_ViewModelMatrix", vm.into());
+        }
+
+        if mat.has_uniform_variable("bi_NormalMatrix", UVT::Matrix4f) {
+            // Use a special normal matrix to remove the effect of wrongly scaling the normal
+            // vector with `bi_ViewModelMatrix`.
+            let n = if let Some(normal) = vm.invert() {
+                normal.transpose()
+            } else {
+                vm
+            };
+
+            drawcall.with_uniform_variable("bi_NormalMatrix", n.into());
+        }
+
+        // Lights.
+        let mut nearest_dir = None;
+        let min_dis = ::std::f32::MAX;
+        for v in &env.directional_lights {
+            let dis = v.0.disp.distance2(position);
+            if dis < min_dis {
+                nearest_dir = Some(v);
+            }
+        }
+
+        if let Some(v) = nearest_dir {
+            if mat.has_uniform_variable("bi_DirLightEyeDir", UVT::Vector3f) {
+                let dir = v.0
+                    .transform_vector(math::Vector3::unit_z() * -1.0)
+                    .normalize();
+                drawcall.with_uniform_variable("bi_DirLightEyeDir", dir.into());
+            }
+
+            if mat.has_uniform_variable("bi_DirLightColor", UVT::Vector3f) {
+                drawcall.with_uniform_variable("bi_DirLightColor", UV::Vector3f(v.1.color.rgb()));
+            }
+        }
+
+        let mut heap = BinaryHeap::new();
+        for v in &env.point_lights {
+            let dis = v.0.disp.distance2(position);
+            heap.push(PointLightInstance(dis, v.0, v.1));
+        }
+
+        for i in 0..4 {
+            if let Some(v) = heap.pop() {
+                let field = format!("bi_PointLightEyePos[{:?}]", i);
+                if mat.has_uniform_variable(&field, UVT::Vector3f) {
+                    let pos = v.1.disp;
+                    let elp = camera.view * math::Vector4::new(pos.x, pos.y, pos.z, 1.0);
+                    let elp = math::Vector3::new(elp.x, elp.y, elp.z);
+                    drawcall.with_uniform_variable(&field, elp.into());
+                }
+
+                let field = format!("bi_PointLightColor[{:?}]", i);
+                if mat.has_uniform_variable(&field, UVT::Vector3f) {
+                    drawcall.with_uniform_variable(&field, UV::Vector3f(v.2.color.rgb()));
+                }
+
+                let field = format!("bi_PointLightAttenuation[{:?}]", i);
+                if mat.has_uniform_variable(&field, UVT::Vector3f) {
+                    let attenuation = math::Vector3::new(1.0, 0.0, 0.0);
+                    drawcall.with_uniform_variable(&field, attenuation.into());
+                }
+            }
+        }
+
+        // TODO: Optimize uniform variable that shared by all the objects into one request
+        // per frame.
+        if mat.has_uniform_variable("bi_ViewMatrix", UVT::Matrix4f) {
+            drawcall.with_uniform_variable("bi_ViewMatrix", camera.view.into());
+        }
+
+        if mat.has_uniform_variable("bi_ProjectionMatrix", UVT::Matrix4f) {
+            drawcall.with_uniform_variable("bi_ProjectionMatrix", camera.projection.into());
+        }
+
+        if mat.has_uniform_variable("bi_AmbientColor", UVT::Vector3f) {
+            let v: [f32; 4] = env.ambient.into();
+            let color = math::Vector4::from(v) * 0.5;
+            drawcall.with_uniform_variable("bi_AmbientColor", color.truncate().into());
+        }
+
+        drawcall
+            .with_order(order.into())
+            .with_view(camera.vso)
+            .with_pipeline(pso)
+            .with_data(vbo, ibo)
+            .submit(graphics::Primitive::Triangles, 0, len)?;
         Ok(())
     }
 }
@@ -180,5 +217,28 @@ impl Into<u64> for DrawOrder {
 
         let suffix = self.pso.index();
         ((prefix as u64) << 32) | (suffix as u64)
+    }
+}
+
+#[derive(Debug)]
+struct PointLightInstance(f32, Decomposed, PointLight);
+
+impl PartialEq for PointLightInstance {
+    fn eq(&self, rhs: &Self) -> bool {
+        self.0 == rhs.0
+    }
+}
+
+impl Eq for PointLightInstance {}
+
+impl Ord for PointLightInstance {
+    fn cmp(&self, rhs: &Self) -> Ordering {
+        self.partial_cmp(&rhs).unwrap()
+    }
+}
+
+impl PartialOrd for PointLightInstance {
+    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
+        self.0.partial_cmp(&rhs.0)
     }
 }

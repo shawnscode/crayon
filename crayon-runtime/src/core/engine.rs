@@ -1,3 +1,5 @@
+//! Timing and measurement functions.
+
 use std;
 use std::any::{Any, TypeId};
 use std::sync::RwLock;
@@ -39,7 +41,8 @@ impl Engine {
     pub fn register<T>(&mut self, system: T)
         where T: Subsystem
     {
-        self.subsystems.insert(TypeId::of::<T>(), Box::new(RwLock::new(system)));
+        self.subsystems
+            .insert(TypeId::of::<T>(), Box::new(RwLock::new(system)));
     }
 
     // Retrieves reference to the specified subsystem. Panics if trying to get

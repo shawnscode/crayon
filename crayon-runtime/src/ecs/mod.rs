@@ -1,3 +1,5 @@
+//! The entity component system with a data-orinted designs.
+//!
 //! #### Entity Component System (ECS)
 //! ECS is an architectural pattern that is widely used in game development. It follows
 //! the _Composition_ over _Inheritance_ principle that allows greater flexibility in
@@ -33,6 +35,7 @@ pub mod world;
 pub use self::component::{Component, ComponentStorage, HashMapStorage, VecStorage};
 pub use self::world::{World, ArenaGetter};
 
+/// `Entity` type, as seen by the user, its a alias to `Handle` internally.
 pub type Entity = Handle;
 
 #[cfg(test)]

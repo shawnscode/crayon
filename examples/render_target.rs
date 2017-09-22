@@ -45,7 +45,7 @@ impl Window {
         let vbo_fb = app.graphics
             .create_vertex_buffer(&layout,
                                   graphics::ResourceHint::Static,
-                                  24,
+                                  (vertices.len() * layout.stride() as usize) as u32,
                                   Some(Vertex::as_bytes(&vertices[..])))?;
 
         let state = graphics::RenderState::default();
@@ -57,10 +57,14 @@ impl Window {
         {
             let mut item = fbo.object.write().unwrap();
             item.update_texture_attachment(&rendered_texture, Some(0))?;
-            item.update_clear(Some(Color::gray()), None, None);
         }
 
         let view_fb = app.graphics.create_view(Some(fbo))?;
+        {
+            let mut item = view_fb.object.write().unwrap();
+            item.update_clear(Some(Color::gray()), None, None);
+        }
+
         let pipeline_fb = app.graphics
             .create_pipeline(include_str!("resources/shaders/render_target_p1.vs"),
                              include_str!("resources/shaders/render_target_p1.fs"),
@@ -70,7 +74,7 @@ impl Window {
         let vbo = app.graphics
             .create_vertex_buffer(&layout,
                                   graphics::ResourceHint::Static,
-                                  48,
+                                  (quad_vertices.len() * layout.stride() as usize) as u32,
                                   Some(Vertex::as_bytes(&quad_vertices[..])))?;
         let view = app.graphics.create_view(None)?;
         let pipeline = app.graphics
@@ -96,36 +100,27 @@ impl Window {
 
 impl ApplicationInstance for Window {
     fn on_update(&mut self, app: &mut Application) -> errors::Result<()> {
-        let mut uniforms = vec![];
-        let mut textures = vec![];
-        app.graphics
-            .draw(0,
-                  *self.view,
-                  *self.pso,
-                  textures.as_slice(),
-                  uniforms.as_slice(),
-                  *self.vbo,
-                  None,
-                  graphics::Primitive::Triangles,
-                  0,
-                  self.vbo.object.read().unwrap().len())
-            .unwrap();
+        {
+            let len = self.vbo.object.read().unwrap().len();
+            let mut task = app.graphics.create_frame_task();
+            task.with_order(0)
+                .with_view(*self.view)
+                .with_pipeline(*self.pso)
+                .with_data(*self.vbo, None)
+                .submit(graphics::Primitive::Triangles, 0, len)?;
+        }
 
-        textures.push(("renderedTexture", *self.texture));
-        uniforms.push(("time", graphics::UniformVariable::F32(self.time)));
-
-        app.graphics
-            .draw(0,
-                  *self.view_pass_2,
-                  *self.pso_pass_2,
-                  textures.as_slice(),
-                  uniforms.as_slice(),
-                  *self.vbo_pass_2,
-                  None,
-                  graphics::Primitive::Triangles,
-                  0,
-                  self.vbo_pass_2.object.read().unwrap().len())
-            .unwrap();
+        {
+            let len = self.vbo_pass_2.object.read().unwrap().len();
+            let mut task = app.graphics.create_frame_task();
+            task.with_order(1)
+                .with_view(*self.view_pass_2)
+                .with_pipeline(*self.pso_pass_2)
+                .with_data(*self.vbo_pass_2, None)
+                .with_uniform_variable("time", self.time.into())
+                .with_texture("renderedTexture", *self.texture)
+                .submit(graphics::Primitive::Triangles, 0, len)?;
+        }
 
         self.time += 0.05;
         Ok(())

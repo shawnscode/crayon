@@ -1,5 +1,7 @@
 use std::marker::PhantomData;
 use std::borrow::Borrow;
+use std::sync::MutexGuard;
+use std::collections::HashMap;
 use std::str;
 use std::slice;
 use std::mem;
@@ -11,6 +13,8 @@ use super::resource::{ResourceHint, IndexFormat, VertexLayout, AttributeLayout,
 use super::pipeline::{UniformVariable, Primitive};
 use super::backend::Context;
 
+use utility;
+
 #[derive(Debug, Clone, Copy)]
 pub enum PreFrameTask {
     CreateView(ViewHandle, Option<FrameBufferHandle>),
@@ -18,6 +22,7 @@ pub enum PreFrameTask {
     UpdateViewOrder(ViewHandle, u32),
     UpdateViewSequential(ViewHandle, bool),
     UpdateViewFrameBuffer(ViewHandle, Option<FrameBufferHandle>),
+    UpdateViewClear(ViewHandle, TaskBufferPtr<ViewClearDesc>),
 
     CreatePipeline(PipelineStateHandle, TaskBufferPtr<PipelineDesc>),
     UpdatePipelineState(PipelineStateHandle, TaskBufferPtr<RenderState>),
@@ -37,7 +42,6 @@ pub enum PreFrameTask {
 
     CreateFrameBuffer(FrameBufferHandle),
     UpdateFrameBufferAttachment(FrameBufferHandle, u32, FrameBufferAttachment),
-    UpdateFrameBufferClear(FrameBufferHandle, TaskBufferPtr<FrameBufferClearDesc>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -120,7 +124,7 @@ pub struct TextureParametersDesc {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct FrameBufferClearDesc {
+pub struct ViewClearDesc {
     pub clear_color: Option<Color>,
     pub clear_depth: Option<f32>,
     pub clear_stencil: Option<i32>,
@@ -172,6 +176,14 @@ impl Frame {
                 }
                 PreFrameTask::UpdateViewFrameBuffer(handle, framebuffer) => {
                     device.update_view_framebuffer(handle, framebuffer)?;
+                }
+                PreFrameTask::UpdateViewClear(handle, desc) => {
+                    let desc = &self.buf.as_ref(desc);
+                    device
+                        .update_view_clear(handle,
+                                           desc.clear_color,
+                                           desc.clear_depth,
+                                           desc.clear_stencil)?;
                 }
                 PreFrameTask::CreatePipeline(handle, desc) => {
                     let desc = &self.buf.as_ref(desc);
@@ -254,14 +266,6 @@ impl Frame {
                         }
                     };
                 }
-                PreFrameTask::UpdateFrameBufferClear(handle, desc) => {
-                    let desc = &self.buf.as_ref(desc);
-                    device
-                        .update_framebuffer_clear(handle,
-                                                  desc.clear_color,
-                                                  desc.clear_depth,
-                                                  desc.clear_stencil)?;
-                }
             }
         }
 
@@ -310,17 +314,110 @@ impl Frame {
     }
 }
 
+/// A frame task builder.
+pub struct FrameTaskBuilder<'a> {
+    frame: MutexGuard<'a, Frame>,
+
+    order: u64,
+    uniforms: Vec<(TaskBufferPtr<str>, UniformVariable)>,
+    textures: Vec<(TaskBufferPtr<str>, TextureHandle)>,
+
+    vb: Option<VertexBufferHandle>,
+    ib: Option<IndexBufferHandle>,
+    view: Option<ViewHandle>,
+    pso: Option<PipelineStateHandle>,
+}
+
+impl<'a> FrameTaskBuilder<'a> {
+    pub fn new<'b>(frame: MutexGuard<'b, Frame>) -> Self
+        where 'b: 'a
+    {
+        FrameTaskBuilder {
+            frame: frame,
+            order: 0,
+            view: None,
+            pso: None,
+            uniforms: Vec::new(),
+            textures: Vec::new(),
+            vb: None,
+            ib: None,
+        }
+    }
+
+    pub fn with_order(&mut self, order: u64) -> &mut Self {
+        self.order = order;
+        self
+    }
+
+    pub fn with_view(&mut self, view: ViewHandle) -> &mut Self {
+        self.view = Some(view);
+        self
+    }
+
+    pub fn with_pipeline(&mut self, pso: PipelineStateHandle) -> &mut Self {
+        self.pso = Some(pso);
+        self
+    }
+
+    pub fn with_data(&mut self,
+                     vb: VertexBufferHandle,
+                     ib: Option<IndexBufferHandle>)
+                     -> &mut Self {
+        self.vb = Some(vb);
+        self.ib = ib;
+        self
+    }
+
+    pub fn with_uniform_variable(&mut self, field: &str, variable: UniformVariable) -> &mut Self {
+        let field = self.frame.buf.extend_from_str(field);
+        self.uniforms.push((field, variable));
+        self
+    }
+
+    pub fn with_texture(&mut self, field: &str, texture: TextureHandle) -> &mut Self {
+        let field = self.frame.buf.extend_from_str(field);
+        self.textures.push((field, texture));
+        self
+    }
+
+    pub fn submit(&mut self, primitive: Primitive, from: u32, len: u32) -> Result<()> {
+        let view = self.view.ok_or(ErrorKind::CanNotDrawWithoutView)?;
+        let pso = self.pso.ok_or(ErrorKind::CanNotDrawWithoutPipelineState)?;
+        let vb = self.vb.ok_or(ErrorKind::CanNotDrawWihtoutVertexBuffer)?;
+
+        let uniforms = self.frame.buf.extend_from_slice(self.uniforms.as_slice());
+        let textures = self.frame.buf.extend_from_slice(self.textures.as_slice());
+
+        let task = FrameTask {
+            priority: self.order,
+            view: view,
+            pipeline: pso,
+            textures: textures,
+            uniforms: uniforms,
+            vb: vb,
+            ib: self.ib,
+            primitive: primitive,
+            from: from,
+            len: len,
+        };
+
+        self.frame.drawcalls.push(task);
+        Ok(())
+    }
+}
+
 /// Where we store all the intermediate bytes.
-pub struct TaskBuffer(Vec<u8>);
+pub struct TaskBuffer(Vec<u8>, HashMap<u64, TaskBufferPtr<str>>);
 
 impl TaskBuffer {
     /// Creates a new task buffer with specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
-        TaskBuffer(Vec::with_capacity(capacity))
+        TaskBuffer(Vec::with_capacity(capacity), HashMap::new())
     }
 
     pub fn clear(&mut self) {
         self.0.clear();
+        self.1.clear();
     }
 
     pub fn extend<T>(&mut self, value: &T) -> TaskBufferPtr<T>
@@ -355,12 +452,20 @@ impl TaskBuffer {
     pub fn extend_from_str<T>(&mut self, value: T) -> TaskBufferPtr<str>
         where T: Borrow<str>
     {
+        let v = utility::hash(&value.borrow());
+        if let Some(ptr) = self.1.get(&v) {
+            return *ptr;
+        }
+
         let slice = self.extend_from_slice(value.borrow().as_bytes());
-        TaskBufferPtr {
+        let ptr = TaskBufferPtr {
             position: slice.position,
             size: slice.size,
             _phantom: PhantomData,
-        }
+        };
+
+        self.1.insert(v, ptr);
+        ptr
     }
 
     /// Returns reference to object indicated by `TaskBufferPtr`.

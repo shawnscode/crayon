@@ -1,10 +1,13 @@
+//! The input subsystem, which is responsible for converting window messages to
+//! input state and internal events.
+
 use std::collections::HashSet;
 use glutin;
 
 use super::event;
 
-/// Input subsystem, responsible for converting window messages to input state
-/// and internal events.
+/// The `Input` struct are used to manage all the events and corresponding internal
+/// states.
 pub struct Input {
     events: glutin::EventsLoop,
 

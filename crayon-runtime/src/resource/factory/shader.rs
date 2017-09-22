@@ -122,36 +122,53 @@ varying vec3 v_EyeNormal;
 varying vec2 v_Texcoord;
 varying vec4 v_Color;
 
-// uniform int bi_DirLightNum;
-// uniform vec3 bi_EyeDirLightPos[4];
-// uniform vec3 bi_DirLightColor[4];
-// uniform int bi_
+#define MAX_POINT_LIGHTS 4
 
-uniform vec3 bi_EyeLightPos;
-uniform vec3 bi_LightColor;
+uniform vec3 bi_DirLightEyeDir;
+uniform vec3 bi_DirLightColor;
 
-/// Phong materials
+uniform vec3 bi_PointLightEyePos[MAX_POINT_LIGHTS];
+uniform vec3 bi_PointLightColor[MAX_POINT_LIGHTS];
+uniform vec3 bi_PointLightAttenuation[MAX_POINT_LIGHTS];
+
+// Phong materials
 uniform vec3 u_Ambient;
 uniform vec3 u_Diffuse;
 uniform vec3 u_Specular;
 uniform float u_Shininess;
 
-void main() {
-    // ambient
-    vec3 ambient = bi_LightColor * u_Ambient;
+vec3 CalculateLight(vec3 normal, vec3 viewDir, vec3 lightDir, vec3 reflectDir)
+{
+    vec3 ambient = u_Ambient;
+    vec3 diffuse = max(dot(normal, -lightDir), 0.0) * u_Diffuse;
+    vec3 specular = pow(max(dot(viewDir, reflectDir), 0.0), u_Shininess) * u_Specular;
+    return (0.2 * ambient + 0.5 * diffuse + specular);
+}
 
-    // diffuse
-    vec3 norm = normalize(v_EyeNormal);
-    vec3 lightDir = normalize(v_EyeFragPos - bi_EyeLightPos);
-    vec3 diffuse = max(dot(norm, lightDir), 0.0) * u_Diffuse * bi_LightColor;
-
-    // specular
+void main()
+{
+    vec3 normal = normalize(v_EyeNormal);
     vec3 viewDir = normalize(v_EyeFragPos);
-    vec3 reflectDir = reflect(-lightDir, norm);
-    vec3 specular = pow(max(dot(viewDir, reflectDir), 0.0), u_Shininess) * u_Specular * bi_LightColor;
 
-    // result
-    vec3 result = (0.2 * ambient + 0.5 * diffuse + specular);
+    // directional light
+    vec3 reflectDir = reflect(-bi_DirLightEyeDir, normal);
+    vec3 result = CalculateLight(normal, viewDir, bi_DirLightEyeDir, reflectDir) * bi_DirLightColor;
+
+    // point lights
+    for(int i = 0; i < MAX_POINT_LIGHTS; i++)
+    {
+        vec3 lightDir2 = normalize(v_EyeFragPos - bi_PointLightEyePos[i]);
+        vec3 reflectDir2 = reflect(-lightDir2, normal);
+
+        float distance = length(bi_PointLightEyePos[i] - v_EyeFragPos);
+        float attenuation = 1.0 / (
+            bi_PointLightAttenuation[i].x +
+            bi_PointLightAttenuation[i].y * distance +
+            bi_PointLightAttenuation[i].z * (distance * distance));
+
+        result += CalculateLight(normal, viewDir, lightDir2, reflectDir2) * bi_PointLightColor[i] * attenuation;
+    }
+
     gl_FragColor = vec4(result, 1.0) * v_Color;
 }
     "
@@ -179,8 +196,15 @@ void main() {
     uniforms.insert("bi_ViewModelMatrix".to_owned(), UVT::Matrix4f);
     uniforms.insert("bi_ProjectionMatrix".to_owned(), UVT::Matrix4f);
     uniforms.insert("bi_NormalMatrix".to_owned(), UVT::Matrix4f);
-    uniforms.insert("bi_EyeLightPos".to_owned(), UVT::Vector3f);
-    uniforms.insert("bi_LightColor".to_owned(), UVT::Vector3f);
+
+    uniforms.insert("bi_DirLightEyeDir".to_owned(), UVT::Vector3f);
+    uniforms.insert("bi_DirLightColor".to_owned(), UVT::Vector3f);
+
+    for i in 0..3 {
+        uniforms.insert(format!("bi_PointLightEyePos[{:?}]", i), UVT::Vector3f);
+        uniforms.insert(format!("bi_PointLightColor[{:?}]", i), UVT::Vector3f);
+        uniforms.insert(format!("bi_PointLightAttenuation[{:?}]", i), UVT::Vector3f);
+    }
 
     uniforms.insert("u_Ambient".to_owned(), UVT::Vector3f);
     uniforms.insert("u_Diffuse".to_owned(), UVT::Vector3f);

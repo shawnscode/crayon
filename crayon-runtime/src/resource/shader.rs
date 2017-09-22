@@ -29,7 +29,7 @@ impl Shader {
     }
 
     pub fn update_video_object(&mut self,
-                               video: &mut graphics::Graphics)
+                               video: &mut graphics::GraphicsFrontend)
                                -> graphics::errors::Result<()> {
         if self.pso.is_none() {
             let v = video

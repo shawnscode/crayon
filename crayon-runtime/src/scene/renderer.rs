@@ -59,7 +59,7 @@ impl Renderer {
         Ok(())
     }
 
-    fn parse_render_camera(mut video: &mut graphics::Graphics,
+    fn parse_render_camera(mut video: &mut graphics::GraphicsFrontend,
                            arenas: &mut (ArenaGetter<Transform>, ArenaGetter<Camera>),
                            camera: Entity)
                            -> Result<RenderCamera> {
@@ -79,37 +79,33 @@ impl Renderer {
     }
 
     fn parse_render_env(&self, world: &World) -> RenderEnvironment {
+        let mut env = RenderEnvironment {
+            ambient: self.ambient.0,
+            directional_lights: Vec::new(),
+            point_lights: Vec::new(),
+        };
+
         let (view, arenas) = world.view_with_2::<Transform, Light>();
         for v in view {
             let light = arenas.1.get(*v).unwrap();
-            if light.is_enable() {
-                let (color, _) = match light {
-                    &Light::Directional(v) => (v.color, v.intensity),
-                    &Light::Point(v) => (v.color, v.intensity),
-                };
+            let decomposed = Transform::world_decomposed(&arenas.0, v).unwrap();
 
-                if let Ok(pos) = Transform::world_position(&arenas.0, v) {
-                    return RenderEnvironment {
-                               ambient: self.ambient.0,
-                               light_pos: pos,
-                               light_color: color,
-                           };
+            if light.is_enable() {
+                match light {
+                    &Light::Directional(v) => env.directional_lights.push((decomposed, v)),
+                    &Light::Point(v) => env.point_lights.push((decomposed, v)),
                 }
             }
         }
 
-        return RenderEnvironment {
-                   ambient: self.ambient.0,
-                   light_pos: math::Vector3::unit_z(),
-                   light_color: graphics::Color::white(),
-               };
+        return env;
     }
 }
 
 pub struct RenderEnvironment {
     pub ambient: graphics::Color,
-    pub light_pos: math::Vector3<f32>,
-    pub light_color: graphics::Color,
+    pub directional_lights: Vec<(Decomposed, DirectionalLight)>,
+    pub point_lights: Vec<(Decomposed, PointLight)>,
 }
 
 #[derive(Debug)]

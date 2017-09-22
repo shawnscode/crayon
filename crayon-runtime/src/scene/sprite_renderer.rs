@@ -121,6 +121,7 @@ impl SpriteRenderer {
             return Ok(());
         }
 
+        // Get vertex buffer object.
         let layout = SpriteVertex::layout();
         let vbo =
             application
@@ -130,32 +131,12 @@ impl SpriteRenderer {
                                       (self.vertices.len() * layout.stride() as usize) as u32,
                                       Some(SpriteVertex::as_bytes(self.vertices.as_slice())))?;
 
+        // Get material.
         let mat = mat.unwrap_or(self.mat.clone());
-        let mat = mat.write().unwrap();
+        let mut mat = mat.write().unwrap();
+        mat.update_video_object(&mut application.graphics)?;
 
-        let mut uniforms = Vec::new();
-        let mut textures = Vec::new();
-        mat.build_uniform_variables(&mut application.graphics, &mut textures, &mut uniforms)?;
-
-        if let Some(texture) = texture {
-            let mut texture = texture.write().unwrap();
-            texture.update_video_object(&mut application.graphics)?;
-
-            if mat.has_uniform_variable("bi_MainTex", UVT::Texture) {
-                textures.push(("bi_MainTex", texture.video_object().unwrap()));
-            }
-        }
-
-        if mat.has_uniform_variable("bi_ViewMatrix", UVT::Matrix4f) {
-            uniforms.push(("bi_ViewMatrix", camera.view.into()));
-        }
-
-        if mat.has_uniform_variable("bi_ProjectionMatrix", UVT::Matrix4f) {
-            uniforms.push(("bi_ProjectionMatrix", camera.projection.into()));
-        }
-
-        // println!("Sprite {:#?}", uniforms);
-
+        // Get pipeline state object.
         let pso = {
             let shader = mat.shader();
             let mut shader = shader.write().unwrap();
@@ -163,20 +144,39 @@ impl SpriteRenderer {
             shader.video_object().unwrap()
         };
 
-        application
-            .graphics
-            .draw(0,
-                  camera.vso,
-                  pso,
-                  &textures,
-                  &uniforms,
-                  *vbo,
-                  None,
-                  graphics::Primitive::Triangles,
-                  0,
-                  self.vertices.len() as u32)?;
+        // Get texture.
+        let texture = texture.map(|v| {
+                                      let mut texture = v.write().unwrap();
+                                      texture
+                                          .update_video_object(&mut application.graphics)
+                                          .is_ok();
+                                      texture.video_object().unwrap()
+                                  });
 
+        // Create drawcall task.
+        let mut drawcall = application.graphics.create_frame_task();
+        mat.extract(&mut drawcall);
+
+        if texture.is_some() && mat.has_uniform_variable("bi_MainTex", UVT::Texture) {
+            drawcall.with_texture("bi_MainTex", texture.unwrap());
+        }
+
+        if mat.has_uniform_variable("bi_ViewMatrix", UVT::Matrix4f) {
+            drawcall.with_uniform_variable("bi_ViewMatrix", camera.view.into());
+        }
+
+        if mat.has_uniform_variable("bi_ProjectionMatrix", UVT::Matrix4f) {
+            drawcall.with_uniform_variable("bi_ProjectionMatrix", camera.projection.into());
+        }
+
+        let len = self.vertices.len() as u32;
         self.vertices.clear();
+
+        drawcall
+            .with_view(camera.vso)
+            .with_pipeline(pso)
+            .with_data(*vbo, None)
+            .submit(graphics::Primitive::Triangles, 0, len)?;
         Ok(())
     }
 }

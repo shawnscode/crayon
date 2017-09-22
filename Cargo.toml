@@ -1,6 +1,6 @@
 [package]
 name = "crayon-workspace"
-version = "0.0.3"
+version = "0.0.4"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 license = "Apache-2.0"
 

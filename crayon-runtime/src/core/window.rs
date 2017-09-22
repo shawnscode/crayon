@@ -1,3 +1,5 @@
+//! An OpenGL context and the environment around it.
+
 use std::default::Default;
 use std::sync::Arc;
 use gl;

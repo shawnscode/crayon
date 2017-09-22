@@ -11,3 +11,4 @@ pub use self::handle::{Handle, HandleIndex};
 pub use self::handle_set::{HandleSet, HandleIter};
 pub use self::handle_object_set::HandleObjectSet;
 pub use self::finally::{finally, finally_with};
+pub use self::hash::{hash, HashValue};
