@@ -2,7 +2,7 @@
 //!
 //! Its hard to make a decent game, especially when you are dealing with massive resources,
 //! scripts etc. Its always trivial and error-prone to make a plain file produced by some kind
-//! of authoring tools into runtime resource. There are some common senarios when
+//! of authoring tools into runtime resource. There are some common senarios:
 //!
 //! - The assets might be modified by artiest continuous, so it would be great if we store resource
 //! in formats which could producing and editing by authoring tools directly.
@@ -14,6 +14,7 @@
 //! the asset processing incrementally.
 //!
 //! To accomplish this goal, we does four tools.
+//!
 //! - Imports resources and manage various kind of additional data about them for you.
 //! - Converts plain resources produced by authoring tools into crayon supported format.
 
@@ -29,10 +30,7 @@ pub use self::atlas::AtlasMetadata;
 pub use self::shader::ShaderMetadata;
 pub use self::material::MaterialMetadata;
 
-/// The enumeration of all the fundamental resources that could be imported into
-/// workspace.
-pub use crayon::resource::workflow::BuildinResourceType;
-pub use crayon::resource::workflow::BuildinResourceType as Resource;
+pub use crayon::resource::workflow::ResourceType;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::path::Path;
@@ -49,19 +47,19 @@ macro_rules! concrete_metadata_decl {
         }
         
         impl ResourceConcreteMetadata {
-            pub fn new(tt: Resource) -> Self {
+            pub fn new(tt: ResourceType) -> Self {
                 match tt {
-                    $(BuildinResourceType::$name => ResourceConcreteMetadata::$name($metadata::new()),)*
+                    $(ResourceType::$name => ResourceConcreteMetadata::$name($metadata::new()),)*
                 }
             }
 
-            pub fn payload(&self) -> Resource {
+            pub fn payload(&self) -> ResourceType {
                 match self {
-                    $(&ResourceConcreteMetadata::$name(_) => BuildinResourceType::$name,)*
+                    $(&ResourceConcreteMetadata::$name(_) => ResourceType::$name,)*
                 }
             }
 
-            pub fn is(&self, tt: Resource) -> bool {
+            pub fn is(&self, tt: ResourceType) -> bool {
                 self.payload() == tt
             }
 
@@ -111,7 +109,7 @@ impl ResourceMetadata {
         }
     }
 
-    pub fn new_as(tt: Resource) -> ResourceMetadata {
+    pub fn new_as(tt: ResourceType) -> ResourceMetadata {
         ResourceMetadata::new(ResourceConcreteMetadata::new(tt))
     }
 
@@ -121,12 +119,12 @@ impl ResourceMetadata {
     }
 
     #[inline]
-    pub fn is(&self, tt: BuildinResourceType) -> bool {
+    pub fn is(&self, tt: ResourceType) -> bool {
         self.metadata.payload() == tt
     }
 
     #[inline]
-    pub fn payload(&self) -> BuildinResourceType {
+    pub fn payload(&self) -> ResourceType {
         self.metadata.payload()
     }
 

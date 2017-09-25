@@ -56,8 +56,4 @@ pub mod platform;
 pub mod resource;
 pub mod shaderc;
 pub mod workspace;
-
-pub use self::resource::{Resource, ResourceMetadata};
-pub use self::errors::*;
-pub use self::workspace::{Manifest, Workspace};
-pub use self::platform::BuildTarget;
+pub mod prelude;

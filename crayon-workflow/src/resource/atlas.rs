@@ -83,7 +83,6 @@ impl AtlasMetadata {
 
         let mut frames = HashMap::new();
 
-
         if let Some(table) = root.get("frames").and_then(|v| v.as_array()) {
             for v in table {
                 let position = (load_as_u16(&v, &["frame", "x"]).unwrap_or(0),

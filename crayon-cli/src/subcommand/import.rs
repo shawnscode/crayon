@@ -1,8 +1,7 @@
 use clap;
+use crayon_workflow::prelude::*;
 
 use errors::*;
-
-use crayon_workflow;
 use workflow::Workflow;
 
 pub fn execute(workflow: &mut Workflow, matches: &clap::ArgMatches) -> Result<()> {
@@ -14,7 +13,7 @@ pub fn execute(workflow: &mut Workflow, matches: &clap::ArgMatches) -> Result<()
             workflow
                 .workspace
                 .database
-                .reimport(path, crayon_workflow::Resource::Atlas)?
+                .reimport(path, ResourceType::Atlas)?
         } else {
             bail!("not supports!");
         }

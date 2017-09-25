@@ -10,7 +10,7 @@ use walkdir;
 use seahash;
 use crayon;
 
-use resource::{ResourceMetadata, BuildinResourceType};
+use resource::{ResourceMetadata, ResourceType};
 
 use errors::*;
 use utils::{yaml, bincode};
@@ -230,12 +230,12 @@ impl Database {
             let tt = path.extension()
                 .and_then(|v| settings.resource_exts.get(v.to_str().unwrap()))
                 .and_then(|v| Some(*v))
-                .unwrap_or(BuildinResourceType::Bytes);
+                .unwrap_or(ResourceType::Bytes);
 
             let metadata = {
                 let metadata = ResourceMetadata::new_as(tt);
                 if self.validate(path, &metadata).is_err() {
-                    ResourceMetadata::new_as(BuildinResourceType::Bytes)
+                    ResourceMetadata::new_as(ResourceType::Bytes)
                 } else {
                     metadata
                 }
@@ -248,7 +248,7 @@ impl Database {
 
     /// Re-import resource as specified type. This will remove original meta file if its ok
     /// to treat the resource as type `tt`.
-    pub fn reimport<P>(&self, path: P, tt: BuildinResourceType) -> Result<ResourceMetadata>
+    pub fn reimport<P>(&self, path: P, tt: ResourceType) -> Result<ResourceMetadata>
         where P: AsRef<Path>
     {
         let path = path.as_ref();

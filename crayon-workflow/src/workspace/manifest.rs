@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use toml;
 
 use crayon::core::settings::Settings as RuntimeSettings;
-use resource::BuildinResourceType;
+use resource::ResourceType;
 use utils::toml::*;
 use utils::bincode;
 use errors::*;
@@ -14,7 +14,7 @@ use errors::*;
 #[derive(Debug, Clone)]
 pub struct WorkspaceSettings {
     pub resource_folders: Vec<PathBuf>,
-    pub resource_exts: HashMap<String, BuildinResourceType>,
+    pub resource_exts: HashMap<String, ResourceType>,
 }
 
 impl Default for WorkspaceSettings {
@@ -134,12 +134,12 @@ impl Manifest {
 
 macro_rules! resource_exts_decl {
     ($($name: expr => $resource: ident,)*) => (
-        fn load_resource_extensions(value: &toml::Value) -> HashMap<String, BuildinResourceType> {
+        fn load_resource_extensions(value: &toml::Value) -> HashMap<String, ResourceType> {
             let mut types = HashMap::new();
             $(
                 if let Some(vec) = load_as_array(&value, $name) {
                     for v in vec.iter().filter_map(|v| v.as_str()) {
-                        types.insert(v.trim_matches('.').to_owned(), BuildinResourceType::$resource);
+                        types.insert(v.trim_matches('.').to_owned(), ResourceType::$resource);
                     }
                 }
             )*

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use uuid;
 
-use super::BuildinResourceType;
+use super::ResourceType;
 
 /// A manifest item.
 #[derive(Debug, Serialize, Deserialize)]
@@ -17,7 +17,7 @@ pub struct ResourceManifestItem {
     /// Uniqued identifier, this will be used as file name also when building resource.
     pub uuid: uuid::Uuid,
     /// The payload type of this resource.
-    pub payload: BuildinResourceType,
+    pub payload: ResourceType,
 }
 
 /// Manifest for all the resources in build.

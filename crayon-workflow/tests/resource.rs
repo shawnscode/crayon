@@ -3,12 +3,13 @@ extern crate crayon_workflow;
 extern crate image;
 
 use std::path::Path;
+use crayon_workflow::prelude::*;
 
 #[test]
 fn database() {
 
     ///
-    let workspace = crayon_workflow::Workspace::find("tests/workspace").unwrap();
+    let workspace = Workspace::find("tests/workspace").unwrap();
     workspace.save().unwrap();
 
     ///
@@ -21,9 +22,7 @@ fn database() {
     }
 
     /// Make sure processed resources could be read at runtime.
-    workspace
-        .build(crayon_workflow::BuildTarget::MacOS, "tests/build")
-        .unwrap();
+    workspace.build(BuildTarget::MacOS, "tests/build").unwrap();
 
     let mut rs = crayon::resource::ResourceFrontend::new().unwrap();
 
@@ -48,8 +47,7 @@ fn database() {
 
     {
         workspace
-            .reimport("tests/workspace/resources/atlas.json",
-                      crayon_workflow::Resource::Atlas)
+            .reimport("tests/workspace/resources/atlas.json", ResourceType::Atlas)
             .unwrap();
 
         let atlas: crayon::resource::AtlasPtr = rs.load("atlas.json").unwrap();

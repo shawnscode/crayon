@@ -14,7 +14,8 @@ pub use self::database::Database;
 use std::fs;
 use std::path::Path;
 
-use super::*;
+use errors::*;
+use prelude::*;
 
 pub struct Workspace {
     pub manifest: Manifest,
@@ -57,7 +58,7 @@ impl Workspace {
            })
     }
 
-    pub fn build<P>(&self, os: platform::BuildTarget, path: P) -> Result<()>
+    pub fn build<P>(&self, os: BuildTarget, path: P) -> Result<()>
         where P: AsRef<Path>
     {
         fs::create_dir_all(path.as_ref())?;
@@ -69,7 +70,7 @@ impl Workspace {
         Ok(())
     }
 
-    pub fn reimport<P>(&self, path: P, tt: Resource) -> Result<ResourceMetadata>
+    pub fn reimport<P>(&self, path: P, tt: ResourceType) -> Result<ResourceMetadata>
         where P: AsRef<Path>
     {
         self.database.reimport(path, tt)
