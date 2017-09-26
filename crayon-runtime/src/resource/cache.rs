@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 
-use utility::hash::HashValue;
+use utils::hash::HashValue;
 
 #[derive(Debug)]
 struct ResourceDesc<T> {

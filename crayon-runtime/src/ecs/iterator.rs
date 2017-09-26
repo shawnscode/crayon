@@ -5,7 +5,7 @@ macro_rules! build_view_with {
             use bit_set::BitSet;
             use super::*;
             use super::super::{Component, Entity};
-            use super::super::super::utility::HandleIter;
+            use super::super::super::utils::HandleIter;
 
             pub struct View<'a> {
                 world: &'a World,

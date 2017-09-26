@@ -26,7 +26,7 @@ pub extern crate lazy_static;
 pub extern crate cgmath;
 
 #[macro_use]
-pub mod utility;
+pub mod utils;
 pub mod core;
 #[macro_use]
 pub mod ecs;
