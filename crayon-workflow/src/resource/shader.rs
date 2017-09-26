@@ -7,18 +7,18 @@ use shaderc::backend::ShaderBackend;
 use std::path::Path;
 use errors::*;
 use workspace::Database;
-use super::ResourceUnderlyingMetadata;
+use super::ResourceMetadataHandler;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ShaderMetadata;
+pub struct ShaderDesc;
 
-impl ShaderMetadata {
+impl ShaderDesc {
     pub fn new() -> Self {
-        ShaderMetadata {}
+        ShaderDesc {}
     }
 }
 
-impl ResourceUnderlyingMetadata for ShaderMetadata {
+impl ResourceMetadataHandler for ShaderDesc {
     fn validate(&self, _: &[u8]) -> Result<()> {
         Ok(())
     }

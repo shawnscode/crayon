@@ -1,18 +1,18 @@
 use std::path::Path;
 use errors::*;
 use workspace::Database;
-use super::ResourceUnderlyingMetadata;
+use super::ResourceMetadataHandler;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct BytesMetadata;
+pub struct BytesDesc;
 
-impl BytesMetadata {
+impl BytesDesc {
     pub fn new() -> Self {
-        BytesMetadata {}
+        BytesDesc {}
     }
 }
 
-impl ResourceUnderlyingMetadata for BytesMetadata {
+impl ResourceMetadataHandler for BytesDesc {
     fn validate(&self, _: &[u8]) -> Result<()> {
         Ok(())
     }

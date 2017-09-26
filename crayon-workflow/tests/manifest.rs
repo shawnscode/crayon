@@ -1,8 +1,7 @@
 extern crate crayon;
 extern crate crayon_workflow;
 
-use crayon_workflow::resource::Resource;
-use crayon_workflow::workspace::manifest::Manifest;
+use crayon_workflow::prelude::*;
 
 #[test]
 fn load() {
@@ -22,16 +21,16 @@ fn load() {
 
         assert_eq!(workspace.resource_folders.len(), 1);
         assert_eq!(workspace.resource_exts.get("png").unwrap(),
-                   &Resource::Texture);
+                   &ResourceType::Texture);
         assert_eq!(workspace.resource_exts.get("tga").unwrap(),
-                   &Resource::Texture);
+                   &ResourceType::Texture);
         assert_eq!(workspace.resource_exts.get("bmp").unwrap(),
-                   &Resource::Texture);
+                   &ResourceType::Texture);
         assert_eq!(workspace.resource_exts.get("psd"), None);
         assert_eq!(workspace.resource_exts.get("bytes").unwrap(),
-                   &Resource::Bytes);
+                   &ResourceType::Bytes);
         assert_eq!(workspace.resource_exts.get("lua").unwrap(),
-                   &Resource::Bytes);
+                   &ResourceType::Bytes);
     }
 
     {

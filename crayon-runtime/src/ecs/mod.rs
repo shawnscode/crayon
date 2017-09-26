@@ -24,7 +24,7 @@
 //! addressed some data storage approaches in `ecs::component`, users could make their
 //! own decision based on different purposes.
 
-use super::utility::handle::Handle;
+use super::utils::handle::Handle;
 
 #[macro_use]
 mod iterator;

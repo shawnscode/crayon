@@ -1,6 +1,6 @@
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, Mutex, MutexGuard};
-use utility::{HandleObjectSet, Handle};
+use utils::{HandleObjectSet, Handle};
 use core::window;
 
 use super::*;

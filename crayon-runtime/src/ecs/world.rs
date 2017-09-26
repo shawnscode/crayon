@@ -6,7 +6,7 @@ use std::cell::{Ref, RefMut, RefCell};
 use bit_set::BitSet;
 
 use super::*;
-use super::super::utility::{HandleIndex, HandleSet, HandleIter};
+use super::super::utils::{HandleIndex, HandleSet, HandleIter};
 
 /// The `World` struct are used to manage the whole entity-component system, It keeps
 /// tracks of the state of every created `Entity`s. All memthods are supposed to be

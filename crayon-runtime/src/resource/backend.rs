@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use super::errors::*;
 use super::*;
 
-use utility::hash::HashValue;
+use utils::hash::HashValue;
 
 pub struct ResourceBackend<T>
     where T: Resource + ResourceIndex + 'static

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use gl;
 use gl::types::*;
 
-use utility::Handle;
+use utils::Handle;
 
 use super::*;
 use super::visitor::*;

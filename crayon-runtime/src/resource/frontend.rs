@@ -8,7 +8,7 @@ use std::fs;
 use bincode;
 use uuid::Uuid;
 
-use utility::hash::HashValue;
+use utils::hash::HashValue;
 use super::*;
 use super::errors::*;
 

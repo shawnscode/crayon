@@ -13,7 +13,7 @@ use super::resource::{ResourceHint, IndexFormat, VertexLayout, AttributeLayout,
 use super::pipeline::{UniformVariable, Primitive};
 use super::backend::Context;
 
-use utility;
+use utils;
 
 #[derive(Debug, Clone, Copy)]
 pub enum PreFrameTask {
@@ -452,7 +452,7 @@ impl TaskBuffer {
     pub fn extend_from_str<T>(&mut self, value: T) -> TaskBufferPtr<str>
         where T: Borrow<str>
     {
-        let v = utility::hash(&value.borrow());
+        let v = utils::hash(&value.borrow());
         if let Some(ptr) = self.1.get(&v) {
             return *ptr;
         }

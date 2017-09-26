@@ -24,7 +24,6 @@ error_chain!{
     errors {
         FileNotFound
         WorkspaceNotFound
-
         ShaderNotFound
     }
 }

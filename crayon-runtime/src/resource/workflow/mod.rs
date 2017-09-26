@@ -19,14 +19,14 @@ pub trait BuildinResource
     type Loader: super::ResourceLoader<Item = Self>;
 
     /// Get the underlying payload type of this loader.
-    fn payload() -> BuildinResourceType;
+    fn payload() -> ResourceType;
 }
 
 macro_rules! declare_buildin_resource {
     ($($payload: ident => $name: ident;)*) => (
         /// Payload type of the underlying serialization data.
         #[derive(Debug, Serialize, Deserialize, Copy, Clone, Eq, PartialEq)]
-        pub enum BuildinResourceType {
+        pub enum ResourceType {
             $($name,)*
         }
 
@@ -38,8 +38,8 @@ macro_rules! declare_buildin_resource {
         $(impl BuildinResource for super::$name {
             type Loader = $payload;
 
-            fn payload() -> BuildinResourceType {
-                BuildinResourceType::$name
+            fn payload() -> ResourceType {
+                ResourceType::$name
             }
         })*
     )

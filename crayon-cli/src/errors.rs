@@ -10,6 +10,6 @@ error_chain!{
     }
 
     links {
-        Workflow(crayon_workflow::Error, crayon_workflow::ErrorKind);
+        Workflow(crayon_workflow::errors::Error, crayon_workflow::errors::ErrorKind);
     }
 }

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 
 use bit_set::BitSet;
-use super::super::utility::handle::HandleIndex;
+use super::super::utils::handle::HandleIndex;
 
 lazy_static! {
     /// Lazy initialized id of component. Which produces a continuous index address.

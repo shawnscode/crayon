@@ -2,16 +2,14 @@ extern crate crayon;
 extern crate crayon_workflow;
 extern crate image;
 
+mod utils;
+
 use std::path::Path;
 
 #[test]
 fn database() {
+    let workspace = utils::load();
 
-    ///
-    let workspace = crayon_workflow::Workspace::find("tests/workspace").unwrap();
-    workspace.save().unwrap();
-
-    ///
     {
         let path = Path::new("tests/workspace/resources/texture.png.meta");
         assert!(path.exists());
@@ -20,15 +18,10 @@ fn database() {
         assert!(path.exists());
     }
 
-    /// Make sure processed resources could be read at runtime.
-    workspace
-        .build(crayon_workflow::BuildTarget::MacOS, "tests/build")
-        .unwrap();
-
     let mut rs = crayon::resource::ResourceFrontend::new().unwrap();
 
     {
-        rs.load_manifest("tests/build/manifest").unwrap();
+        rs.load_manifest("tests/workspace/build/manifest").unwrap();
 
         let _: crayon::resource::TexturePtr = rs.load("texture.png").unwrap();
         let _: crayon::resource::BytesPtr = rs.load("invalid_texture.png").unwrap();
@@ -47,11 +40,6 @@ fn database() {
     }
 
     {
-        workspace
-            .reimport("tests/workspace/resources/atlas.json",
-                      crayon_workflow::Resource::Atlas)
-            .unwrap();
-
         let atlas: crayon::resource::AtlasPtr = rs.load("atlas.json").unwrap();
         let uuid = atlas.read().unwrap().texture();
         rs.load_with_uuid::<crayon::resource::Texture>(uuid)

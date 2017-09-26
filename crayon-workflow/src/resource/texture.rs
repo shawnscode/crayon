@@ -6,7 +6,7 @@ use bincode;
 use std::path::Path;
 use errors::*;
 use workspace::Database;
-use super::ResourceUnderlyingMetadata;
+use super::ResourceMetadataHandler;
 
 /// Compression settings of texture.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -17,10 +17,10 @@ pub enum TextureCompressionMetadata {
     Compressed,
 }
 
-/// `TextureMetadata` contains settings that used to address how should we process
+/// `TextureDesc` contains settings that used to address how should we process
 /// and import corresponding texture resource.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TextureMetadata {
+pub struct TextureDesc {
     /// Generate mip maps for the texture?
     pub mipmap: bool,
     /// Wrap mode (usually repeat or clamp) of the texture.
@@ -31,9 +31,9 @@ pub struct TextureMetadata {
     pub compression: TextureCompressionMetadata,
 }
 
-impl TextureMetadata {
+impl TextureDesc {
     pub fn new() -> Self {
-        TextureMetadata {
+        TextureDesc {
             mipmap: false,
             address: graphics::TextureAddress::Clamp,
             filter: graphics::TextureFilter::Linear,
@@ -42,7 +42,7 @@ impl TextureMetadata {
     }
 }
 
-impl ResourceUnderlyingMetadata for TextureMetadata {
+impl ResourceMetadataHandler for TextureDesc {
     fn validate(&self, bytes: &[u8]) -> Result<()> {
         image::guess_format(&bytes)?;
         Ok(())
@@ -64,7 +64,6 @@ impl ResourceUnderlyingMetadata for TextureMetadata {
         };
 
         bincode::serialize_into(&mut out, &payload, bincode::Infinite)?;
-
         Ok(())
     }
 }

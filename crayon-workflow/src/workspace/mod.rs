@@ -1,10 +1,5 @@
 //! # Workspace
-//!
-//! We use workspace to define where in your computer's file system to store your project.
-//!
-//! Crayon automatically imports resources and manage various kinds of additional data
-//! about them for you. The whole works is configuable by editing a manifest file, feel
-//! free to checkout the `manifest` module for details.
+
 pub mod manifest;
 pub mod database;
 
@@ -14,7 +9,8 @@ pub use self::database::Database;
 use std::fs;
 use std::path::Path;
 
-use super::*;
+use errors::*;
+use prelude::*;
 
 pub struct Workspace {
     pub manifest: Manifest,
@@ -47,8 +43,10 @@ impl Workspace {
         where P: AsRef<Path>
     {
         let manifeset = Manifest::load_from(path)?;
+        let projs = manifeset.dir().join(".crayon");
+        fs::create_dir_all(&projs)?;
 
-        let mut database = Database::load_from(manifeset.dir().join(".crayon"))?;
+        let mut database = Database::load_from(&projs)?;
         database.refresh(&manifeset.workspace())?;
 
         Ok(Workspace {
@@ -57,7 +55,7 @@ impl Workspace {
            })
     }
 
-    pub fn build<P>(&self, os: platform::BuildTarget, path: P) -> Result<()>
+    pub fn build<P>(&self, os: BuildTarget, path: P) -> Result<()>
         where P: AsRef<Path>
     {
         fs::create_dir_all(path.as_ref())?;
@@ -69,10 +67,10 @@ impl Workspace {
         Ok(())
     }
 
-    pub fn reimport<P>(&self, path: P, tt: Resource) -> Result<ResourceMetadata>
+    pub fn load_with_desc<P>(&self, path: P, desc: ResourceMetadataDesc) -> Result<ResourceMetadata>
         where P: AsRef<Path>
     {
-        self.database.reimport(path, tt)
+        self.database.load_with_desc(path, desc)
     }
 
     pub fn save(&self) -> Result<()> {
