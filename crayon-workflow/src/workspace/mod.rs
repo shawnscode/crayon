@@ -43,8 +43,10 @@ impl Workspace {
         where P: AsRef<Path>
     {
         let manifeset = Manifest::load_from(path)?;
+        let projs = manifeset.dir().join(".crayon");
+        fs::create_dir_all(&projs)?;
 
-        let mut database = Database::load_from(manifeset.dir().join(".crayon"))?;
+        let mut database = Database::load_from(&projs)?;
         database.refresh(&manifeset.workspace())?;
 
         Ok(Workspace {
