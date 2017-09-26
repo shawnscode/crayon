@@ -35,16 +35,6 @@ git clone git@github.com:shawnscode/crayon.git && cd crayon
 cargo run --example sprite
 ```
 
-### FAQ
+### Examples and Screenshots
 
-#### Why Rust ?
-
-First of all, this is a part-time toy project of myself,  so i don't really care if we ever have a game engine written in Rust.
-
-And the most importantly, it makes sense for me to take the numerous advantages of modern programming language, instead of using languages like C/C++ which have many historical burden. In fact, this project has beed development with C++ for about four months, which produce a basic multi-thread, and much more pains.
-
-#### Why should we have a module named `crayon-workflow`?
-
-Builds a game project is not only about compile the source files into binary, it should take care of enormous trivial tasks. Its common to handle the pre-processing of resources and archiving with some kind of shell scripts, but its always tedious and error-prone. Its vital to address a flexible and robust mechanism to handle them for real-world game engine.
-
-As a result of that, we provide a basic workflow framework `crayon-workflow`, and a simple command line interface (CLI) `crayon-cli`. It should be easy to make your own workflow with it.
+[Here](./examples).
