@@ -8,47 +8,15 @@ use crayon::resource;
 use std::path::Path;
 use errors::*;
 use workspace::Database;
-use super::ResourceUnderlyingMetadata;
+use super::ResourceMetadataHandler;
 
 use utils::json::*;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum AtlasPlugins {
-    TexturePacker,
-}
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TexturePackerAtlasDesc {}
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AtlasMetadata {
-    pub plugin: AtlasPlugins,
-}
-
-impl ResourceUnderlyingMetadata for AtlasMetadata {
+impl ResourceMetadataHandler for TexturePackerAtlasDesc {
     fn validate(&self, bytes: &[u8]) -> Result<()> {
-        match self.plugin {
-            AtlasPlugins::TexturePacker => self.validate_with_texture_packer(&bytes),
-        }
-    }
-
-    fn build(&self,
-             database: &Database,
-             path: &Path,
-             bytes: &[u8],
-             mut out: &mut Vec<u8>)
-             -> Result<()> {
-        match self.plugin {
-            AtlasPlugins::TexturePacker => {
-                self.build_with_texture_packer(&database, &path, bytes, &mut out)
-            }
-        }
-    }
-}
-
-impl AtlasMetadata {
-    pub fn new() -> Self {
-        AtlasMetadata { plugin: AtlasPlugins::TexturePacker }
-    }
-
-    fn validate_with_texture_packer(&self, bytes: &[u8]) -> Result<()> {
         let value: serde_json::Value = serde_json::from_reader(bytes)?;
         let root = value.as_object().unwrap();
 
@@ -63,12 +31,12 @@ impl AtlasMetadata {
         Ok(())
     }
 
-    fn build_with_texture_packer(&self,
-                                 database: &Database,
-                                 path: &Path,
-                                 bytes: &[u8],
-                                 mut out: &mut Vec<u8>)
-                                 -> Result<()> {
+    fn build(&self,
+             database: &Database,
+             path: &Path,
+             bytes: &[u8],
+             mut out: &mut Vec<u8>)
+             -> Result<()> {
         let value: serde_json::Value = serde_json::from_reader(bytes)?;
         let root = value.as_object().unwrap();
 

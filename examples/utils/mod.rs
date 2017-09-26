@@ -8,7 +8,8 @@ pub fn compile() {
     let os = BuildTarget::MacOS;
 
     workspace
-        .reimport("examples/resources/atlas.json", ResourceType::Atlas)
+        .load_with_desc("examples/resources/atlas.json",
+                        TexturePackerAtlasDesc::default().into())
         .unwrap();
 
     workspace.save().unwrap();

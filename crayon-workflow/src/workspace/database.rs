@@ -10,7 +10,7 @@ use walkdir;
 use seahash;
 use crayon;
 
-use resource::{ResourceMetadata, ResourceType};
+use resource::{ResourceMetadata, ResourceMetadataDesc, ResourceType};
 
 use errors::*;
 use utils::{yaml, bincode};
@@ -132,7 +132,7 @@ impl Database {
                         path: resource_relative_path,
                         dependencies: Vec::new(),
                         uuid: *id,
-                        payload: metadata.payload(),
+                        payload: metadata.format(),
                     };
 
                     manifest.items.insert(*id, item);
@@ -158,7 +158,7 @@ impl Database {
         for dir in &settings.resource_folders {
             for file in walkdir::WalkDir::new(&dir).into_iter() {
                 if let Ok(file) = file {
-                    if file.file_type().is_file() {
+                    if file.file_type().is_file() && !file.path().starts_with(".") {
                         files.push(file);
                     }
                 }
@@ -196,7 +196,7 @@ impl Database {
         self.paths.clear();
 
         for (file, _) in resources {
-            match self.import(&file, &settings) {
+            match self.load(&file, &settings) {
                 Ok(metadata) => {
                     self.paths.insert(metadata.uuid(), file);
                     self.resources.insert(metadata.uuid(), metadata);
@@ -210,8 +210,9 @@ impl Database {
         Ok(())
     }
 
-    /// Import resource at path into database.
-    pub fn import<P>(&self, path: P, settings: &WorkspaceSettings) -> Result<ResourceMetadata>
+    /// Load resource metadata at path. If meta-file is not exists, a empty meta-file
+    /// will be generated.
+    pub fn load<P>(&self, path: P, settings: &WorkspaceSettings) -> Result<ResourceMetadata>
         where P: AsRef<Path>
     {
         let path = path.as_ref();
@@ -232,23 +233,21 @@ impl Database {
                 .and_then(|v| Some(*v))
                 .unwrap_or(ResourceType::Bytes);
 
-            let metadata = {
-                let metadata = ResourceMetadata::new_as(tt);
-                if self.validate(path, &metadata).is_err() {
-                    ResourceMetadata::new_as(ResourceType::Bytes)
-                } else {
-                    metadata
-                }
-            };
+            let metadata = ResourceMetadata::new_with_default(tt)
+                .and_then(|v| if self.validate(path, &v).is_ok() {
+                              Some(v)
+                          } else {
+                              None
+                          })
+                .unwrap_or(ResourceMetadata::default());
 
             yaml::serialize(&metadata, &metadata_path)?;
             Ok(metadata)
         }
     }
 
-    /// Re-import resource as specified type. This will remove original meta file if its ok
-    /// to treat the resource as type `tt`.
-    pub fn reimport<P>(&self, path: P, tt: ResourceType) -> Result<ResourceMetadata>
+    /// Load resource with settings. This will remove original meta-file.
+    pub fn load_with_desc<P>(&self, path: P, desc: ResourceMetadataDesc) -> Result<ResourceMetadata>
         where P: AsRef<Path>
     {
         let path = path.as_ref();
@@ -257,15 +256,9 @@ impl Database {
         }
 
         let metadata_path = metadata_file_path(&path);
-        if metadata_path.exists() {
-            let metadata: ResourceMetadata = yaml::deserialize(&metadata_path)?;
-            if metadata.is(tt) {
-                return Ok(metadata);
-            }
-        }
-
-        let metadata = ResourceMetadata::new_as(tt);
+        let metadata = ResourceMetadata::new(desc);
         self.validate(path, &metadata)?;
+
         yaml::serialize(&metadata, &metadata_path)?;
         Ok(metadata)
     }

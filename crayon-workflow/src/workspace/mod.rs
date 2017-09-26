@@ -1,10 +1,5 @@
 //! # Workspace
-//!
-//! We use workspace to define where in your computer's file system to store your project.
-//!
-//! Crayon automatically imports resources and manage various kinds of additional data
-//! about them for you. The whole works is configuable by editing a manifest file, feel
-//! free to checkout the `manifest` module for details.
+
 pub mod manifest;
 pub mod database;
 
@@ -70,10 +65,10 @@ impl Workspace {
         Ok(())
     }
 
-    pub fn reimport<P>(&self, path: P, tt: ResourceType) -> Result<ResourceMetadata>
+    pub fn load_with_desc<P>(&self, path: P, desc: ResourceMetadataDesc) -> Result<ResourceMetadata>
         where P: AsRef<Path>
     {
-        self.database.reimport(path, tt)
+        self.database.load_with_desc(path, desc)
     }
 
     pub fn save(&self) -> Result<()> {

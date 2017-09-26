@@ -1,22 +1,4 @@
-//! # Resource
-//!
-//! Its hard to make a decent game, especially when you are dealing with massive resources,
-//! scripts etc. Its always trivial and error-prone to make a plain file produced by some kind
-//! of authoring tools into runtime resource. There are some common senarios:
-//!
-//! - The assets might be modified by artiest continuous, so it would be great if we store resource
-//! in formats which could producing and editing by authoring tools directly.
-//! - The most effecient format is dependent on platform and hardware devices. The assets might be
-//! converts to various formats based on the build target before packing into playable package.
-//! - The processing of assets from plain formats into runtime formats might causes heavily cpu consumption,
-//! and takes minutes for medium size project. By the same time, its a common requirement to edit
-//! and preview the effects on playable environment. So we should have some kind of mechanism to manage
-//! the asset processing incrementally.
-//!
-//! To accomplish this goal, we does four tools.
-//!
-//! - Imports resources and manage various kind of additional data about them for you.
-//! - Converts plain resources produced by authoring tools into crayon supported format.
+//! Manipulations of resources in workspace.
 
 pub mod texture;
 pub mod bytes;
@@ -24,11 +6,11 @@ pub mod atlas;
 pub mod shader;
 pub mod material;
 
-pub use self::texture::TextureMetadata;
-pub use self::bytes::BytesMetadata;
-pub use self::atlas::AtlasMetadata;
-pub use self::shader::ShaderMetadata;
-pub use self::material::MaterialMetadata;
+pub use self::texture::TextureDesc;
+pub use self::bytes::BytesDesc;
+pub use self::atlas::TexturePackerAtlasDesc;
+pub use self::shader::ShaderDesc;
+pub use self::material::MaterialDesc;
 
 pub use crayon::resource::workflow::ResourceType;
 
@@ -39,50 +21,47 @@ use uuid;
 use errors::*;
 use workspace::Database;
 
-macro_rules! concrete_metadata_decl {
-    ($($name: ident => $metadata: ident,)*) => (
+macro_rules! metadata_decl {
+    ($($metadata: ident => ($name: ident, $format: ident),)*) => (
         #[derive(Debug, Serialize, Deserialize)]
-        pub enum ResourceConcreteMetadata {
+        pub enum ResourceMetadataDesc {
             $($name($metadata),)*
         }
-        
-        impl ResourceConcreteMetadata {
-            pub fn new(tt: ResourceType) -> Self {
-                match tt {
-                    $(ResourceType::$name => ResourceConcreteMetadata::$name($metadata::new()),)*
+
+        impl ResourceMetadataDesc {
+            pub fn format(&self) -> ResourceType {
+                match self {
+                    $(&ResourceMetadataDesc::$name(_) => ResourceType::$format,)*
                 }
             }
 
-            pub fn payload(&self) -> ResourceType {
+            pub fn as_builder(&self) -> &ResourceMetadataHandler {
                 match self {
-                    $(&ResourceConcreteMetadata::$name(_) => ResourceType::$name,)*
-                }
-            }
-
-            pub fn is(&self, tt: ResourceType) -> bool {
-                self.payload() == tt
-            }
-
-            pub fn underlying(&self) -> &ResourceUnderlyingMetadata {
-                match self {
-                    $(&ResourceConcreteMetadata::$name(ref mt) => mt,)*
+                    $(&ResourceMetadataDesc::$name(ref mt) => mt,)*
                 }
             }
         }
+
+        $(
+        impl Into<ResourceMetadataDesc> for $metadata {
+            fn into(self) -> ResourceMetadataDesc {
+                ResourceMetadataDesc::$name(self)
+            }
+        }
+        )*
     )
 }
 
-concrete_metadata_decl! {
-    Bytes => BytesMetadata,
-    Texture => TextureMetadata,
-    Atlas => AtlasMetadata,
-    Shader => ShaderMetadata,
-    Material => MaterialMetadata,
+metadata_decl! {
+    BytesDesc => (Bytes, Bytes),
+    TextureDesc => (Texture, Texture),
+    TexturePackerAtlasDesc => (TexturePackerAtlas, Atlas),
 }
 
-pub trait ResourceUnderlyingMetadata {
+pub trait ResourceMetadataHandler {
     /// Check the validation of resource.
     fn validate(&self, _: &[u8]) -> Result<()>;
+
     /// Build the resource into runtime serialization data.
     fn build(&self, _: &Database, _: &Path, _: &[u8], _: &mut Vec<u8>) -> Result<()>;
 }
@@ -92,11 +71,17 @@ pub trait ResourceUnderlyingMetadata {
 pub struct ResourceMetadata {
     time_created: u64,
     uuid: uuid::Uuid,
-    metadata: ResourceConcreteMetadata,
+    desc: ResourceMetadataDesc,
+}
+
+impl Default for ResourceMetadata {
+    fn default() -> Self {
+        ResourceMetadata::new(ResourceMetadataDesc::Bytes(BytesDesc::new()))
+    }
 }
 
 impl ResourceMetadata {
-    pub fn new(metadata: ResourceConcreteMetadata) -> ResourceMetadata {
+    pub fn new(desc: ResourceMetadataDesc) -> ResourceMetadata {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -105,12 +90,18 @@ impl ResourceMetadata {
         ResourceMetadata {
             time_created: timestamp,
             uuid: uuid::Uuid::new_v4(),
-            metadata: metadata,
+            desc: desc,
         }
     }
 
-    pub fn new_as(tt: ResourceType) -> ResourceMetadata {
-        ResourceMetadata::new(ResourceConcreteMetadata::new(tt))
+    pub fn new_with_default(tt: ResourceType) -> Option<ResourceMetadata> {
+        let desc = match tt {
+            ResourceType::Bytes => ResourceMetadataDesc::Bytes(BytesDesc::new()),
+            ResourceType::Texture => ResourceMetadataDesc::Texture(TextureDesc::new()),
+            _ => return None,
+        };
+
+        Some(ResourceMetadata::new(desc))
     }
 
     #[inline]
@@ -120,17 +111,17 @@ impl ResourceMetadata {
 
     #[inline]
     pub fn is(&self, tt: ResourceType) -> bool {
-        self.metadata.payload() == tt
+        self.desc.format() == tt
     }
 
     #[inline]
-    pub fn payload(&self) -> ResourceType {
-        self.metadata.payload()
+    pub fn format(&self) -> ResourceType {
+        self.desc.format()
     }
 
     #[inline]
     pub fn validate(&self, bytes: &[u8]) -> Result<()> {
-        self.metadata.underlying().validate(&bytes)
+        self.desc.as_builder().validate(&bytes)
     }
 
     #[inline]
@@ -140,8 +131,8 @@ impl ResourceMetadata {
                  bytes: &[u8],
                  mut out: &mut Vec<u8>)
                  -> Result<()> {
-        self.metadata
-            .underlying()
+        self.desc
+            .as_builder()
             .build(&database, &path, &bytes, &mut out)
     }
 }
