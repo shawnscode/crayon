@@ -1,6 +1,6 @@
 /// The `Light` component that support `Point` and `Directional` right now.
 
-use graphics;
+use math;
 use ecs::HashMapStorage;
 
 /// Enumeration for all light components.
@@ -37,7 +37,7 @@ pub struct DirectionalLight {
     /// Is this light enable.
     pub enable: bool,
     /// Color of the light.
-    pub color: graphics::Color,
+    pub color: math::Color,
     /// Brightness of the light source, in lumens.
     pub intensity: f32,
 }
@@ -46,7 +46,7 @@ impl Default for DirectionalLight {
     fn default() -> Self {
         DirectionalLight {
             enable: true,
-            color: graphics::Color::white(),
+            color: math::Color::white(),
             intensity: 1.0,
         }
     }
@@ -64,7 +64,7 @@ pub struct PointLight {
     /// Is this light enable.
     pub enable: bool,
     /// Color of the light.
-    pub color: graphics::Color,
+    pub color: math::Color,
     /// Brightness of the light source, in lumens.
     pub intensity: f32,
     /// Maximum raidus of the point light's affected data.
@@ -77,7 +77,7 @@ impl Default for PointLight {
     fn default() -> Self {
         PointLight {
             enable: true,
-            color: graphics::Color::white(),
+            color: math::Color::white(),
             intensity: 1.0,
             radius: 1.0,
             smoothness: 1.0,

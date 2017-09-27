@@ -27,6 +27,7 @@ pub extern crate cgmath;
 
 #[macro_use]
 pub mod utils;
+pub mod math;
 pub mod core;
 #[macro_use]
 pub mod ecs;
@@ -35,5 +36,3 @@ pub mod graphics;
 pub mod resource;
 pub mod scene;
 pub mod prelude;
-
-pub use cgmath as math;

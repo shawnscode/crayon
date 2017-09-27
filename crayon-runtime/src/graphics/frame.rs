@@ -6,6 +6,8 @@ use std::str;
 use std::slice;
 use std::mem;
 
+use math::Color;
+
 use super::*;
 use super::errors::*;
 use super::resource::{ResourceHint, IndexFormat, VertexLayout, AttributeLayout,

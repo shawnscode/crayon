@@ -6,7 +6,9 @@ use math;
 use super::errors::*;
 use super::transform::Transform;
 
-/// `Rect` is used to store size, pivot information for a 2d rectangle.
+/// `Rect` is used to store size, pivot information for a 2d rectangle. Rotations, size,
+/// and scale modifications occur around the pivot so the position of the pivot affects
+/// the outcome of a rotation, resizing, or scaling.
 #[derive(Debug, Clone, Copy)]
 pub struct Rect {
     size: math::Vector2<f32>,

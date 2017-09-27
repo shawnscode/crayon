@@ -17,9 +17,6 @@ pub mod errors;
 pub mod macros;
 pub mod backend;
 
-pub mod color;
-pub use self::color::Color;
-
 pub mod pipeline;
 pub use self::pipeline::*;
 

@@ -1,12 +1,13 @@
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, Mutex, MutexGuard};
+
 use utils::{HandleObjectSet, Handle};
 use core::window;
+use math::Color;
 
 use super::*;
 use super::errors::*;
 use super::frame::*;
-use super::color::Color;
 use super::backend::Context;
 
 

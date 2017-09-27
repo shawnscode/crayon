@@ -17,7 +17,7 @@ pub trait Renderable {
 pub struct Renderer {
     sprite_renderer: SpriteRenderer,
     mesh_renderer: MeshRenderer,
-    ambient: (graphics::Color, f32),
+    ambient: (math::Color, f32),
 }
 
 impl Renderer {
@@ -25,11 +25,11 @@ impl Renderer {
         Ok(Renderer {
                sprite_renderer: SpriteRenderer::new(&mut app)?,
                mesh_renderer: MeshRenderer::new(&mut app)?,
-               ambient: (graphics::Color::white(), 1.0f32),
+               ambient: (math::Color::white(), 1.0f32),
            })
     }
 
-    pub fn set_ambient_color(&mut self, color: graphics::Color, intensity: f32) {
+    pub fn set_ambient_color(&mut self, color: math::Color, intensity: f32) {
         self.ambient = (color, intensity);
     }
 
@@ -103,7 +103,7 @@ impl Renderer {
 }
 
 pub struct RenderEnvironment {
-    pub ambient: graphics::Color,
+    pub ambient: math::Color,
     pub directional_lights: Vec<(Decomposed, DirectionalLight)>,
     pub point_lights: Vec<(Decomposed, PointLight)>,
 }

@@ -1,11 +1,12 @@
-use math;
-use math::{One, Rotation, Transform as Trans};
+use math::*;
+use math::Decomposed as _Decomposed;
+
 use ecs::{Entity, VecStorage, ArenaGetter};
 use std::borrow::Borrow;
 
 use super::errors::*;
 
-pub type Decomposed = math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>;
+pub type Decomposed = _Decomposed<Vector3<f32>, Quaternion<f32>>;
 
 /// `Transform` is used to store and manipulate the postiion, rotation and scale
 /// of the object. Every `Transform` can have a parent, which allows you to apply
@@ -51,39 +52,39 @@ impl Transform {
     }
 
     #[inline]
-    pub fn position(&self) -> math::Vector3<f32> {
+    pub fn position(&self) -> Vector3<f32> {
         self.decomposed.disp
     }
 
     #[inline]
     pub fn set_position<T>(&mut self, position: T)
-        where T: Borrow<math::Vector3<f32>>
+        where T: Borrow<Vector3<f32>>
     {
         self.decomposed.disp = *position.borrow();
     }
 
     #[inline]
     pub fn translate<T>(&mut self, disp: T)
-        where T: Borrow<math::Vector3<f32>>
+        where T: Borrow<Vector3<f32>>
     {
         self.decomposed.disp += *disp.borrow();
     }
 
     #[inline]
-    pub fn rotation(&self) -> math::Quaternion<f32> {
+    pub fn rotation(&self) -> Quaternion<f32> {
         self.decomposed.rot
     }
 
     #[inline]
     pub fn set_rotation<T>(&mut self, rotation: T)
-        where T: Borrow<math::Quaternion<f32>>
+        where T: Borrow<Quaternion<f32>>
     {
         self.decomposed.rot = *rotation.borrow();
     }
 
     #[inline]
     pub fn rotate<T>(&mut self, rotate: T)
-        where T: Borrow<math::Quaternion<f32>>
+        where T: Borrow<Quaternion<f32>>
     {
         self.decomposed.rot = *rotate.borrow() * self.decomposed.rot;
     }
@@ -273,7 +274,7 @@ impl Transform {
                                  handle: Entity,
                                  disp: T)
                                  -> Result<()>
-        where T: Borrow<math::Vector3<f32>>
+        where T: Borrow<Vector3<f32>>
     {
         unsafe {
             if arena.get(*handle).is_some() {
@@ -288,9 +289,7 @@ impl Transform {
     }
 
     /// Get the position of `Transform` in world space.
-    pub fn world_position(arena: &ArenaGetter<Transform>,
-                          handle: Entity)
-                          -> Result<math::Vector3<f32>> {
+    pub fn world_position(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<Vector3<f32>> {
         unsafe {
             if arena.get(*handle).is_some() {
                 Ok(Transform::world_decomposed_unchecked(arena, handle).disp)
@@ -305,11 +304,11 @@ impl Transform {
                                  handle: Entity,
                                  world_rotation: T)
                                  -> Result<()>
-        where T: Borrow<math::Quaternion<f32>>
+        where T: Borrow<Quaternion<f32>>
     {
         unsafe {
             if arena.get(*handle).is_some() {
-                let mut rotation = math::Quaternion::one();
+                let mut rotation = Quaternion::one();
                 for v in Transform::ancestors(arena, handle) {
                     rotation = rotation * arena.get_unchecked(*v).rotation();
                 }
@@ -326,7 +325,7 @@ impl Transform {
     /// Get the rotation of `Transform` in world space.
     pub fn world_rotation(arena: &ArenaGetter<Transform>,
                           handle: Entity)
-                          -> Result<math::Quaternion<f32>> {
+                          -> Result<Quaternion<f32>> {
         unsafe {
             if let Some(transform) = arena.get(*handle) {
                 let mut rotation = transform.rotation();
@@ -346,8 +345,8 @@ impl Transform {
     /// The returned vector may have a different length than vector.
     pub fn transform_vector(arena: &ArenaGetter<Transform>,
                             handle: Entity,
-                            vec: math::Vector3<f32>)
-                            -> Result<math::Vector3<f32>> {
+                            vec: Vector3<f32>)
+                            -> Result<Vector3<f32>> {
         unsafe {
             if arena.get(*handle).is_some() {
                 let decomposed = Transform::world_decomposed_unchecked(arena, handle);
@@ -361,8 +360,8 @@ impl Transform {
     /// Transforms position from local space to world space.
     pub fn transform_point(arena: &ArenaGetter<Transform>,
                            handle: Entity,
-                           vec: math::Vector3<f32>)
-                           -> Result<math::Vector3<f32>> {
+                           vec: Vector3<f32>)
+                           -> Result<Vector3<f32>> {
         unsafe {
             if arena.get(*handle).is_some() {
                 let decomposed = Transform::world_decomposed_unchecked(&arena, handle);
@@ -379,8 +378,8 @@ impl Transform {
     /// vector has the same length as direction.
     pub fn transform_direction(arena: &ArenaGetter<Transform>,
                                handle: Entity,
-                               vec: math::Vector3<f32>)
-                               -> Result<math::Vector3<f32>> {
+                               vec: Vector3<f32>)
+                               -> Result<Vector3<f32>> {
         if arena.get(*handle).is_some() {
             let rotation = Transform::world_rotation(&arena, handle)?;
             Ok(rotation * vec)
@@ -390,26 +389,23 @@ impl Transform {
     }
 
     /// Return the up direction in world space.
-    pub fn up(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<math::Vector3<f32>> {
-        Transform::transform_direction(&arena, handle, math::Vector3::new(0.0, 1.0, 0.0))
+    pub fn up(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<Vector3<f32>> {
+        Transform::transform_direction(&arena, handle, Vector3::new(0.0, 1.0, 0.0))
     }
 
     /// Return the forward direction in world space, which is looking down the negative z-axis.
-    pub fn forward(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<math::Vector3<f32>> {
-        Transform::transform_direction(&arena, handle, math::Vector3::new(0.0, 0.0, -1.0))
+    pub fn forward(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<Vector3<f32>> {
+        Transform::transform_direction(&arena, handle, Vector3::new(0.0, 0.0, -1.0))
     }
 
     /// Rotate the transform so the forward vector points at target's current position.
     pub fn look_at(mut arena: &mut ArenaGetter<Transform>,
                    handle: Entity,
                    target: Entity,
-                   up: math::Vector3<f32>)
+                   up: Vector3<f32>)
                    -> Result<()> {
-        use math::Transform as MT;
-        use math::EuclideanSpace;
-
-        let from = math::Point3::from_vec(Transform::world_position(&arena, handle)?);
-        let to = math::Point3::from_vec(Transform::world_position(&arena, target)?);
+        let from = Point3::from_vec(Transform::world_position(&arena, handle)?);
+        let to = Point3::from_vec(Transform::world_position(&arena, target)?);
         let decomposed = Decomposed::look_at(from, to, up);
         unsafe { Transform::set_world_decomposed_unchecked(&mut arena, handle, &decomposed) }
     }
@@ -424,11 +420,11 @@ impl Transform {
     }
 
     /// Get the transform matrix of this transform.
-    pub fn as_matrix(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<math::Matrix4<f32>> {
+    pub fn as_matrix(arena: &ArenaGetter<Transform>, handle: Entity) -> Result<Matrix4<f32>> {
         if arena.get(*handle).is_some() {
             unsafe {
                 let decomposed = Transform::world_decomposed_unchecked(&arena, handle);
-                let matrix = math::Matrix4::from(decomposed);
+                let matrix = Matrix4::from(decomposed);
                 Ok(matrix)
             }
         } else {

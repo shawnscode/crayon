@@ -5,8 +5,9 @@ use std::collections::HashMap;
 use gl;
 use gl::types::*;
 
+use math::Color;
+
 use super::*;
-use super::super::color::Color;
 use super::super::pipeline::*;
 use super::super::resource::*;
 

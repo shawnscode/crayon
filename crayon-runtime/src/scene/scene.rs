@@ -1,6 +1,6 @@
 use core::application;
 use ecs;
-use graphics;
+use math;
 use resource;
 
 use super::errors::*;
@@ -49,7 +49,7 @@ impl Scene {
     }
 
     /// Set the ambient color of this scene.
-    pub fn set_ambient_color(&mut self, color: graphics::Color, intensity: f32) {
+    pub fn set_ambient_color(&mut self, color: math::Color, intensity: f32) {
         self.renderer.set_ambient_color(color, intensity);
     }
 

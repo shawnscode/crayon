@@ -1,9 +1,9 @@
 //! A device through which the player views the world.
 
-use math;
-use ecs::*;
 use graphics;
-use graphics::Color;
+use math;
+use math::Color;
+use ecs::*;
 
 /// The projection funcs used when take primitives into camera.
 #[derive(Debug, Clone, Copy)]

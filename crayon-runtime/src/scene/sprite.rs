@@ -1,6 +1,5 @@
 //! A texture mapped planar mesh.
 
-use graphics;
 use resource;
 use ecs;
 use ecs::VecStorage;
@@ -13,8 +12,8 @@ use math;
 pub struct Sprite {
     visible: bool,
 
-    color: graphics::Color,
-    additive: graphics::Color,
+    color: math::Color,
+    additive: math::Color,
 
     texture: Option<resource::TexturePtr>,
     texture_rect: ((f32, f32), (f32, f32)),
@@ -28,8 +27,8 @@ impl Default for Sprite {
     fn default() -> Self {
         Sprite {
             visible: true,
-            color: graphics::Color::white(),
-            additive: graphics::Color::transparent(),
+            color: math::Color::white(),
+            additive: math::Color::transparent(),
             texture: None,
             texture_rect: ((0f32, 0f32), (1f32, 1f32)),
             mat: None,
@@ -39,22 +38,22 @@ impl Default for Sprite {
 
 impl Sprite {
     /// Get main color of `Sprite`.
-    pub fn color(&self) -> graphics::Color {
+    pub fn color(&self) -> math::Color {
         self.color
     }
 
     /// Set the main color of `Sprite`.
-    pub fn set_color(&mut self, color: &graphics::Color) {
+    pub fn set_color(&mut self, color: &math::Color) {
         self.color = *color;
     }
 
     /// Get additive color of `Sprite`.
-    pub fn additive_color(&self) -> graphics::Color {
+    pub fn additive_color(&self) -> math::Color {
         self.additive
     }
 
     /// Set the additive color of `Sprite`.
-    pub fn set_additive_color(&mut self, color: &graphics::Color) {
+    pub fn set_additive_color(&mut self, color: &math::Color) {
         self.additive = *color;
     }
 

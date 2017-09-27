@@ -1,5 +1,3 @@
-//! A RGBA `Color`.
-
 /// A RGBA `Color`.
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct Color(pub f32, pub f32, pub f32, pub f32);

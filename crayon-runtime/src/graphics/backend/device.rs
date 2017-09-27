@@ -7,10 +7,10 @@ use gl;
 use gl::types::*;
 
 use utils::Handle;
+use math::Color;
 
 use super::*;
 use super::visitor::*;
-use super::super::color::Color;
 use super::super::pipeline::*;
 use super::super::resource::*;
 use super::super::frame::{TaskBuffer, TaskBufferPtr};
