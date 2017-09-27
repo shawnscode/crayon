@@ -61,7 +61,7 @@ impl Workspace {
         fs::create_dir_all(path.as_ref())?;
 
         self.database
-            .build("0.0.3", os, path.as_ref(), &self.manifest.workspace())?;
+            .build("0.0.5", os, path.as_ref(), &self.manifest.workspace())?;
         self.manifest.build(path.as_ref().join("configs"))?;
 
         Ok(())
