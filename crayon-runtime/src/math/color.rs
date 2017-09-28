@@ -1,4 +1,5 @@
-/// A RGBA `Color`.
+/// A RGBA `Color`. Each color component is a floating point value
+/// with a range from 0 to 1.
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct Color(pub f32, pub f32, pub f32, pub f32);
 
@@ -62,7 +63,7 @@ impl Color {
         color
     }
 
-    ///
+    /// Truncate alpha channel.
     pub fn rgb(&self) -> [f32; 3] {
         [self.0, self.1, self.2]
     }
