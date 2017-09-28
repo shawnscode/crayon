@@ -1,3 +1,5 @@
+//! Graphics resource declarations and wrappers.
+
 use super::{TextureHandle, RenderBufferHandle};
 
 pub const MAX_ATTRIBUTES: usize = 12;

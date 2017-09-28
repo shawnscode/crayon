@@ -102,7 +102,7 @@ impl Material {
         Ok(())
     }
 
-    pub fn extract(&self, task: &mut graphics::FrameTaskBuilder) {
+    pub fn extract(&self, task: &mut graphics::DrawCallBuilder) {
         for (name, v) in &self.uniforms {
             task.with_uniform_variable(&name, *v);
         }

@@ -112,7 +112,7 @@ pub struct RenderEnvironment {
 pub struct RenderCamera {
     pub view: math::Matrix4<f32>,
     pub projection: math::Matrix4<f32>,
-    pub vso: graphics::ViewHandle,
+    pub vso: graphics::ViewStateHandle,
     pub clip: (f32, f32),
 }
 

@@ -104,7 +104,7 @@ impl Camera {
 
     /// Get the handle of view state object.
     #[inline]
-    pub fn video_object(&self) -> Option<graphics::ViewHandle> {
+    pub fn video_object(&self) -> Option<graphics::ViewStateHandle> {
         self.view.as_ref().map(|v| v.handle)
     }
 

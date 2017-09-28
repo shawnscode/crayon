@@ -85,7 +85,7 @@ struct GLFrameBuffer {
 #[derive(Debug, Copy, Clone)]
 struct GLDrawcall {
     priority: u64,
-    view: ViewHandle,
+    view: ViewStateHandle,
     pipeline: PipelineStateHandle,
     uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
     textures: TaskBufferPtr<[(TaskBufferPtr<str>, TextureHandle)]>,
@@ -142,7 +142,7 @@ impl Device {
 
     pub fn submit(&self,
                   priority: u64,
-                  view: ViewHandle,
+                  view: ViewStateHandle,
                   pipeline: PipelineStateHandle,
                   textures: TaskBufferPtr<[(TaskBufferPtr<str>, TextureHandle)]>,
                   uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
@@ -651,7 +651,7 @@ impl Device {
     }
 
     pub fn create_view(&mut self,
-                       handle: ViewHandle,
+                       handle: ViewStateHandle,
                        framebuffer: Option<FrameBufferHandle>)
                        -> Result<()> {
         let view = GLView {
@@ -671,7 +671,7 @@ impl Device {
     }
 
     pub fn update_view_rect(&mut self,
-                            handle: ViewHandle,
+                            handle: ViewStateHandle,
                             position: (u16, u16),
                             size: Option<(u16, u16)>)
                             -> Result<()> {
@@ -684,7 +684,7 @@ impl Device {
     }
 
     pub fn update_view_scissor(&mut self,
-                               handle: ViewHandle,
+                               handle: ViewStateHandle,
                                position: (u16, u16),
                                size: Option<(u16, u16)>)
                                -> Result<()> {
@@ -696,7 +696,7 @@ impl Device {
         }
     }
 
-    pub fn update_view_order(&mut self, handle: ViewHandle, priority: u32) -> Result<()> {
+    pub fn update_view_order(&mut self, handle: ViewStateHandle, priority: u32) -> Result<()> {
         if let Some(view) = self.views.get_mut(handle) {
             view.priority = priority;
             Ok(())
@@ -705,7 +705,10 @@ impl Device {
         }
     }
 
-    pub fn update_view_sequential_mode(&mut self, handle: ViewHandle, seq: bool) -> Result<()> {
+    pub fn update_view_sequential_mode(&mut self,
+                                       handle: ViewStateHandle,
+                                       seq: bool)
+                                       -> Result<()> {
         if let Some(view) = self.views.get_mut(handle) {
             view.seq = seq;
             Ok(())
@@ -715,7 +718,7 @@ impl Device {
     }
 
     pub fn update_view_framebuffer(&mut self,
-                                   handle: ViewHandle,
+                                   handle: ViewStateHandle,
                                    framebuffer: Option<FrameBufferHandle>)
                                    -> Result<()> {
         if let Some(view) = self.views.get_mut(handle) {
@@ -727,7 +730,7 @@ impl Device {
     }
 
     pub fn update_view_clear(&mut self,
-                             handle: ViewHandle,
+                             handle: ViewStateHandle,
                              clear_color: Option<Color>,
                              clear_depth: Option<f32>,
                              clear_stencil: Option<i32>)
@@ -742,7 +745,7 @@ impl Device {
         }
     }
 
-    pub fn delete_view(&mut self, handle: ViewHandle) -> Result<()> {
+    pub fn delete_view(&mut self, handle: ViewStateHandle) -> Result<()> {
         if let Some(_) = self.views.remove(handle) {
             Ok(())
         } else {

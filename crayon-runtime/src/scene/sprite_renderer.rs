@@ -154,7 +154,7 @@ impl SpriteRenderer {
                                   });
 
         // Create drawcall task.
-        let mut drawcall = application.graphics.create_frame_task();
+        let mut drawcall = application.graphics.make();
         mat.extract(&mut drawcall);
 
         if texture.is_some() && mat.has_uniform_variable("bi_MainTex", UVT::Texture) {

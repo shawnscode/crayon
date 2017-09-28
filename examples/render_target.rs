@@ -102,7 +102,7 @@ impl ApplicationInstance for Window {
     fn on_update(&mut self, app: &mut Application) -> errors::Result<()> {
         {
             let len = self.vbo.object.read().unwrap().len();
-            let mut task = app.graphics.create_frame_task();
+            let mut task = app.graphics.make();
             task.with_order(0)
                 .with_view(*self.view)
                 .with_pipeline(*self.pso)
@@ -112,7 +112,7 @@ impl ApplicationInstance for Window {
 
         {
             let len = self.vbo_pass_2.object.read().unwrap().len();
-            let mut task = app.graphics.create_frame_task();
+            let mut task = app.graphics.make();
             task.with_order(1)
                 .with_view(*self.view_pass_2)
                 .with_pipeline(*self.pso_pass_2)

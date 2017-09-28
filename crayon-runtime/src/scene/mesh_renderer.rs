@@ -94,7 +94,7 @@ impl MeshRenderer {
         };
 
         // Create drawcall task.
-        let mut drawcall = application.graphics.create_frame_task();
+        let mut drawcall = application.graphics.make();
 
         // Extract uniform variables specified in material.
         mat.extract(&mut drawcall);

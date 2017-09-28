@@ -19,12 +19,12 @@ use utils;
 
 #[derive(Debug, Clone, Copy)]
 pub enum PreFrameTask {
-    CreateView(ViewHandle, Option<FrameBufferHandle>),
-    UpdateViewRect(ViewHandle, TaskBufferPtr<ViewRectDesc>),
-    UpdateViewOrder(ViewHandle, u32),
-    UpdateViewSequential(ViewHandle, bool),
-    UpdateViewFrameBuffer(ViewHandle, Option<FrameBufferHandle>),
-    UpdateViewClear(ViewHandle, TaskBufferPtr<ViewClearDesc>),
+    CreateView(ViewStateHandle, Option<FrameBufferHandle>),
+    UpdateViewRect(ViewStateHandle, TaskBufferPtr<ViewRectDesc>),
+    UpdateViewOrder(ViewStateHandle, u32),
+    UpdateViewSequential(ViewStateHandle, bool),
+    UpdateViewFrameBuffer(ViewStateHandle, Option<FrameBufferHandle>),
+    UpdateViewClear(ViewStateHandle, TaskBufferPtr<ViewClearDesc>),
 
     CreatePipeline(PipelineStateHandle, TaskBufferPtr<PipelineDesc>),
     UpdatePipelineState(PipelineStateHandle, TaskBufferPtr<RenderState>),
@@ -47,22 +47,8 @@ pub enum PreFrameTask {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct FrameTask {
-    pub priority: u64,
-    pub view: ViewHandle,
-    pub pipeline: PipelineStateHandle,
-    pub uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
-    pub textures: TaskBufferPtr<[(TaskBufferPtr<str>, TextureHandle)]>,
-    pub vb: VertexBufferHandle,
-    pub ib: Option<IndexBufferHandle>,
-    pub primitive: Primitive,
-    pub from: u32,
-    pub len: u32,
-}
-
-#[derive(Debug, Clone, Copy)]
 pub enum PostFrameTask {
-    DeleteView(ViewHandle),
+    DeleteView(ViewStateHandle),
     DeletePipeline(PipelineStateHandle),
     DeleteVertexBuffer(VertexBufferHandle),
     DeleteIndexBuffer(IndexBufferHandle),
@@ -134,7 +120,7 @@ pub struct ViewClearDesc {
 
 pub struct Frame {
     pub pre: Vec<PreFrameTask>,
-    pub drawcalls: Vec<FrameTask>,
+    pub drawcalls: Vec<DrawCall>,
     pub post: Vec<PostFrameTask>,
     pub buf: TaskBuffer,
 }
@@ -150,6 +136,7 @@ impl Frame {
         }
     }
 
+    /// Clear the frame, removing all data.
     pub unsafe fn clear(&mut self) {
         self.pre.clear();
         self.drawcalls.clear();
@@ -157,6 +144,7 @@ impl Frame {
         self.buf.clear();
     }
 
+    /// Dispatch frame tasks and draw calls to the backend context.
     pub unsafe fn dispatch(&mut self, context: &mut Context) -> Result<()> {
         let dimensions = context.dimensions().ok_or(ErrorKind::WindowNotExist)?;
         let mut device = &mut context.device();
@@ -273,7 +261,7 @@ impl Frame {
 
         for dc in &self.drawcalls {
             device
-                .submit(dc.priority,
+                .submit(dc.order,
                         dc.view,
                         dc.pipeline,
                         dc.textures,
@@ -316,8 +304,22 @@ impl Frame {
     }
 }
 
-/// A frame task builder.
-pub struct FrameTaskBuilder<'a> {
+#[derive(Debug, Clone, Copy)]
+pub struct DrawCall {
+    order: u64,
+    view: ViewStateHandle,
+    pipeline: PipelineStateHandle,
+    uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
+    textures: TaskBufferPtr<[(TaskBufferPtr<str>, TextureHandle)]>,
+    vb: VertexBufferHandle,
+    ib: Option<IndexBufferHandle>,
+    primitive: Primitive,
+    from: u32,
+    len: u32,
+}
+
+/// A draw call builder.
+pub struct DrawCallBuilder<'a> {
     frame: MutexGuard<'a, Frame>,
 
     order: u64,
@@ -326,15 +328,16 @@ pub struct FrameTaskBuilder<'a> {
 
     vb: Option<VertexBufferHandle>,
     ib: Option<IndexBufferHandle>,
-    view: Option<ViewHandle>,
+    view: Option<ViewStateHandle>,
     pso: Option<PipelineStateHandle>,
 }
 
-impl<'a> FrameTaskBuilder<'a> {
+impl<'a> DrawCallBuilder<'a> {
+    /// Create a new ane empty draw call builder.
     pub fn new<'b>(frame: MutexGuard<'b, Frame>) -> Self
         where 'b: 'a
     {
-        FrameTaskBuilder {
+        DrawCallBuilder {
             frame: frame,
             order: 0,
             view: None,
@@ -346,21 +349,25 @@ impl<'a> FrameTaskBuilder<'a> {
         }
     }
 
+    /// Set the sorting order.
     pub fn with_order(&mut self, order: u64) -> &mut Self {
         self.order = order;
         self
     }
 
-    pub fn with_view(&mut self, view: ViewHandle) -> &mut Self {
+    /// Bind the handle of `ViewStateObject`.
+    pub fn with_view(&mut self, view: ViewStateHandle) -> &mut Self {
         self.view = Some(view);
         self
     }
 
+    /// Bind the handle of `PipelineStateObject`.
     pub fn with_pipeline(&mut self, pso: PipelineStateHandle) -> &mut Self {
         self.pso = Some(pso);
         self
     }
 
+    /// Bind vertex buffer and optional index buffer.
     pub fn with_data(&mut self,
                      vb: VertexBufferHandle,
                      ib: Option<IndexBufferHandle>)
@@ -370,18 +377,23 @@ impl<'a> FrameTaskBuilder<'a> {
         self
     }
 
+    /// Bind the named field with `UniformVariable`.
     pub fn with_uniform_variable(&mut self, field: &str, variable: UniformVariable) -> &mut Self {
         let field = self.frame.buf.extend_from_str(field);
         self.uniforms.push((field, variable));
         self
     }
 
+    /// Bind the field with texture.
     pub fn with_texture(&mut self, field: &str, texture: TextureHandle) -> &mut Self {
         let field = self.frame.buf.extend_from_str(field);
         self.textures.push((field, texture));
         self
     }
 
+    /// Submit primitive for drawing, within view all draw commands are executed after
+    /// resource manipulation, such like `create_vertex_buffer`, `update_vertex_buffer`,
+    /// etc.
     pub fn submit(&mut self, primitive: Primitive, from: u32, len: u32) -> Result<()> {
         let view = self.view.ok_or(ErrorKind::CanNotDrawWithoutView)?;
         let pso = self.pso.ok_or(ErrorKind::CanNotDrawWithoutPipelineState)?;
@@ -390,8 +402,8 @@ impl<'a> FrameTaskBuilder<'a> {
         let uniforms = self.frame.buf.extend_from_slice(self.uniforms.as_slice());
         let textures = self.frame.buf.extend_from_slice(self.textures.as_slice());
 
-        let task = FrameTask {
-            priority: self.order,
+        let task = DrawCall {
+            order: self.order,
             view: view,
             pipeline: pso,
             textures: textures,

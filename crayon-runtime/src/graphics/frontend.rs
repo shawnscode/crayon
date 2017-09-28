@@ -1,3 +1,5 @@
+//! Public interface of graphics module.
+
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, Mutex, MutexGuard};
 
@@ -44,6 +46,12 @@ impl GraphicsFrontend {
                frames: DoubleFrame::with_capacity(64 * 1024), // 64 kbs
                multithread: false,
            })
+    }
+
+    /// Make a new draw call.
+    #[inline]
+    pub fn make(&self) -> DrawCallBuilder {
+        DrawCallBuilder::new(self.frames.front())
     }
 
     /// Advance to next frame. When using multithreaded renderer, this call just swaps internal
@@ -320,19 +328,19 @@ impl ViewStateObject {
 
 #[derive(Debug, Clone)]
 pub struct ViewStateRef {
-    pub handle: ViewHandle,
+    pub handle: ViewStateHandle,
     pub object: Arc<RwLock<ViewStateObject>>,
 }
 
 impl Deref for ViewStateRef {
-    type Target = ViewHandle;
+    type Target = ViewStateHandle;
 
     fn deref(&self) -> &Self::Target {
         &self.handle
     }
 }
 
-impl_handle!(ViewHandle);
+impl_handle!(ViewStateHandle);
 
 impl GraphicsFrontend {
     /// Creates an view with optional `FrameBuffer`. If `FrameBuffer` is none, default
@@ -943,65 +951,6 @@ impl GraphicsFrontend {
         } else {
             bail!(ErrorKind::InvalidHandle);
         }
-    }
-}
-
-impl GraphicsFrontend {
-    /// Create a frame task builder.
-    #[inline]
-    pub fn create_frame_task(&self) -> FrameTaskBuilder {
-        FrameTaskBuilder::new(self.frames.front())
-    }
-
-    /// Submit primitive for drawing, within view all draw commands are executed after
-    /// resource manipulation, such like `create_vertex_buffer`, `update_vertex_buffer`,
-    /// etc.
-    pub fn submit(&mut self,
-                  priority: u64,
-                  view: ViewHandle,
-                  pipeline: PipelineStateHandle,
-                  textures: &[(&str, TextureHandle)],
-                  uniforms: &[(&str, UniformVariable)],
-                  vb: VertexBufferHandle,
-                  ib: Option<IndexBufferHandle>,
-                  primitive: Primitive,
-                  from: u32,
-                  len: u32)
-                  -> Result<()> {
-        let mut frame = self.frames.front();
-
-        let uniforms = {
-            let mut variables = vec![];
-            for &(name, variable) in uniforms {
-                variables.push((frame.buf.extend_from_str(name), variable));
-            }
-            frame.buf.extend_from_slice(variables.as_slice())
-        };
-
-        let textures = {
-            let mut variables = vec![];
-            for &(name, variable) in textures {
-                variables.push((frame.buf.extend_from_str(name), variable));
-            }
-            frame.buf.extend_from_slice(variables.as_slice())
-        };
-
-        frame
-            .drawcalls
-            .push(FrameTask {
-                      priority: priority,
-                      view: view,
-                      pipeline: pipeline,
-                      primitive: primitive,
-                      vb: vb,
-                      ib: ib,
-                      from: from,
-                      len: len,
-                      textures: textures,
-                      uniforms: uniforms,
-                  });
-
-        Ok(())
     }
 }
 

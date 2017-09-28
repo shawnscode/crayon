@@ -67,7 +67,7 @@ impl ApplicationInstance for Window {
 
         {
             let len = self.vbo.object.read().unwrap().len();
-            let mut task = app.graphics.create_frame_task();
+            let mut task = app.graphics.make();
             task.with_order(0)
                 .with_view(*self.view)
                 .with_pipeline(*self.pso)

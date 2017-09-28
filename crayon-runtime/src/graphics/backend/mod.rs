@@ -13,7 +13,7 @@ pub use self::capabilities::{Capabilities, Version, Profile};
 use std::sync::{Arc, RwLock};
 use gl;
 use core::window;
-use super::{ViewHandle, PipelineStateHandle, FrameBufferHandle, VertexBufferHandle,
+use super::{ViewStateHandle, PipelineStateHandle, FrameBufferHandle, VertexBufferHandle,
             IndexBufferHandle, TextureHandle, RenderBufferHandle};
 
 pub struct Context {
