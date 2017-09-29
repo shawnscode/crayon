@@ -44,7 +44,7 @@ impl Window {
         //
         let vbo_fb = app.graphics
             .create_vertex_buffer(&layout,
-                                  graphics::ResourceHint::Static,
+                                  graphics::BufferHint::Static,
                                   (vertices.len() * layout.stride() as usize) as u32,
                                   Some(Vertex::as_bytes(&vertices[..])))?;
 
@@ -73,7 +73,7 @@ impl Window {
 
         let vbo = app.graphics
             .create_vertex_buffer(&layout,
-                                  graphics::ResourceHint::Static,
+                                  graphics::BufferHint::Static,
                                   (quad_vertices.len() * layout.stride() as usize) as u32,
                                   Some(Vertex::as_bytes(&quad_vertices[..])))?;
         let view = app.graphics.create_view(None)?;

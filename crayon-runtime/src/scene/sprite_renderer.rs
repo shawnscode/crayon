@@ -127,7 +127,7 @@ impl SpriteRenderer {
             application
                 .graphics
                 .create_vertex_buffer(&layout,
-                                      graphics::ResourceHint::Dynamic,
+                                      graphics::BufferHint::Dynamic,
                                       (self.vertices.len() * layout.stride() as usize) as u32,
                                       Some(SpriteVertex::as_bytes(self.vertices.as_slice())))?;
 

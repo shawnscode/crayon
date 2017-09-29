@@ -8,8 +8,15 @@ use gl::types::*;
 use math::Color;
 
 use super::*;
-use super::super::pipeline::*;
-use super::super::resource::*;
+use graphics::*;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenGLBuffer {
+    /// Vertex attributes.
+    Vertex,
+    /// Vertex array indices.
+    Index,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct VAOPair(GLuint, GLuint);
@@ -638,8 +645,8 @@ impl OpenGLVisitor {
     }
 
     pub unsafe fn create_buffer(&self,
-                                buf: Resource,
-                                hint: ResourceHint,
+                                buf: OpenGLBuffer,
+                                hint: BufferHint,
                                 size: u32,
                                 data: Option<&[u8]>)
                                 -> Result<GLuint> {
@@ -661,7 +668,7 @@ impl OpenGLVisitor {
 
     pub unsafe fn update_buffer(&self,
                                 id: GLuint,
-                                buf: Resource,
+                                buf: OpenGLBuffer,
                                 offset: u32,
                                 data: &[u8])
                                 -> Result<()> {
@@ -772,20 +779,20 @@ pub unsafe fn check() -> Result<()> {
     }
 }
 
-impl From<ResourceHint> for GLenum {
-    fn from(hint: ResourceHint) -> Self {
+impl From<BufferHint> for GLenum {
+    fn from(hint: BufferHint) -> Self {
         match hint {
-            ResourceHint::Static => gl::STATIC_DRAW,
-            ResourceHint::Dynamic => gl::DYNAMIC_DRAW,
+            BufferHint::Static => gl::STATIC_DRAW,
+            BufferHint::Dynamic => gl::DYNAMIC_DRAW,
         }
     }
 }
 
-impl From<Resource> for GLuint {
-    fn from(res: Resource) -> Self {
+impl From<OpenGLBuffer> for GLuint {
+    fn from(res: OpenGLBuffer) -> Self {
         match res {
-            Resource::Vertex => gl::ARRAY_BUFFER,
-            Resource::Index => gl::ELEMENT_ARRAY_BUFFER,
+            OpenGLBuffer::Vertex => gl::ARRAY_BUFFER,
+            OpenGLBuffer::Index => gl::ELEMENT_ARRAY_BUFFER,
         }
     }
 }

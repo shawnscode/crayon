@@ -35,7 +35,7 @@ impl Primitive {
         if self.vertices.vbo.is_none() {
             let vbo = video
                 .create_vertex_buffer(&self.vertices.layout,
-                                      graphics::ResourceHint::Static,
+                                      graphics::BufferHint::Static,
                                       self.vertices.size() as u32,
                                       Some(&self.vertices.buf))?;
             self.vertices.vbo = Some(vbo);
@@ -45,7 +45,7 @@ impl Primitive {
             if indices.ibo.is_none() {
                 let ibo = video
                     .create_index_buffer(indices.format,
-                                         graphics::ResourceHint::Static,
+                                         graphics::BufferHint::Static,
                                          indices.size() as u32,
                                          Some(&indices.buf))?;
                 indices.ibo = Some(ibo);

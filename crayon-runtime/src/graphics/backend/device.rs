@@ -8,11 +8,11 @@ use gl::types::*;
 
 use utils::Handle;
 use math::Color;
+use graphics::*;
 
 use super::*;
 use super::visitor::*;
-use super::super::pipeline::*;
-use super::super::resource::*;
+
 use super::super::frame::{TaskBuffer, TaskBufferPtr};
 
 type ResourceID = GLuint;
@@ -22,7 +22,7 @@ struct GLVertexBuffer {
     id: ResourceID,
     layout: VertexLayout,
     size: u32,
-    hint: ResourceHint,
+    hint: BufferHint,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -30,7 +30,7 @@ struct GLIndexBuffer {
     id: ResourceID,
     format: IndexFormat,
     size: u32,
-    hint: ResourceHint,
+    hint: BufferHint,
 }
 
 #[derive(Debug)]
@@ -339,7 +339,7 @@ impl Device {
     pub unsafe fn create_vertex_buffer(&mut self,
                                        handle: VertexBufferHandle,
                                        layout: &VertexLayout,
-                                       hint: ResourceHint,
+                                       hint: BufferHint,
                                        size: u32,
                                        data: Option<&[u8]>)
                                        -> Result<()> {
@@ -349,7 +349,7 @@ impl Device {
 
         let vbo = GLVertexBuffer {
             id: self.visitor
-                .create_buffer(Resource::Vertex, hint, size, data)?,
+                .create_buffer(OpenGLBuffer::Vertex, hint, size, data)?,
             layout: *layout,
             size: size,
             hint: hint,
@@ -365,7 +365,7 @@ impl Device {
                                        data: &[u8])
                                        -> Result<()> {
         if let Some(vbo) = self.vertex_buffers.get(handle) {
-            if vbo.hint == ResourceHint::Static {
+            if vbo.hint == BufferHint::Static {
                 bail!(ErrorKind::InvalidUpdateStaticResource);
             }
 
@@ -374,7 +374,7 @@ impl Device {
             }
 
             self.visitor
-                .update_buffer(vbo.id, Resource::Vertex, offset, data)
+                .update_buffer(vbo.id, OpenGLBuffer::Vertex, offset, data)
         } else {
             bail!(ErrorKind::InvalidHandle);
         }
@@ -391,7 +391,7 @@ impl Device {
     pub unsafe fn create_index_buffer(&mut self,
                                       handle: IndexBufferHandle,
                                       format: IndexFormat,
-                                      hint: ResourceHint,
+                                      hint: BufferHint,
                                       size: u32,
                                       data: Option<&[u8]>)
                                       -> Result<()> {
@@ -401,7 +401,7 @@ impl Device {
 
         let ibo = GLIndexBuffer {
             id: self.visitor
-                .create_buffer(Resource::Index, hint, size, data)?,
+                .create_buffer(OpenGLBuffer::Index, hint, size, data)?,
             format: format,
             size: size,
             hint: hint,
@@ -417,7 +417,7 @@ impl Device {
                                       data: &[u8])
                                       -> Result<()> {
         if let Some(ibo) = self.index_buffers.get(handle) {
-            if ibo.hint == ResourceHint::Static {
+            if ibo.hint == BufferHint::Static {
                 bail!(ErrorKind::InvalidUpdateStaticResource);
             }
 
@@ -426,7 +426,7 @@ impl Device {
             }
 
             self.visitor
-                .update_buffer(ibo.id, Resource::Index, offset, data)
+                .update_buffer(ibo.id, OpenGLBuffer::Index, offset, data)
         } else {
             bail!(ErrorKind::InvalidHandle);
         }

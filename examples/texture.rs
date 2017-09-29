@@ -37,7 +37,7 @@ impl Window {
 
         let vbo = app.graphics
             .create_vertex_buffer(&layout,
-                                  graphics::ResourceHint::Static,
+                                  graphics::BufferHint::Static,
                                   48,
                                   Some(Vertex::as_bytes(&quad_vertices[..])))
             .unwrap();

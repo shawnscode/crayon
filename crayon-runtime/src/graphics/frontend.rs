@@ -738,14 +738,14 @@ impl GraphicsFrontend {
 
 #[derive(Debug, Copy, Clone)]
 pub struct VertexBufferObject {
-    hint: ResourceHint,
+    hint: BufferHint,
     len: u32,
     layout: VertexLayout,
 }
 
 impl VertexBufferObject {
     #[inline]
-    pub fn hint(&self) -> ResourceHint {
+    pub fn hint(&self) -> BufferHint {
         self.hint
     }
 
@@ -780,7 +780,7 @@ impl GraphicsFrontend {
     /// Create vertex buffer object with vertex layout declaration and optional data.
     pub fn create_vertex_buffer(&mut self,
                                 layout: &VertexLayout,
-                                hint: ResourceHint,
+                                hint: BufferHint,
                                 size: u32,
                                 data: Option<&[u8]>)
                                 -> Result<VertexBufferRef> {
@@ -826,7 +826,7 @@ impl GraphicsFrontend {
                                 -> Result<()> {
         if let Some(vbo) = self.vertex_buffers.get(handle) {
             let vbo = vbo.read().unwrap();
-            if vbo.hint == ResourceHint::Static {
+            if vbo.hint == BufferHint::Static {
                 bail!("failed to update static vertex buffer.");
             }
 
@@ -848,14 +848,14 @@ impl GraphicsFrontend {
 
 #[derive(Debug, Copy, Clone)]
 pub struct IndexBufferObject {
-    hint: ResourceHint,
+    hint: BufferHint,
     len: u32,
     format: IndexFormat,
 }
 
 impl IndexBufferObject {
     #[inline]
-    pub fn hint(&self) -> ResourceHint {
+    pub fn hint(&self) -> BufferHint {
         self.hint
     }
 
@@ -890,7 +890,7 @@ impl GraphicsFrontend {
     /// Create index buffer object with optional data.
     pub fn create_index_buffer(&mut self,
                                format: IndexFormat,
-                               hint: ResourceHint,
+                               hint: BufferHint,
                                size: u32,
                                data: Option<&[u8]>)
                                -> Result<IndexBufferRef> {
@@ -934,7 +934,7 @@ impl GraphicsFrontend {
                                -> Result<()> {
         if let Some(ibo) = self.index_buffers.get(handle) {
             let ibo = ibo.read().unwrap();
-            if ibo.hint == ResourceHint::Static {
+            if ibo.hint == BufferHint::Static {
                 bail!("failed to update static vertex buffer.");
             }
 

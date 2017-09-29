@@ -6,18 +6,9 @@ pub const MAX_ATTRIBUTES: usize = 12;
 pub const MAX_TEXTURE_SLOTS: usize = 16;
 pub const MAX_ATTACHMENTS: usize = 8;
 
-/// Specifies the target to which the buffer object is bound
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Resource {
-    /// Vertex attributes.
-    Vertex,
-    /// Vertex array indices.
-    Index,
-}
-
 /// Hint abouts how this memory will be used.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ResourceHint {
+pub enum BufferHint {
     /// Full speed GPU access. Optimal for render targets and resourced memory.
     Static,
     /// CPU to GPU data flow with update commands.

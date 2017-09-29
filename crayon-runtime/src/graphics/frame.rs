@@ -10,9 +10,6 @@ use math::Color;
 
 use super::*;
 use super::errors::*;
-use super::resource::{ResourceHint, IndexFormat, VertexLayout, AttributeLayout,
-                      FrameBufferAttachment};
-use super::pipeline::{UniformVariable, Primitive};
 use super::backend::Context;
 
 use utils;
@@ -74,7 +71,7 @@ pub struct PipelineDesc {
 #[derive(Debug, Clone, Copy)]
 pub struct VertexBufferDesc {
     pub layout: VertexLayout,
-    pub hint: ResourceHint,
+    pub hint: BufferHint,
     pub size: u32,
     pub data: Option<TaskBufferPtr<[u8]>>,
 }
@@ -82,7 +79,7 @@ pub struct VertexBufferDesc {
 #[derive(Debug, Clone, Copy)]
 pub struct IndexBufferDesc {
     pub format: IndexFormat,
-    pub hint: ResourceHint,
+    pub hint: BufferHint,
     pub size: u32,
     pub data: Option<TaskBufferPtr<[u8]>>,
 }

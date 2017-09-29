@@ -54,16 +54,19 @@
 //! multi-thread friendly APIs.
 
 mod backend;
+mod render_state;
+mod uniform_variable;
 
 pub mod errors;
 #[macro_use]
 pub mod macros;
-pub mod pipeline;
 pub mod resource;
 pub mod frame;
 pub mod frontend;
 
-pub use self::pipeline::*;
+pub use self::render_state::*;
+pub use self::uniform_variable::*;
+
 pub use self::resource::*;
 
 pub use self::frame::DrawCallBuilder;

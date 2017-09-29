@@ -1,6 +1,6 @@
 use super::super::lex::*;
 use super::expr::*;
-use crayon::graphics::pipeline;
+use crayon::graphics::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
@@ -13,9 +13,9 @@ pub enum Statement {
 pub enum Metadata {
     VertexShader(String),
     FragmentShader(String),
-    DepthTest(pipeline::Comparison),
+    DepthTest(Comparison),
     DepthWrite(bool),
-    Blend((pipeline::Equation, pipeline::BlendFactor, pipeline::BlendFactor)),
+    Blend((Equation, BlendFactor, BlendFactor)),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -207,37 +207,37 @@ named!(parse_metadata_bool<Tokens, bool>, alt_complete!(
     value!(false, tag_token_str_case_insensitive!("false"))
 ));
 
-named!(parse_metadata_comparsion<Tokens, pipeline::Comparison>, alt_complete! (
-    value!(pipeline::Comparison::Never, tag_token_str_case_insensitive!("Never")) |
-    value!(pipeline::Comparison::Less, tag_token_str_case_insensitive!("Less")) |
-    value!(pipeline::Comparison::LessOrEqual, tag_token_str_case_insensitive!("LessOrEq")) |
-    value!(pipeline::Comparison::Greater, tag_token_str_case_insensitive!("Greater")) |
-    value!(pipeline::Comparison::GreaterOrEqual, tag_token_str_case_insensitive!("GreaterOrEq")) |
-    value!(pipeline::Comparison::Equal, tag_token_str_case_insensitive!("Eq")) |
-    value!(pipeline::Comparison::NotEqual, tag_token_str_case_insensitive!("Neq")) |
-    value!(pipeline::Comparison::Always, tag_token_str_case_insensitive!("Always"))
+named!(parse_metadata_comparsion<Tokens, Comparison>, alt_complete! (
+    value!(Comparison::Never, tag_token_str_case_insensitive!("Never")) |
+    value!(Comparison::Less, tag_token_str_case_insensitive!("Less")) |
+    value!(Comparison::LessOrEqual, tag_token_str_case_insensitive!("LessOrEq")) |
+    value!(Comparison::Greater, tag_token_str_case_insensitive!("Greater")) |
+    value!(Comparison::GreaterOrEqual, tag_token_str_case_insensitive!("GreaterOrEq")) |
+    value!(Comparison::Equal, tag_token_str_case_insensitive!("Eq")) |
+    value!(Comparison::NotEqual, tag_token_str_case_insensitive!("Neq")) |
+    value!(Comparison::Always, tag_token_str_case_insensitive!("Always"))
 ));
 
-named!(parse_metadata_equation<Tokens, pipeline::Equation>, alt_complete!(
-    value!(pipeline::Equation::Add, tag_token_str_case_insensitive!("Add")) |
-    value!(pipeline::Equation::Subtract, tag_token_str_case_insensitive!("Sub")) |
-    value!(pipeline::Equation::ReverseSubtract, tag_token_str_case_insensitive!("ReverseSub"))
+named!(parse_metadata_equation<Tokens, Equation>, alt_complete!(
+    value!(Equation::Add, tag_token_str_case_insensitive!("Add")) |
+    value!(Equation::Subtract, tag_token_str_case_insensitive!("Sub")) |
+    value!(Equation::ReverseSubtract, tag_token_str_case_insensitive!("ReverseSub"))
 ));
 
-named!(parse_metadata_blend_factor<Tokens, pipeline::BlendFactor>, alt_complete!(
-    value!(pipeline::BlendFactor::Zero, tag_token_str_case_insensitive!("Zero")) |
-    value!(pipeline::BlendFactor::One, tag_token_str_case_insensitive!("One")) |
+named!(parse_metadata_blend_factor<Tokens, BlendFactor>, alt_complete!(
+    value!(BlendFactor::Zero, tag_token_str_case_insensitive!("Zero")) |
+    value!(BlendFactor::One, tag_token_str_case_insensitive!("One")) |
     value!(
-        pipeline::BlendFactor::Value(pipeline::BlendValue::SourceAlpha),
+        BlendFactor::Value(BlendValue::SourceAlpha),
         tag_token_str_case_insensitive!("SrcAlpha")) |
     value!(
-        pipeline::BlendFactor::Value(pipeline::BlendValue::DestinationAlpha),
+        BlendFactor::Value(BlendValue::DestinationAlpha),
         tag_token_str_case_insensitive!("DstAlpha")) |
     value!(
-        pipeline::BlendFactor::OneMinusValue(pipeline::BlendValue::SourceAlpha),
+        BlendFactor::OneMinusValue(BlendValue::SourceAlpha),
         tag_token_str_case_insensitive!("OneSubSrcAlpha")) |
     value!(
-        pipeline::BlendFactor::OneMinusValue(pipeline::BlendValue::DestinationAlpha),
+        BlendFactor::OneMinusValue(BlendValue::DestinationAlpha),
         tag_token_str_case_insensitive!("OneSubDstAlpha"))
 ));
 
