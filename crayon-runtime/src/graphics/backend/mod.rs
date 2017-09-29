@@ -12,7 +12,7 @@ pub use self::capabilities::{Capabilities, Version, Profile};
 
 use std::sync::{Arc, RwLock};
 use gl;
-use core::window;
+use application::window;
 
 pub struct Context {
     window: Arc<window::Window>,

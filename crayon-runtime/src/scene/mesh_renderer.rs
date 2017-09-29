@@ -1,7 +1,7 @@
 use std::collections::BinaryHeap;
 use std::cmp::{Ordering, Ord};
 
-use core::application;
+use application;
 use ecs;
 use graphics;
 
@@ -14,12 +14,12 @@ use super::{Transform, Decomposed, Mesh, Renderable, RenderCamera, RenderEnviron
 pub struct MeshRenderer {}
 
 impl MeshRenderer {
-    pub fn new(_: &mut application::Application) -> Result<Self> {
+    pub fn new(_: &mut application::Engine) -> Result<Self> {
         Ok(MeshRenderer {})
     }
 
     pub fn draw(&mut self,
-                mut application: &mut application::Application,
+                mut application: &mut application::Engine,
                 world: &ecs::World,
                 env: &RenderEnvironment,
                 camera: &RenderCamera)
@@ -36,7 +36,7 @@ impl MeshRenderer {
     }
 
     fn submit(&self,
-              application: &mut application::Application,
+              engine: &mut application::Engine,
               env: &RenderEnvironment,
               camera: &RenderCamera,
               arenas: &mut (ecs::ArenaMutGetter<Transform>, ecs::ArenaMutGetter<Mesh>),
@@ -59,19 +59,19 @@ impl MeshRenderer {
         // Update material.
         let mat = mesh.material().unwrap();
         let mut mat = mat.write().unwrap();
-        mat.update_video_object(&mut application.graphics)?;
+        mat.update_video_object(&mut engine.graphics)?;
 
         // Get pipeline state object from shader.
         let pso = {
             let mut shader = mat.shader().write().unwrap();
-            shader.update_video_object(&mut application.graphics)?;
+            shader.update_video_object(&mut engine.graphics)?;
             shader.video_object().unwrap()
         };
 
         // Get primitive buffer objects from mesh.
         let (vbo, ibo, len) = {
             let mut primitive = mesh.primitive().write().unwrap();
-            primitive.update_video_object(&mut application.graphics)?;
+            primitive.update_video_object(&mut engine.graphics)?;
 
             let (vbo, ibo) = primitive.video_object().unwrap();
             let len = if ibo.is_none() {
@@ -94,7 +94,7 @@ impl MeshRenderer {
         };
 
         // Create drawcall task.
-        let mut drawcall = application.graphics.make();
+        let mut drawcall = engine.graphics.make();
 
         // Extract uniform variables specified in material.
         mat.extract(&mut drawcall);

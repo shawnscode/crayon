@@ -28,7 +28,7 @@ pub extern crate cgmath;
 #[macro_use]
 pub mod utils;
 pub mod math;
-pub mod core;
+pub mod application;
 #[macro_use]
 pub mod ecs;
 #[macro_use]

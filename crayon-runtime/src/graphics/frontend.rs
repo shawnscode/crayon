@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::sync::{Arc, RwLock, Mutex, MutexGuard};
 
 use utils::{HandleObjectSet, Handle};
-use core::window;
+use application::window;
 use math::Color;
 
 use super::*;

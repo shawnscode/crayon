@@ -11,7 +11,7 @@ pub use scene;
 pub use scene::*;
 pub use scene::Transform;
 
-pub use core::*;
-pub use core::errors;
+pub use application::*;
+pub use application::errors;
 
 pub use graphics;

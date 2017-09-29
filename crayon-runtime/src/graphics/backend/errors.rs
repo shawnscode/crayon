@@ -1,4 +1,4 @@
-use core::window;
+use application::window;
 
 error_chain!{
     types {

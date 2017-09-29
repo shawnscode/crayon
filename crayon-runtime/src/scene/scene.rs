@@ -1,4 +1,4 @@
-use core::application;
+use application;
 use ecs;
 use math;
 use resource;
@@ -15,8 +15,8 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(mut application: &mut application::Application) -> Result<Self> {
-        application.resources.register::<resource::Primitive>();
+    pub fn new(mut engine: &mut application::Engine) -> Result<Self> {
+        engine.resources.register::<resource::Primitive>();
 
         let mut world = ecs::World::new();
         world.register::<Transform>();
@@ -29,7 +29,7 @@ impl Scene {
         Ok(Scene {
                world: world,
                camera: None,
-               renderer: Renderer::new(&mut application)?,
+               renderer: Renderer::new(&mut engine)?,
            })
     }
 
@@ -58,7 +58,7 @@ impl Scene {
         self.camera = Some(camera)
     }
 
-    pub fn run_one_frame(&mut self, mut application: &mut application::Application) -> Result<()> {
+    pub fn run_one_frame(&mut self, mut application: &mut application::Engine) -> Result<()> {
         self.renderer.draw(&mut application, &self.world)?;
         Ok(())
     }

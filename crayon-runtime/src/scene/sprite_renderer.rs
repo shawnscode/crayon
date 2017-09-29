@@ -3,7 +3,7 @@ use std::collections::BinaryHeap;
 use std::cmp::{Ordering, Ord};
 use std::sync::Arc;
 
-use core::application;
+use application;
 use ecs;
 use graphics;
 use resource;
@@ -29,15 +29,15 @@ pub struct SpriteRenderer {
 const MAX_BATCH_VERTICES: usize = 2048;
 
 impl SpriteRenderer {
-    pub fn new(application: &mut application::Application) -> Result<Self> {
+    pub fn new(engine: &mut application::Engine) -> Result<Self> {
         Ok(SpriteRenderer {
-               mat: resource::factory::material::sprite(&mut application.resources)?,
+               mat: resource::factory::material::sprite(&mut engine.resources)?,
                vertices: Vec::with_capacity(MAX_BATCH_VERTICES),
            })
     }
 
     pub fn draw(&mut self,
-                mut application: &mut application::Application,
+                mut engine: &mut application::Engine,
                 world: &ecs::World,
                 camera: &RenderCamera)
                 -> Result<()> {
@@ -73,7 +73,7 @@ impl SpriteRenderer {
 
             if eq(&last_mat, &mat) || eq(&last_texture, &texture) ||
                self.vertices.len() >= MAX_BATCH_VERTICES {
-                self.consume(&mut application, &camera, last_mat, last_texture)?;
+                self.consume(&mut engine, &camera, last_mat, last_texture)?;
             }
 
             last_mat = mat;
@@ -105,12 +105,12 @@ impl SpriteRenderer {
             self.vertices.push(v4);
         }
 
-        self.consume(&mut application, &camera, last_mat, last_texture)?;
+        self.consume(&mut engine, &camera, last_mat, last_texture)?;
         Ok(())
     }
 
     fn consume(&mut self,
-               mut application: &mut application::Application,
+               mut engine: &mut application::Engine,
                camera: &RenderCamera,
                mat: Option<resource::MaterialPtr>,
                texture: Option<resource::TexturePtr>)
@@ -124,7 +124,7 @@ impl SpriteRenderer {
         // Get vertex buffer object.
         let layout = SpriteVertex::layout();
         let vbo =
-            application
+            engine
                 .graphics
                 .create_vertex_buffer(&layout,
                                       graphics::BufferHint::Dynamic,
@@ -134,27 +134,25 @@ impl SpriteRenderer {
         // Get material.
         let mat = mat.unwrap_or(self.mat.clone());
         let mut mat = mat.write().unwrap();
-        mat.update_video_object(&mut application.graphics)?;
+        mat.update_video_object(&mut engine.graphics)?;
 
         // Get pipeline state object.
         let pso = {
             let shader = mat.shader();
             let mut shader = shader.write().unwrap();
-            shader.update_video_object(&mut application.graphics)?;
+            shader.update_video_object(&mut engine.graphics)?;
             shader.video_object().unwrap()
         };
 
         // Get texture.
         let texture = texture.map(|v| {
                                       let mut texture = v.write().unwrap();
-                                      texture
-                                          .update_video_object(&mut application.graphics)
-                                          .is_ok();
+                                      texture.update_video_object(&mut engine.graphics).is_ok();
                                       texture.video_object().unwrap()
                                   });
 
         // Create drawcall task.
-        let mut drawcall = application.graphics.make();
+        let mut drawcall = engine.graphics.make();
         mat.extract(&mut drawcall);
 
         if texture.is_some() && mat.has_uniform_variable("bi_MainTex", UVT::Texture) {

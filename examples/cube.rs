@@ -12,8 +12,8 @@ struct Window {
 }
 
 impl Window {
-    fn new(mut app: &mut Application) -> errors::Result<Window> {
-        let mut scene = Scene::new(&mut app)?;
+    fn new(mut engine: &mut Engine) -> errors::Result<Window> {
+        let mut scene = Scene::new(&mut engine)?;
 
         {
             // Create and bind main camera of scene.
@@ -21,7 +21,7 @@ impl Window {
             scene.set_main_camera(c);
 
             {
-                let dimensions = app.window.dimensions().unwrap();
+                let dimensions = engine.window.dimensions().unwrap();
                 let mut camera = scene.world_mut().get_mut::<Camera>(c).unwrap();
                 camera.set_aspect(dimensions.0 as f32 / dimensions.1 as f32);
                 camera.set_projection(Projection::Perspective(30.0));
@@ -38,7 +38,7 @@ impl Window {
         let cubes = {
             let mut cubes = Vec::new();
             for i in 0..1 {
-                let cube = Window::spwan(&mut app, &mut scene)?;
+                let cube = Window::spwan(&mut engine, &mut scene)?;
                 let mut transform = scene.world().get_mut::<Transform>(cube).unwrap();
 
                 transform.set_scale(30.0);
@@ -50,11 +50,12 @@ impl Window {
 
         let dir = {
             let unit = math::Vector3::unit_x();
-            Window::spawn_point_light(&mut app, &mut scene, Color::red(), unit * 80.0)?;
-            Window::spawn_point_light(&mut app, &mut scene, Color::green(), unit * -80.0)?;
+            Window::spawn_point_light(&mut engine, &mut scene, Color::red(), unit * 80.0)?;
+            Window::spawn_point_light(&mut engine, &mut scene, Color::green(), unit * -80.0)?;
 
             let unit = math::Vector3::unit_z();
-            let light = Window::spawn_dir_light(&mut app, &mut scene, Color::white(), unit * 80.0)?;
+            let light =
+                Window::spawn_dir_light(&mut engine, &mut scene, Color::white(), unit * 80.0)?;
             let center = scene
                 .world_mut()
                 .build()
@@ -76,9 +77,9 @@ impl Window {
            })
     }
 
-    fn spwan(mut app: &mut Application, scene: &mut Scene) -> errors::Result<Entity> {
-        let mesh = crayon::resource::factory::primitive::cube(&mut app.resources)?;
-        let mat = crayon::resource::factory::material::phong(&mut app.resources)?;
+    fn spwan(mut engine: &mut Engine, scene: &mut Scene) -> errors::Result<Entity> {
+        let mesh = crayon::resource::factory::primitive::cube(&mut engine.resources)?;
+        let mat = crayon::resource::factory::material::phong(&mut engine.resources)?;
 
         {
             let mut mat = mat.write().unwrap();
@@ -98,13 +99,13 @@ impl Window {
         Ok(cube)
     }
 
-    fn spawn_color_cube(mut app: &mut Application,
+    fn spawn_color_cube(mut engine: &mut Engine,
                         scene: &mut Scene,
                         color: Color,
                         position: math::Vector3<f32>)
                         -> errors::Result<Entity> {
-        let mesh = crayon::resource::factory::primitive::cube(&mut app.resources)?;
-        let mat = crayon::resource::factory::material::color(&mut app.resources)?;
+        let mesh = crayon::resource::factory::primitive::cube(&mut engine.resources)?;
+        let mat = crayon::resource::factory::material::color(&mut engine.resources)?;
 
         {
             let mut mat = mat.write().unwrap();
@@ -128,7 +129,7 @@ impl Window {
         Ok(cube)
     }
 
-    fn spawn_point_light(mut app: &mut Application,
+    fn spawn_point_light(mut app: &mut Engine,
                          mut scene: &mut Scene,
                          color: Color,
                          position: math::Vector3<f32>)
@@ -142,7 +143,7 @@ impl Window {
         Ok(cube)
     }
 
-    fn spawn_dir_light(mut app: &mut Application,
+    fn spawn_dir_light(mut app: &mut Engine,
                        mut scene: &mut Scene,
                        color: Color,
                        position: math::Vector3<f32>)
@@ -159,8 +160,8 @@ impl Window {
     }
 }
 
-impl ApplicationInstance for Window {
-    fn on_update(&mut self, mut app: &mut Application) -> errors::Result<()> {
+impl Application for Window {
+    fn on_update(&mut self, mut app: &mut Engine) -> errors::Result<()> {
         // Rotate cube.
         let rotation = Quaternion::from(math::Euler {
                                             x: math::Deg(1.0f32),
@@ -203,9 +204,9 @@ fn main() {
     settings.window.height = 480;
 
     let manifest = "examples/compiled-resources/manifest";
-    let mut app = Application::new_with(settings).unwrap();
-    app.resources.load_manifest(manifest).unwrap();
+    let mut engine = Engine::new_with(settings).unwrap();
+    engine.resources.load_manifest(manifest).unwrap();
 
-    let mut window = Window::new(&mut app).unwrap();
-    app.run(&mut window).unwrap();
+    let mut window = Window::new(&mut engine).unwrap();
+    engine.run(&mut window).unwrap();
 }

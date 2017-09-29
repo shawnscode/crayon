@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use toml;
 
-use crayon::core::settings::Settings as RuntimeSettings;
+use crayon::application::Settings as RuntimeSettings;
 use resource::ResourceType;
 use utils::toml::*;
 use utils::bincode;

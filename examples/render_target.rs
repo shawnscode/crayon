@@ -23,7 +23,7 @@ struct Window {
 }
 
 impl Window {
-    pub fn new(app: &mut Application) -> errors::Result<Self> {
+    pub fn new(engine: &mut Engine) -> errors::Result<Self> {
         let vertices: [Vertex; 3] = [Vertex::new([0.0, 0.5]),
                                      Vertex::new([0.5, -0.5]),
                                      Vertex::new([-0.5, -0.5])];
@@ -42,7 +42,8 @@ impl Window {
         let layout = Vertex::layout();
 
         //
-        let vbo_fb = app.graphics
+        let vbo_fb = engine
+            .graphics
             .create_vertex_buffer(&layout,
                                   graphics::BufferHint::Static,
                                   (vertices.len() * layout.stride() as usize) as u32,
@@ -50,34 +51,38 @@ impl Window {
 
         let state = graphics::RenderState::default();
         let rendered_texture =
-            app.graphics
+            engine
+                .graphics
                 .create_render_texture(graphics::RenderTextureFormat::RGBA8, 568, 320)?;
 
-        let fbo = app.graphics.create_framebuffer()?;
+        let fbo = engine.graphics.create_framebuffer()?;
         {
             let mut item = fbo.object.write().unwrap();
             item.update_texture_attachment(&rendered_texture, Some(0))?;
         }
 
-        let view_fb = app.graphics.create_view(Some(fbo))?;
+        let view_fb = engine.graphics.create_view(Some(fbo))?;
         {
             let mut item = view_fb.object.write().unwrap();
             item.update_clear(Some(Color::gray()), None, None);
         }
 
-        let pipeline_fb = app.graphics
+        let pipeline_fb = engine
+            .graphics
             .create_pipeline(include_str!("resources/shaders/render_target_p1.vs"),
                              include_str!("resources/shaders/render_target_p1.fs"),
                              &state,
                              &attributes)?;
 
-        let vbo = app.graphics
+        let vbo = engine
+            .graphics
             .create_vertex_buffer(&layout,
                                   graphics::BufferHint::Static,
                                   (quad_vertices.len() * layout.stride() as usize) as u32,
                                   Some(Vertex::as_bytes(&quad_vertices[..])))?;
-        let view = app.graphics.create_view(None)?;
-        let pipeline = app.graphics
+        let view = engine.graphics.create_view(None)?;
+        let pipeline = engine
+            .graphics
             .create_pipeline(include_str!("resources/shaders/render_target_p2.vs"),
                              include_str!("resources/shaders/render_target_p2.fs"),
                              &state,
@@ -98,8 +103,8 @@ impl Window {
     }
 }
 
-impl ApplicationInstance for Window {
-    fn on_update(&mut self, app: &mut Application) -> errors::Result<()> {
+impl Application for Window {
+    fn on_update(&mut self, app: &mut Engine) -> errors::Result<()> {
         {
             let len = self.vbo.object.read().unwrap().len();
             let mut task = app.graphics.make();
@@ -128,11 +133,11 @@ impl ApplicationInstance for Window {
 }
 
 fn main() {
-    let mut settings = crayon::core::settings::Settings::default();
+    let mut settings = Settings::default();
     settings.window.width = 568;
     settings.window.height = 320;
 
-    let mut app = Application::new_with(settings).unwrap();
-    let mut window = Window::new(&mut app).unwrap();
-    app.run(&mut window).unwrap();
+    let mut engine = Engine::new_with(settings).unwrap();
+    let mut window = Window::new(&mut engine).unwrap();
+    engine.run(&mut window).unwrap();
 }

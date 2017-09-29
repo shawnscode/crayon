@@ -1,4 +1,4 @@
-use core::application::Application;
+use application::Engine;
 use ecs::{World, Entity, ArenaMutGetter};
 
 use math;
@@ -21,7 +21,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(mut app: &mut Application) -> Result<Renderer> {
+    pub fn new(mut app: &mut Engine) -> Result<Renderer> {
         Ok(Renderer {
                sprite_renderer: SpriteRenderer::new(&mut app)?,
                mesh_renderer: MeshRenderer::new(&mut app)?,
@@ -33,7 +33,7 @@ impl Renderer {
         self.ambient = (color, intensity);
     }
 
-    pub fn draw(&mut self, mut app: &mut Application, world: &World) -> Result<()> {
+    pub fn draw(&mut self, mut app: &mut Engine, world: &World) -> Result<()> {
         // Collect all the enable camera in the world.
         let cameras = {
             let mut cameras = Vec::new();

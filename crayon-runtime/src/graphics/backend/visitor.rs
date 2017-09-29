@@ -576,7 +576,7 @@ impl OpenGLVisitor {
         let mut cache = &mut self.active_textures.borrow_mut();
         for i in 0..MAX_TEXTURE_SLOTS {
             if cache[i] == id {
-                cache[i] = id;
+                cache[i] = 0;
             }
         }
 

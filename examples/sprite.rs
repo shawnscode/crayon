@@ -28,8 +28,8 @@ struct Window {
 }
 
 impl Window {
-    fn new(mut app: &mut Application, num: usize) -> errors::Result<Window> {
-        let mut scene = Scene::new(&mut app)?;
+    fn new(mut engine: &mut Engine, num: usize) -> errors::Result<Window> {
+        let mut scene = Scene::new(&mut engine)?;
 
         {
             // Create and bind main camera of scene.
@@ -37,7 +37,7 @@ impl Window {
             scene.set_main_camera(c);
 
             {
-                let dimensions = app.window.dimensions().unwrap();
+                let dimensions = engine.window.dimensions().unwrap();
                 let mut camera = scene.world_mut().get_mut::<Camera>(c).unwrap();
                 camera.set_aspect(dimensions.0 as f32 / dimensions.1 as f32);
                 camera.set_projection(Projection::Ortho(dimensions.1 as f32 * 0.5));
@@ -52,7 +52,7 @@ impl Window {
             }
         }
 
-        let atlas = app.resources.load("atlas.json")?;
+        let atlas = engine.resources.load("atlas.json")?;
 
         Ok(Window {
                scene: scene,
@@ -64,7 +64,7 @@ impl Window {
     }
 
     /// Spawn a random sprite particle.
-    fn spawn(mut app: &mut Application,
+    fn spawn(mut engine: &mut Engine,
              mut world: &mut World,
              rand: &mut XorShiftRng,
              atlas: &AtlasPtr)
@@ -99,7 +99,7 @@ impl Window {
         let frame = atlas
             .read()
             .unwrap()
-            .frame(&mut app.resources, &name)
+            .frame(&mut engine.resources, &name)
             .expect(&format!("{:?} not found in atlas.", name));
 
         sprite.set_texture_rect(frame.position, frame.size);
@@ -109,17 +109,17 @@ impl Window {
     }
 }
 
-impl ApplicationInstance for Window {
-    fn on_update(&mut self, mut app: &mut Application) -> errors::Result<()> {
+impl Application for Window {
+    fn on_update(&mut self, mut engine: &mut Engine) -> errors::Result<()> {
         if self.particles.len() < self.num {
             let mut world = &mut self.scene.world_mut();
             self.particles
-                .push(Window::spawn(&mut app, &mut world, &mut self.rand, &self.atlas));
+                .push(Window::spawn(&mut engine, &mut world, &mut self.rand, &self.atlas));
         }
 
         // Update all the particles with time eplased.
         {
-            let dt = app.engine.timestep_in_seconds();
+            let dt = engine.timestep_in_seconds();
             let world = &mut self.scene.world_mut();
             let (_, mut arenas) = world.view_with_2::<Transform, Sprite>();
 
@@ -156,7 +156,7 @@ impl ApplicationInstance for Window {
         }
 
         // Run one frame of scene.
-        self.scene.run_one_frame(&mut app)?;
+        self.scene.run_one_frame(&mut engine)?;
 
         Ok(())
     }
@@ -171,9 +171,9 @@ fn main() {
     settings.window.height = 480;
 
     let manifest = "examples/compiled-resources/manifest";
-    let mut app = Application::new_with(settings).unwrap();
-    app.resources.load_manifest(manifest).unwrap();
+    let mut engine = Engine::new_with(settings).unwrap();
+    engine.resources.load_manifest(manifest).unwrap();
 
-    let mut window = Window::new(&mut app, 500).unwrap();
-    app.run(&mut window).unwrap();
+    let mut window = Window::new(&mut engine, 500).unwrap();
+    engine.run(&mut window).unwrap();
 }
