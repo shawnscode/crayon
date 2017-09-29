@@ -38,14 +38,14 @@ impl Window {
 
             {
                 let dimensions = app.window.dimensions().unwrap();
-                let mut camera = scene.world_mut().fetch_mut::<Camera>(c).unwrap();
+                let mut camera = scene.world_mut().get_mut::<Camera>(c).unwrap();
                 camera.set_aspect(dimensions.0 as f32 / dimensions.1 as f32);
                 camera.set_projection(Projection::Ortho(dimensions.1 as f32 * 0.5));
                 camera.set_clear(Some(Color::gray()), None, None);
             }
 
             {
-                let mut arena = scene.world_mut().arena::<Transform>().unwrap();
+                let mut arena = scene.world_mut().arena_mut::<Transform>().unwrap();
                 let mut position = Transform::world_position(&arena, c).unwrap();
                 position.z = 10f32;
                 Transform::set_world_position(&mut arena, c, position).unwrap();
@@ -88,10 +88,10 @@ impl Window {
             handle: Sprite::new(&mut world),
         };
 
-        let mut sprite = world.fetch_mut::<Sprite>(spr.handle).unwrap();
+        let mut sprite = world.get_mut::<Sprite>(spr.handle).unwrap();
         sprite.set_color(&spr.color);
 
-        let mut rect = world.fetch_mut::<Rect>(spr.handle).unwrap();
+        let mut rect = world.get_mut::<Rect>(spr.handle).unwrap();
         rect.set_size(&spr.size);
         rect.set_pivot(Vector2::new(0.5f32, 0.5f32));
 

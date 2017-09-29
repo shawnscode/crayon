@@ -1,5 +1,5 @@
 use resource;
-use ecs::HashMapStorage;
+use ecs::HashMapArena;
 
 pub struct Mesh {
     visible: bool,
@@ -35,4 +35,4 @@ impl super::Renderable for Mesh {
     }
 }
 
-declare_component!(Mesh, HashMapStorage);
+declare_component!(Mesh, HashMapArena);

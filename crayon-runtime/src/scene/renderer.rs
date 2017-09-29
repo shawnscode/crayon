@@ -1,5 +1,5 @@
 use core::application::Application;
-use ecs::{World, Entity, ArenaGetter};
+use ecs::{World, Entity, ArenaMutGetter};
 
 use math;
 use resource;
@@ -60,7 +60,7 @@ impl Renderer {
     }
 
     fn parse_render_camera(mut video: &mut graphics::GraphicsFrontend,
-                           arenas: &mut (ArenaGetter<Transform>, ArenaGetter<Camera>),
+                           arenas: &mut (ArenaMutGetter<Transform>, ArenaMutGetter<Camera>),
                            camera: Entity)
                            -> Result<RenderCamera> {
         let (view, project) = {

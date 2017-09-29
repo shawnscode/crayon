@@ -17,9 +17,5 @@ error_chain!{
         CanNotInverseTransform
         CanNotAttachSelfAsParent
         CanNotDrawWithoutCamera
-        MissingRequiredComponent(t: String) {
-            description("missing required component(s).")
-            display("Missing required component(s): '{}'", t) 
-        }
     }
 }

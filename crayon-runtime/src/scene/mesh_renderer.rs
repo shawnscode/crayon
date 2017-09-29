@@ -39,7 +39,7 @@ impl MeshRenderer {
               application: &mut application::Application,
               env: &RenderEnvironment,
               camera: &RenderCamera,
-              arenas: &mut (ecs::ArenaGetter<Transform>, ecs::ArenaGetter<Mesh>),
+              arenas: &mut (ecs::ArenaMutGetter<Transform>, ecs::ArenaMutGetter<Mesh>),
               v: ecs::Entity)
               -> Result<()> {
         use graphics::UniformVariable as UV;

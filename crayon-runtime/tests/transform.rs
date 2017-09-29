@@ -20,7 +20,7 @@ pub fn space() {
     let e4 = world.build().with_default::<Transform>().finish();
 
     {
-        let mut arena = world.arena::<Transform>().unwrap();
+        let mut arena = world.arena_mut::<Transform>().unwrap();
         Transform::set_parent(&mut arena, e4, Some(e3), false).unwrap();
         Transform::set_parent(&mut arena, e3, Some(e1), false).unwrap();
         Transform::set_parent(&mut arena, e2, Some(e1), false).unwrap();
@@ -74,7 +74,7 @@ pub fn hierachy() {
     let e4 = world.build().with_default::<Transform>().finish();
 
     {
-        let mut arena = world.arena::<Transform>().unwrap();
+        let mut arena = world.arena_mut::<Transform>().unwrap();
         Transform::set_parent(&mut arena, e4, Some(e3), false).unwrap();
         Transform::set_parent(&mut arena, e3, Some(e1), false).unwrap();
         Transform::set_parent(&mut arena, e2, Some(e1), false).unwrap();
@@ -92,10 +92,10 @@ pub fn hierachy() {
     }
 
     {
-        let t1 = world.fetch::<Transform>(e1).unwrap();
-        let t2 = world.fetch::<Transform>(e2).unwrap();
-        let t3 = world.fetch::<Transform>(e3).unwrap();
-        let t4 = world.fetch::<Transform>(e4).unwrap();
+        let t1 = world.get::<Transform>(e1).unwrap();
+        let t2 = world.get::<Transform>(e2).unwrap();
+        let t3 = world.get::<Transform>(e3).unwrap();
+        let t4 = world.get::<Transform>(e4).unwrap();
 
         assert!(t1.is_root());
         assert!(!t2.is_root());
@@ -122,7 +122,7 @@ fn iteration() {
     let e6 = world.build().with_default::<Transform>().finish();
     // e1 <- (e2, e3 <- e4 <- (e5, e6))
 
-    let mut arena = world.arena::<Transform>().unwrap();
+    let mut arena = world.arena_mut::<Transform>().unwrap();
     Transform::set_parent(&mut arena, e4, Some(e3), false).unwrap();
     Transform::set_parent(&mut arena, e3, Some(e1), false).unwrap();
     Transform::set_parent(&mut arena, e2, Some(e1), false).unwrap();
@@ -155,7 +155,7 @@ fn random_iteration() {
     let mut constructed = vec![];
     constructed.push(transforms.pop().unwrap());
 
-    let mut arena = world.arena::<Transform>().unwrap();
+    let mut arena = world.arena_mut::<Transform>().unwrap();
     let mut count = 0;
     for i in 0..254 {
         let idx = generator.next_u32() as usize % transforms.len();
@@ -195,13 +195,13 @@ fn camera() {
         .finish();
 
     {
-        let mut arena = world.arena::<Transform>().unwrap();
+        let mut arena = world.arena_mut::<Transform>().unwrap();
         Transform::set_world_position(&mut arena, camera, math::Vector3::new(0.0, 0.0, -5.0))
             .unwrap();
     }
 
     {
-        let view_matrix = Camera::view_matrix(&world.arena::<Transform>().unwrap(), camera)
+        let view_matrix = Camera::view_matrix(&world.arena_mut::<Transform>().unwrap(), camera)
             .unwrap();
 
         let point = math::Point3::new(0.0, 0.0, 1.0);
@@ -211,7 +211,7 @@ fn camera() {
     }
 
     {
-        let mut arena = world.arena::<Transform>().unwrap();
+        let mut arena = world.arena_mut::<Transform>().unwrap();
         Transform::set_world_rotation(&mut arena,
                                       camera,
                                       math::Quaternion::from(math::Euler {
@@ -223,7 +223,7 @@ fn camera() {
     }
 
     {
-        let view_matrix = Camera::view_matrix(&world.arena::<Transform>().unwrap(), camera)
+        let view_matrix = Camera::view_matrix(&world.arena_mut::<Transform>().unwrap(), camera)
             .unwrap();
         let point = math::Point3::new(1.0, 0.0, 0.0);
         let view_point = view_matrix.transform_point(point);

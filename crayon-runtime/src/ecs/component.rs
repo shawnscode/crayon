@@ -18,7 +18,7 @@ lazy_static! {
 pub trait Component: Any + 'static
     where Self: Sized
 {
-    type Storage: ComponentStorage<Self> + Any + Send + Sync;
+    type Storage: ComponentArena<Self> + Any + Send + Sync;
 
     fn type_index() -> usize;
 }
@@ -42,13 +42,13 @@ macro_rules! declare_component {
 }
 
 /// Traits used to implement a standart/basic storage for components. Choose your
-/// components storage layout and strategy by declaring different `ComponentStorage`
+/// components storage layout and strategy by declaring different `ComponentArena`
 /// with corresponding component.
-pub trait ComponentStorage<T>
+pub trait ComponentArena<T>
     where T: Component
 {
-    /// Creates a new `ComponentStorage<T>`. This is called when you register a
-    /// new component type within the world.
+    /// Creates a new `ComponentArena<T>`. This is called when you register a new component
+    /// type within the world.
     fn new() -> Self;
 
     /// Returns a reference to the value corresponding to the `HandleIndex`,
@@ -73,17 +73,17 @@ pub trait ComponentStorage<T>
 }
 
 /// HashMap based storage which are best suited for rare components.
-pub struct HashMapStorage<T>
+pub struct HashMapArena<T>
     where T: Component
 {
     values: HashMap<HandleIndex, T>,
 }
 
-impl<T> ComponentStorage<T> for HashMapStorage<T>
+impl<T> ComponentArena<T> for HashMapArena<T>
     where T: Component
 {
     fn new() -> Self {
-        HashMapStorage { values: HashMap::new() }
+        HashMapArena { values: HashMap::new() }
     }
 
     fn get(&self, id: HandleIndex) -> Option<&T> {
@@ -113,18 +113,18 @@ impl<T> ComponentStorage<T> for HashMapStorage<T>
 
 /// Vec based storage, supposed to have maximum performance for the components
 /// mostly present in entities.
-pub struct VecStorage<T>
+pub struct VecArena<T>
     where T: Component + ::std::fmt::Debug
 {
     mask: BitSet,
     values: Vec<T>,
 }
 
-impl<T> ComponentStorage<T> for VecStorage<T>
+impl<T> ComponentArena<T> for VecArena<T>
     where T: Component + ::std::fmt::Debug
 {
     fn new() -> Self {
-        VecStorage {
+        VecArena {
             mask: BitSet::new(),
             values: Vec::new(),
         }
@@ -173,7 +173,7 @@ impl<T> ComponentStorage<T> for VecStorage<T>
     }
 }
 
-impl<T> Drop for VecStorage<T>
+impl<T> Drop for VecArena<T>
     where T: Component + ::std::fmt::Debug
 {
     fn drop(&mut self) {
@@ -195,8 +195,8 @@ mod test {
     struct Position {}
     struct Direction {}
 
-    declare_component!(Position, HashMapStorage);
-    declare_component!(Direction, HashMapStorage);
+    declare_component!(Position, HashMapArena);
+    declare_component!(Direction, HashMapArena);
 
     #[test]
     fn component_index() {

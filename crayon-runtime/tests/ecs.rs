@@ -17,8 +17,8 @@ struct Velocity {
     y: u32,
 }
 
-declare_component!(Position, VecStorage);
-declare_component!(Velocity, VecStorage);
+declare_component!(Position, VecArena);
+declare_component!(Velocity, VecArena);
 
 #[test]
 fn iterate() {
@@ -33,7 +33,7 @@ fn iterate() {
             x: i,
             y: ent.version(),
         };
-        world.assign::<Velocity>(ent, velocity);
+        world.add::<Velocity>(ent, velocity);
 
         if i % 3 == 0 {
             world.free(ent);

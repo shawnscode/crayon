@@ -1,9 +1,12 @@
 //! The entity component system with a data-orinted designs.
 //!
-//! #### Entity Component System (ECS)
+//! # Entity Component System (ECS)
+//!
 //! ECS is an architectural pattern that is widely used in game development. It follows
 //! the _Composition_ over _Inheritance_ principle that allows greater flexibility in
 //! defining entities where every object in a game's scene in an entity.
+//!
+//! ## Entity
 //!
 //! `Entity` is one of the most fundamental terms in this system. Its basicly some kind
 //! of unique identifier to the in-game object. Every `Entity` consists of one or more
@@ -12,9 +15,10 @@
 //! Its also common that abstracts `Entity` as container of components, buts with UID
 //! approach, we could save the state externaly, users could transfer `Entity` easily
 //! without considering the data-ownerships. The real data storage can be shuffled around
-//! in memory as needed;
+//! in memory as needed.
 //!
-//! #### Data Orinted Design
+//! ## Data Orinted Design
+//!
 //! Data-oriented design is a program optimization approach motivated by cache coherency.
 //! The approach is to focus on the data layout, separating and sorting fields according
 //! to when they are needed, and to think about transformations of data.
@@ -32,8 +36,8 @@ mod iterator;
 pub mod component;
 pub mod world;
 
-pub use self::component::{Component, ComponentStorage, HashMapStorage, VecStorage};
-pub use self::world::{World, ArenaGetter};
+pub use self::component::{Component, ComponentArena, HashMapArena, VecArena};
+pub use self::world::{World, ArenaMutGetter};
 
 /// `Entity` type, as seen by the user, its a alias to `Handle` internally.
 pub type Entity = Handle;
@@ -62,8 +66,8 @@ mod test {
         }
     }
 
-    declare_component!(Position, VecStorage);
-    declare_component!(Reference, HashMapStorage);
+    declare_component!(Position, VecArena);
+    declare_component!(Reference, HashMapArena);
 
     #[test]
     fn basic() {
@@ -71,28 +75,28 @@ mod test {
         world.register::<Position>();
 
         let e1 = world.create();
-        world.assign::<Position>(e1, Position { x: 1, y: 2 });
+        world.add::<Position>(e1, Position { x: 1, y: 2 });
         assert!(world.has::<Position>(e1));
 
         {
-            let p = world.fetch::<Position>(e1).unwrap();
+            let p = world.get::<Position>(e1).unwrap();
             assert_eq!(*p, Position { x: 1, y: 2 });
         }
 
         {
-            let mut p = world.fetch_mut::<Position>(e1).unwrap();
+            let mut p = world.get_mut::<Position>(e1).unwrap();
             p.x = 2;
             p.y = 5;
         }
 
         {
-            let p = world.fetch::<Position>(e1).unwrap();
+            let p = world.get::<Position>(e1).unwrap();
             assert_eq!(*p, Position { x: 2, y: 5 });
         }
 
         world.remove::<Position>(e1);
         assert!(!world.has::<Position>(e1));
-        assert!(world.fetch::<Position>(e1).is_none());
+        assert!(world.get::<Position>(e1).is_none());
     }
 
     #[test]
@@ -104,16 +108,16 @@ mod test {
         let e1 = world.create();
         assert!(world.is_alive(e1));
         assert!(!world.has::<Position>(e1));
-        assert!(world.fetch::<Position>(e1).is_none());
+        assert!(world.get::<Position>(e1).is_none());
 
-        world.assign::<Position>(e1, Position { x: 1, y: 2 });
+        world.add::<Position>(e1, Position { x: 1, y: 2 });
         assert!(world.has::<Position>(e1));
-        world.fetch::<Position>(e1).unwrap();
+        world.get::<Position>(e1).unwrap();
 
         world.free(e1);
         assert!(!world.is_alive(e1));
         assert!(!world.has::<Position>(e1));
-        assert!(world.fetch::<Position>(e1).is_none());
+        assert!(world.get::<Position>(e1).is_none());
 
         let mut entities = Vec::new();
         let rc = Arc::new(RwLock::new(0));
@@ -122,9 +126,9 @@ mod test {
             let shadow = rc.clone();
             entities.push(e);
 
-            world.assign::<Reference>(e, Reference { value: shadow });
+            world.add::<Reference>(e, Reference { value: shadow });
             if i % 2 == 0 {
-                world.assign::<Position>(e, Position { x: 1, y: 2 });
+                world.add::<Position>(e, Position { x: 1, y: 2 });
             }
         }
 
@@ -137,16 +141,16 @@ mod test {
     }
 
     #[test]
-    fn duplicated_assign() {
+    fn duplicated_add() {
         let mut world = World::new();
         world.register::<Position>();
 
         let e1 = world.create();
-        assert!(world.assign::<Position>(e1, Position { x: 1, y: 2 }) == None);
-        assert!(world.assign::<Position>(e1, Position { x: 2, y: 4 }) ==
+        assert!(world.add::<Position>(e1, Position { x: 1, y: 2 }) == None);
+        assert!(world.add::<Position>(e1, Position { x: 2, y: 4 }) ==
                 Some(Position { x: 1, y: 2 }));
 
-        assert!(*world.fetch::<Position>(e1).unwrap() == Position { x: 2, y: 4 })
+        assert!(*world.get::<Position>(e1).unwrap() == Position { x: 2, y: 4 })
     }
 
     #[test]
@@ -163,13 +167,13 @@ mod test {
             for j in 0..100 {
                 if j % p == 0 {
                     let e = world.create();
-                    world.assign::<Position>(e,
-                                             Position {
-                                                 x: e.index(),
-                                                 y: e.version(),
-                                             });
+                    world.add::<Position>(e,
+                                          Position {
+                                              x: e.index(),
+                                              y: e.version(),
+                                          });
                     if j % r == 0 {
-                        world.assign_with_default::<Reference>(e);
+                        world.add_with_default::<Reference>(e);
                     }
                     v.push(e);
                 }
@@ -183,7 +187,7 @@ mod test {
         }
 
         for i in v {
-            assert_eq!(*world.fetch::<Position>(i).unwrap(),
+            assert_eq!(*world.get::<Position>(i).unwrap(),
                        Position {
                            x: i.index(),
                            y: i.version(),
@@ -202,15 +206,15 @@ mod test {
             let e = world.create();
 
             if i % 2 == 0 {
-                world.assign::<Position>(e,
-                                         Position {
-                                             x: e.index(),
-                                             y: e.version(),
-                                         });
+                world.add::<Position>(e,
+                                      Position {
+                                          x: e.index(),
+                                          y: e.version(),
+                                      });
             }
 
             if i % 3 == 0 {
-                world.assign_with_default::<Reference>(e);
+                world.add_with_default::<Reference>(e);
             }
 
             if i % 2 == 0 && i % 3 == 0 {
@@ -278,25 +282,25 @@ mod test {
 
     #[test]
     #[should_panic]
-    fn invalid_fetch() {
+    fn invalid_get() {
         let mut world = World::new();
         world.register::<Position>();
 
         let e1 = world.build().with_default::<Position>().finish();
 
-        let _p1 = world.fetch_mut::<Position>(e1);
-        world.fetch::<Position>(e1);
+        let _p1 = world.get_mut::<Position>(e1);
+        world.get::<Position>(e1);
     }
 
     #[test]
     #[should_panic]
-    fn invalid_fetch_mut() {
+    fn invalid_get_mut() {
         let mut world = World::new();
         world.register::<Position>();
 
         let e1 = world.build().with_default::<Position>().finish();
 
-        let _p1 = world.fetch_mut::<Position>(e1);
-        world.fetch_mut::<Position>(e1);
+        let _p1 = world.get_mut::<Position>(e1);
+        world.get_mut::<Position>(e1);
     }
 }

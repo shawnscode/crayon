@@ -22,13 +22,13 @@ impl Window {
 
             {
                 let dimensions = app.window.dimensions().unwrap();
-                let mut camera = scene.world_mut().fetch_mut::<Camera>(c).unwrap();
+                let mut camera = scene.world_mut().get_mut::<Camera>(c).unwrap();
                 camera.set_aspect(dimensions.0 as f32 / dimensions.1 as f32);
                 camera.set_projection(Projection::Perspective(30.0));
             }
 
             {
-                let mut arena = scene.world_mut().arena::<Transform>().unwrap();
+                let mut arena = scene.world_mut().arena_mut::<Transform>().unwrap();
                 let mut position = Transform::world_position(&arena, c).unwrap();
                 position.z = 500f32;
                 Transform::set_world_position(&mut arena, c, position).unwrap();
@@ -39,7 +39,7 @@ impl Window {
             let mut cubes = Vec::new();
             for i in 0..1 {
                 let cube = Window::spwan(&mut app, &mut scene)?;
-                let mut transform = scene.world().fetch_mut::<Transform>(cube).unwrap();
+                let mut transform = scene.world().get_mut::<Transform>(cube).unwrap();
 
                 transform.set_scale(30.0);
                 transform.translate(math::Vector3::unit_x() * i as f32 * 60.0);
@@ -62,7 +62,7 @@ impl Window {
                 .finish();
 
             {
-                let mut arena = scene.world().arena::<Transform>().unwrap();
+                let mut arena = scene.world().arena_mut::<Transform>().unwrap();
                 Transform::set_parent(&mut arena, light, Some(center), true)?;
             }
 
@@ -120,7 +120,7 @@ impl Window {
             .finish();
 
         {
-            let mut arena = scene.world_mut().arena::<Transform>().unwrap();
+            let mut arena = scene.world_mut().arena_mut::<Transform>().unwrap();
             Transform::set_world_position(&mut arena, cube, position)?;
             Transform::set_world_scale(&mut arena, cube, 5f32)?;
         }
@@ -137,7 +137,7 @@ impl Window {
 
         let mut data = PointLight::default();
         data.color = color;
-        scene.world_mut().assign::<Light>(cube, Light::Point(data));
+        scene.world_mut().add::<Light>(cube, Light::Point(data));
 
         Ok(cube)
     }
@@ -153,7 +153,7 @@ impl Window {
         data.color = color;
         scene
             .world_mut()
-            .assign::<Light>(cube, Light::Directional(data));
+            .add::<Light>(cube, Light::Directional(data));
 
         Ok(cube)
     }
@@ -171,7 +171,7 @@ impl ApplicationInstance for Window {
         for cube in &self.cubes {
             self.scene
                 .world()
-                .fetch_mut::<Transform>(*cube)
+                .get_mut::<Transform>(*cube)
                 .unwrap()
                 .rotate(rotation);
         }
@@ -185,7 +185,7 @@ impl ApplicationInstance for Window {
 
         self.scene
             .world()
-            .fetch_mut::<Transform>(self.dir)
+            .get_mut::<Transform>(self.dir)
             .unwrap()
             .rotate(rotation);
 

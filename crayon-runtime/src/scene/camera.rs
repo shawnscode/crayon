@@ -44,7 +44,7 @@ impl Default for Camera {
 }
 
 /// Declare `Camera` as component with hash storage.
-declare_component!(Camera, HashMapStorage);
+declare_component!(Camera, HashMapArena);
 
 impl Camera {
     /// Return the aspect ratio (width divided by height).
@@ -157,10 +157,10 @@ use super::errors::*;
 
 impl Camera {
     /// Get the projection matrix based on projector.
-    pub fn projection_matrix(arena: &ArenaGetter<Camera>,
+    pub fn projection_matrix(arena_mut: &ArenaMutGetter<Camera>,
                              hande: Entity)
                              -> Result<math::Matrix4<f32>> {
-        let camera = arena.get(*hande).ok_or(ErrorKind::NonCameraFound)?;
+        let camera = arena_mut.get(*hande).ok_or(ErrorKind::NonCameraFound)?;
         Ok(match camera.projection {
                Projection::Ortho(vsize) => {
                    let hsize = vsize * camera.aspect;
@@ -175,13 +175,13 @@ impl Camera {
 
     /// Get the view matrix of this transform, which is looking down the negative
     /// z-axis.
-    pub fn view_matrix(arena: &ArenaGetter<Transform>,
+    pub fn view_matrix(arena_mut: &ArenaMutGetter<Transform>,
                        handle: Entity)
                        -> Result<math::Matrix4<f32>> {
         use math::EuclideanSpace;
         use math::Transform as MathTransform;
 
-        let decomposed = Transform::world_decomposed(&arena, handle)?;
+        let decomposed = Transform::world_decomposed(&arena_mut, handle)?;
         let dir = math::Vector3::new(0.0, 0.0, -1.0);
         let center = decomposed.transform_point(math::Point3::from_vec(dir));
         let eye = math::Point3::from_vec(decomposed.disp);

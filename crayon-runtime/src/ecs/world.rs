@@ -1,4 +1,4 @@
-//! The `World` struct contains entities and its the component storages.
+//! The `World` struct contains entities and its the component arenas.
 
 use std::any::Any;
 use std::borrow::Borrow;
@@ -15,7 +15,7 @@ pub struct World {
     entities: HandleSet,
     masks: Vec<BitSet>,
     erasers: Vec<Box<FnMut(&mut Box<Any>, HandleIndex) -> ()>>,
-    storages: Vec<Option<Box<Any>>>,
+    arenas: Vec<Option<Box<Any>>>,
 }
 
 impl World {
@@ -25,7 +25,7 @@ impl World {
             entities: HandleSet::new(),
             masks: Vec::new(),
             erasers: Vec::new(),
-            storages: Vec::new(),
+            arenas: Vec::new(),
         }
     }
 
@@ -40,6 +40,7 @@ impl World {
         ent
     }
 
+    /// Create a entity builder.
     pub fn build(&mut self) -> EntityBuilder {
         EntityBuilder {
             entity: self.create(),
@@ -66,7 +67,7 @@ impl World {
         if self.is_alive(ent) {
             for x in self.masks[ent.index() as usize].iter() {
                 let erase = &mut self.erasers[x];
-                erase(&mut self.storages[x].as_mut().unwrap(), ent.index())
+                erase(&mut self.arenas[x].as_mut().unwrap(), ent.index())
             }
 
             self.masks[ent.index() as usize].clear();
@@ -80,8 +81,8 @@ impl World {
     pub fn register<T>(&mut self)
         where T: Component
     {
-        if T::type_index() >= self.storages.len() {
-            for _ in self.storages.len()..(T::type_index() + 1) {
+        if T::type_index() >= self.arenas.len() {
+            for _ in self.arenas.len()..(T::type_index() + 1) {
                 // Keeps downcast type info in closure.
                 let eraser = Box::new(|any: &mut Box<Any>, id: HandleIndex| {
                                           any.downcast_mut::<RefCell<T::Storage>>()
@@ -91,20 +92,20 @@ impl World {
                                       });
 
                 self.erasers.push(eraser);
-                self.storages.push(None);
+                self.arenas.push(None);
             }
         }
 
         // Returns if we are going to register this component duplicatedly.
-        if let Some(_) = self.storages[T::type_index()] {
+        if let Some(_) = self.arenas[T::type_index()] {
             return;
         }
 
-        self.storages[T::type_index()] = Some(Box::new(RefCell::new(T::Storage::new())));
+        self.arenas[T::type_index()] = Some(Box::new(RefCell::new(T::Storage::new())));
     }
 
     /// Add components to entity, returns the old value if exists.
-    pub fn assign<T>(&mut self, ent: Entity, value: T) -> Option<T>
+    pub fn add<T>(&mut self, ent: Entity, value: T) -> Option<T>
         where T: Component
     {
         if self.is_alive(ent) {
@@ -122,10 +123,10 @@ impl World {
         }
     }
 
-    pub fn assign_with_default<T>(&mut self, ent: Entity) -> Option<T>
+    pub fn add_with_default<T>(&mut self, ent: Entity) -> Option<T>
         where T: Component + Default
     {
-        self.assign(ent, Default::default())
+        self.add(ent, Default::default())
     }
 
     /// Remove component of entity from the world, returning the component at the `HandleIndex`.
@@ -152,7 +153,7 @@ impl World {
     ///
     /// # Panics
     /// Panics if any T is currently mutably borrowed.
-    pub fn fetch<T>(&self, ent: Entity) -> Option<Ref<T>>
+    pub fn get<T>(&self, ent: Entity) -> Option<Ref<T>>
         where T: Component
     {
         if self.has::<T>(ent) {
@@ -165,7 +166,7 @@ impl World {
     /// Returns a mutable reference to the component corresponding to the `Entity`.
     /// # Panics
     /// Panics if any T is currently borrowed.
-    pub fn fetch_mut<T>(&self, ent: Entity) -> Option<RefMut<T>>
+    pub fn get_mut<T>(&self, ent: Entity) -> Option<RefMut<T>>
         where T: Component
     {
         if self.has::<T>(ent) {
@@ -179,13 +180,13 @@ impl World {
     }
 
     #[inline]
-    pub fn arena<T>(&self) -> Option<ArenaGetter<T>>
+    pub fn arena_mut<T>(&self) -> Option<ArenaMutGetter<T>>
         where T: Component
     {
-        if let Some(element) = self.storages.get(T::type_index()) {
+        if let Some(element) = self.arenas.get(T::type_index()) {
             if let Some(ref s) = *element {
                 let v = s.downcast_ref::<RefCell<T::Storage>>().unwrap();
-                return Some(ArenaGetter { storage: v.borrow_mut() });
+                return Some(ArenaMutGetter { storage: v.borrow_mut() });
             }
         }
 
@@ -196,7 +197,7 @@ impl World {
     fn _s<T>(&self) -> &RefCell<T::Storage>
         where T: Component
     {
-        self.storages[T::type_index()]
+        self.arenas[T::type_index()]
             .as_ref()
             .expect("Tried to perform an operation on component type that not registered.")
             .downcast_ref::<RefCell<T::Storage>>()
@@ -204,13 +205,13 @@ impl World {
     }
 }
 
-pub struct ArenaGetter<'a, T>
+pub struct ArenaMutGetter<'a, T>
     where T: Component
 {
     storage: RefMut<'a, T::Storage>,
 }
 
-impl<'a, T> ArenaGetter<'a, T>
+impl<'a, T> ArenaMutGetter<'a, T>
     where T: Component
 {
     #[inline]
@@ -252,14 +253,14 @@ impl<'a> EntityBuilder<'a> {
     pub fn with<T>(&mut self, value: T) -> &mut Self
         where T: Component
     {
-        self.world.assign::<T>(self.entity, value);
+        self.world.add::<T>(self.entity, value);
         self
     }
 
     pub fn with_default<T>(&mut self) -> &mut Self
         where T: Component + Default
     {
-        self.world.assign_with_default::<T>(self.entity);
+        self.world.add_with_default::<T>(self.entity);
         self
     }
 

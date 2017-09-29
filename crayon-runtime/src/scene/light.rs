@@ -1,7 +1,7 @@
 /// The `Light` component that support `Point` and `Directional` right now.
 
 use math;
-use ecs::HashMapStorage;
+use ecs::HashMapArena;
 
 /// Enumeration for all light components.
 #[derive(Debug, Clone, Copy)]
@@ -13,7 +13,7 @@ pub enum Light {
 }
 
 /// Declare `Light` as component.
-declare_component!(Light, HashMapStorage);
+declare_component!(Light, HashMapArena);
 
 impl Light {
     pub fn is_enable(&self) -> bool {

@@ -2,7 +2,7 @@
 
 use resource;
 use ecs;
-use ecs::VecStorage;
+use ecs::VecArena;
 use math;
 
 /// A Sprite is a texture mapped planar mesh and associated material that
@@ -21,7 +21,7 @@ pub struct Sprite {
     mat: Option<resource::MaterialPtr>,
 }
 
-declare_component!(Sprite, VecStorage);
+declare_component!(Sprite, VecArena);
 
 impl Default for Sprite {
     fn default() -> Self {

@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 use ecs;
-use ecs::VecStorage;
+use ecs::VecArena;
 use math;
 
 use super::errors::*;
@@ -25,7 +25,7 @@ impl Default for Rect {
 }
 
 /// Declare `Rect` as component with compact vec storage.
-declare_component!(Rect, VecStorage);
+declare_component!(Rect, VecArena);
 
 impl Rect {
     /// Return the calculated rectangle in the local space of the `Transform`.
@@ -68,8 +68,8 @@ impl Rect {
 impl Rect {
     /// Returns the corners of the calculated rectangle in the world space of
     /// its transform.
-    pub fn world_corners(transforms: &ecs::ArenaGetter<Transform>,
-                         rects: &ecs::ArenaGetter<Rect>,
+    pub fn world_corners(transforms: &ecs::ArenaMutGetter<Transform>,
+                         rects: &ecs::ArenaMutGetter<Rect>,
                          handle: ecs::Entity)
                          -> Result<[math::Vector3<f32>; 4]> {
 
