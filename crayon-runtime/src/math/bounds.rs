@@ -20,7 +20,6 @@ impl Bounds {
             pos: (max + min) * 0.5,
             extents: (max - min) * 0.5,
         }
-
     }
 
     /// The maximal point of the box. This is always equal to center+extents.

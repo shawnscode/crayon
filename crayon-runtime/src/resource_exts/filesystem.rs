@@ -1,13 +1,11 @@
-use std::path::{Path, PathBuf};
+//! The virtual file-system module that allows user to load data asynchronously.
+
+use std::path::{Path, PathBuf, Component, Components};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
 use std::sync::{Arc, RwLock};
-
-use rayon;
-use futures::prelude::*;
-use futures::sync::oneshot::{channel, Receiver};
 
 use zip;
 
@@ -24,22 +22,18 @@ pub trait Filesystem: Sync + Send {
 }
 
 /// The driver of the virtual filesystem (VFS).
-///
-/// Note that All of the io heavy operations will returns a `Future` wrapper instead of raw
-/// bytes. These operations are executed on worker thread to avoid block main-thread.
 pub struct FilesystemDriver {
     filesystems: HashMap<HashValue<str>, Arc<Box<Filesystem>>>,
-    slave: rayon::ThreadPool,
+    buf: Vec<u8>,
 }
 
 impl FilesystemDriver {
     /// Create a new file-system driver. A worker thread will be spawned to perform
     /// io heavy operations.
     pub fn new() -> FilesystemDriver {
-        let confs = rayon::Configuration::new().num_threads(1);
         FilesystemDriver {
             filesystems: HashMap::new(),
-            slave: rayon::ThreadPool::new(confs).unwrap(),
+            buf: Vec::new(),
         }
     }
 
@@ -67,55 +61,48 @@ impl FilesystemDriver {
     }
 
     /// Return whether the path points at an existing file.
-    pub fn exists<S, P>(&self, ident: S, path: P) -> bool
-        where S: Borrow<str>,
-              P: AsRef<Path>
+    pub fn exists<P>(&self, path: P) -> bool
+        where P: AsRef<Path>
     {
-        let hash = HashValue::from(ident);
-
-        self.filesystems
-            .get(&hash)
-            .map(|fs| fs.exists(path.as_ref()))
+        FilesystemDriver::parse(path.as_ref().components())
+            .and_then(|(bundle, file)| {
+                          let hash = HashValue::from(bundle);
+                          let found = self.filesystems
+                              .get(&hash)
+                              .map(|fs| fs.exists(file.as_ref()))
+                              .unwrap_or(false);
+                          Some(found)
+                      })
             .unwrap_or(false)
     }
 
     /// Read all bytes until EOF in this source.
-    pub fn load<S, P>(&self, ident: S, path: P) -> Result<DataFuture>
-        where S: Borrow<str>,
-              P: AsRef<Path> + Sync
+    pub fn load<P>(&mut self, path: P) -> Result<&[u8]>
+        where P: AsRef<Path> + Sync
     {
-        let hash = HashValue::from(ident);
-        if let Some(fs) = self.filesystems.get(&hash).map(|v| v.clone()) {
-            let (tx, rx) = channel();
-            self.slave
-                .install(|| tx.send(load(fs, path.as_ref())))
-                .unwrap();
-            Ok(DataFuture(rx))
-        } else {
-            bail!(ErrorKind::DriveNotFound);
+        if let Some((bundle, file)) = FilesystemDriver::parse(path.as_ref().components()) {
+            let hash = HashValue::from(bundle);
+            if let Some(fs) = self.filesystems.get(&hash) {
+                self.buf.clear();
+                fs.load_into(file, &mut self.buf)?;
+                return Ok(&self.buf[..]);
+            }
         }
+
+        bail!(ErrorKind::DriveNotFound);
     }
-}
 
-pub struct DataFuture(Receiver<Result<Vec<u8>>>);
-
-impl Future for DataFuture {
-    type Item = Vec<u8>;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.0.poll() {
-            Ok(Async::Ready(x)) => Ok(Async::Ready(x?)),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(_) => bail!(ErrorKind::FutureCanceled),
+    fn parse<'a>(mut cmps: Components<'a>) -> Option<(&'a str, &'a Path)> {
+        while let Some(v) = cmps.next() {
+            if let Component::Normal(ident) = v {
+                if let Some(ident) = ident.to_str() {
+                    return Some((ident, cmps.as_path()));
+                }
+            }
         }
-    }
-}
 
-fn load(fs: Arc<Box<Filesystem>>, path: &Path) -> Result<Vec<u8>> {
-    let mut buf = Vec::new();
-    fs.load_into(path, &mut buf)?;
-    Ok(buf)
+        None
+    }
 }
 
 /// Maps a local host directory into virtual file system.

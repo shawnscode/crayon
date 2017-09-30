@@ -12,9 +12,14 @@ error_chain!{
     }
 
     errors {
-       DriveWithSameIdentFound
-       DriveNotFound
-       NotFound
-       FutureCanceled
+        DriveWithSameIdentFound
+        DriveNotFound
+        NotFound
+        FutureCanceled
+        ArenaNotFound
+        CircularReferenceFound
+        ShaderNotFound
+        UniformVariableNotFound
+        UniformDeclarationMismatch
     }
 }

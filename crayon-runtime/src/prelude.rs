@@ -19,3 +19,4 @@ pub use application::errors;
 pub use graphics;
 
 pub use resource_exts::*;
+pub use resource_exts::filesystem::Filesystem;
