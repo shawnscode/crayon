@@ -1,3 +1,5 @@
+pub use futures::Future;
+
 pub use math;
 pub use math::*;
 
@@ -15,3 +17,5 @@ pub use application::*;
 pub use application::errors;
 
 pub use graphics;
+
+pub use resource_exts::*;

@@ -72,6 +72,7 @@ pub use self::resource::*;
 pub use self::frame::DrawCallBuilder;
 
 pub use self::frontend::GraphicsFrontend;
+
 pub use self::frontend::{ViewStateObject, ViewStateRef, ViewStateHandle};
 pub use self::frontend::{PipelineStateObject, PipelineStateRef, PipelineStateHandle};
 pub use self::frontend::{FrameBufferObject, FrameBufferRef, FrameBufferHandle};

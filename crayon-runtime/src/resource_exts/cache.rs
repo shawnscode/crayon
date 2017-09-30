@@ -58,6 +58,12 @@ impl<T> Cache<T> {
         where P: Into<HashValue<Path>>
     {
         let hash = path.into();
+
+        if let Some(desc) = self.cache.remove(&hash) {
+            self.detach(&desc);
+            self.used -= desc.size;
+        }
+
         let mut desc = ResourceDesc {
             hash: hash,
             size: size,
@@ -145,6 +151,7 @@ mod test {
     fn lru() {
         let mut cache = Cache::new(4);
         cache.insert("/1", 2, Arc::new("a1".to_owned()));
+        cache.insert("/2", 2, Arc::new("a2".to_owned()));
         cache.insert("/2", 2, Arc::new("a2".to_owned()));
         assert!(cache.contains("/1"));
         assert!(cache.contains("/2"));

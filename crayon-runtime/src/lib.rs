@@ -15,6 +15,7 @@ extern crate byteorder;
 extern crate derive_builder;
 extern crate image;
 extern crate rayon;
+extern crate futures;
 
 #[macro_use]
 extern crate serde_derive;
@@ -36,3 +37,6 @@ pub mod graphics;
 pub mod resource;
 pub mod scene;
 pub mod prelude;
+
+
+pub mod resource_exts;

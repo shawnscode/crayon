@@ -11,9 +11,11 @@ pub fn hash<T: Hash>(t: &T) -> u64 {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct HashValue<T>(u64, PhantomData<T>) where T:  Hash + ?Sized;
+pub struct HashValue<T>(u64, PhantomData<T>) where T: Hash + ?Sized;
 
-impl<T> Clone for HashValue<T> where T: Hash + ?Sized {
+impl<T> Clone for HashValue<T>
+    where T: Hash + ?Sized
+{
     fn clone(&self) -> Self {
         HashValue(self.0, self.1)
     }
@@ -31,25 +33,33 @@ impl<T> Hash for HashValue<T>
     }
 }
 
-impl<F> From<F> for HashValue<str> where F: Borrow<str> {
+impl<F> From<F> for HashValue<str>
+    where F: Borrow<str>
+{
     fn from(v: F) -> Self {
-        HashValue(hash(&v.borrow()),  PhantomData)
+        HashValue(hash(&v.borrow()), PhantomData)
     }
 }
 
-impl<T> PartialEq<T> for HashValue<str> where T: Borrow<str> {
+impl<T> PartialEq<T> for HashValue<str>
+    where T: Borrow<str>
+{
     fn eq(&self, rhs: &T) -> bool {
         hash(&rhs.borrow()) == self.0
     }
 }
 
-impl<T> From<T> for HashValue<Path> where T: AsRef<Path> {
+impl<T> From<T> for HashValue<Path>
+    where T: AsRef<Path>
+{
     fn from(v: T) -> Self {
-        HashValue(hash(&v.as_ref()),  PhantomData)
+        HashValue(hash(&v.as_ref()), PhantomData)
     }
 }
 
-impl<T> PartialEq<T> for HashValue<Path> where T: AsRef<Path> {
+impl<T> PartialEq<T> for HashValue<Path>
+    where T: AsRef<Path>
+{
     fn eq(&self, rhs: &T) -> bool {
         hash(&rhs.as_ref()) == self.0
     }
@@ -73,6 +83,13 @@ mod test {
         set.insert(HashValue::from("asdasd"));
         set.insert(HashValue::from("asdasd"));
         assert_eq!(set.len(), 1);
-        assert_eq!(set.get(&("asdasd".into())), Some(&HashValue::from("asdasd")));
+        assert_eq!(set.get(&("asdasd".into())),
+                   Some(&HashValue::from("asdasd")));
+    }
+
+    #[test]
+    fn hash_path() {
+        let h = HashValue::<Path>::from("str_path");
+        let _ = HashValue::<Path>::from(h);
     }
 }
