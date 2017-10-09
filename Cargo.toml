@@ -1,30 +1,37 @@
 [package]
-name = "crayon-workspace"
+name = "crayon"
 version = "0.0.5"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
+
+description = "An experimental entity-component-based multithread game engine."
+repository = "https://github.com/shawnscode/crayon"
+documentation = "http://docs.rs/crayon"
+readme = "../README.md"
 license = "Apache-2.0"
 
-[workspace]
-members = [ "crayon-runtime", "crayon-workflow", "crayon-cli" ]
+keywords = ["ecs", "entity-component", "game-dev", "multithread"]
+categories = ["game-engines", "multimedia"]
+
+[badges]
+travis-ci = { repository = "shawnscode/crayon", branch = "master" }
+
+[dependencies]
+libc = "0.2.30"
+gl = "0.6.3"
+glutin = "0.9.2"
+
+lazy_static = "0.2.8"
+derive_builder = "0.5.0"
+error-chain = "0.11.0"
+
+rayon = "0.8.2"
+serde = "1.0.15"
+serde_derive = "1.0.15"
+
+approx = "0.1.1"
+cgmath = "0.15.0"
+bit-set = "0.4.0"
+zip = "0.2.6"
 
 [dev-dependencies]
-crayon = { path = "./crayon-runtime" }
-crayon_workflow = { path = "./crayon-workflow" }
-
-rand = "0.3.15"
-
-[[example]]
-name = "cube"
-path = "examples/cube.rs"
-
-[[example]]
-name = "sprite"
-path = "examples/sprite.rs"
-
-[[example]]
-name = "texture"
-path = "examples/texture.rs"
-
-[[example]]
-name = "render_target"
-path = "examples/render_target.rs"
+rand = "0.3.16"
