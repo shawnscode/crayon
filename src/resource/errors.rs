@@ -21,5 +21,6 @@ error_chain!{
         ShaderNotFound
         UniformVariableNotFound
         UniformDeclarationMismatch
+        ParseFailed
     }
 }

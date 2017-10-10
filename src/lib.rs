@@ -11,8 +11,6 @@ extern crate serde;
 extern crate error_chain;
 #[macro_use]
 extern crate derive_builder;
-#[macro_use]
-extern crate approx;
 
 extern crate bit_set;
 extern crate zip;
@@ -29,5 +27,4 @@ pub mod ecs;
 #[macro_use]
 pub mod graphics;
 pub mod resource;
-pub mod scene;
 pub mod prelude;

@@ -300,7 +300,6 @@ impl ViewStateObject {
         self.update_clear = Some((color, depth, stencil));
     }
 
-
     /// By defaults view are sorted in ascending oreder by ids when rendering.
     /// For dynamic renderers where order might not be known until the last moment,
     /// view ids can be remaped to arbitrary order by calling `update_order`.

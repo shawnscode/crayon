@@ -14,7 +14,4 @@ pub use application::{Application, Engine, Settings};
 pub use application::errors;
 
 pub use graphics;
-
-pub use scene;
-pub use scene::Camera;
-pub use scene::Transform;
+pub use graphics::Color;

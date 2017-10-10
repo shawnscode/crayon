@@ -28,7 +28,6 @@ rayon = "0.8.2"
 serde = "1.0.15"
 serde_derive = "1.0.15"
 
-approx = "0.1.1"
 cgmath = "0.15.0"
 bit-set = "0.4.0"
 zip = "0.2.6"
