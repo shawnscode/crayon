@@ -6,41 +6,24 @@ use std::str;
 use std::slice;
 use std::mem;
 
-use graphics::Color;
-
 use super::*;
 use super::errors::*;
-use super::backend::Context;
+use super::backend::Device;
 
 use utils;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum PreFrameTask {
-    CreateView(ViewStateHandle, Option<FrameBufferHandle>),
-    UpdateViewRect(ViewStateHandle, TaskBufferPtr<ViewRectDesc>),
-    UpdateViewOrder(ViewStateHandle, u32),
-    UpdateViewSequential(ViewStateHandle, bool),
-    UpdateViewFrameBuffer(ViewStateHandle, Option<FrameBufferHandle>),
-    UpdateViewClear(ViewStateHandle, TaskBufferPtr<ViewClearDesc>),
-
-    CreatePipeline(PipelineStateHandle, TaskBufferPtr<PipelineDesc>),
-    UpdatePipelineState(PipelineStateHandle, TaskBufferPtr<RenderState>),
-    UpdatePipelineUniform(PipelineStateHandle, TaskBufferPtr<str>, TaskBufferPtr<UniformVariable>),
-
-    CreateVertexBuffer(VertexBufferHandle, TaskBufferPtr<VertexBufferDesc>),
-    UpdateVertexBuffer(VertexBufferHandle, u32, TaskBufferPtr<[u8]>),
-
-    CreateIndexBuffer(IndexBufferHandle, TaskBufferPtr<IndexBufferDesc>),
-    UpdateIndexBuffer(IndexBufferHandle, u32, TaskBufferPtr<[u8]>),
-
-    CreateTexture(TextureHandle, TaskBufferPtr<TextureDesc>),
-    CreateRenderTexture(TextureHandle, TaskBufferPtr<RenderTextureDesc>),
-    UpdateTextureParameters(TextureHandle, TaskBufferPtr<TextureParametersDesc>),
-
-    CreateRenderBuffer(RenderBufferHandle, TaskBufferPtr<RenderTextureDesc>),
-
-    CreateFrameBuffer(FrameBufferHandle),
-    UpdateFrameBufferAttachment(FrameBufferHandle, u32, FrameBufferAttachment),
+    CreateView(ViewStateHandle, ViewStateSetup),
+    CreatePipeline(PipelineStateHandle, PipelineStateSetup, String, String),
+    CreateFrameBuffer(FrameBufferHandle, FrameBufferSetup),
+    CreateTexture(TextureHandle, TextureSetup, Vec<u8>),
+    CreateRenderTexture(TextureHandle, RenderTextureSetup),
+    CreateRenderBuffer(RenderBufferHandle, RenderBufferSetup),
+    CreateVertexBuffer(VertexBufferHandle, VertexBufferSetup, Option<TaskBufferPtr<[u8]>>),
+    UpdateVertexBuffer(VertexBufferHandle, usize, TaskBufferPtr<[u8]>),
+    CreateIndexBuffer(IndexBufferHandle, IndexBufferSetup, Option<TaskBufferPtr<[u8]>>),
+    UpdateIndexBuffer(IndexBufferHandle, usize, TaskBufferPtr<[u8]>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -54,73 +37,16 @@ pub enum PostFrameTask {
     DeleteFrameBuffer(FrameBufferHandle),
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct ViewRectDesc {
-    pub position: (u16, u16),
-    pub size: Option<(u16, u16)>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct PipelineDesc {
-    pub vs: TaskBufferPtr<str>,
-    pub fs: TaskBufferPtr<str>,
-    pub state: RenderState,
-    pub attributes: AttributeLayout,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct VertexBufferDesc {
-    pub layout: VertexLayout,
-    pub hint: BufferHint,
-    pub size: u32,
-    pub data: Option<TaskBufferPtr<[u8]>>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct IndexBufferDesc {
-    pub format: IndexFormat,
-    pub hint: BufferHint,
-    pub size: u32,
-    pub data: Option<TaskBufferPtr<[u8]>>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct TextureDesc {
-    pub format: TextureFormat,
-    pub address: TextureAddress,
-    pub filter: TextureFilter,
-    pub mipmap: bool,
-    pub width: u32,
-    pub height: u32,
-    pub data: TaskBufferPtr<[u8]>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct RenderTextureDesc {
-    pub format: RenderTextureFormat,
-    pub width: u32,
-    pub height: u32,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct TextureParametersDesc {
-    pub address: TextureAddress,
-    pub filter: TextureFilter,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ViewClearDesc {
-    pub clear_color: Option<Color>,
-    pub clear_depth: Option<f32>,
-    pub clear_stencil: Option<i32>,
-}
-
+#[derive(Debug, Clone)]
 pub struct Frame {
     pub pre: Vec<PreFrameTask>,
     pub drawcalls: Vec<DrawCall>,
     pub post: Vec<PostFrameTask>,
     pub buf: TaskBuffer,
 }
+
+unsafe impl Send for Frame {}
+unsafe impl Sync for Frame {}
 
 impl Frame {
     /// Creates a new frame with specified capacity.
@@ -142,116 +68,59 @@ impl Frame {
     }
 
     /// Dispatch frame tasks and draw calls to the backend context.
-    pub unsafe fn dispatch(&mut self, context: &mut Context) -> Result<()> {
-        let dimensions = context.dimensions().ok_or(ErrorKind::WindowNotExist)?;
-        let mut device = &mut context.device();
-
-        for v in &self.pre {
-            match *v {
-                PreFrameTask::CreateView(handle, framebuffer) => {
-                    device.create_view(handle, framebuffer)?;
+    pub unsafe fn dispatch(&mut self, device: &mut Device, dimensions: (u32, u32)) -> Result<()> {
+        for v in self.pre.drain(..) {
+            match v {
+                PreFrameTask::CreateView(handle, setup) => {
+                    device.create_view(handle, setup)?;
                 }
-                PreFrameTask::UpdateViewRect(handle, desc) => {
-                    let desc = &self.buf.as_ref(desc);
-                    device.update_view_rect(handle, desc.position, desc.size)?;
+                PreFrameTask::CreatePipeline(handle, setup, vs, fs) => {
+                    device.create_pipeline(handle, setup, vs, fs)?;
                 }
-                PreFrameTask::UpdateViewOrder(handle, priority) => {
-                    device.update_view_order(handle, priority)?;
-                }
-                PreFrameTask::UpdateViewSequential(handle, seq) => {
-                    device.update_view_sequential_mode(handle, seq)?;
-                }
-                PreFrameTask::UpdateViewFrameBuffer(handle, framebuffer) => {
-                    device.update_view_framebuffer(handle, framebuffer)?;
-                }
-                PreFrameTask::UpdateViewClear(handle, desc) => {
-                    let desc = &self.buf.as_ref(desc);
-                    device
-                        .update_view_clear(handle,
-                                           desc.clear_color,
-                                           desc.clear_depth,
-                                           desc.clear_stencil)?;
-                }
-                PreFrameTask::CreatePipeline(handle, desc) => {
-                    let desc = &self.buf.as_ref(desc);
-                    device
-                        .create_pipeline(handle,
-                                         &desc.state,
-                                         self.buf.as_str(desc.vs),
-                                         self.buf.as_str(desc.fs),
-                                         &desc.attributes)?;
-                }
-                PreFrameTask::UpdatePipelineState(handle, state) => {
-                    let state = &self.buf.as_ref(state);
-                    device.update_pipeline_state(handle, &state)?;
-                }
-                PreFrameTask::UpdatePipelineUniform(handle, name, variable) => {
-                    let name = &self.buf.as_str(name);
-                    let variable = &self.buf.as_ref(variable);
-                    device.update_pipeline_uniform(handle, name, &variable)?;
-                }
-                PreFrameTask::CreateVertexBuffer(handle, desc) => {
-                    let desc = &self.buf.as_ref(desc);
-                    let data = desc.data.map(|ptr| self.buf.as_bytes(ptr));
-                    device
-                        .create_vertex_buffer(handle, &desc.layout, desc.hint, desc.size, data)?;
+                PreFrameTask::CreateVertexBuffer(handle, setup, data) => {
+                    let field = &self.buf;
+                    let buf = data.map(|v| field.as_slice(v));
+                    device.create_vertex_buffer(handle, setup, buf)?;
                 }
                 PreFrameTask::UpdateVertexBuffer(handle, offset, data) => {
                     let data = &self.buf.as_bytes(data);
                     device.update_vertex_buffer(handle, offset, &data)?;
                 }
-                PreFrameTask::CreateIndexBuffer(handle, desc) => {
-                    let desc = &self.buf.as_ref(desc);
-                    let data = desc.data.map(|ptr| self.buf.as_bytes(ptr));
-                    device
-                        .create_index_buffer(handle, desc.format, desc.hint, desc.size, data)?;
+                PreFrameTask::CreateIndexBuffer(handle, setup, data) => {
+                    let field = &self.buf;
+                    let buf = data.map(|v| field.as_slice(v));
+                    device.create_index_buffer(handle, setup, buf)?;
                 }
                 PreFrameTask::UpdateIndexBuffer(handle, offset, data) => {
                     let data = &self.buf.as_bytes(data);
                     device.update_index_buffer(handle, offset, &data)?;
                 }
-                PreFrameTask::CreateTexture(handle, desc) => {
-                    let desc = &self.buf.as_ref(desc);
-                    let data = &self.buf.as_bytes(desc.data);
-                    device
-                        .create_texture(handle,
-                                        desc.format,
-                                        desc.address,
-                                        desc.filter,
-                                        desc.mipmap,
-                                        desc.width,
-                                        desc.height,
-                                        &data)?;
+                PreFrameTask::CreateTexture(handle, setup, data) => {
+                    device.create_texture(handle, setup, data)?;
                 }
-                PreFrameTask::CreateRenderTexture(handle, desc) => {
-                    let desc = &self.buf.as_ref(desc);
-                    device
-                        .create_render_texture(handle, desc.format, desc.width, desc.height)?;
+                PreFrameTask::CreateRenderTexture(handle, setup) => {
+                    device.create_render_texture(handle, setup)?;
                 }
-                PreFrameTask::UpdateTextureParameters(handle, desc) => {
-                    let desc = &self.buf.as_ref(desc);
-                    device
-                        .update_texture_parameters(handle, desc.address, desc.filter)?;
+                PreFrameTask::CreateRenderBuffer(handle, setup) => {
+                    device.create_render_buffer(handle, setup)?;
                 }
-                PreFrameTask::CreateRenderBuffer(handle, desc) => {
-                    let desc = &self.buf.as_ref(desc);
-                    device
-                        .create_render_buffer(handle, desc.format, desc.width, desc.height)?;
-                }
-                PreFrameTask::CreateFrameBuffer(handle) => {
+                PreFrameTask::CreateFrameBuffer(handle, setup) => {
                     device.create_framebuffer(handle)?;
-                }
-                PreFrameTask::UpdateFrameBufferAttachment(handle, slot, attachment) => {
-                    match attachment {
-                        FrameBufferAttachment::RenderBuffer(rb) => {
-                            device
-                                .update_framebuffer_with_renderbuffer(handle, rb, slot)?;
+
+                    // Update framebuffer's attachments.
+                    for (i, attachment) in setup.attachments().iter().enumerate() {
+                        if let &Some(v) = attachment {
+                            let i = i as u32;
+                            match v {
+                                FrameBufferAttachment::RenderBuffer(rb) => {
+                                    device.update_framebuffer_with_renderbuffer(handle, rb, i)?;
+                                }
+                                FrameBufferAttachment::Texture(texture) => {
+                                    device.update_framebuffer_with_texture(handle, texture, i)?;
+                                }
+                            };
                         }
-                        FrameBufferAttachment::Texture(texture) => {
-                            device
-                                .update_framebuffer_with_texture(handle, texture, slot)?;
-                        }
-                    };
+                    }
                 }
             }
         }
@@ -418,6 +287,7 @@ impl<'a> DrawCallBuilder<'a> {
 }
 
 /// Where we store all the intermediate bytes.
+#[derive(Debug, Clone)]
 pub struct TaskBuffer(Vec<u8>, HashMap<u64, TaskBufferPtr<str>>);
 
 impl TaskBuffer {

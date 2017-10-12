@@ -1,3 +1,7 @@
+//! # Crayon Game Engine
+//!
+//!
+
 extern crate libc;
 extern crate glutin;
 extern crate gl;

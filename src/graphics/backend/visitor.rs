@@ -534,7 +534,6 @@ impl OpenGLVisitor {
                        value);
 
         if mipmap {
-            // TODO ca
             gl::GenerateMipmap(gl::TEXTURE_2D);
         }
 
@@ -597,8 +596,9 @@ impl OpenGLVisitor {
             bail!("framebuffer is not complete, fallback the to default framebuffer.");
         } else {
             self.active_framebuffer.set(id);
-            check()
         }
+
+        check()
     }
 
     pub unsafe fn bind_framebuffer_with_texture(&self, tp: GLenum, id: GLuint) -> Result<()> {
@@ -618,8 +618,6 @@ impl OpenGLVisitor {
         gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, tp, gl::RENDERBUFFER, id);
         check()
     }
-
-    // pub unsafe fn get_renderbuffer_dimensions
 
     pub unsafe fn create_framebuffer(&self) -> Result<GLuint> {
         let mut id = 0;
@@ -782,7 +780,8 @@ pub unsafe fn check() -> Result<()> {
 impl From<BufferHint> for GLenum {
     fn from(hint: BufferHint) -> Self {
         match hint {
-            BufferHint::Static => gl::STATIC_DRAW,
+            BufferHint::Immutable => gl::STATIC_DRAW,
+            BufferHint::Stream => gl::STREAM_DRAW,
             BufferHint::Dynamic => gl::DYNAMIC_DRAW,
         }
     }
@@ -856,10 +855,8 @@ impl From<Primitive> for GLenum {
         match primitive {
             Primitive::Points => gl::POINTS,
             Primitive::Lines => gl::LINES,
-            Primitive::LineLoop => gl::LINE_LOOP,
             Primitive::LineStrip => gl::LINE_STRIP,
             Primitive::Triangles => gl::TRIANGLES,
-            Primitive::TriangleFan => gl::TRIANGLE_FAN,
             Primitive::TriangleStrip => gl::TRIANGLE_STRIP,
         }
     }
@@ -868,8 +865,8 @@ impl From<Primitive> for GLenum {
 impl From<IndexFormat> for GLenum {
     fn from(format: IndexFormat) -> Self {
         match format {
-            IndexFormat::UByte => gl::UNSIGNED_BYTE,
-            IndexFormat::UShort => gl::UNSIGNED_SHORT,
+            IndexFormat::U16 => gl::UNSIGNED_SHORT,
+            IndexFormat::U32 => gl::UNSIGNED_INT,
         }
     }
 }

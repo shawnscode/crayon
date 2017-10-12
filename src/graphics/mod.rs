@@ -54,28 +54,27 @@
 //! multi-thread friendly APIs.
 
 mod backend;
-mod render_state;
 mod uniform_variable;
 mod color;
+
+pub mod view;
+pub mod pipeline;
+pub mod mesh;
+pub mod texture;
 
 pub mod errors;
 #[macro_use]
 pub mod macros;
-pub mod resource;
 pub mod frame;
 pub mod graphics;
 
-pub use self::color::*;
-pub use self::render_state::*;
-pub use self::uniform_variable::*;
-pub use self::resource::*;
-pub use self::frame::DrawCallBuilder;
-pub use self::graphics::GraphicsSystem;
+pub use self::view::*;
+pub use self::pipeline::*;
+pub use self::mesh::*;
+pub use self::texture::*;
 
-pub use self::graphics::{ViewStateObject, ViewStateRef, ViewStateHandle};
-pub use self::graphics::{PipelineStateObject, PipelineStateRef, PipelineStateHandle};
-pub use self::graphics::{FrameBufferObject, FrameBufferRef, FrameBufferHandle};
-pub use self::graphics::{VertexBufferObject, VertexBufferRef, VertexBufferHandle};
-pub use self::graphics::{IndexBufferObject, IndexBufferRef, IndexBufferHandle};
-pub use self::graphics::{TextureObject, TextureRef, TextureHandle};
-pub use self::graphics::{RenderBufferObject, RenderBufferRef, RenderBufferHandle};
+pub use self::color::*;
+pub use self::uniform_variable::*;
+pub use self::frame::DrawCallBuilder;
+
+pub use self::graphics::GraphicsSystem;

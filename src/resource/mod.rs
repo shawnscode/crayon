@@ -13,8 +13,8 @@
 //! general filesystem operations that might be required by other common application types,
 //! like directory operations etc..
 //!
-//! [DEPRECATED] Most operations of `Filesystem` are actually done on a sperate thread, and
-//! returns a _future_.
+//! Most operations of `Filesystem` are actually done on a sperate thread, and returns a
+//! _future_.
 //!
 //! ## Formats
 //!
@@ -23,8 +23,8 @@
 //!
 //! ## Sharing & Lifetime
 //!
-//! Resource sharing is implemented through resource _Path_, which is human-readable and
-//! could serves as an URL when loading from filesystem. Whenever user load a resource
+//! Resource sharing is implemented through _Path_, which is human-readable and could
+//! serves as an URL when loading from filesystem. Whenever user load a resource
 //! from `ResourceSystem`, a thread-safe shared-ptr will be returned. It guarantees that
 //! resources will not be freed until user disposed the shared-ptr and no duplicated copy
 //! with same _Path_ identifier.
@@ -72,8 +72,8 @@ declare_resource!(Bytes);
 declare_resource!(Texture);
 declare_resource!(Atlas);
 declare_resource!(Shader);
-declare_resource!(Material);
-declare_resource!(Mesh);
+// declare_resource!(Material);
+// declare_resource!(Mesh);
 
 /// Provides some essential informations of resource.
 pub trait Resource {

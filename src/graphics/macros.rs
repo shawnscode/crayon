@@ -21,12 +21,12 @@ macro_rules! impl_vertex {
                 }
             }
 
-            pub fn layout() -> $crate::graphics::resource::VertexLayout {
-                let mut builder = $crate::graphics::resource::CustomVertexLayoutBuilder::new();
+            pub fn layout() -> $crate::graphics::mesh::VertexLayout {
+                let mut builder = $crate::graphics::mesh::CustomVertexLayoutBuilder::new();
 
                 $( builder.with(
-                    $crate::graphics::resource::VertexAttribute::$attribute,
-                    $crate::graphics::resource::VertexFormat::$format,
+                    $crate::graphics::mesh::VertexAttribute::$attribute,
+                    $crate::graphics::mesh::VertexFormat::$format,
                     $size,
                     $normalized,
                     offset_of!($name, $field) as u8); ) *

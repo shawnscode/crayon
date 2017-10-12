@@ -30,7 +30,7 @@ pub struct Shader {
     render_state: graphics::RenderState,
     layout: graphics::AttributeLayout,
     uniforms: HashMap<String, graphics::UniformVariableType>,
-    pso: Option<graphics::PipelineStateRef>,
+    // pso: Option<graphics::PipelineStateRef>,
 }
 
 impl Shader {
@@ -46,25 +46,25 @@ impl Shader {
             render_state: render_state,
             layout: layout,
             uniforms: uniforms,
-            pso: None,
+            // pso: None,
         }
     }
 
-    pub fn update_video_object(&mut self,
-                               video: &mut graphics::GraphicsSystem)
-                               -> graphics::errors::Result<()> {
-        if self.pso.is_none() {
-            let v = video
-                .create_pipeline(&self.vs, &self.fs, &self.render_state, &self.layout)?;
-            self.pso = Some(v);
-        }
+    // pub fn update_video_object(&mut self,
+    //                            video: &mut graphics::GraphicsSystem)
+    //                            -> graphics::errors::Result<()> {
+    //     if self.pso.is_none() {
+    //         let v = video
+    //             .create_pipeline(&self.vs, &self.fs, &self.render_state, &self.layout)?;
+    //         self.pso = Some(v);
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    pub fn video_object(&self) -> Option<graphics::PipelineStateHandle> {
-        self.pso.as_ref().map(|v| v.handle)
-    }
+    // pub fn video_object(&self) -> Option<graphics::PipelineStateHandle> {
+    //     self.pso.as_ref().map(|v| v.handle)
+    // }
 
     pub fn uniform_variable(&self, name: &str) -> Option<graphics::UniformVariableType> {
         self.uniforms.get(name).and_then(|v| Some(*v))

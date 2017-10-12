@@ -7,7 +7,7 @@ pub struct Texture {
     filter: graphics::TextureFilter,
     dimensions: (u32, u32),
     buf: Vec<u8>,
-    video: Option<graphics::TextureRef>,
+    // video: Option<graphics::TextureRef>,
 }
 
 impl Texture {
@@ -23,42 +23,42 @@ impl Texture {
             filter: filter,
             dimensions: dimensions,
             buf: buf,
-            video: None,
+            // video: None,
         }
     }
 
-    pub fn update_video_object(&mut self,
-                               video: &mut graphics::GraphicsSystem)
-                               -> graphics::errors::Result<()> {
-        if self.video.is_none() {
-            let v = video
-                .create_texture(graphics::TextureFormat::U8U8U8U8,
-                                self.address,
-                                self.filter,
-                                self.mipmap,
-                                self.dimensions.0,
-                                self.dimensions.1,
-                                self.buf.as_slice())?;
-            self.video = Some(v);
-        }
+    // pub fn update_video_object(&mut self,
+    //                            video: &mut graphics::GraphicsSystem)
+    //                            -> graphics::errors::Result<()> {
+    //     if self.video.is_none() {
+    //         let v = video
+    //             .create_texture(graphics::TextureFormat::U8U8U8U8,
+    //                             self.address,
+    //                             self.filter,
+    //                             self.mipmap,
+    //                             self.dimensions.0,
+    //                             self.dimensions.1,
+    //                             self.buf.as_slice())?;
+    //         self.video = Some(v);
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    pub fn update_video_parameters(&mut self,
-                                   address: graphics::TextureAddress,
-                                   filter: graphics::TextureFilter) {
-        self.address = address;
-        self.filter = filter;
+    // pub fn update_video_parameters(&mut self,
+    //                                address: graphics::TextureAddress,
+    //                                filter: graphics::TextureFilter) {
+    //     self.address = address;
+    //     self.filter = filter;
 
-        if let Some(ref mut v) = self.video {
-            v.object.write().unwrap().update_parameters(address, filter);
-        }
-    }
+    //     if let Some(ref mut v) = self.video {
+    //         v.object.write().unwrap().update_parameters(address, filter);
+    //     }
+    // }
 
-    pub fn video_object(&self) -> Option<graphics::TextureHandle> {
-        self.video.as_ref().map(|v| v.handle)
-    }
+    // pub fn video_object(&self) -> Option<graphics::TextureHandle> {
+    //     self.video.as_ref().map(|v| v.handle)
+    // }
 
     #[inline]
     pub fn width(&self) -> u32 {

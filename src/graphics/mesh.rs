@@ -1,36 +1,85 @@
-//! Graphics resource declarations and wrappers.
-
-use super::{TextureHandle, RenderBufferHandle};
+//! Immutable or dynamic vertex and index data.
 
 pub const MAX_ATTRIBUTES: usize = 12;
-pub const MAX_TEXTURE_SLOTS: usize = 16;
-pub const MAX_ATTACHMENTS: usize = 8;
 
-/// Hint abouts how this memory will be used.
+#[derive(Debug, Copy, Clone)]
+pub struct IndexBufferSetup {
+    /// Usage hints.
+    pub hint: BufferHint,
+    /// The number of indices in this buffer.
+    pub num: usize,
+    /// The format.
+    pub format: IndexFormat,
+}
+
+impl_handle!(IndexBufferHandle);
+
+impl IndexBufferSetup {
+    pub fn len(&self) -> usize {
+        self.num * self.format.size()
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct VertexBufferSetup {
+    pub hint: BufferHint,
+    pub layout: VertexLayout,
+    pub num: usize,
+}
+
+impl VertexBufferSetup {
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.num * self.layout.stride() as usize
+    }
+}
+
+impl Default for VertexBufferSetup {
+    fn default() -> Self {
+        VertexBufferSetup {
+            hint: BufferHint::Immutable,
+            layout: VertexLayout::default(),
+            num: 0,
+        }
+    }
+}
+
+impl_handle!(VertexBufferHandle);
+
+/// Hint abouts the intended update strategy of the data.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BufferHint {
-    /// Full speed GPU access. Optimal for render targets and resourced memory.
-    Static,
-    /// CPU to GPU data flow with update commands.
-    /// Used for dynamic buffer data, typically constant buffers.
+    /// The resource is initialized with data and cannot be changed later, this
+    /// is the most common and most efficient usage. Optimal for render targets
+    /// and resourced memory.
+    Immutable,
+    /// The resource is initialized without data, but will be be updated by the
+    /// CPU in each frame.
+    Stream,
+    /// The resource is initialized without data and will be written by the CPU
+    /// before use, updates will be infrequent.
     Dynamic,
 }
 
+/// Vertex indices can be either 16- or 32-bit. You should always prefer
+/// 16-bit indices over 32-bit indices, since the latter may have performance
+/// penalties on some platforms, and they take up twice as much memory.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum IndexFormat {
-    UByte,
-    UShort,
+    U16,
+    U32,
 }
 
 impl IndexFormat {
     pub fn size(&self) -> usize {
         match self {
-            &IndexFormat::UByte => 1,
-            &IndexFormat::UShort => 2,
+            &IndexFormat::U16 => 2,
+            &IndexFormat::U32 => 4,
         }
     }
 }
 
+/// The data type in the vertex component.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum VertexFormat {
     Byte,
@@ -40,6 +89,8 @@ pub enum VertexFormat {
     Float,
 }
 
+/// The possible pre-defined and named attributes in the vertex component, describing
+/// what the vertex component is used for.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum VertexAttribute {
     Position = 0,
@@ -100,7 +151,7 @@ impl VertexAttribute {
     }
 }
 
-// VertexAttribute defines an generic vertex element data.
+/// The details of a vertex attribute.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct VertexAttributeDesc {
     /// The name of this description.
@@ -124,83 +175,9 @@ impl Default for VertexAttributeDesc {
     }
 }
 
-// AttributeLayout defines an layout of attributes into program.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
-pub struct AttributeLayout {
-    len: u8,
-    elements: [(VertexAttribute, u8); MAX_ATTRIBUTES],
-}
-
-impl Default for AttributeLayout {
-    fn default() -> Self {
-        AttributeLayout {
-            len: 0,
-            elements: [(VertexAttribute::Position, 0); MAX_ATTRIBUTES],
-        }
-    }
-}
-
-impl AttributeLayout {
-    pub fn iter(&self) -> AttributeLayoutIter {
-        AttributeLayoutIter {
-            pos: 0,
-            layout: &self,
-        }
-    }
-}
-
-pub struct AttributeLayoutIter<'a> {
-    pos: u8,
-    layout: &'a AttributeLayout,
-}
-
-impl<'a> Iterator for AttributeLayoutIter<'a> {
-    type Item = (VertexAttribute, u8);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.pos >= self.layout.len {
-            None
-        } else {
-            self.pos += 1;
-            Some(self.layout.elements[self.pos as usize - 1])
-        }
-    }
-}
-
-#[derive(Default)]
-pub struct AttributeLayoutBuilder(AttributeLayout);
-
-impl AttributeLayoutBuilder {
-    #[inline]
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn with(&mut self, attribute: VertexAttribute, size: u8) -> &mut Self {
-        assert!(size > 0 && size <= 4);
-
-        for i in 0..self.0.len {
-            let i = i as usize;
-            if self.0.elements[i].0 == attribute {
-                self.0.elements[i] = (attribute, size);
-                return self;
-            }
-        }
-
-        assert!((self.0.len as usize) < MAX_ATTRIBUTES);
-        self.0.elements[self.0.len as usize] = (attribute, size);
-        self.0.len += 1;
-        self
-    }
-
-    #[inline]
-    pub fn finish(&mut self) -> AttributeLayout {
-        self.0
-    }
-}
-
-
-// VertexLayout defines an layout of vertex structure.
+/// `VertexLayout` defines how a single vertex structure looks like.  A vertex
+/// layout is a collection of vertex components, and each vertex component
+/// consists of a vertex attribute and the vertex format.
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub struct VertexLayout {
     stride: u8,
@@ -250,54 +227,6 @@ impl VertexLayout {
         }
 
         None
-    }
-}
-
-#[derive(Default)]
-pub struct CustomVertexLayoutBuilder(VertexLayout);
-
-impl CustomVertexLayoutBuilder {
-    #[inline]
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn with(&mut self,
-                attribute: VertexAttribute,
-                format: VertexFormat,
-                size: u8,
-                normalized: bool,
-                offset_of_field: u8)
-                -> &mut Self {
-        assert!(size > 0 && size <= 4);
-
-        let desc = VertexAttributeDesc {
-            name: attribute,
-            format: format,
-            size: size,
-            normalized: normalized,
-        };
-
-        for i in 0..self.0.len {
-            let i = i as usize;
-            if self.0.elements[i].name == attribute {
-                self.0.elements[i] = desc;
-                return self;
-            }
-        }
-
-        assert!((self.0.len as usize) < MAX_ATTRIBUTES);
-        self.0.offset[self.0.len as usize] = offset_of_field;
-        self.0.elements[self.0.len as usize] = desc;
-        self.0.len += 1;
-
-        self
-    }
-
-    #[inline]
-    pub fn finish(&mut self, stride: u8) -> VertexLayout {
-        self.0.stride = stride;
-        self.0
     }
 }
 
@@ -361,114 +290,53 @@ fn size_of_vertex(format: VertexFormat) -> u8 {
     }
 }
 
-/// Specify how the texture is used whenever the pixel being sampled.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
-pub enum TextureFilter {
-    /// Returns the value of the texture element that is nearest (in Manhattan distance)
-    /// to the center of the pixel being textured.
-    Nearest,
-    /// Returns the weighted average of the four texture elements that are closest to the
-    /// center of the pixel being textured.
-    Linear,
-}
+#[doc(hidden)]
+#[derive(Default)]
+pub struct CustomVertexLayoutBuilder(VertexLayout);
 
-/// Sets the wrap parameter for texture.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
-pub enum TextureAddress {
-    /// Samples at coord x + 1 map to coord x.
-    Repeat,
-    /// Samples at coord x + 1 map to coord 1 - x.
-    Mirror,
-    /// Samples at coord x + 1 map to coord 1.
-    Clamp,
-    /// Same as Mirror, but only for one repetition.
-    MirrorClamp,
-}
-
-/// List of all the possible formats of renderable texture which could be use as
-/// attachment of framebuffer.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum RenderTextureFormat {
-    RGB8,
-    RGBA4,
-    RGBA8,
-    Depth16,
-    Depth24,
-    Depth32,
-    Depth24Stencil8,
-}
-
-/// List of all the possible formats of input data when uploading to texture.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum TextureFormat {
-    U8,
-    U8U8,
-    U8U8U8,
-    U8U8U8U8,
-    U5U6U5,
-    U4U4U4U4,
-    U5U5U5U1,
-    U10U10U10U2,
-    F16,
-    F16F16,
-    F16F16F16,
-    F16F16F16F16,
-    F32,
-    F32F32,
-    F32F32F32,
-    F32F32F32F32,
-}
-
-impl TextureFormat {
-    /// Returns the number of components of this client format.
-    pub fn components(&self) -> u8 {
-        match *self {
-            TextureFormat::U8 => 1,
-            TextureFormat::U8U8 => 2,
-            TextureFormat::U8U8U8 => 3,
-            TextureFormat::U8U8U8U8 => 4,
-            TextureFormat::U5U6U5 => 3,
-            TextureFormat::U4U4U4U4 => 4,
-            TextureFormat::U5U5U5U1 => 4,
-            TextureFormat::U10U10U10U2 => 4,
-            TextureFormat::F16 => 1,
-            TextureFormat::F16F16 => 2,
-            TextureFormat::F16F16F16 => 3,
-            TextureFormat::F16F16F16F16 => 4,
-            TextureFormat::F32 => 1,
-            TextureFormat::F32F32 => 2,
-            TextureFormat::F32F32F32 => 3,
-            TextureFormat::F32F32F32F32 => 4,
-        }
+impl CustomVertexLayoutBuilder {
+    #[inline]
+    pub fn new() -> Self {
+        Default::default()
     }
 
-    /// Returns the size in bytes of a pixel of this type.
-    pub fn size(&self) -> u8 {
-        match *self {
-            TextureFormat::U8 => 1,
-            TextureFormat::U8U8 => 2,
-            TextureFormat::U8U8U8 => 3,
-            TextureFormat::U8U8U8U8 => 4,
-            TextureFormat::U5U6U5 => 2,
-            TextureFormat::U4U4U4U4 => 2,
-            TextureFormat::U5U5U5U1 => 2,
-            TextureFormat::U10U10U10U2 => 4,
-            TextureFormat::F16 => 2,
-            TextureFormat::F16F16 => 4,
-            TextureFormat::F16F16F16 => 6,
-            TextureFormat::F16F16F16F16 => 8,
-            TextureFormat::F32 => 4,
-            TextureFormat::F32F32 => 8,
-            TextureFormat::F32F32F32 => 12,
-            TextureFormat::F32F32F32F32 => 16,
-        }
-    }
-}
+    pub fn with(&mut self,
+                attribute: VertexAttribute,
+                format: VertexFormat,
+                size: u8,
+                normalized: bool,
+                offset_of_field: u8)
+                -> &mut Self {
+        assert!(size > 0 && size <= 4);
 
-#[derive(Debug, Clone, Copy)]
-pub enum FrameBufferAttachment {
-    Texture(TextureHandle),
-    RenderBuffer(RenderBufferHandle),
+        let desc = VertexAttributeDesc {
+            name: attribute,
+            format: format,
+            size: size,
+            normalized: normalized,
+        };
+
+        for i in 0..self.0.len {
+            let i = i as usize;
+            if self.0.elements[i].name == attribute {
+                self.0.elements[i] = desc;
+                return self;
+            }
+        }
+
+        assert!((self.0.len as usize) < MAX_ATTRIBUTES);
+        self.0.offset[self.0.len as usize] = offset_of_field;
+        self.0.elements[self.0.len as usize] = desc;
+        self.0.len += 1;
+
+        self
+    }
+
+    #[inline]
+    pub fn finish(&mut self, stride: u8) -> VertexLayout {
+        self.0.stride = stride;
+        self.0
+    }
 }
 
 #[cfg(test)]

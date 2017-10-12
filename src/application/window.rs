@@ -2,7 +2,6 @@
 
 use std::default::Default;
 use std::sync::Arc;
-use gl;
 use glutin;
 use glutin::GlContext;
 
@@ -178,12 +177,6 @@ impl WindowBuilder {
             .with_vsync(self.vsync);
 
         let window = glutin::GlWindow::new(window, context, &events.underlaying())?;
-
-        unsafe {
-            window.make_current()?;
-            gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
-        }
-
         Ok(Window { window: Arc::new(window) })
     }
 

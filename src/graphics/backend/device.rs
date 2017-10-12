@@ -7,7 +7,6 @@ use gl;
 use gl::types::*;
 
 use utils::Handle;
-use graphics::Color;
 use graphics::*;
 
 use super::*;
@@ -18,72 +17,55 @@ use super::super::frame::{TaskBuffer, TaskBufferPtr};
 type ResourceID = GLuint;
 
 #[derive(Debug, Clone, Copy)]
-struct GLVertexBuffer {
+struct VertexBufferObject {
     id: ResourceID,
-    layout: VertexLayout,
-    size: u32,
-    hint: BufferHint,
+    setup: VertexBufferSetup,
 }
 
 #[derive(Debug, Clone, Copy)]
-struct GLIndexBuffer {
+struct IndexBufferObject {
     id: ResourceID,
-    format: IndexFormat,
-    size: u32,
-    hint: BufferHint,
+    setup: IndexBufferSetup,
 }
 
 #[derive(Debug)]
-struct GLPipeline {
+struct PipelineStateObject {
     id: ResourceID,
-    state: RenderState,
-    attributes: AttributeLayout,
+    setup: PipelineStateSetup,
     uniforms: HashMap<String, UniformVariable>,
 }
 
 #[derive(Debug, Clone)]
-struct GLView {
-    framebuffer: Option<FrameBufferHandle>,
-    viewport: Option<((u16, u16), Option<(u16, u16)>)>,
-    scissor: Option<((u16, u16), Option<(u16, u16)>)>,
-    priority: u32,
-    seq: bool,
-    drawcalls: RefCell<Vec<GLDrawcall>>,
-    clear_color: Option<Color>,
-    clear_depth: Option<f32>,
-    clear_stencil: Option<i32>,
+struct ViewStateObject {
+    drawcalls: RefCell<Vec<DrawCall>>,
+    setup: ViewStateSetup,
 }
 
 #[derive(Debug, Copy, Clone)]
-enum GLTextureFormat {
-    Normal(TextureFormat),
-    Render(RenderTextureFormat),
+enum GenericTextureSetup {
+    Normal(TextureSetup),
+    Render(RenderTextureSetup),
 }
 
 #[derive(Debug, Copy, Clone)]
-struct GLTexture {
+struct TextureObject {
     id: ResourceID,
-    address: TextureAddress,
-    filter: TextureFilter,
-    mipmap: bool,
-    width: u32,
-    height: u32,
-    format: GLTextureFormat,
+    setup: GenericTextureSetup,
 }
 
 #[derive(Debug, Copy, Clone)]
-struct GLRenderTexture {
+struct RenderBufferObject {
     id: ResourceID,
-    format: GLTextureFormat,
+    setup: RenderBufferSetup,
 }
 
 #[derive(Debug, Copy, Clone)]
-struct GLFrameBuffer {
+struct FrameBufferObject {
     id: ResourceID,
 }
 
 #[derive(Debug, Copy, Clone)]
-struct GLDrawcall {
+struct DrawCall {
     priority: u64,
     view: ViewStateHandle,
     pipeline: PipelineStateHandle,
@@ -96,19 +78,23 @@ struct GLDrawcall {
     len: u32,
 }
 
+
 pub struct Device {
     visitor: OpenGLVisitor,
 
-    vertex_buffers: DataVec<GLVertexBuffer>,
-    index_buffers: DataVec<GLIndexBuffer>,
-    pipelines: DataVec<GLPipeline>,
-    views: DataVec<GLView>,
-    textures: DataVec<GLTexture>,
-    render_textures: DataVec<GLRenderTexture>,
-    framebuffers: DataVec<GLFrameBuffer>,
+    vertex_buffers: DataVec<VertexBufferObject>,
+    index_buffers: DataVec<IndexBufferObject>,
+    pipelines: DataVec<PipelineStateObject>,
+    views: DataVec<ViewStateObject>,
+    textures: DataVec<TextureObject>,
+    render_buffers: DataVec<RenderBufferObject>,
+    framebuffers: DataVec<FrameBufferObject>,
 
     active_pipeline: Cell<Option<PipelineStateHandle>>,
 }
+
+unsafe impl Send for Device {}
+unsafe impl Sync for Device {}
 
 impl Device {
     pub unsafe fn new() -> Self {
@@ -119,7 +105,7 @@ impl Device {
             pipelines: DataVec::new(),
             views: DataVec::new(),
             textures: DataVec::new(),
-            render_textures: DataVec::new(),
+            render_buffers: DataVec::new(),
             framebuffers: DataVec::new(),
 
             active_pipeline: Cell::new(None),
@@ -155,7 +141,7 @@ impl Device {
         if let Some(vo) = self.views.get(view) {
             vo.drawcalls
                 .borrow_mut()
-                .push(GLDrawcall {
+                .push(DrawCall {
                           priority: priority,
                           view: view,
                           pipeline: pipeline,
@@ -178,7 +164,7 @@ impl Device {
         let (mut views, mut ordered_views) = (vec![], vec![]);
         for (i, v) in self.views.buf.iter().enumerate() {
             if let Some(vo) = v.as_ref() {
-                if vo.priority == 0 {
+                if vo.setup.order == 0 {
                     views.push(i);
                 } else {
                     ordered_views.push(i);
@@ -190,7 +176,7 @@ impl Device {
         ordered_views.sort_by(|lhs, rhs| {
                                   let lv = self.views.buf[*lhs].as_ref().unwrap();
                                   let rv = self.views.buf[*rhs].as_ref().unwrap();
-                                  rv.priority.cmp(&lv.priority)
+                                  rv.setup.order.cmp(&lv.setup.order)
                               });
 
         let mut uniforms = vec![];
@@ -202,7 +188,7 @@ impl Device {
             let vo = self.views.buf[i].as_ref().unwrap();
 
             // Bind frame buffer and clear it.
-            if let Some(fbo) = vo.framebuffer {
+            if let Some(fbo) = vo.setup.framebuffer {
                 if let Some(fbo) = self.framebuffers.get(fbo) {
                     self.visitor.bind_framebuffer(fbo.id, true)?;
                 } else {
@@ -214,18 +200,16 @@ impl Device {
 
             // Clear frame buffer.
             self.visitor
-                .clear(vo.clear_color, vo.clear_depth, vo.clear_stencil)?;
+                .clear(vo.setup.clear_color,
+                       vo.setup.clear_depth,
+                       vo.setup.clear_stencil)?;
 
             // Bind the viewport.
-            if let Some(viewport) = vo.viewport {
-                self.visitor
-                    .set_viewport(viewport.0, viewport.1.unwrap_or(dimensions))?;
-            } else {
-                self.visitor.set_viewport((0, 0), dimensions)?;
-            }
+            let vp = vo.setup.viewport;
+            self.visitor.set_viewport(vp.0, vp.1.unwrap_or(dimensions))?;
 
             // Sort bucket drawcalls.
-            if !vo.seq {
+            if !vo.setup.sequence {
                 vo.drawcalls
                     .borrow_mut()
                     .sort_by(|lhs, rhs| rhs.priority.cmp(&lhs.priority));
@@ -277,14 +261,14 @@ impl Device {
                     .ok_or(ErrorKind::InvalidHandle)?;
                 self.visitor.bind_buffer(gl::ARRAY_BUFFER, vbo.id)?;
                 self.visitor
-                    .bind_attribute_layout(&pso.attributes, &vbo.layout)?;
+                    .bind_attribute_layout(&pso.setup.layout, &vbo.setup.layout)?;
 
                 // Bind index buffer object if available.
                 if let Some(v) = dc.ib {
                     if let Some(ibo) = self.index_buffers.get(v) {
                         gl::DrawElements(dc.primitive.into(),
                                          dc.len as GLsizei,
-                                         ibo.format.into(),
+                                         ibo.setup.format.into(),
                                          dc.from as *const u32 as *const ::std::os::raw::c_void);
                     } else {
                         bail!(ErrorKind::InvalidHandle);
@@ -300,7 +284,7 @@ impl Device {
         Ok(())
     }
 
-    unsafe fn bind_pipeline(&self, pipeline: PipelineStateHandle) -> Result<&GLPipeline> {
+    unsafe fn bind_pipeline(&self, pipeline: PipelineStateHandle) -> Result<&PipelineStateObject> {
         let pso = self.pipelines
             .get(pipeline)
             .ok_or(ErrorKind::InvalidHandle)?;
@@ -312,15 +296,16 @@ impl Device {
         }
 
         self.visitor.bind_program(pso.id)?;
-        self.visitor.set_cull_face(pso.state.cull_face)?;
-        self.visitor
-            .set_front_face_order(pso.state.front_face_order)?;
-        self.visitor.set_depth_test(pso.state.depth_test)?;
-        self.visitor
-            .set_depth_write(pso.state.depth_write, pso.state.depth_write_offset)?;
-        self.visitor.set_color_blend(pso.state.color_blend)?;
 
-        let c = &pso.state.color_write;
+        let state = &pso.setup.state;
+        self.visitor.set_cull_face(state.cull_face)?;
+        self.visitor.set_front_face_order(state.front_face_order)?;
+        self.visitor.set_depth_test(state.depth_test)?;
+        self.visitor
+            .set_depth_write(state.depth_write, state.depth_write_offset)?;
+        self.visitor.set_color_blend(state.color_blend)?;
+
+        let c = &state.color_write;
         self.visitor.set_color_write(c.0, c.1, c.2, c.3)?;
 
         for (name, variable) in &pso.uniforms {
@@ -338,21 +323,17 @@ impl Device {
 impl Device {
     pub unsafe fn create_vertex_buffer(&mut self,
                                        handle: VertexBufferHandle,
-                                       layout: &VertexLayout,
-                                       hint: BufferHint,
-                                       size: u32,
+                                       setup: VertexBufferSetup,
                                        data: Option<&[u8]>)
                                        -> Result<()> {
         if self.vertex_buffers.get(handle).is_some() {
             bail!(ErrorKind::DuplicatedHandle)
         }
 
-        let vbo = GLVertexBuffer {
+        let vbo = VertexBufferObject {
             id: self.visitor
-                .create_buffer(OpenGLBuffer::Vertex, hint, size, data)?,
-            layout: *layout,
-            size: size,
-            hint: hint,
+                .create_buffer(OpenGLBuffer::Vertex, setup.hint, setup.len() as u32, data)?,
+            setup: setup,
         };
 
         self.vertex_buffers.set(handle, vbo);
@@ -361,20 +342,20 @@ impl Device {
 
     pub unsafe fn update_vertex_buffer(&mut self,
                                        handle: VertexBufferHandle,
-                                       offset: u32,
+                                       offset: usize,
                                        data: &[u8])
                                        -> Result<()> {
         if let Some(vbo) = self.vertex_buffers.get(handle) {
-            if vbo.hint == BufferHint::Static {
+            if vbo.setup.hint == BufferHint::Immutable {
                 bail!(ErrorKind::InvalidUpdateStaticResource);
             }
 
-            if data.len() as u32 + offset > vbo.size {
+            if data.len() + offset > vbo.setup.len() {
                 bail!(ErrorKind::OutOfBounds);
             }
 
             self.visitor
-                .update_buffer(vbo.id, OpenGLBuffer::Vertex, offset, data)
+                .update_buffer(vbo.id, OpenGLBuffer::Vertex, offset as u32, data)
         } else {
             bail!(ErrorKind::InvalidHandle);
         }
@@ -390,21 +371,17 @@ impl Device {
 
     pub unsafe fn create_index_buffer(&mut self,
                                       handle: IndexBufferHandle,
-                                      format: IndexFormat,
-                                      hint: BufferHint,
-                                      size: u32,
+                                      setup: IndexBufferSetup,
                                       data: Option<&[u8]>)
                                       -> Result<()> {
         if self.index_buffers.get(handle).is_some() {
             bail!(ErrorKind::DuplicatedHandle)
         }
 
-        let ibo = GLIndexBuffer {
+        let ibo = IndexBufferObject {
             id: self.visitor
-                .create_buffer(OpenGLBuffer::Index, hint, size, data)?,
-            format: format,
-            size: size,
-            hint: hint,
+                .create_buffer(OpenGLBuffer::Index, setup.hint, setup.len() as u32, data)?,
+            setup: setup,
         };
 
         self.index_buffers.set(handle, ibo);
@@ -413,20 +390,20 @@ impl Device {
 
     pub unsafe fn update_index_buffer(&mut self,
                                       handle: IndexBufferHandle,
-                                      offset: u32,
+                                      offset: usize,
                                       data: &[u8])
                                       -> Result<()> {
         if let Some(ibo) = self.index_buffers.get(handle) {
-            if ibo.hint == BufferHint::Static {
+            if ibo.setup.hint == BufferHint::Immutable {
                 bail!(ErrorKind::InvalidUpdateStaticResource);
             }
 
-            if data.len() as u32 + offset > ibo.size {
+            if data.len() + offset > ibo.setup.len() {
                 bail!(ErrorKind::OutOfBounds);
             }
 
             self.visitor
-                .update_buffer(ibo.id, OpenGLBuffer::Index, offset, data)
+                .update_buffer(ibo.id, OpenGLBuffer::Index, offset as u32, data)
         } else {
             bail!(ErrorKind::InvalidHandle);
         }
@@ -442,24 +419,24 @@ impl Device {
 
     pub unsafe fn create_render_buffer(&mut self,
                                        handle: RenderBufferHandle,
-                                       format: RenderTextureFormat,
-                                       width: u32,
-                                       height: u32)
+                                       setup: RenderBufferSetup)
                                        -> Result<()> {
-        let (internal_format, _, _) = format.into();
-        let id = self.visitor
-            .create_render_buffer(internal_format, width, height)?;
-        self.render_textures
+        let (internal_format, _, _) = setup.format.into();
+        let id =
+            self.visitor
+                .create_render_buffer(internal_format, setup.dimensions.0, setup.dimensions.1)?;
+
+        self.render_buffers
             .set(handle,
-                 GLRenderTexture {
+                 RenderBufferObject {
                      id: id,
-                     format: GLTextureFormat::Render(format),
+                     setup: setup,
                  });
         Ok(())
     }
 
     pub unsafe fn delete_render_buffer(&mut self, handle: RenderBufferHandle) -> Result<()> {
-        if let Some(rto) = self.render_textures.remove(handle) {
+        if let Some(rto) = self.render_buffers.remove(handle) {
             self.visitor.delete_render_buffer(rto.id)
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -471,7 +448,7 @@ impl Device {
             bail!(ErrorKind::DuplicatedHandle)
         }
 
-        let fbo = GLFrameBuffer { id: self.visitor.create_framebuffer()? };
+        let fbo = FrameBufferObject { id: self.visitor.create_framebuffer()? };
 
         self.framebuffers.set(handle, fbo);
         Ok(())
@@ -485,26 +462,27 @@ impl Device {
         let fbo = self.framebuffers
             .get(handle)
             .ok_or(ErrorKind::InvalidHandle)?;
-        let tex = self.textures.get(texture).ok_or(ErrorKind::InvalidHandle)?;
 
-        if let GLTextureFormat::Render(format) = tex.format {
+        let texture = self.textures.get(texture).ok_or(ErrorKind::InvalidHandle)?;
+        if let GenericTextureSetup::Render(setup) = texture.setup {
             self.visitor.bind_framebuffer(fbo.id, false)?;
-            match format {
+            match setup.format {
                 RenderTextureFormat::RGB8 |
                 RenderTextureFormat::RGBA4 |
                 RenderTextureFormat::RGBA8 => {
                     let location = gl::COLOR_ATTACHMENT0 + slot;
-                    self.visitor.bind_framebuffer_with_texture(location, tex.id)
+                    self.visitor
+                        .bind_framebuffer_with_texture(location, texture.id)
                 }
                 RenderTextureFormat::Depth16 |
                 RenderTextureFormat::Depth24 |
                 RenderTextureFormat::Depth32 => {
                     self.visitor
-                        .bind_framebuffer_with_texture(gl::DEPTH_ATTACHMENT, tex.id)
+                        .bind_framebuffer_with_texture(gl::DEPTH_ATTACHMENT, texture.id)
                 }
                 RenderTextureFormat::Depth24Stencil8 => {
                     self.visitor
-                        .bind_framebuffer_with_texture(gl::DEPTH_STENCIL_ATTACHMENT, tex.id)
+                        .bind_framebuffer_with_texture(gl::DEPTH_STENCIL_ATTACHMENT, texture.id)
                 }
             }
         } else {
@@ -514,39 +492,35 @@ impl Device {
 
     pub unsafe fn update_framebuffer_with_renderbuffer(&mut self,
                                                        handle: FrameBufferHandle,
-                                                       texture: RenderBufferHandle,
+                                                       buf: RenderBufferHandle,
                                                        slot: u32)
                                                        -> Result<()> {
         let fbo = self.framebuffers
             .get(handle)
             .ok_or(ErrorKind::InvalidHandle)?;
-        let tex = self.render_textures
-            .get(texture)
+        let buf = self.render_buffers
+            .get(buf)
             .ok_or(ErrorKind::InvalidHandle)?;
 
-        if let GLTextureFormat::Render(format) = tex.format {
-            self.visitor.bind_framebuffer(fbo.id, false)?;
-            match format {
-                RenderTextureFormat::RGB8 |
-                RenderTextureFormat::RGBA4 |
-                RenderTextureFormat::RGBA8 => {
-                    let location = gl::COLOR_ATTACHMENT0 + slot;
-                    self.visitor
-                        .bind_framebuffer_with_renderbuffer(location, tex.id)
-                }
-                RenderTextureFormat::Depth16 |
-                RenderTextureFormat::Depth24 |
-                RenderTextureFormat::Depth32 => {
-                    self.visitor
-                        .bind_framebuffer_with_renderbuffer(gl::DEPTH_ATTACHMENT, tex.id)
-                }
-                RenderTextureFormat::Depth24Stencil8 => {
-                    self.visitor
-                        .bind_framebuffer_with_renderbuffer(gl::DEPTH_STENCIL_ATTACHMENT, tex.id)
-                }
+        self.visitor.bind_framebuffer(fbo.id, false)?;
+        match buf.setup.format {
+            RenderTextureFormat::RGB8 |
+            RenderTextureFormat::RGBA4 |
+            RenderTextureFormat::RGBA8 => {
+                let location = gl::COLOR_ATTACHMENT0 + slot;
+                self.visitor
+                    .bind_framebuffer_with_renderbuffer(location, buf.id)
             }
-        } else {
-            bail!("can't attach normal texture to framebuffer.");
+            RenderTextureFormat::Depth16 |
+            RenderTextureFormat::Depth24 |
+            RenderTextureFormat::Depth32 => {
+                self.visitor
+                    .bind_framebuffer_with_renderbuffer(gl::DEPTH_ATTACHMENT, buf.id)
+            }
+            RenderTextureFormat::Depth24Stencil8 => {
+                self.visitor
+                    .bind_framebuffer_with_renderbuffer(gl::DEPTH_STENCIL_ATTACHMENT, buf.id)
+            }
         }
     }
 
@@ -560,11 +534,9 @@ impl Device {
 
     pub unsafe fn create_render_texture(&mut self,
                                         handle: TextureHandle,
-                                        format: RenderTextureFormat,
-                                        width: u32,
-                                        height: u32)
+                                        setup: RenderTextureSetup)
                                         -> Result<()> {
-        let (internal_format, in_format, pixel_type) = format.into();
+        let (internal_format, in_format, pixel_type) = setup.format.into();
         let id = self.visitor
             .create_texture(internal_format,
                             in_format,
@@ -572,73 +544,43 @@ impl Device {
                             TextureAddress::Repeat,
                             TextureFilter::Linear,
                             false,
-                            width,
-                            height,
+                            setup.dimensions.0,
+                            setup.dimensions.1,
                             None)?;
 
         self.textures
             .set(handle,
-                 GLTexture {
+                 TextureObject {
                      id: id,
-                     address: TextureAddress::Repeat,
-                     filter: TextureFilter::Linear,
-                     mipmap: false,
-                     width: width,
-                     height: height,
-                     format: GLTextureFormat::Render(format),
+                     setup: GenericTextureSetup::Render(setup),
                  });
         Ok(())
     }
 
     pub unsafe fn create_texture(&mut self,
                                  handle: TextureHandle,
-                                 format: TextureFormat,
-                                 address: TextureAddress,
-                                 filter: TextureFilter,
-                                 mipmap: bool,
-                                 width: u32,
-                                 height: u32,
-                                 data: &[u8])
+                                 setup: TextureSetup,
+                                 data: Vec<u8>)
                                  -> Result<()> {
-        let (internal_format, in_format, pixel_type) = format.into();
+        let (internal_format, in_format, pixel_type) = setup.format.into();
         let id = self.visitor
             .create_texture(internal_format,
                             in_format,
                             pixel_type,
-                            address,
-                            filter,
-                            mipmap,
-                            width,
-                            height,
+                            setup.address,
+                            setup.filter,
+                            setup.mipmap,
+                            setup.dimensions.0,
+                            setup.dimensions.1,
                             Some(&data))?;
 
         self.textures
             .set(handle,
-                 GLTexture {
+                 TextureObject {
                      id: id,
-                     address: address,
-                     filter: filter,
-                     mipmap: mipmap,
-                     width: width,
-                     height: height,
-                     format: GLTextureFormat::Normal(format),
+                     setup: GenericTextureSetup::Normal(setup),
                  });
         Ok(())
-    }
-
-    pub unsafe fn update_texture_parameters(&mut self,
-                                            handle: TextureHandle,
-                                            address: TextureAddress,
-                                            filter: TextureFilter)
-                                            -> Result<()> {
-        if let Some(texture) = self.textures.get_mut(handle) {
-            self.visitor.bind_texture(0, texture.id)?;
-            self.visitor
-                .update_texture_parameters(address, filter, texture.mipmap)?;
-            Ok(())
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
     }
 
     pub unsafe fn delete_texture(&mut self, handle: TextureHandle) -> Result<()> {
@@ -650,99 +592,14 @@ impl Device {
         }
     }
 
-    pub fn create_view(&mut self,
-                       handle: ViewStateHandle,
-                       framebuffer: Option<FrameBufferHandle>)
-                       -> Result<()> {
-        let view = GLView {
-            viewport: None,
-            scissor: None,
-            framebuffer: framebuffer,
-            seq: false,
-            priority: 0,
+    pub fn create_view(&mut self, handle: ViewStateHandle, setup: ViewStateSetup) -> Result<()> {
+        let view = ViewStateObject {
             drawcalls: RefCell::new(Vec::new()),
-            clear_color: None,
-            clear_depth: None,
-            clear_stencil: None,
+            setup: setup,
         };
 
         self.views.set(handle, view);
         Ok(())
-    }
-
-    pub fn update_view_rect(&mut self,
-                            handle: ViewStateHandle,
-                            position: (u16, u16),
-                            size: Option<(u16, u16)>)
-                            -> Result<()> {
-        if let Some(view) = self.views.get_mut(handle) {
-            view.viewport = Some((position, size));
-            Ok(())
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
-    }
-
-    pub fn update_view_scissor(&mut self,
-                               handle: ViewStateHandle,
-                               position: (u16, u16),
-                               size: Option<(u16, u16)>)
-                               -> Result<()> {
-        if let Some(view) = self.views.get_mut(handle) {
-            view.scissor = Some((position, size));
-            Ok(())
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
-    }
-
-    pub fn update_view_order(&mut self, handle: ViewStateHandle, priority: u32) -> Result<()> {
-        if let Some(view) = self.views.get_mut(handle) {
-            view.priority = priority;
-            Ok(())
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
-    }
-
-    pub fn update_view_sequential_mode(&mut self,
-                                       handle: ViewStateHandle,
-                                       seq: bool)
-                                       -> Result<()> {
-        if let Some(view) = self.views.get_mut(handle) {
-            view.seq = seq;
-            Ok(())
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
-    }
-
-    pub fn update_view_framebuffer(&mut self,
-                                   handle: ViewStateHandle,
-                                   framebuffer: Option<FrameBufferHandle>)
-                                   -> Result<()> {
-        if let Some(view) = self.views.get_mut(handle) {
-            view.framebuffer = framebuffer;
-            Ok(())
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
-    }
-
-    pub fn update_view_clear(&mut self,
-                             handle: ViewStateHandle,
-                             clear_color: Option<Color>,
-                             clear_depth: Option<f32>,
-                             clear_stencil: Option<i32>)
-                             -> Result<()> {
-        if let Some(view) = self.views.get_mut(handle) {
-            view.clear_color = clear_color;
-            view.clear_depth = clear_depth;
-            view.clear_stencil = clear_stencil;
-            Ok(())
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
     }
 
     pub fn delete_view(&mut self, handle: ViewStateHandle) -> Result<()> {
@@ -758,15 +615,14 @@ impl Device {
     /// are minimal requirement to build a proper program.
     pub unsafe fn create_pipeline(&mut self,
                                   handle: PipelineStateHandle,
-                                  state: &RenderState,
-                                  vs_src: &str,
-                                  fs_src: &str,
-                                  attributes: &AttributeLayout)
+                                  setup: PipelineStateSetup,
+                                  vs_src: String,
+                                  fs_src: String)
                                   -> Result<()> {
 
-        let pid = self.visitor.create_program(vs_src, fs_src)?;
+        let pid = self.visitor.create_program(&vs_src, &fs_src)?;
 
-        for (name, _) in attributes.iter() {
+        for (name, _) in setup.layout.iter() {
             let name: &'static str = name.into();
             let location = self.visitor.get_attribute_location(pid, name)?;
             if location == -1 {
@@ -776,25 +632,12 @@ impl Device {
 
         self.pipelines
             .set(handle,
-                 GLPipeline {
+                 PipelineStateObject {
                      id: pid,
-                     state: *state,
-                     attributes: *attributes,
+                     setup: setup,
                      uniforms: HashMap::new(),
                  });
         check()
-    }
-
-    pub fn update_pipeline_state(&mut self,
-                                 handle: PipelineStateHandle,
-                                 state: &RenderState)
-                                 -> Result<()> {
-        if let Some(pso) = self.pipelines.get_mut(handle) {
-            pso.state = *state;
-            Ok(())
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
     }
 
     pub fn update_pipeline_uniform(&mut self,

@@ -21,8 +21,8 @@ pub type AtlasPtr = Ptr<Atlas>;
 pub use self::shader::Shader;
 pub type ShaderPtr = Ptr<Shader>;
 
-pub use self::material::Material;
-pub type MaterialPtr = Ptr<Material>;
+// pub use self::material::Material;
+// pub type MaterialPtr = Ptr<Material>;
 
-pub use self::mesh::Mesh;
-pub type MeshPtr = Ptr<Mesh>;
+// pub use self::mesh::Mesh;
+// pub type MeshPtr = Ptr<Mesh>;

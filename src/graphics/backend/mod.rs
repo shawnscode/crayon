@@ -18,7 +18,6 @@ pub struct Context {
     window: Arc<window::Window>,
     context_lost: RwLock<bool>,
     capabilities: Capabilities,
-    device: device::Device,
 }
 
 impl Context {
@@ -36,7 +35,6 @@ impl Context {
                 window: window,
                 context_lost: RwLock::new(false),
                 capabilities: capabilities,
-                device: device::Device::new(),
             };
             Ok(context)
         }
@@ -83,17 +81,6 @@ impl Context {
 }
 
 impl Context {
-    /// TODO
-    pub fn rebuild(_: Arc<window::Window>) -> Result<()> {
-        Ok(())
-    }
-
-    /// Returns the implementation of device.
-    #[inline]
-    pub fn device(&mut self) -> &mut Device {
-        &mut self.device
-    }
-
     /// Returns the capabilities of this OpenGL implementation.
     #[inline]
     pub fn capabilities(&self) -> &Capabilities {

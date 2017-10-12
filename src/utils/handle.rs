@@ -85,23 +85,23 @@ macro_rules! impl_handle {
     ($name: ident) => (
         #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 
-        pub struct $name (Handle);
+        pub struct $name ($crate::utils::handle::Handle);
 
-        impl From<Handle> for $name {
-            fn from(handle: Handle) -> Self {
+        impl From<$crate::utils::handle::Handle> for $name {
+            fn from(handle: $crate::utils::handle::Handle) -> Self {
                 $name(handle)
             }
         }
 
         impl $crate::std::ops::Deref for $name {
-            type Target = Handle;
-            fn deref(&self) -> &Handle {
+            type Target = $crate::utils::handle::Handle;
+            fn deref(&self) -> &$crate::utils::handle::Handle {
                 &self.0
             }
         }
 
-        impl $crate::std::borrow::Borrow<Handle> for $name {
-            fn borrow(&self) -> &Handle {
+        impl $crate::std::borrow::Borrow<$crate::utils::handle::Handle> for $name {
+            fn borrow(&self) -> &$crate::utils::handle::Handle {
                 &self.0
             }
         }
