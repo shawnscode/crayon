@@ -77,4 +77,4 @@ pub use self::color::*;
 pub use self::uniform_variable::*;
 pub use self::frame::DrawCallBuilder;
 
-pub use self::graphics::GraphicsSystem;
+pub use self::graphics::{GraphicsSystem, GraphicsSystemShared, GraphicsFrameInfo};

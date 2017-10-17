@@ -78,7 +78,6 @@ struct DrawCall {
     len: u32,
 }
 
-
 pub struct Device {
     visitor: OpenGLVisitor,
 
@@ -107,7 +106,6 @@ impl Device {
             textures: DataVec::new(),
             render_buffers: DataVec::new(),
             framebuffers: DataVec::new(),
-
             active_pipeline: Cell::new(None),
         }
     }

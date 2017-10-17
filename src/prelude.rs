@@ -10,8 +10,10 @@ pub use resource::ResourceSystem;
 pub use resource::filesystem::Filesystem;
 pub use resource::assets::*;
 
-pub use application::{Application, Engine, Settings};
+pub use application::{Application, FrameShared, FrameInfo, Engine, Settings};
 pub use application::errors;
 
 pub use graphics;
 pub use graphics::Color;
+
+pub use rayon;

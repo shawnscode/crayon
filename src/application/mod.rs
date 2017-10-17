@@ -24,24 +24,35 @@ pub use self::event::{KeyboardButton, MouseButton};
 mod engine;
 pub use self::engine::Engine;
 
+use std::sync::{Arc, RwLock};
+
 use self::errors::*;
+use graphics;
+
+pub struct FrameShared {
+    pub video: Arc<RwLock<graphics::GraphicsSystemShared>>,
+}
+
+pub struct FrameInfo {
+    pub video: graphics::GraphicsFrameInfo,
+}
 
 /// `Application` is a user-friendly facade to building application, which defines a number
 /// of event functions that get executed in a pre-determined order.
 pub trait Application {
     /// `Application::on_update` is called every frame. Its the main workhorse
     /// function for frame updates.
-    fn on_update(&mut self, _: &mut Engine) -> Result<()> {
+    fn on_update(&mut self, _: &mut FrameShared) -> Result<()> {
         Ok(())
     }
 
     /// `Application::on_render` is called before we starts rendering the scene.
-    fn on_render(&mut self, _: &mut Engine) -> Result<()> {
+    fn on_render(&mut self, _: &mut FrameShared) -> Result<()> {
         Ok(())
     }
 
     /// `Application::on_post_render` is called after camera has rendered the scene.
-    fn on_post_render(&mut self, _: &mut Engine) -> Result<()> {
+    fn on_post_render(&mut self, _: &mut FrameShared, _: &FrameInfo) -> Result<()> {
         Ok(())
     }
 }

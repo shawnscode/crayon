@@ -1,7 +1,10 @@
 use std;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
+use std::thread;
+use std::sync::mpsc;
+use rayon;
 
 use super::*;
 use graphics;
@@ -19,6 +22,7 @@ pub struct Engine {
     timestep: Duration,
     last_frame_timepoint: Instant,
     alive: bool,
+    scheduler: rayon::ThreadPool,
 
     pub input: input::Input,
     pub window: Arc<window::Window>,
@@ -42,6 +46,9 @@ impl Engine {
         let window = Arc::new(wb.build(&input)?);
         let graphics = graphics::GraphicsSystem::new(window.clone())?;
 
+        let confs = rayon::Configuration::new();
+        let scheduler = rayon::ThreadPool::new(confs).unwrap();
+
         Ok(Engine {
                min_fps: settings.engine.min_fps,
                max_fps: settings.engine.max_fps,
@@ -51,6 +58,7 @@ impl Engine {
                timestep: Duration::new(0, 0),
                last_frame_timepoint: Instant::now(),
                alive: true,
+               scheduler: scheduler,
 
                input: input,
                window: window,
@@ -59,14 +67,25 @@ impl Engine {
            })
     }
 
+    pub fn shared(&self) -> FrameShared {
+        FrameShared { video: self.graphics.shared() }
+    }
+
     /// Run the main loop of `Engine`, this will block the working
     /// thread until we finished.
-    pub fn run(mut self, mut application: &mut Application) -> Result<Self> {
+    pub fn run<T>(mut self, mut application: T) -> Result<Self>
+        where T: Application + Send + Sync + 'static
+    {
+        let application = Arc::new(RwLock::new(application));
+
         let dir = ::std::env::current_dir()?;
         println!("Run crayon-runtim with working directory {:?}.", dir);
 
         let mut events = Vec::new();
         'main: while self.alive {
+            use std::time;
+            let ts = time::Instant::now();
+
             // Poll any possible events first.
             events.clear();
 
@@ -88,14 +107,50 @@ impl Engine {
             }
 
             self.advance();
-            application.on_update(&mut self)?;
+            self.graphics.swap_frames();
 
-            application.on_render(&mut self)?;
-            self.graphics.run_one_frame()?;
-            application.on_post_render(&mut self)?;
+            // Perform update and render submitting for frame [x], and drawing frame [x-1]
+            // at the same time.
+            let video_info = {
+                let mut shared = self.shared();
+                let application = application.clone();
+                let (rx, tx) = mpsc::channel();
+                self.scheduler
+                    .spawn(move || {
+                               thread::sleep_ms(100);
+                               let v = Engine::execute_frame(application, shared);
+                               rx.send(v).unwrap();
+                           });
+
+                // This will block the main-thread until all the graphics commands
+                // is finished.
+                let video_info = self.graphics.advance().unwrap();
+                tx.recv().unwrap()?;
+                video_info
+            };
+
+            let info = FrameInfo { video: video_info };
+
+            // let duration = time::Instant::now() - ts;
+            // let ms = duration.as_secs() as f32 * 1e3 + duration.subsec_nanos() as f32 * 1e-6;
+
+            //
+            {
+                let mut shared = self.shared();
+                let mut application = application.write().unwrap();
+                application.on_post_render(&mut shared, &info)?;
+            }
         }
 
         Ok(self)
+    }
+
+    fn execute_frame(application: Arc<RwLock<Application>>, mut shared: FrameShared) -> Result<()> {
+        let mut application = application.write().unwrap();
+        application.on_update(&mut shared)?;
+        application.on_render(&mut shared)?;
+
+        Ok(())
     }
 
     /// Stop the whole application.
@@ -190,6 +245,6 @@ impl Engine {
     pub fn timestep_in_seconds(&self) -> f32 {
         let sec = self.timestep.as_secs();
         let nansec = self.timestep.subsec_nanos() as u64;
-        (sec + nansec) as f32 / (1000.0 * 1000.0 * 1000.0)
+        sec as f32 + (nansec as f32 * 1e-9)
     }
 }

@@ -24,6 +24,9 @@ struct Window {
 
 impl Window {
     pub fn new(engine: &mut Engine) -> errors::Result<Self> {
+        let shared = engine.shared();
+        let mut video = shared.video.write().unwrap();
+
         let vertices: [Vertex; 3] = [Vertex::new([0.0, 0.5]),
                                      Vertex::new([0.5, -0.5]),
                                      Vertex::new([-0.5, -0.5])];
@@ -45,33 +48,32 @@ impl Window {
             let mut setup = graphics::VertexBufferSetup::default();
             setup.num = vertices.len();
             setup.layout = Vertex::layout();
-            let vbo = engine
-                .graphics
+            let vbo = video
                 .create_vertex_buffer(setup, Some(Vertex::as_bytes(&vertices[..])))?;
 
             // Create render texture for post effect.
             let mut setup = graphics::RenderTextureSetup::default();
             setup.format = graphics::RenderTextureFormat::RGBA8;
             setup.dimensions = (568, 320);
-            let rendered_texture = engine.graphics.create_render_texture(setup)?;
+            let rendered_texture = video.create_render_texture(setup)?;
 
             // Create custom frame buffer.
             let mut setup = graphics::FrameBufferSetup::default();
             setup.set_texture_attachment(rendered_texture, Some(0))?;
-            let fbo = engine.graphics.create_framebuffer(setup)?;
+            let fbo = video.create_framebuffer(setup)?;
 
             // Create the view state for pass 1.
             let mut setup = graphics::ViewStateSetup::default();
             setup.framebuffer = Some(fbo);
             setup.clear_color = Some(Color::gray());
-            let view = engine.graphics.create_view(setup)?;
+            let view = video.create_view(setup)?;
 
             // Create pipeline state.
             let vs = include_str!("resources/render_target_p1.vs").to_owned();
             let fs = include_str!("resources/render_target_p1.fs").to_owned();
             let mut setup = graphics::PipelineStateSetup::default();
             setup.layout = attributes;
-            let pipeline = engine.graphics.create_pipeline(setup, vs, fs)?;
+            let pipeline = video.create_pipeline(setup, vs, fs)?;
 
             (Pass {
                  view: view,
@@ -85,18 +87,17 @@ impl Window {
             let mut setup = graphics::VertexBufferSetup::default();
             setup.num = quad_vertices.len();
             setup.layout = Vertex::layout();
-            let vbo = engine
-                .graphics
+            let vbo = video
                 .create_vertex_buffer(setup, Some(Vertex::as_bytes(&quad_vertices[..])))?;
 
             let setup = graphics::ViewStateSetup::default();
-            let view = engine.graphics.create_view(setup)?;
+            let view = video.create_view(setup)?;
 
-            let vs = include_str!("resources/render_target_p2.vs").to_owned();
-            let fs = include_str!("resources/render_target_p2.fs").to_owned();
             let mut setup = graphics::PipelineStateSetup::default();
             setup.layout = attributes;
-            let pipeline = engine.graphics.create_pipeline(setup, vs, fs)?;
+            let vs = include_str!("resources/render_target_p2.vs").to_owned();
+            let fs = include_str!("resources/render_target_p2.fs").to_owned();
+            let pipeline = video.create_pipeline(setup, vs, fs)?;
 
             Pass {
                 view: view,
@@ -116,9 +117,11 @@ impl Window {
 }
 
 impl Application for Window {
-    fn on_update(&mut self, app: &mut Engine) -> errors::Result<()> {
+    fn on_update(&mut self, shared: &mut FrameShared) -> errors::Result<()> {
+        let mut video = shared.video.write().unwrap();
+
         {
-            app.graphics
+            video
                 .make()
                 .with_order(0)
                 .with_view(self.pass.view)
@@ -128,7 +131,7 @@ impl Application for Window {
         }
 
         {
-            app.graphics
+            video
                 .make()
                 .with_order(1)
                 .with_view(self.post_effect.view)
@@ -150,6 +153,6 @@ fn main() {
     settings.window.height = 320;
 
     let mut engine = Engine::new_with(settings).unwrap();
-    let mut window = Window::new(&mut engine).unwrap();
-    engine.run(&mut window).unwrap();
+    let window = Window::new(&mut engine).unwrap();
+    engine.run(window).unwrap();
 }

@@ -1,6 +1,7 @@
 //! Public interface of graphics module.
 
 use std::sync::{Arc, RwLock, Mutex, MutexGuard};
+use std::time::Duration;
 
 use utils::HandlePool;
 use application::window;
@@ -10,11 +11,95 @@ use super::errors::*;
 use super::frame::*;
 use super::backend::{Context, Device};
 
-/// The frontend of graphics module.
+#[derive(Debug, Copy, Clone, Default)]
+pub struct GraphicsFrameInfo {
+    pub duration: Duration,
+    pub drawcall: usize,
+    pub alive_views: usize,
+    pub alive_pipelines: usize,
+    pub alive_frame_buffers: usize,
+    pub alive_vertex_buffers: usize,
+    pub alive_index_buffers: usize,
+    pub alive_textures: usize,
+    pub alive_render_buffers: usize,
+}
+
 pub struct GraphicsSystem {
     context: Context,
     device: Device,
+    frames: Arc<DoubleFrame>,
+    shared: Arc<RwLock<GraphicsSystemShared>>,
+}
 
+impl GraphicsSystem {
+    /// Create a new `GraphicsSystem` with one `Window` context.
+    pub fn new(window: Arc<window::Window>) -> Result<Self> {
+        let context = Context::new(window)?;
+        let device = unsafe { Device::new() };
+        let frames = Arc::new(DoubleFrame::with_capacity(64 * 1024));
+
+        let shared = GraphicsSystemShared::new(frames.clone());
+
+        Ok(GraphicsSystem {
+               context: context,
+               device: device,
+               frames: frames,
+               shared: Arc::new(RwLock::new(shared)),
+           })
+    }
+
+    pub fn shared(&self) -> Arc<RwLock<GraphicsSystemShared>> {
+        self.shared.clone()
+    }
+
+    #[inline]
+    pub fn swap_frames(&self) {
+        self.frames.swap_frames();
+    }
+
+    /// Advance to next frame.
+    ///
+    /// Notes that this method MUST be called at main thread, and will NOT return
+    /// until all commands is finished by GPU.
+    pub fn advance(&mut self) -> Result<GraphicsFrameInfo> {
+        use std::time;
+        let mut info = GraphicsFrameInfo::default();
+
+        unsafe {
+            let ts = time::Instant::now();
+            let dimensions = self.context.dimensions().ok_or(ErrorKind::WindowNotExist)?;
+
+            {
+                self.device.run_one_frame()?;
+
+                {
+                    let mut frame = self.frames.back();
+                    info.drawcall = frame.drawcalls.len();
+                    frame.dispatch(&mut self.device, dimensions)?;
+                    frame.clear();
+                }
+            }
+
+            self.context.swap_buffers()?;
+
+            info.duration = time::Instant::now() - ts;
+
+            let shared = self.shared.read().unwrap();
+            info.alive_views = shared.views.size();
+            info.alive_pipelines = shared.pipelines.size();
+            info.alive_frame_buffers = shared.framebuffers.size();
+            info.alive_vertex_buffers = shared.vertex_buffers.size();
+            info.alive_index_buffers = shared.index_buffers.size();
+            info.alive_textures = shared.textures.size();
+            info.alive_render_buffers = shared.render_buffers.size();
+
+            Ok(info)
+        }
+    }
+}
+
+/// The frontend of graphics module.
+pub struct GraphicsSystemShared {
     views: HandlePool,
     pipelines: HandlePool,
     framebuffers: HandlePool,
@@ -22,27 +107,22 @@ pub struct GraphicsSystem {
     index_buffers: HandlePool,
     textures: HandlePool,
     render_buffers: HandlePool,
-
-    frames: DoubleFrame,
+    frames: Arc<DoubleFrame>,
 }
 
-impl GraphicsSystem {
+impl GraphicsSystemShared {
     /// Create a new `GraphicsSystem` with one `Window` context.
-    pub fn new(window: Arc<window::Window>) -> Result<Self> {
-        unsafe {
-            Ok(GraphicsSystem {
-                   context: Context::new(window)?,
-                   device: Device::new(),
+    fn new(frames: Arc<DoubleFrame>) -> Self {
+        GraphicsSystemShared {
+            frames: frames,
 
-                   views: HandlePool::new(),
-                   framebuffers: HandlePool::new(),
-                   pipelines: HandlePool::new(),
-                   vertex_buffers: HandlePool::new(),
-                   index_buffers: HandlePool::new(),
-                   textures: HandlePool::new(),
-                   render_buffers: HandlePool::new(),
-                   frames: DoubleFrame::with_capacity(64 * 1024), // 64 kbs
-               })
+            views: HandlePool::new(),
+            framebuffers: HandlePool::new(),
+            pipelines: HandlePool::new(),
+            vertex_buffers: HandlePool::new(),
+            index_buffers: HandlePool::new(),
+            textures: HandlePool::new(),
+            render_buffers: HandlePool::new(),
         }
     }
 
@@ -51,25 +131,9 @@ impl GraphicsSystem {
     pub fn make(&self) -> DrawCallBuilder {
         DrawCallBuilder::new(self.frames.front())
     }
-
-    /// Advance to next frame. When using multithreaded renderer, this call just swaps internal
-    /// buffers, kick render thread, and returns. In single threaded renderer this call does
-    /// blocking frame rendering.
-    pub fn run_one_frame(&mut self) -> Result<()> {
-        unsafe {
-            let dimensions = self.context.dimensions().ok_or(ErrorKind::WindowNotExist)?;
-            self.device.run_one_frame()?;
-            self.frames.swap_frames();
-            self.frames.back().dispatch(&mut self.device, dimensions)?;
-            self.frames.back().clear();
-            self.context.swap_buffers()?;
-
-            Ok(())
-        }
-    }
 }
 
-impl GraphicsSystem {
+impl GraphicsSystemShared {
     /// Creates an view with `ViewStateSetup`.
     pub fn create_view(&mut self, setup: ViewStateSetup) -> Result<ViewStateHandle> {
         let mut frame = self.frames.front();
@@ -87,7 +151,7 @@ impl GraphicsSystem {
     }
 }
 
-impl GraphicsSystem {
+impl GraphicsSystemShared {
     /// Create a pipeline with initial shaders and render state. Pipeline encapusulate
     /// all the informations we need to configurate OpenGL before real drawing.
     pub fn create_pipeline(&mut self,
@@ -113,7 +177,7 @@ impl GraphicsSystem {
     }
 }
 
-impl GraphicsSystem {
+impl GraphicsSystemShared {
     /// Create a framebuffer object. A framebuffer allows you to render primitives directly to a texture,
     /// which can then be used in other rendering operations.
     ///
@@ -136,7 +200,7 @@ impl GraphicsSystem {
     }
 }
 
-impl GraphicsSystem {
+impl GraphicsSystemShared {
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
     pub fn create_texture(&mut self, setup: TextureSetup, data: Vec<u8>) -> Result<TextureHandle> {
@@ -167,7 +231,7 @@ impl GraphicsSystem {
     }
 }
 
-impl GraphicsSystem {
+impl GraphicsSystemShared {
     /// Create a render buffer object, which could be attached to framebuffer.
     pub fn create_render_buffer(&mut self, setup: RenderBufferSetup) -> Result<RenderBufferHandle> {
         let mut frame = self.frames.front();
@@ -187,7 +251,7 @@ impl GraphicsSystem {
     }
 }
 
-impl GraphicsSystem {
+impl GraphicsSystemShared {
     /// Create vertex buffer object with vertex layout declaration and optional data.
     pub fn create_vertex_buffer(&mut self,
                                 setup: VertexBufferSetup,
@@ -238,7 +302,7 @@ impl GraphicsSystem {
     }
 }
 
-impl GraphicsSystem {
+impl GraphicsSystemShared {
     /// Create index buffer object with optional data.
     pub fn create_index_buffer(&mut self,
                                setup: IndexBufferSetup,

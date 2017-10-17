@@ -5,7 +5,6 @@
 extern crate libc;
 extern crate glutin;
 extern crate gl;
-extern crate rayon;
 
 #[macro_use]
 extern crate serde_derive;
@@ -19,9 +18,10 @@ extern crate derive_builder;
 extern crate bit_set;
 extern crate zip;
 
-pub extern crate cgmath as math;
 #[macro_use]
 pub extern crate lazy_static;
+pub extern crate rayon;
+pub extern crate cgmath as math;
 
 #[macro_use]
 pub mod utils;
