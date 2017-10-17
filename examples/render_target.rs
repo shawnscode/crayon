@@ -118,7 +118,7 @@ impl Window {
 
 impl Application for Window {
     fn on_update(&mut self, shared: &mut FrameShared) -> errors::Result<()> {
-        let mut video = shared.video.write().unwrap();
+        let video = shared.video.write().unwrap();
 
         {
             video

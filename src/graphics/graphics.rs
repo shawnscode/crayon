@@ -4,12 +4,12 @@ use std::sync::{Arc, RwLock, Mutex, MutexGuard};
 use std::time::Duration;
 
 use utils::HandlePool;
-use application::window;
 
 use super::*;
 use super::errors::*;
 use super::frame::*;
-use super::backend::{Context, Device};
+use super::backend::Device;
+use super::window::Window;
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct GraphicsFrameInfo {
@@ -25,7 +25,7 @@ pub struct GraphicsFrameInfo {
 }
 
 pub struct GraphicsSystem {
-    context: Context,
+    window: Arc<Window>,
     device: Device,
     frames: Arc<DoubleFrame>,
     shared: Arc<RwLock<GraphicsSystemShared>>,
@@ -34,14 +34,13 @@ pub struct GraphicsSystem {
 impl GraphicsSystem {
     /// Create a new `GraphicsSystem` with one `Window` context.
     pub fn new(window: Arc<window::Window>) -> Result<Self> {
-        let context = Context::new(window)?;
         let device = unsafe { Device::new() };
         let frames = Arc::new(DoubleFrame::with_capacity(64 * 1024));
 
         let shared = GraphicsSystemShared::new(frames.clone());
 
         Ok(GraphicsSystem {
-               context: context,
+               window: window,
                device: device,
                frames: frames,
                shared: Arc::new(RwLock::new(shared)),
@@ -67,7 +66,7 @@ impl GraphicsSystem {
 
         unsafe {
             let ts = time::Instant::now();
-            let dimensions = self.context.dimensions().ok_or(ErrorKind::WindowNotExist)?;
+            let dimensions = self.window.dimensions().ok_or(ErrorKind::WindowNotExist)?;
 
             {
                 self.device.run_one_frame()?;
@@ -80,7 +79,7 @@ impl GraphicsSystem {
                 }
             }
 
-            self.context.swap_buffers()?;
+            self.window.swap_buffers()?;
 
             info.duration = time::Instant::now() - ts;
 

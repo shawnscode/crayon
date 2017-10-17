@@ -1,8 +1,7 @@
 use std;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
-use std::thread;
 use std::sync::mpsc;
 use rayon;
 
@@ -25,7 +24,7 @@ pub struct Engine {
     scheduler: rayon::ThreadPool,
 
     pub input: input::Input,
-    pub window: Arc<window::Window>,
+    pub window: Arc<graphics::Window>,
     pub graphics: graphics::GraphicsSystem,
     pub resources: resource::ResourceSystem,
 }
@@ -38,7 +37,7 @@ impl Engine {
 
     /// Setup engine with specified settings.
     pub fn new_with(settings: Settings) -> Result<Self> {
-        let mut wb = window::WindowBuilder::new();
+        let mut wb = graphics::WindowBuilder::new();
         wb.with_title(settings.window.title.clone())
             .with_dimensions(settings.window.width, settings.window.height);
 
@@ -73,7 +72,7 @@ impl Engine {
 
     /// Run the main loop of `Engine`, this will block the working
     /// thread until we finished.
-    pub fn run<T>(mut self, mut application: T) -> Result<Self>
+    pub fn run<T>(mut self, application: T) -> Result<Self>
         where T: Application + Send + Sync + 'static
     {
         let application = Arc::new(RwLock::new(application));
@@ -83,9 +82,6 @@ impl Engine {
 
         let mut events = Vec::new();
         'main: while self.alive {
-            use std::time;
-            let ts = time::Instant::now();
-
             // Poll any possible events first.
             events.clear();
 
@@ -112,12 +108,11 @@ impl Engine {
             // Perform update and render submitting for frame [x], and drawing frame [x-1]
             // at the same time.
             let video_info = {
-                let mut shared = self.shared();
+                let shared = self.shared();
                 let application = application.clone();
                 let (rx, tx) = mpsc::channel();
                 self.scheduler
                     .spawn(move || {
-                               thread::sleep_ms(100);
                                let v = Engine::execute_frame(application, shared);
                                rx.send(v).unwrap();
                            });
@@ -131,14 +126,15 @@ impl Engine {
 
             let info = FrameInfo { video: video_info };
 
-            // let duration = time::Instant::now() - ts;
-            // let ms = duration.as_secs() as f32 * 1e3 + duration.subsec_nanos() as f32 * 1e-6;
-
             //
             {
                 let mut shared = self.shared();
-                let mut application = application.write().unwrap();
-                application.on_post_render(&mut shared, &info)?;
+                let application = application.clone();
+                self.scheduler
+                    .install(|| {
+                                 let mut application = application.write().unwrap();
+                                 application.on_post_render(&mut shared, &info)
+                             })?;
             }
         }
 

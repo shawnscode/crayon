@@ -2,26 +2,21 @@
 
 use std::default::Default;
 use std::sync::Arc;
+
+use gl;
+
 use glutin;
 use glutin::GlContext;
 
-use super::input;
-
-error_chain!{
-    types {
-        Error, ErrorKind, ResultExt, Result;
-    }
-
-    foreign_links {
-        Context(glutin::ContextError);
-        Creation(glutin::CreationError);
-    }
-}
+use application::input;
+use super::backend::capabilities::{Capabilities, Version};
+use super::errors::*;
 
 /// Represents an OpenGL context and the Window or environment around it, its just
 /// simple wrappers to [glutin](https://github.com/tomaka/glutin) right now.
 pub struct Window {
     window: Arc<glutin::GlWindow>,
+    capabilities: Capabilities,
 }
 
 impl Window {
@@ -29,12 +24,6 @@ impl Window {
     /// where this is appropriate.
     pub fn build() -> WindowBuilder {
         WindowBuilder::new()
-    }
-
-    /// Returns the address of an OpenGL function.
-    /// Contrary to wglGetProcAddress, all available OpenGL functions return an address.
-    pub fn get_proc_address(&self, func: &str) -> *const () {
-        self.window.get_proc_address(func)
     }
 
     /// Shows the window if it was hidden.
@@ -107,6 +96,12 @@ impl Window {
         self.window.is_current()
     }
 
+    /// Returns the capabilities of this OpenGL implementation.
+    #[inline]
+    pub fn capabilities(&self) -> &Capabilities {
+        &self.capabilities
+    }
+
     /// Swaps the buffers in case of double or triple buffering.
     ///
     /// **Warning**: if you enabled vsync, this function will block until the
@@ -177,7 +172,19 @@ impl WindowBuilder {
             .with_vsync(self.vsync);
 
         let window = glutin::GlWindow::new(window, context, &events.underlaying())?;
-        Ok(Window { window: Arc::new(window) })
+
+        let capabilities = unsafe {
+            window.make_current()?;
+            gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
+            Capabilities::parse()?
+        };
+
+        println!("{:#?}", capabilities);
+        check_minimal_requirements(&capabilities)?;
+        Ok(Window {
+               window: Arc::new(window),
+               capabilities: capabilities,
+           })
     }
 
     /// Requests a specific title for the window.
@@ -227,7 +234,7 @@ impl WindowBuilder {
 impl Default for WindowBuilder {
     fn default() -> WindowBuilder {
         WindowBuilder {
-            title: "Lemon3D - Window".to_owned(),
+            title: "Window".to_owned(),
             position: (0, 0),
             size: (512, 512),
             vsync: false,
@@ -236,4 +243,42 @@ impl Default for WindowBuilder {
             profile: OpenGLProfile::Core,
         }
     }
+}
+
+fn check_minimal_requirements(caps: &Capabilities) -> Result<()> {
+    if caps.version < Version::GL(1, 5) && caps.version < Version::ES(2, 0) &&
+       (!caps.extensions.gl_arb_vertex_buffer_object || !caps.extensions.gl_arb_map_buffer_range) {
+        bail!("OpenGL implementation doesn't support vertex buffer objects.");
+    }
+
+    if caps.version < Version::GL(2, 0) && caps.version < Version::ES(2, 0) &&
+       (!caps.extensions.gl_arb_shader_objects || !caps.extensions.gl_arb_vertex_shader ||
+        !caps.extensions.gl_arb_fragment_shader) {
+        bail!("OpenGL implementation doesn't support vertex/fragment shaders.");
+    }
+
+    if caps.version < Version::GL(3, 0) && caps.version < Version::ES(2, 0) &&
+       !caps.extensions.gl_ext_framebuffer_object &&
+       !caps.extensions.gl_arb_framebuffer_object {
+        bail!("OpenGL implementation doesn't support framebuffers.");
+    }
+
+    if caps.version < Version::ES(2, 0) && caps.version < Version::GL(3, 0) &&
+       !caps.extensions.gl_ext_framebuffer_blit {
+        bail!("OpenGL implementation doesn't support blitting framebuffers.");
+    }
+
+    if caps.version < Version::GL(3, 1) && caps.version < Version::ES(3, 0) &&
+       !caps.extensions.gl_arb_uniform_buffer_object {
+        bail!("OpenGL implementation doesn't support uniform buffer object.");
+    }
+
+    if caps.version < Version::GL(3, 0) && caps.version < Version::ES(3, 0) &&
+       !caps.extensions.gl_arb_vertex_array_object &&
+       !caps.extensions.gl_apple_vertex_array_object &&
+       !caps.extensions.gl_oes_vertex_array_object {
+        bail!("OpenGL implementation doesn't support vertex array object.");
+    }
+
+    Ok(())
 }

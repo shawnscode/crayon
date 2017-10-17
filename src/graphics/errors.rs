@@ -1,3 +1,5 @@
+use glutin;
+
 error_chain!{
     types {
         Error, ErrorKind, ResultExt, Result;
@@ -5,6 +7,11 @@ error_chain!{
 
     links {
         Backend(super::backend::Error, super::backend::ErrorKind);
+    }
+
+    foreign_links {
+        Context(glutin::ContextError);
+        Creation(glutin::CreationError);
     }
 
     errors {

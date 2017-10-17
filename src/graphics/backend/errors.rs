@@ -1,12 +1,6 @@
-use application::window;
-
 error_chain!{
     types {
         Error, ErrorKind, ResultExt, Result;
-    }
-
-    links {
-        Window(window::Error, window::ErrorKind);
     }
 
     errors {

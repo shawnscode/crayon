@@ -13,7 +13,6 @@
 //! also binds various essential systems in a central place.
 
 pub mod errors;
-pub mod window;
 pub mod settings;
 pub mod event;
 pub mod input;

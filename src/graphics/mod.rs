@@ -67,6 +67,7 @@ pub mod errors;
 pub mod macros;
 pub mod frame;
 pub mod graphics;
+pub mod window;
 
 pub use self::view::*;
 pub use self::pipeline::*;
@@ -78,3 +79,4 @@ pub use self::uniform_variable::*;
 pub use self::frame::DrawCallBuilder;
 
 pub use self::graphics::{GraphicsSystem, GraphicsSystemShared, GraphicsFrameInfo};
+pub use self::window::{Window, WindowBuilder};
