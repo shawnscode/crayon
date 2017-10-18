@@ -38,43 +38,11 @@ pub mod assets;
 
 pub use self::resource::ResourceSystem;
 
-use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, RwLock};
-use self::assets::*;
 
-/// The trait `ResourceIndex` is a simple place-holder, which produces a
+/// The trait `` is a simple place-holder, which produces a
 /// continuous index address. It always should be implemented by using
 /// macro `declare_resource`.
-pub trait ResourceIndex {
-    fn type_index() -> usize;
-}
-
-lazy_static! {
-    #[doc(hidden)]
-    pub static ref _INDEX: AtomicUsize = AtomicUsize::new(0);
-}
-
-#[macro_export]
-macro_rules! declare_resource {
-    ( $ITEM:ident ) => {
-        impl $crate::resource::ResourceIndex for $ITEM {
-            fn type_index() -> usize {
-                use std::sync::atomic::Ordering;
-                use $crate::resource::_INDEX;
-                lazy_static!{static ref ID: usize = _INDEX.fetch_add(1, Ordering::SeqCst);};
-                *ID
-            }
-        }
-    };
-}
-
-declare_resource!(Bytes);
-declare_resource!(Texture);
-declare_resource!(Atlas);
-declare_resource!(Shader);
-// declare_resource!(Material);
-// declare_resource!(Mesh);
-
 /// Provides some essential informations of resource.
 pub trait Resource {
     fn size(&self) -> usize;
@@ -85,7 +53,7 @@ pub type Ptr<T> = Arc<RwLock<T>>;
 
 /// A `ResourceParser` provides a conversion from bytes to asset data.
 pub trait ResourceParser {
-    type Item: Resource + ResourceIndex + 'static;
+    type Item: Resource + Send + Sync + 'static;
 
     fn parse(bytes: &[u8]) -> self::errors::Result<Self::Item>;
 }

@@ -9,14 +9,16 @@ extern crate gl;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
+extern crate futures;
 
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
 extern crate derive_builder;
 
-extern crate bit_set;
 extern crate zip;
+extern crate deque;
+extern crate bit_set;
 
 #[macro_use]
 pub extern crate lazy_static;
