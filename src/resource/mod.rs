@@ -36,7 +36,7 @@ pub mod arena;
 pub mod resource;
 pub mod assets;
 
-pub use self::resource::{ResourceSystem, ResourceFuture};
+pub use self::resource::{ResourceSystem, ResourceSystemShared, ResourceFrameInfo, ResourceFuture};
 
 use std::sync::{Arc, RwLock};
 

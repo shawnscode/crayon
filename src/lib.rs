@@ -17,7 +17,7 @@ extern crate error_chain;
 extern crate derive_builder;
 
 extern crate zip;
-extern crate deque;
+extern crate two_lock_queue;
 extern crate bit_set;
 
 #[macro_use]

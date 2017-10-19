@@ -6,9 +6,8 @@ use std::any::{Any, TypeId};
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::borrow::Borrow;
-use std::time::Duration;
 
-use deque;
+use two_lock_queue;
 use futures;
 use futures::prelude::*;
 
@@ -34,7 +33,7 @@ impl ResourceSystem {
         let driver = Arc::new(RwLock::new(FilesystemDriver::new()));
         let arenas = Arc::new(RwLock::new(HashMap::new()));
 
-        let (tx, rx) = deque::new();
+        let (tx, rx) = two_lock_queue::channel(1024);
 
         {
             let driver = driver.clone();
@@ -102,33 +101,27 @@ impl ResourceSystem {
         Ok(info)
     }
 
-    fn run(stealer: deque::Stealer<ResourceTask>,
+    fn run(chan: two_lock_queue::Receiver<ResourceTask>,
            driver: Ptr<FilesystemDriver>,
            arenas: Ptr<HashMap<TypeId, ArenaWrapper>>) {
         let mut locks: HashSet<HashValue<Path>> = HashSet::new();
         let mut buf = Vec::new();
 
         loop {
-            match stealer.steal() {
-                deque::Stolen::Abort => continue,
-                deque::Stolen::Empty => thread::sleep(Duration::from_millis(100)), 
-                deque::Stolen::Data(task) => {
-                    match task {
-                        ResourceTask::Request { id, mut closure } => {
-                            let driver = driver.read().unwrap();
-                            closure(&arenas, id, &driver, &mut locks, &mut buf);
-                        }
+            match chan.recv().unwrap() {
+                ResourceTask::Request { id, mut closure } => {
+                    let driver = driver.read().unwrap();
+                    closure(&arenas, id, &driver, &mut locks, &mut buf);
+                }
 
-                        ResourceTask::UnloadUnused => {
-                            let mut arenas = arenas.write().unwrap();
-                            for (_, v) in arenas.iter_mut() {
-                                v.unload_unused();
-                            }
-                        }
-
-                        ResourceTask::Stop => return,
+                ResourceTask::UnloadUnused => {
+                    let mut arenas = arenas.write().unwrap();
+                    for (_, v) in arenas.iter_mut() {
+                        v.unload_unused();
                     }
                 }
+
+                ResourceTask::Stop => return,
             }
         }
     }
@@ -214,7 +207,7 @@ impl<T> Future for ResourceFuture<T>
 
 pub struct ResourceSystemShared {
     filesystems: Arc<RwLock<FilesystemDriver>>,
-    chan: deque::Worker<ResourceTask>,
+    chan: two_lock_queue::Sender<ResourceTask>,
 }
 
 enum ResourceTask {
@@ -231,7 +224,9 @@ enum ResourceTask {
 }
 
 impl ResourceSystemShared {
-    fn new(filesystems: Arc<RwLock<FilesystemDriver>>, chan: deque::Worker<ResourceTask>) -> Self {
+    fn new(filesystems: Arc<RwLock<FilesystemDriver>>,
+           chan: two_lock_queue::Sender<ResourceTask>)
+           -> Self {
         ResourceSystemShared {
             filesystems: filesystems,
             chan: chan,
@@ -265,23 +260,24 @@ impl ResourceSystemShared {
         };
 
         self.chan
-            .push(ResourceTask::Request {
+            .send(ResourceTask::Request {
                       id: TypeId::of::<T::Item>(),
                       closure: Box::new(closure),
-                  });
+                  })
+            .unwrap();
 
         ResourceFuture(rx)
     }
 
     /// Unload unused resources from memory.
     pub fn unload_unused(&self) {
-        self.chan.push(ResourceTask::UnloadUnused);
+        self.chan.send(ResourceTask::UnloadUnused).unwrap();
     }
 }
 
 impl Drop for ResourceSystemShared {
     fn drop(&mut self) {
-        self.chan.push(ResourceTask::Stop);
+        self.chan.send(ResourceTask::Stop).unwrap();
     }
 }
 

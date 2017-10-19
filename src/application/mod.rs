@@ -27,13 +27,16 @@ use std::sync::{Arc, RwLock};
 
 use self::errors::*;
 use graphics;
+use resource;
 
 pub struct FrameShared {
     pub video: Arc<RwLock<graphics::GraphicsSystemShared>>,
+    pub resource: Arc<resource::ResourceSystemShared>,
 }
 
 pub struct FrameInfo {
     pub video: graphics::GraphicsFrameInfo,
+    pub resource: resource::ResourceFrameInfo,
 }
 
 /// `Application` is a user-friendly facade to building application, which defines a number
@@ -50,8 +53,8 @@ pub trait Application {
         Ok(())
     }
 
-    /// `Application::on_post_render` is called after camera has rendered the scene.
-    fn on_post_render(&mut self, _: &mut FrameShared, _: &FrameInfo) -> Result<()> {
+    /// `Application::on_post_update` is called after camera has rendered the scene.
+    fn on_post_update(&mut self, _: &mut FrameShared, _: &FrameInfo) -> Result<()> {
         Ok(())
     }
 }

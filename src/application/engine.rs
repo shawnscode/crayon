@@ -67,7 +67,10 @@ impl Engine {
     }
 
     pub fn shared(&self) -> FrameShared {
-        FrameShared { video: self.graphics.shared() }
+        FrameShared {
+            video: self.graphics.shared(),
+            resource: self.resources.shared(),
+        }
     }
 
     /// Run the main loop of `Engine`, this will block the working
@@ -111,20 +114,28 @@ impl Engine {
                 let shared = self.shared();
                 let application = application.clone();
                 let (rx, tx) = mpsc::channel();
-                self.scheduler
-                    .spawn(move || {
-                               let v = Engine::execute_frame(application, shared);
-                               rx.send(v).unwrap();
-                           });
 
+                let closure = move || {
+                    let v = Engine::execute_frame(application, shared);
+                    rx.send(v).unwrap();
+                };
+
+                self.scheduler.spawn(closure);
                 // This will block the main-thread until all the graphics commands
-                // is finished.
+                // is finished by GPU.
                 let video_info = self.graphics.advance().unwrap();
                 tx.recv().unwrap()?;
                 video_info
             };
 
-            let info = FrameInfo { video: video_info };
+            // Advance resource system.
+            let resource_info = self.resources.advance()?;
+
+            //
+            let info = FrameInfo {
+                video: video_info,
+                resource: resource_info,
+            };
 
             //
             {
@@ -133,7 +144,7 @@ impl Engine {
                 self.scheduler
                     .install(|| {
                                  let mut application = application.write().unwrap();
-                                 application.on_post_render(&mut shared, &info)
+                                 application.on_post_update(&mut shared, &info)
                              })?;
             }
         }
