@@ -22,5 +22,6 @@ error_chain!{
         UniformVariableNotFound
         UniformDeclarationMismatch
         ParseFailed
+        NotRegistered
     }
 }

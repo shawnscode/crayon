@@ -72,9 +72,10 @@ impl<T> Cache<T> {
             prev: None,
         };
 
-        self.make_room(size);
-        self.attach(&mut desc);
-        self.cache.insert(hash, desc);
+        if self.make_room(size) {
+            self.attach(&mut desc);
+            self.cache.insert(hash, desc);
+        }
     }
 
     /// Returns a reference to the value corresponding to the `Path`,
@@ -92,21 +93,27 @@ impl<T> Cache<T> {
         }
     }
 
-    fn make_room(&mut self, size: usize) {
-        self.used += size;
-
-        if self.used <= self.threshold {
-            return;
+    fn make_room(&mut self, size: usize) -> bool {
+        if (self.used + size) <= self.threshold {
+            self.used += size;
+            return true;
         }
 
         let mut cursor = self.lru_back;
-        while !cursor.is_none() && self.used > self.threshold {
+        while !cursor.is_none() {
             let hash = cursor.unwrap();
             let desc = self.cache.remove(&hash).unwrap();
             self.detach(&desc);
             self.used -= desc.size;
             cursor = desc.prev;
+
+            if (self.used + size) <= self.threshold {
+                self.used += size;
+                return true;
+            }
         }
+
+        false
     }
 
     #[inline]
@@ -191,6 +198,14 @@ mod test {
         assert!(!cache.contains("/2"));
         assert!(cache.contains("/3"));
         assert!(cache.contains("/4"));
+    }
+
+    #[test]
+    fn zero_size() {
+        let mut cache = Cache::new(0);
+
+        cache.insert("/1", 1, Arc::new("a4".to_owned()));
+        assert!(!cache.contains("/1"));
     }
 
     #[test]

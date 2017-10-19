@@ -77,14 +77,13 @@ impl FilesystemDriver {
     }
 
     /// Read all bytes until EOF in this source.
-    pub fn load<P>(&mut self, path: P) -> Result<&[u8]>
+    pub fn load_into<P>(&self, path: P, buf: &mut Vec<u8>) -> Result<&[u8]>
         where P: AsRef<Path> + Sync
     {
         if let Some((bundle, file)) = FilesystemDriver::parse(path.as_ref().components()) {
             let hash = HashValue::from(bundle);
             if let Some(fs) = self.filesystems.get(&hash) {
-                self.buf.clear();
-                fs.load_into(file, &mut self.buf)?;
+                fs.load_into(file, buf)?;
                 return Ok(&self.buf[..]);
             }
         }

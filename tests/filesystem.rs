@@ -29,7 +29,8 @@ fn driver() {
     let fs = filesystem::DirectoryFS::new("tests/resources").unwrap();
     driver.mount("res", fs).unwrap();
 
-    let buf = driver.load("/res/mock.txt").unwrap();
+    let mut buf = Vec::new();
+    driver.load_into("/res/mock.txt", &mut buf).unwrap();
     assert_eq!(String::from_utf8(buf.to_owned()).unwrap(), "Hello, World!");
 }
 

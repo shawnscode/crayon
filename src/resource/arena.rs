@@ -13,7 +13,13 @@ pub struct ArenaWithCache<T>
 {
     cache: Cache<RwLock<T>>,
     resources: HashMap<HashValue<Path>, Arc<RwLock<T>>>,
-    size: usize,
+    info: ArenaInfo,
+}
+
+#[derive(Debug, Copy, Clone, Default)]
+pub struct ArenaInfo {
+    pub size: usize,
+    pub num: usize,
 }
 
 impl<T> ArenaWithCache<T>
@@ -26,8 +32,13 @@ impl<T> ArenaWithCache<T>
         ArenaWithCache {
             cache: cache,
             resources: HashMap::new(),
-            size: 0,
+            info: ArenaInfo::default(),
         }
+    }
+
+    #[inline]
+    pub fn info(&self) -> ArenaInfo {
+        self.info
     }
 
     /// Reset the internal cache size.
@@ -51,12 +62,14 @@ impl<T> ArenaWithCache<T>
     pub fn insert(&mut self, hash: HashValue<Path>, item: Ptr<T>) -> Option<Ptr<T>> {
         let size = item.read().unwrap().size();
 
-        self.size += size;
+        self.info.size += size;
+        self.info.num += 1;
         self.cache.insert(hash, size, item.clone());
 
         let old = self.resources.insert(hash, item);
         if let Some(ref v) = old {
-            self.size -= v.read().unwrap().size();
+            self.info.size -= v.read().unwrap().size();
+            self.info.num -= 1;
         }
 
         old
@@ -69,9 +82,11 @@ impl<T> ArenaWithCache<T>
             if Arc::strong_count(&v) > 1 {
                 next.insert(k, v);
             } else {
-                self.size -= v.read().unwrap().size();
+                self.info.size -= v.read().unwrap().size();
+                self.info.num -= 1;
             }
         }
+
         self.resources = next;
     }
 }

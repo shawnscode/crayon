@@ -63,7 +63,7 @@ macro_rules! impl_vertex_field {
 
 #[cfg(test)]
 mod test {
-    use super::super::resource::*;
+    use super::super::mesh::*;
 
     impl_vertex! {
         Vertex {
