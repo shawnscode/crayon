@@ -1,4 +1,4 @@
-//! Public interface of graphics module.
+//! The centralized management of video sub-system.
 
 use std::sync::{Arc, RwLock, Mutex, MutexGuard};
 use std::time::Duration;
@@ -24,6 +24,7 @@ pub struct GraphicsFrameInfo {
     pub alive_render_buffers: usize,
 }
 
+/// The centralized management of video sub-system.
 pub struct GraphicsSystem {
     window: Arc<Window>,
     device: Device,
@@ -47,10 +48,12 @@ impl GraphicsSystem {
            })
     }
 
+    /// Returns the multi-thread friendly parts of `GraphicsSystem`.
     pub fn shared(&self) -> Arc<RwLock<GraphicsSystemShared>> {
         self.shared.clone()
     }
 
+    /// Swap internal commands frame.
     #[inline]
     pub fn swap_frames(&self) {
         self.frames.swap_frames();
@@ -97,7 +100,7 @@ impl GraphicsSystem {
     }
 }
 
-/// The frontend of graphics module.
+/// The multi-thread friendly parts of `GraphicsSystem`.
 pub struct GraphicsSystemShared {
     views: HandlePool,
     pipelines: HandlePool,

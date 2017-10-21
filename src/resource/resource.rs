@@ -1,5 +1,3 @@
-//!
-
 use std::collections::{HashSet, HashMap};
 use std::path::Path;
 use std::any::{Any, TypeId};
@@ -12,7 +10,7 @@ use futures;
 use futures::prelude::*;
 
 use utils::HashValue;
-use super::{Ptr, Resource, ResourceParser};
+use super::{Resource, ResourceParser};
 use super::arena::{ArenaWithCache, ArenaInfo};
 use super::filesystem::{Filesystem, FilesystemDriver};
 use super::errors::*;
@@ -22,13 +20,18 @@ pub struct ResourceFrameInfo {
     pub arenas: HashMap<TypeId, ArenaInfo>,
 }
 
+/// The centralized resource management system.
 pub struct ResourceSystem {
-    filesystems: Ptr<FilesystemDriver>,
-    arenas: Ptr<HashMap<TypeId, ArenaWrapper>>,
+    filesystems: Arc<RwLock<FilesystemDriver>>,
+    arenas: Arc<RwLock<HashMap<TypeId, ArenaWrapper>>>,
     shared: Arc<ResourceSystemShared>,
 }
 
 impl ResourceSystem {
+    /// Creates a new `ResourceSystem`.
+    ///
+    /// Notes that this will spawn a worker thread running background to perform
+    /// io requests.
     pub fn new() -> Result<Self> {
         let driver = Arc::new(RwLock::new(FilesystemDriver::new()));
         let arenas = Arc::new(RwLock::new(HashMap::new()));
@@ -51,11 +54,12 @@ impl ResourceSystem {
            })
     }
 
+    /// Returns the shared parts of `ResourceSystem`.
     pub fn shared(&self) -> Arc<ResourceSystemShared> {
         self.shared.clone()
     }
 
-    /// Register a new resource type.
+    /// Registers a new resource type with optional cache.
     #[inline]
     pub fn register<T>(&self, size: usize)
         where T: Resource + Send + Sync + 'static
@@ -102,8 +106,8 @@ impl ResourceSystem {
     }
 
     fn run(chan: two_lock_queue::Receiver<ResourceTask>,
-           driver: Ptr<FilesystemDriver>,
-           arenas: Ptr<HashMap<TypeId, ArenaWrapper>>) {
+           driver: Arc<RwLock<FilesystemDriver>>,
+           arenas: Arc<RwLock<HashMap<TypeId, ArenaWrapper>>>) {
         let mut locks: HashSet<HashValue<Path>> = HashSet::new();
         let mut buf = Vec::new();
 
@@ -132,7 +136,7 @@ impl ResourceSystem {
                driver: &FilesystemDriver,
                locks: &mut HashSet<HashValue<Path>>,
                buf: &mut Vec<u8>)
-               -> Result<Ptr<T::Item>>
+               -> Result<Arc<T::Item>>
         where T: ResourceParser
     {
         let hash = (&path).into();
@@ -155,7 +159,7 @@ impl ResourceSystem {
             driver.load_into(&path, buf)?;
             let resource = T::parse(&buf[from..])?;
             locks.remove(&hash);
-            Arc::new(RwLock::new(resource))
+            Arc::new(resource)
         };
 
         {
@@ -168,7 +172,7 @@ impl ResourceSystem {
     }
 
     #[inline]
-    fn get<T>(arena: &mut Any, hash: HashValue<Path>) -> Option<Ptr<T::Item>>
+    fn get<T>(arena: &mut Any, hash: HashValue<Path>) -> Option<Arc<T::Item>>
         where T: ResourceParser
     {
         arena
@@ -178,7 +182,7 @@ impl ResourceSystem {
     }
 
     #[inline]
-    fn insert<T>(arena: &mut Any, hash: HashValue<Path>, rc: Ptr<T::Item>)
+    fn insert<T>(arena: &mut Any, hash: HashValue<Path>, rc: Arc<T::Item>)
         where T: ResourceParser
     {
         arena
@@ -188,12 +192,12 @@ impl ResourceSystem {
     }
 }
 
-pub struct ResourceFuture<T>(futures::sync::oneshot::Receiver<Result<Ptr<T>>>);
+pub struct ResourceFuture<T>(futures::sync::oneshot::Receiver<Result<Arc<T>>>);
 
 impl<T> Future for ResourceFuture<T>
     where T: Resource
 {
-    type Item = Ptr<T>;
+    type Item = Arc<T>;
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {

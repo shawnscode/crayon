@@ -1,11 +1,9 @@
 extern crate crayon;
 
-use crayon::prelude::*;
-use crayon::resource::filesystem;
+use crayon::resource::filesystem::*;
 
 #[test]
 fn driver() {
-    use crayon::resource::filesystem::FilesystemDriver;
 
     let mut driver = FilesystemDriver::new();
 
@@ -14,7 +12,7 @@ fn driver() {
         assert!(!driver.exists("/res//foo/mock.prefab"));
         assert!(!driver.exists("/res/./foo/mock.prefab"));
 
-        let fs = filesystem::ZipFS::new("tests/resources/mock.zip").unwrap();
+        let fs = ZipFS::new("tests/resources/mock.zip").unwrap();
         driver.mount("res", fs).unwrap();
 
         // canonicalized
@@ -26,7 +24,7 @@ fn driver() {
         assert!(!driver.exists("/res/foo/mock.prefab"));
     }
 
-    let fs = filesystem::DirectoryFS::new("tests/resources").unwrap();
+    let fs = DirectoryFS::new("tests/resources").unwrap();
     driver.mount("res", fs).unwrap();
 
     let mut buf = Vec::new();
@@ -36,9 +34,9 @@ fn driver() {
 
 #[test]
 fn dir() {
-    assert!(filesystem::DirectoryFS::new("tests/_invalid_path_").is_err());
+    assert!(DirectoryFS::new("tests/_invalid_path_").is_err());
 
-    let fs = filesystem::DirectoryFS::new("tests/resources").unwrap();
+    let fs = DirectoryFS::new("tests/resources").unwrap();
     assert!(fs.exists("mock.zip".as_ref()));
     assert!(fs.exists("mock.txt".as_ref()));
 
@@ -49,9 +47,9 @@ fn dir() {
 
 #[test]
 fn zip() {
-    assert!(filesystem::ZipFS::new("tests/_invalid_path_").is_err());
+    assert!(ZipFS::new("tests/_invalid_path_").is_err());
 
-    let fs = filesystem::ZipFS::new("tests/resources/mock.zip").unwrap();
+    let fs = ZipFS::new("tests/resources/mock.zip").unwrap();
     assert!(fs.exists("foo/mock.prefab".as_ref()));
 
     let mut buf = Vec::new();

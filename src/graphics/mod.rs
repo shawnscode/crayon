@@ -32,12 +32,13 @@
 //!
 //! ## View
 //!
-//! All the real draw commands are executing delayed (and asynchronous if multi-thread
-//! mode is enable), every draw calls user submitted are stored in a named _bucket_ with a
-//! 64-bits _key_. The draw calls will be sorted based on the key before we kick commands
-//! to GPU. Depending on where those bits are stored in the key, you can apply different
-//! sorting criteria for the same array of draw calls.  Usually, a key encodes certain
-//! data like distance, material, shader etc. in individual bits.
+//! All the real draw commands are executing delayed, every draw calls user submitted are
+//! stored in a named _bucket_ with a 64-bits _key_. The draw calls will be sorted based
+//! on the key before we kick commands to GPU. Depending on where those bits are stored in
+//! the key, you can apply different sorting criteria for the same array of draw calls.
+//!
+//! Usually, a key encodes certain data like distance, material, shader etc. in individual
+//! bits.
 //!
 //! We use `ViewStateObject` to represent a named _bucket_ mentioned above. You can also
 //! configurate the targeting frame buffer and the clear flags on it.

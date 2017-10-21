@@ -37,9 +37,9 @@ fn load() {
     sys.mount("res", fs).unwrap();
 
     {
-        let text = sys.shared().load::<Text, &str>("/res/mock.txt");
-        let text = text.wait().unwrap();
-        assert_eq!(text.read().unwrap().value, "Hello, World!");
+        let future = sys.shared().load::<Text, &str>("/res/mock.txt");
+        let text = future.wait().unwrap();
+        assert_eq!(text.value, "Hello, World!");
 
         let info = sys.advance().unwrap();
 
@@ -50,9 +50,9 @@ fn load() {
         }
 
         // No duplicated copys.
-        let t2 = sys.shared().load::<Text, &str>("/res/mock.txt");
-        let t2 = t2.wait().unwrap();
-        assert_eq!(t2.read().unwrap().value, "Hello, World!");
+        let future = sys.shared().load::<Text, &str>("/res/mock.txt");
+        let t2 = future.wait().unwrap();
+        assert_eq!(t2.value, "Hello, World!");
 
         let info = sys.advance().unwrap();
 

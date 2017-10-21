@@ -7,8 +7,6 @@ pub use ecs::{Entity, Component, World, VecArena, HashMapArena};
 
 pub use resource;
 pub use resource::{ResourceSystem, ResourceFuture};
-pub use resource::filesystem::Filesystem;
-pub use resource::assets::*;
 
 pub use application::{Application, FrameShared, FrameInfo, Engine, Settings};
 pub use application::errors;

@@ -108,8 +108,6 @@ impl Engine {
             self.advance();
             self.graphics.swap_frames();
 
-            // Perform update and render submitting for frame [x], and drawing frame [x-1]
-            // at the same time.
             let video_info = {
                 let shared = self.shared();
                 let application = application.clone();
@@ -120,7 +118,10 @@ impl Engine {
                     rx.send(v).unwrap();
                 };
 
+                // Perform update and render submitting for frame [x], and drawing
+                // frame [x-1] at the same time.
                 self.scheduler.spawn(closure);
+
                 // This will block the main-thread until all the graphics commands
                 // is finished by GPU.
                 let video_info = self.graphics.advance().unwrap();
@@ -141,11 +142,13 @@ impl Engine {
             {
                 let mut shared = self.shared();
                 let application = application.clone();
-                self.scheduler
-                    .install(|| {
-                                 let mut application = application.write().unwrap();
-                                 application.on_post_update(&mut shared, &info)
-                             })?;
+
+                let closure = || {
+                    let mut application = application.write().unwrap();
+                    application.on_post_update(&mut shared, &info)
+                };
+
+                self.scheduler.install(closure)?;
             }
         }
 
