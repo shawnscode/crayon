@@ -125,10 +125,7 @@ impl From<char> for VariantChar {
             buf[3] = (code & 0x3F) as u8 | TAG_CONT;
             0
         };
-        VariantChar {
-            buf: buf,
-            pos: pos,
-        }
+        VariantChar { buf: buf, pos: pos }
     }
 }
 
