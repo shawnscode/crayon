@@ -45,7 +45,7 @@ impl ResourceSystem {
             thread::spawn(|| { ResourceSystem::run(rx, driver, arenas); });
         }
 
-        let shared = ResourceSystemShared::new(driver.clone(), tx);
+        let shared = ResourceSystemShared::new(driver.clone(), arenas.clone(), tx);
 
         Ok(ResourceSystem {
                filesystems: driver,
@@ -132,7 +132,7 @@ impl ResourceSystem {
 
     fn load<T>(path: &Path,
                arenas: &RwLock<HashMap<TypeId, ArenaWrapper>>,
-               id: TypeId,
+               tid: TypeId,
                driver: &FilesystemDriver,
                locks: &mut HashSet<HashValue<Path>>,
                buf: &mut Vec<u8>)
@@ -143,7 +143,7 @@ impl ResourceSystem {
 
         {
             let mut arenas = arenas.write().unwrap();
-            let v = arenas.get_mut(&id).ok_or(ErrorKind::NotRegistered)?;
+            let v = arenas.get_mut(&tid).ok_or(ErrorKind::NotRegistered)?;
             if let Some(rc) = ResourceSystem::get::<T>(v.arena.as_mut(), hash) {
                 return Ok(rc);
             }
@@ -164,7 +164,7 @@ impl ResourceSystem {
 
         {
             let mut arenas = arenas.write().unwrap();
-            let v = arenas.get_mut(&id).ok_or(ErrorKind::NotRegistered)?;
+            let v = arenas.get_mut(&tid).ok_or(ErrorKind::NotRegistered)?;
             ResourceSystem::insert::<T>(v.arena.as_mut(), hash, rc.clone());
         }
 
@@ -211,6 +211,7 @@ impl<T> Future for ResourceFuture<T>
 
 pub struct ResourceSystemShared {
     filesystems: Arc<RwLock<FilesystemDriver>>,
+    arenas: Arc<RwLock<HashMap<TypeId, ArenaWrapper>>>,
     chan: two_lock_queue::Sender<ResourceTask>,
 }
 
@@ -229,10 +230,12 @@ enum ResourceTask {
 
 impl ResourceSystemShared {
     fn new(filesystems: Arc<RwLock<FilesystemDriver>>,
+           arenas: Arc<RwLock<HashMap<TypeId, ArenaWrapper>>>,
            chan: two_lock_queue::Sender<ResourceTask>)
            -> Self {
         ResourceSystemShared {
             filesystems: filesystems,
+            arenas: arenas,
             chan: chan,
         }
     }
@@ -248,9 +251,22 @@ impl ResourceSystemShared {
               P: AsRef<Path>
     {
         let (tx, rx) = futures::sync::oneshot::channel();
-        let path = path.as_ref().to_owned();
+        let hash = path.as_ref().into();
+        let tid = TypeId::of::<T::Item>();
+
+        {
+            /// Returns directly if we have this resource in memory.
+            let mut arenas = self.arenas.write().unwrap();
+            if let Some(v) = arenas.get_mut(&tid) {
+                if let Some(rc) = ResourceSystem::get::<T>(v.arena.as_mut(), hash) {
+                    tx.send(Ok(rc)).is_ok();
+                    return ResourceFuture(rx);
+                }
+            }
+        }
 
         // Hacks: Optimize this when Box<FnOnce> is usable.
+        let path = path.as_ref().to_owned();
         let payload = Arc::new(RwLock::new(Some((path, tx))));
         let closure = move |a: &RwLock<HashMap<TypeId, ArenaWrapper>>,
                             i: TypeId,
