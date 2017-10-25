@@ -29,7 +29,7 @@ pub struct GraphicsSystem {
     window: Arc<Window>,
     device: Device,
     frames: Arc<DoubleFrame>,
-    shared: Arc<RwLock<GraphicsSystemShared>>,
+    shared: Arc<GraphicsSystemShared>,
 }
 
 impl GraphicsSystem {
@@ -44,12 +44,12 @@ impl GraphicsSystem {
                window: window,
                device: device,
                frames: frames,
-               shared: Arc::new(RwLock::new(shared)),
+               shared: Arc::new(shared),
            })
     }
 
     /// Returns the multi-thread friendly parts of `GraphicsSystem`.
-    pub fn shared(&self) -> Arc<RwLock<GraphicsSystemShared>> {
+    pub fn shared(&self) -> Arc<GraphicsSystemShared> {
         self.shared.clone()
     }
 
@@ -86,14 +86,13 @@ impl GraphicsSystem {
 
             info.duration = time::Instant::now() - ts;
 
-            let shared = self.shared.read().unwrap();
-            info.alive_views = shared.views.size();
-            info.alive_pipelines = shared.pipelines.size();
-            info.alive_frame_buffers = shared.framebuffers.size();
-            info.alive_vertex_buffers = shared.vertex_buffers.size();
-            info.alive_index_buffers = shared.index_buffers.size();
-            info.alive_textures = shared.textures.size();
-            info.alive_render_buffers = shared.render_buffers.size();
+            info.alive_views = self.shared.views.read().unwrap().size();
+            info.alive_pipelines = self.shared.pipelines.read().unwrap().size();
+            info.alive_frame_buffers = self.shared.framebuffers.read().unwrap().size();
+            info.alive_vertex_buffers = self.shared.vertex_buffers.read().unwrap().size();
+            info.alive_index_buffers = self.shared.index_buffers.read().unwrap().size();
+            info.alive_textures = self.shared.textures.read().unwrap().size();
+            info.alive_render_buffers = self.shared.render_buffers.read().unwrap().size();
 
             Ok(info)
         }
@@ -102,13 +101,14 @@ impl GraphicsSystem {
 
 /// The multi-thread friendly parts of `GraphicsSystem`.
 pub struct GraphicsSystemShared {
-    views: HandlePool,
-    pipelines: HandlePool,
-    framebuffers: HandlePool,
-    vertex_buffers: HandlePool,
-    index_buffers: HandlePool,
-    textures: HandlePool,
-    render_buffers: HandlePool,
+    views: RwLock<HandlePool>,
+    pipelines: RwLock<HandlePool>,
+    framebuffers: RwLock<HandlePool>,
+    vertex_buffers: RwLock<HandlePool>,
+    index_buffers: RwLock<HandlePool>,
+    textures: RwLock<HandlePool>,
+    render_buffers: RwLock<HandlePool>,
+
     frames: Arc<DoubleFrame>,
 }
 
@@ -118,13 +118,13 @@ impl GraphicsSystemShared {
         GraphicsSystemShared {
             frames: frames,
 
-            views: HandlePool::new(),
-            framebuffers: HandlePool::new(),
-            pipelines: HandlePool::new(),
-            vertex_buffers: HandlePool::new(),
-            index_buffers: HandlePool::new(),
-            textures: HandlePool::new(),
-            render_buffers: HandlePool::new(),
+            views: RwLock::new(HandlePool::new()),
+            framebuffers: RwLock::new(HandlePool::new()),
+            pipelines: RwLock::new(HandlePool::new()),
+            vertex_buffers: RwLock::new(HandlePool::new()),
+            index_buffers: RwLock::new(HandlePool::new()),
+            textures: RwLock::new(HandlePool::new()),
+            render_buffers: RwLock::new(HandlePool::new()),
         }
     }
 
@@ -137,18 +137,22 @@ impl GraphicsSystemShared {
 
 impl GraphicsSystemShared {
     /// Creates an view with `ViewStateSetup`.
-    pub fn create_view(&mut self, setup: ViewStateSetup) -> Result<ViewStateHandle> {
-        let mut frame = self.frames.front();
-        let handle = self.views.create().into();
-        frame.pre.push(PreFrameTask::CreateView(handle, setup));
+    pub fn create_view(&self, setup: ViewStateSetup) -> Result<ViewStateHandle> {
+        let handle = self.views.write().unwrap().create().into();
+
+        {
+            let task = PreFrameTask::CreateView(handle, setup);
+            self.frames.front().pre.push(task);
+        }
+
         Ok(handle)
     }
 
     /// Deletes a view state object.
-    pub fn delete_view(&mut self, handle: ViewStateHandle) {
-        if self.views.free(handle) {
-            let mut frame = self.frames.front();
-            frame.post.push(PostFrameTask::DeleteView(handle));
+    pub fn delete_view(&self, handle: ViewStateHandle) {
+        if self.views.write().unwrap().free(handle) {
+            let task = PostFrameTask::DeleteView(handle);
+            self.frames.front().post.push(task);
         }
     }
 }
@@ -156,25 +160,26 @@ impl GraphicsSystemShared {
 impl GraphicsSystemShared {
     /// Create a pipeline with initial shaders and render state. Pipeline encapusulate
     /// all the informations we need to configurate OpenGL before real drawing.
-    pub fn create_pipeline(&mut self,
+    pub fn create_pipeline(&self,
                            setup: PipelineStateSetup,
                            vs: String,
                            fs: String)
                            -> Result<PipelineStateHandle> {
-        let mut frame = self.frames.front();
-        let handle = self.pipelines.create().into();
-        frame
-            .pre
-            .push(PreFrameTask::CreatePipeline(handle, setup, vs, fs));
+        let handle = self.pipelines.write().unwrap().create().into();
+
+        {
+            let task = PreFrameTask::CreatePipeline(handle, setup, vs, fs);
+            self.frames.front().pre.push(task);
+        }
 
         Ok(handle)
     }
 
     /// Deletes a pipeline state object.
-    pub fn delete_pipeline(&mut self, handle: PipelineStateHandle) {
-        if self.pipelines.free(handle) {
-            let mut frame = self.frames.front();
-            frame.post.push(PostFrameTask::DeletePipeline(handle));
+    pub fn delete_pipeline(&self, handle: PipelineStateHandle) {
+        if self.pipelines.write().unwrap().free(handle) {
+            let task = PostFrameTask::DeletePipeline(handle);
+            self.frames.front().post.push(task);
         }
     }
 }
@@ -184,20 +189,22 @@ impl GraphicsSystemShared {
     /// which can then be used in other rendering operations.
     ///
     /// At least one color attachment has been attached before you can use it.
-    pub fn create_framebuffer(&mut self, setup: FrameBufferSetup) -> Result<FrameBufferHandle> {
-        let handle = self.framebuffers.create().into();
-        let mut frame = self.frames.front();
-        frame
-            .pre
-            .push(PreFrameTask::CreateFrameBuffer(handle, setup));
+    pub fn create_framebuffer(&self, setup: FrameBufferSetup) -> Result<FrameBufferHandle> {
+        let handle = self.framebuffers.write().unwrap().create().into();
+
+        {
+            let task = PreFrameTask::CreateFrameBuffer(handle, setup);
+            self.frames.front().pre.push(task);
+        }
+
         Ok(handle)
     }
 
     /// Deletes a framebuffer object.
-    pub fn delete_framebuffer(&mut self, handle: FrameBufferHandle) {
-        if self.framebuffers.free(handle) {
-            let mut frame = self.frames.front();
-            frame.post.push(PostFrameTask::DeleteFrameBuffer(handle));
+    pub fn delete_framebuffer(&self, handle: FrameBufferHandle) {
+        if self.framebuffers.write().unwrap().free(handle) {
+            let task = PostFrameTask::DeleteFrameBuffer(handle);
+            self.frames.front().post.push(task);
         }
     }
 }
@@ -205,57 +212,63 @@ impl GraphicsSystemShared {
 impl GraphicsSystemShared {
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
-    pub fn create_texture(&mut self, setup: TextureSetup, data: Vec<u8>) -> Result<TextureHandle> {
-        let mut frame = self.frames.front();
-        let handle = self.textures.create().into();
-        frame
-            .pre
-            .push(PreFrameTask::CreateTexture(handle, setup, data));
+    pub fn create_texture(&self, setup: TextureSetup, data: Vec<u8>) -> Result<TextureHandle> {
+        let handle = self.textures.write().unwrap().create().into();
+
+        {
+            let task = PreFrameTask::CreateTexture(handle, setup, data);
+            self.frames.front().pre.push(task);
+        }
+
         Ok(handle)
     }
 
     /// Create render texture object, which could be attached with a framebuffer.
-    pub fn create_render_texture(&mut self, setup: RenderTextureSetup) -> Result<TextureHandle> {
-        let mut frame = self.frames.front();
-        let handle = self.textures.create().into();
-        frame
-            .pre
-            .push(PreFrameTask::CreateRenderTexture(handle, setup));
+    pub fn create_render_texture(&self, setup: RenderTextureSetup) -> Result<TextureHandle> {
+        let handle = self.textures.write().unwrap().create().into();
+
+        {
+            let task = PreFrameTask::CreateRenderTexture(handle, setup);
+            self.frames.front().pre.push(task);
+        }
+
         Ok(handle)
     }
 
     /// Deletes a texture object.
-    pub fn delete_texture(&mut self, handle: TextureHandle) {
-        if self.textures.free(handle) {
-            let mut frame = self.frames.front();
-            frame.post.push(PostFrameTask::DeleteTexture(handle));
+    pub fn delete_texture(&self, handle: TextureHandle) {
+        if self.textures.write().unwrap().free(handle) {
+            let task = PostFrameTask::DeleteTexture(handle);
+            self.frames.front().post.push(task);
         }
     }
 }
 
 impl GraphicsSystemShared {
     /// Create a render buffer object, which could be attached to framebuffer.
-    pub fn create_render_buffer(&mut self, setup: RenderBufferSetup) -> Result<RenderBufferHandle> {
-        let mut frame = self.frames.front();
-        let handle = self.render_buffers.create().into();
-        frame
-            .pre
-            .push(PreFrameTask::CreateRenderBuffer(handle, setup));
+    pub fn create_render_buffer(&self, setup: RenderBufferSetup) -> Result<RenderBufferHandle> {
+        let handle = self.render_buffers.write().unwrap().create().into();
+
+        {
+            let task = PreFrameTask::CreateRenderBuffer(handle, setup);
+            self.frames.front().pre.push(task);
+        }
+
         Ok(handle)
     }
 
     /// Deletes a render buffer object.
-    pub fn delete_render_buffer(&mut self, handle: RenderBufferHandle) {
-        if self.render_buffers.free(handle) {
-            let mut frame = self.frames.front();
-            frame.post.push(PostFrameTask::DeleteRenderBuffer(handle));
+    pub fn delete_render_buffer(&self, handle: RenderBufferHandle) {
+        if self.render_buffers.write().unwrap().free(handle) {
+            let task = PostFrameTask::DeleteRenderBuffer(handle);
+            self.frames.front().post.push(task);
         }
     }
 }
 
 impl GraphicsSystemShared {
     /// Create vertex buffer object with vertex layout declaration and optional data.
-    pub fn create_vertex_buffer(&mut self,
+    pub fn create_vertex_buffer(&self,
                                 setup: VertexBufferSetup,
                                 data: Option<&[u8]>)
                                 -> Result<VertexBufferHandle> {
@@ -265,30 +278,31 @@ impl GraphicsSystemShared {
             }
         }
 
-        let mut frame = self.frames.front();
-        let handle = self.vertex_buffers.create().into();
-        let ptr = data.map(|v| frame.buf.extend_from_slice(v));
+        let handle = self.vertex_buffers.write().unwrap().create().into();
 
-        frame
-            .pre
-            .push(PreFrameTask::CreateVertexBuffer(handle, setup, ptr));
+        {
+            let mut frame = self.frames.front();
+            let ptr = data.map(|v| frame.buf.extend_from_slice(v));
+            let task = PreFrameTask::CreateVertexBuffer(handle, setup, ptr);
+            frame.pre.push(task);
+        }
+
         Ok(handle)
     }
 
     /// Update a subset of dynamic vertex buffer. Use `offset` specifies the offset
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
-    pub fn update_vertex_buffer(&mut self,
+    pub fn update_vertex_buffer(&self,
                                 handle: VertexBufferHandle,
                                 offset: usize,
                                 data: &[u8])
                                 -> Result<()> {
-        if self.vertex_buffers.is_alive(handle) {
+        if self.vertex_buffers.read().unwrap().is_alive(handle) {
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(data);
-            frame
-                .pre
-                .push(PreFrameTask::UpdateVertexBuffer(handle, offset, ptr));
+            let task = PreFrameTask::UpdateVertexBuffer(handle, offset, ptr);
+            frame.pre.push(task);
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -296,17 +310,17 @@ impl GraphicsSystemShared {
     }
 
     /// Deletes a vertex buffer object.
-    pub fn delete_vertex_buffer(&mut self, handle: VertexBufferHandle) {
-        if self.vertex_buffers.free(handle) {
-            let mut frame = self.frames.front();
-            frame.post.push(PostFrameTask::DeleteVertexBuffer(handle));
+    pub fn delete_vertex_buffer(&self, handle: VertexBufferHandle) {
+        if self.vertex_buffers.write().unwrap().free(handle) {
+            let task = PostFrameTask::DeleteVertexBuffer(handle);
+            self.frames.front().post.push(task);
         }
     }
 }
 
 impl GraphicsSystemShared {
     /// Create index buffer object with optional data.
-    pub fn create_index_buffer(&mut self,
+    pub fn create_index_buffer(&self,
                                setup: IndexBufferSetup,
                                data: Option<&[u8]>)
                                -> Result<IndexBufferHandle> {
@@ -316,30 +330,31 @@ impl GraphicsSystemShared {
             }
         }
 
-        let mut frame = self.frames.front();
-        let handle = self.index_buffers.create().into();
-        let ptr = data.map(|v| frame.buf.extend_from_slice(v));
+        let handle = self.index_buffers.write().unwrap().create().into();
 
-        frame
-            .pre
-            .push(PreFrameTask::CreateIndexBuffer(handle, setup, ptr));
+        {
+            let mut frame = self.frames.front();
+            let ptr = data.map(|v| frame.buf.extend_from_slice(v));
+            let task = PreFrameTask::CreateIndexBuffer(handle, setup, ptr);
+            frame.pre.push(task);
+        }
+
         Ok(handle)
     }
 
     /// Update a subset of dynamic index buffer. Use `offset` specifies the offset
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
-    pub fn update_index_buffer(&mut self,
+    pub fn update_index_buffer(&self,
                                handle: IndexBufferHandle,
                                offset: usize,
                                data: &[u8])
                                -> Result<()> {
-        if self.index_buffers.is_alive(handle) {
+        if self.index_buffers.read().unwrap().is_alive(handle) {
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(data);
-            frame
-                .pre
-                .push(PreFrameTask::UpdateIndexBuffer(handle, offset, ptr));
+            let task = PreFrameTask::UpdateIndexBuffer(handle, offset, ptr);
+            frame.pre.push(task);
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -347,10 +362,10 @@ impl GraphicsSystemShared {
     }
 
     /// Deletes a vertex buffer object.
-    pub fn delete_index_buffer(&mut self, handle: IndexBufferHandle) {
-        if self.index_buffers.free(handle) {
-            let mut frame = self.frames.front();
-            frame.post.push(PostFrameTask::DeleteIndexBuffer(handle));
+    pub fn delete_index_buffer(&self, handle: IndexBufferHandle) {
+        if self.index_buffers.write().unwrap().free(handle) {
+            let task = PostFrameTask::DeleteIndexBuffer(handle);
+            self.frames.front().post.push(task);
         }
     }
 }

@@ -1,5 +1,5 @@
 use std;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use std::sync::mpsc;

@@ -74,11 +74,10 @@ impl resource::ExternalResourceSystem for GraphicsResourceSystem<graphics::Textu
             return Ok(v.clone());
         }
 
-        let mut video = self.video.write().unwrap();
         options.dimensions = src.dimensions();
         options.format = src.format();
 
-        let handle = video
+        let handle = self.video
             .create_texture(options, src.data().to_owned())
             .unwrap();
         let handle = Arc::new(handle);
@@ -88,13 +87,12 @@ impl resource::ExternalResourceSystem for GraphicsResourceSystem<graphics::Textu
     }
 
     fn unload_unused(&mut self) {
-        let mut video = self.video.write().unwrap();
         let mut next = HashMap::new();
         for (k, v) in self.arena.drain() {
             if Arc::strong_count(&v) > 1 {
                 next.insert(k, v);
             } else {
-                video.delete_texture(*v);
+                self.video.delete_texture(*v);
             }
         }
         self.arena = next;

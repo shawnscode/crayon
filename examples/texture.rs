@@ -26,43 +26,37 @@ impl Window {
 
         let shared = engine.shared();
 
-        let (vso, pso, vbo) = {
-            let mut video = shared.video.write().unwrap();
+        let verts: [Vertex; 6] = [Vertex::new([-1.0, -1.0]),
+                                  Vertex::new([1.0, -1.0]),
+                                  Vertex::new([-1.0, 1.0]),
+                                  Vertex::new([-1.0, 1.0]),
+                                  Vertex::new([1.0, -1.0]),
+                                  Vertex::new([1.0, 1.0])];
 
-            let verts: [Vertex; 6] = [Vertex::new([-1.0, -1.0]),
-                                      Vertex::new([1.0, -1.0]),
-                                      Vertex::new([-1.0, 1.0]),
-                                      Vertex::new([-1.0, 1.0]),
-                                      Vertex::new([1.0, -1.0]),
-                                      Vertex::new([1.0, 1.0])];
+        let attributes = graphics::AttributeLayoutBuilder::new()
+            .with(graphics::VertexAttribute::Position, 2)
+            .finish();
 
-            let attributes = graphics::AttributeLayoutBuilder::new()
-                .with(graphics::VertexAttribute::Position, 2)
-                .finish();
+        // Create vertex buffer object.
+        let mut setup = graphics::VertexBufferSetup::default();
+        setup.num = verts.len();
+        setup.layout = Vertex::layout();
+        let vbo = shared
+            .video
+            .create_vertex_buffer(setup, Some(Vertex::as_bytes(&verts[..])))?;
 
-            // Create vertex buffer object.
-            let mut setup = graphics::VertexBufferSetup::default();
-            setup.num = verts.len();
-            setup.layout = Vertex::layout();
-            let vbo = video
-                .create_vertex_buffer(setup, Some(Vertex::as_bytes(&verts[..])))?;
+        // Create the view state.
+        let setup = graphics::ViewStateSetup::default();
+        let vso = shared.video.create_view(setup)?;
 
-            // Create the view state.
-            let setup = graphics::ViewStateSetup::default();
-            let vso = video.create_view(setup)?;
-
-            // Create pipeline state.
-            let mut setup = graphics::PipelineStateSetup::default();
-            setup.layout = attributes;
-            let vs = include_str!("resources/texture.vs").to_owned();
-            let fs = include_str!("resources/texture.fs").to_owned();
-            let pso = video.create_pipeline(setup, vs, fs)?;
-
-            (vso, pso, vbo)
-        };
+        // Create pipeline state.
+        let mut setup = graphics::PipelineStateSetup::default();
+        setup.layout = attributes;
+        let vs = include_str!("resources/texture.vs").to_owned();
+        let fs = include_str!("resources/texture.fs").to_owned();
+        let pso = shared.video.create_pipeline(setup, vs, fs)?;
 
         let setup = graphics::TextureSetup::default();
-
         let texture = shared
             .resource
             .load_extern::<Texture, asset::GraphicsResourceSystem<graphics::TextureHandle>, &str>("/std/texture.png", setup)
@@ -80,17 +74,14 @@ impl Window {
 
 impl Application for Window {
     fn on_update(&mut self, shared: &mut FrameShared) -> errors::Result<()> {
-        let video = shared.video.write().unwrap();
-
-        {
-            video
-                .make()
-                .with_view(self.vso)
-                .with_pipeline(self.pso)
-                .with_data(self.vbo, None)
-                .with_texture("renderedTexture", *self.texture)
-                .submit(graphics::Primitive::Triangles, 0, 6)?;
-        }
+        shared
+            .video
+            .make()
+            .with_view(self.vso)
+            .with_pipeline(self.pso)
+            .with_data(self.vbo, None)
+            .with_texture("renderedTexture", *self.texture)
+            .submit(graphics::Primitive::Triangles, 0, 6)?;
 
         Ok(())
     }

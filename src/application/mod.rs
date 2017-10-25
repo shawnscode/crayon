@@ -23,14 +23,14 @@ pub use self::event::{KeyboardButton, MouseButton};
 mod engine;
 pub use self::engine::Engine;
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use self::errors::*;
 use graphics;
 use resource;
 
 pub struct FrameShared {
-    pub video: Arc<RwLock<graphics::GraphicsSystemShared>>,
+    pub video: Arc<graphics::GraphicsSystemShared>,
     pub resource: Arc<resource::ResourceSystemShared>,
 }
 
