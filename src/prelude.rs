@@ -17,5 +17,8 @@ pub use graphics::Color;
 pub use asset;
 pub use asset::{Bytes, Texture};
 
+pub use scene;
+pub use scene::{Transform, Camera};
+
 pub use rayon;
 pub use futures::Future;

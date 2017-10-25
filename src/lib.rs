@@ -34,4 +34,5 @@ pub mod ecs;
 pub mod graphics;
 pub mod resource;
 pub mod asset;
+pub mod scene;
 pub mod prelude;
