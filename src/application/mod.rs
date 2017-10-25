@@ -36,7 +36,6 @@ pub struct FrameShared {
 
 pub struct FrameInfo {
     pub video: graphics::GraphicsFrameInfo,
-    pub resource: resource::ResourceFrameInfo,
 }
 
 /// `Application` is a user-friendly facade to building application, which defines a number

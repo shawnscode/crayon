@@ -8,6 +8,7 @@ use rayon;
 use super::*;
 use graphics;
 use resource;
+use asset;
 
 /// `Engine` is the root object of the game application. It binds various sub-systems in
 /// a central place and takes take of trivial tasks like the execution order or life-time
@@ -26,7 +27,7 @@ pub struct Engine {
     pub input: input::Input,
     pub window: Arc<graphics::Window>,
     pub graphics: graphics::GraphicsSystem,
-    pub resources: resource::ResourceSystem,
+    pub resource: resource::ResourceSystem,
 }
 
 impl Engine {
@@ -43,7 +44,10 @@ impl Engine {
 
         let input = input::Input::new();
         let window = Arc::new(wb.build(&input)?);
+
         let graphics = graphics::GraphicsSystem::new(window.clone())?;
+        let mut resource = resource::ResourceSystem::new()?;
+        asset::register(&mut resource, graphics.shared());
 
         let confs = rayon::Configuration::new();
         let scheduler = rayon::ThreadPool::new(confs).unwrap();
@@ -62,14 +66,14 @@ impl Engine {
                input: input,
                window: window,
                graphics: graphics,
-               resources: resource::ResourceSystem::new()?,
+               resource: resource,
            })
     }
 
     pub fn shared(&self) -> FrameShared {
         FrameShared {
             video: self.graphics.shared(),
-            resource: self.resources.shared(),
+            resource: self.resource.shared(),
         }
     }
 
@@ -130,16 +134,11 @@ impl Engine {
             };
 
             // Advance resource system.
-            let resource_info = self.resources.advance()?;
-
-            //
-            let info = FrameInfo {
-                video: video_info,
-                resource: resource_info,
-            };
+            self.resource.advance()?;
 
             //
             {
+                let info = FrameInfo { video: video_info };
                 let mut shared = self.shared();
                 let application = application.clone();
 

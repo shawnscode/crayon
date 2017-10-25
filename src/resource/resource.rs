@@ -10,20 +10,16 @@ use futures;
 use futures::prelude::*;
 
 use utils::HashValue;
-use super::{Resource, ResourceParser};
-use super::arena::{ArenaWithCache, ArenaInfo};
+use super::{Resource, ResourceParser, ExternalResourceSystem};
+use super::arena::ArenaWithCache;
 use super::filesystem::{Filesystem, FilesystemDriver};
 use super::errors::*;
-
-#[derive(Debug, Clone, Default)]
-pub struct ResourceFrameInfo {
-    pub arenas: HashMap<TypeId, ArenaInfo>,
-}
 
 /// The centralized resource management system.
 pub struct ResourceSystem {
     filesystems: Arc<RwLock<FilesystemDriver>>,
     arenas: Arc<RwLock<HashMap<TypeId, ArenaWrapper>>>,
+    externs: Arc<RwLock<HashMap<TypeId, ExternSystemWrapper>>>,
     shared: Arc<ResourceSystemShared>,
 }
 
@@ -35,14 +31,16 @@ impl ResourceSystem {
     pub fn new() -> Result<Self> {
         let driver = Arc::new(RwLock::new(FilesystemDriver::new()));
         let arenas = Arc::new(RwLock::new(HashMap::new()));
+        let externs = Arc::new(RwLock::new(HashMap::new()));
 
         let (tx, rx) = two_lock_queue::channel(1024);
 
         {
             let driver = driver.clone();
             let arenas = arenas.clone();
+            let externs = externs.clone();
 
-            thread::spawn(|| { ResourceSystem::run(rx, driver, arenas); });
+            thread::spawn(|| { ResourceSystem::run(rx, driver, arenas, externs); });
         }
 
         let shared = ResourceSystemShared::new(driver.clone(), arenas.clone(), tx);
@@ -50,6 +48,7 @@ impl ResourceSystem {
         Ok(ResourceSystem {
                filesystems: driver,
                arenas: arenas,
+               externs: externs,
                shared: Arc::new(shared),
            })
     }
@@ -64,12 +63,25 @@ impl ResourceSystem {
     pub fn register<T>(&self, size: usize)
         where T: Resource + Send + Sync + 'static
     {
-        let id = TypeId::of::<T>();
+        let tid = TypeId::of::<T>();
         let mut arenas = self.arenas.write().unwrap();
 
-        if !arenas.contains_key(&id) {
+        if !arenas.contains_key(&tid) {
             let item = ArenaWithCache::<T>::with_capacity(size);
-            arenas.insert(id, ArenaWrapper::new(item));
+            arenas.insert(tid, ArenaWrapper::new(item));
+        }
+    }
+
+    ///
+    #[inline]
+    pub fn register_extern_system<S>(&self, system: S)
+        where S: ExternalResourceSystem + Send + Sync + 'static
+    {
+        let tid = TypeId::of::<S>();
+        let mut externs = self.externs.write().unwrap();
+
+        if !externs.contains_key(&tid) {
+            externs.insert(tid, ExternSystemWrapper::new(system));
         }
     }
 
@@ -91,31 +103,41 @@ impl ResourceSystem {
     }
 
     ///
-    pub fn advance(&self) -> Result<ResourceFrameInfo> {
-        let mut info = ResourceFrameInfo { arenas: HashMap::new() };
-
+    pub fn advance(&self) -> Result<()> {
         {
             let mut arenas = self.arenas.write().unwrap();
-            for (id, v) in arenas.iter_mut() {
-                let i = v.unload_unused();
-                info.arenas.insert(*id, i);
+            for (_, v) in arenas.iter_mut() {
+                v.unload_unused();
             }
         }
 
-        Ok(info)
+        {
+            let mut externs = self.externs.write().unwrap();
+            for (_, v) in externs.iter_mut() {
+                v.unload_unused();
+            }
+        }
+
+        Ok(())
     }
 
     fn run(chan: two_lock_queue::Receiver<ResourceTask>,
            driver: Arc<RwLock<FilesystemDriver>>,
-           arenas: Arc<RwLock<HashMap<TypeId, ArenaWrapper>>>) {
+           arenas: Arc<RwLock<HashMap<TypeId, ArenaWrapper>>>,
+           externs: Arc<RwLock<HashMap<TypeId, ExternSystemWrapper>>>) {
         let mut locks: HashSet<HashValue<Path>> = HashSet::new();
         let mut buf = Vec::new();
 
         loop {
             match chan.recv().unwrap() {
-                ResourceTask::Request { id, mut closure } => {
+                ResourceTask::Load { mut closure } => {
                     let driver = driver.read().unwrap();
-                    closure(&arenas, id, &driver, &mut locks, &mut buf);
+                    closure(&arenas, &driver, &mut locks, &mut buf);
+                }
+
+                ResourceTask::ExternLoad { mut closure } => {
+                    let driver = driver.read().unwrap();
+                    closure(&arenas, &externs, &driver, &mut locks, &mut buf);
                 }
 
                 ResourceTask::UnloadUnused => {
@@ -130,9 +152,35 @@ impl ResourceSystem {
         }
     }
 
+    #[inline]
+    fn cast_extern<S>(system: &mut Any) -> &mut S
+        where S: ExternalResourceSystem + 'static
+    {
+        system.downcast_mut::<S>().unwrap()
+    }
+
+    fn load_extern<S>(externs: &RwLock<HashMap<TypeId, ExternSystemWrapper>>,
+                      path: &Path,
+                      src: &S::Data,
+                      options: S::Options)
+                      -> Result<Arc<S::Item>>
+        where S: ExternalResourceSystem + 'static
+    {
+        let tid = TypeId::of::<S::Item>();
+        let mut externs = externs.write().unwrap();
+        let wrapper = externs.get_mut(&tid).ok_or(ErrorKind::NotRegistered)?;
+        ResourceSystem::cast_extern::<S>(wrapper.system.as_mut()).load(path, src, options)
+    }
+
+    #[inline]
+    fn cast<T>(arena: &mut Any) -> &mut ArenaWithCache<T::Item>
+        where T: ResourceParser
+    {
+        arena.downcast_mut::<ArenaWithCache<T::Item>>().unwrap()
+    }
+
     fn load<T>(path: &Path,
                arenas: &RwLock<HashMap<TypeId, ArenaWrapper>>,
-               tid: TypeId,
                driver: &FilesystemDriver,
                locks: &mut HashSet<HashValue<Path>>,
                buf: &mut Vec<u8>)
@@ -140,11 +188,12 @@ impl ResourceSystem {
         where T: ResourceParser
     {
         let hash = (&path).into();
+        let tid = TypeId::of::<T::Item>();
 
         {
             let mut arenas = arenas.write().unwrap();
             let v = arenas.get_mut(&tid).ok_or(ErrorKind::NotRegistered)?;
-            if let Some(rc) = ResourceSystem::get::<T>(v.arena.as_mut(), hash) {
+            if let Some(rc) = ResourceSystem::cast::<T>(v.arena.as_mut()).get(hash) {
                 return Ok(rc);
             }
         }
@@ -165,30 +214,10 @@ impl ResourceSystem {
         {
             let mut arenas = arenas.write().unwrap();
             let v = arenas.get_mut(&tid).ok_or(ErrorKind::NotRegistered)?;
-            ResourceSystem::insert::<T>(v.arena.as_mut(), hash, rc.clone());
+            ResourceSystem::cast::<T>(v.arena.as_mut()).insert(hash, rc.clone());
         }
 
         Ok(rc)
-    }
-
-    #[inline]
-    fn get<T>(arena: &mut Any, hash: HashValue<Path>) -> Option<Arc<T::Item>>
-        where T: ResourceParser
-    {
-        arena
-            .downcast_mut::<ArenaWithCache<T::Item>>()
-            .unwrap()
-            .get(hash)
-    }
-
-    #[inline]
-    fn insert<T>(arena: &mut Any, hash: HashValue<Path>, rc: Arc<T::Item>)
-        where T: ResourceParser
-    {
-        arena
-            .downcast_mut::<ArenaWithCache<T::Item>>()
-            .unwrap()
-            .insert(hash, rc);
     }
 }
 
@@ -216,10 +245,15 @@ pub struct ResourceSystemShared {
 }
 
 enum ResourceTask {
-    Request {
-        id: TypeId,
+    Load {
         closure: Box<FnMut(&RwLock<HashMap<TypeId, ArenaWrapper>>,
-                           TypeId,
+                           &FilesystemDriver,
+                           &mut HashSet<HashValue<Path>>,
+                           &mut Vec<u8>) + Send + Sync>,
+    },
+    ExternLoad {
+        closure: Box<FnMut(&RwLock<HashMap<TypeId, ArenaWrapper>>,
+                           &RwLock<HashMap<TypeId, ExternSystemWrapper>>,
                            &FilesystemDriver,
                            &mut HashSet<HashValue<Path>>,
                            &mut Vec<u8>) + Send + Sync>,
@@ -246,19 +280,49 @@ impl ResourceSystemShared {
         self.filesystems.read().unwrap().exists(path)
     }
 
+    pub fn load_extern<T, S, P>(&self, path: &P, options: S::Options) -> ResourceFuture<S::Item>
+        where T: ResourceParser,
+              S: ExternalResourceSystem<Data = T::Item> + 'static,
+              P: AsRef<Path>
+    {
+        let (tx, rx) = futures::sync::oneshot::channel();
+
+        // Hacks: Optimize this when Box<FnOnce> is usable.
+        let path = path.as_ref().to_owned();
+        let payload = Arc::new(RwLock::new(Some((path, tx, options))));
+        let closure = move |a: &RwLock<HashMap<TypeId, ArenaWrapper>>,
+                            e: &RwLock<HashMap<TypeId, ExternSystemWrapper>>,
+                            d: &FilesystemDriver,
+                            l: &mut HashSet<HashValue<Path>>,
+                            b: &mut Vec<u8>| {
+            if let Some(data) = payload.write().unwrap().take() {
+                let v =
+                    ResourceSystem::load::<T>(&data.0, a, d, l, b)
+                        .and_then(|src| ResourceSystem::load_extern::<S>(e, &data.0, &src, data.2));
+                data.1.send(v).is_ok();
+            }
+        };
+
+        self.chan
+            .send(ResourceTask::ExternLoad { closure: Box::new(closure) })
+            .unwrap();
+
+        ResourceFuture(rx)
+    }
+
     pub fn load<T, P>(&self, path: P) -> ResourceFuture<T::Item>
         where T: ResourceParser,
               P: AsRef<Path>
     {
         let (tx, rx) = futures::sync::oneshot::channel();
-        let hash = path.as_ref().into();
+        let hash: HashValue<Path> = path.as_ref().into();
         let tid = TypeId::of::<T::Item>();
 
         {
-            /// Returns directly if we have this resource in memory.
+            // Returns directly if we have this resource in memory.
             let mut arenas = self.arenas.write().unwrap();
             if let Some(v) = arenas.get_mut(&tid) {
-                if let Some(rc) = ResourceSystem::get::<T>(v.arena.as_mut(), hash) {
+                if let Some(rc) = ResourceSystem::cast::<T>(v.arena.as_mut()).get(hash) {
                     tx.send(Ok(rc)).is_ok();
                     return ResourceFuture(rx);
                 }
@@ -269,21 +333,17 @@ impl ResourceSystemShared {
         let path = path.as_ref().to_owned();
         let payload = Arc::new(RwLock::new(Some((path, tx))));
         let closure = move |a: &RwLock<HashMap<TypeId, ArenaWrapper>>,
-                            i: TypeId,
                             d: &FilesystemDriver,
-                            mut l: &mut HashSet<HashValue<Path>>,
-                            mut b: &mut Vec<u8>| {
+                            l: &mut HashSet<HashValue<Path>>,
+                            b: &mut Vec<u8>| {
             if let Some(data) = payload.write().unwrap().take() {
-                let v = ResourceSystem::load::<T>(&data.0, a, i, d, l, b);
+                let v = ResourceSystem::load::<T>(&data.0, a, d, l, b);
                 data.1.send(v).is_ok();
             }
         };
 
         self.chan
-            .send(ResourceTask::Request {
-                      id: TypeId::of::<T::Item>(),
-                      closure: Box::new(closure),
-                  })
+            .send(ResourceTask::Load { closure: Box::new(closure) })
             .unwrap();
 
         ResourceFuture(rx)
@@ -304,7 +364,7 @@ impl Drop for ResourceSystemShared {
 /// Anonymous operations helper.
 struct ArenaWrapper {
     arena: Box<Any + Send + Sync>,
-    unload_unused: Box<FnMut(&mut Any) -> ArenaInfo + Send + Sync>,
+    unload_unused: Box<FnMut(&mut Any) + Send + Sync>,
 }
 
 impl ArenaWrapper {
@@ -314,7 +374,6 @@ impl ArenaWrapper {
         let unload_unused = move |a: &mut Any| {
             let a = a.downcast_mut::<ArenaWithCache<T>>().unwrap();
             a.unload_unused();
-            a.info()
         };
 
         ArenaWrapper {
@@ -324,7 +383,33 @@ impl ArenaWrapper {
     }
 
     #[inline]
-    fn unload_unused(&mut self) -> ArenaInfo {
+    fn unload_unused(&mut self) {
         (self.unload_unused)(self.arena.as_mut())
+    }
+}
+
+struct ExternSystemWrapper {
+    system: Box<Any + Send + Sync>,
+    unload_unused: Box<FnMut(&mut Any) + Send + Sync>,
+}
+
+impl ExternSystemWrapper {
+    fn new<T>(item: T) -> Self
+        where T: ExternalResourceSystem + Send + Sync + 'static
+    {
+        let unload_unused = move |a: &mut Any| {
+            let a = a.downcast_mut::<T>().unwrap();
+            a.unload_unused();
+        };
+
+        ExternSystemWrapper {
+            system: Box::new(item),
+            unload_unused: Box::new(unload_unused),
+        }
+    }
+
+    #[inline]
+    fn unload_unused(&mut self) {
+        (self.unload_unused)(self.system.as_mut())
     }
 }

@@ -13,13 +13,6 @@ pub struct ArenaWithCache<T>
 {
     cache: Cache<T>,
     resources: HashMap<HashValue<Path>, Arc<T>>,
-    info: ArenaInfo,
-}
-
-#[derive(Debug, Copy, Clone, Default)]
-pub struct ArenaInfo {
-    pub size: usize,
-    pub num: usize,
 }
 
 impl<T> ArenaWithCache<T>
@@ -32,13 +25,7 @@ impl<T> ArenaWithCache<T>
         ArenaWithCache {
             cache: cache,
             resources: HashMap::new(),
-            info: ArenaInfo::default(),
         }
-    }
-
-    #[inline]
-    pub fn info(&self) -> ArenaInfo {
-        self.info
     }
 
     /// Reset the internal cache size.
@@ -69,18 +56,8 @@ impl<T> ArenaWithCache<T>
     {
         let hash = hash.into();
         let size = item.size();
-
-        self.info.size += size;
-        self.info.num += 1;
         self.cache.insert(hash, size, item.clone());
-
-        let old = self.resources.insert(hash, item);
-        if let Some(ref v) = old {
-            self.info.size -= v.size();
-            self.info.num -= 1;
-        }
-
-        old
+        self.resources.insert(hash, item)
     }
 
     /// Iterates the arena, removing all resources that have no external references.
@@ -89,12 +66,8 @@ impl<T> ArenaWithCache<T>
         for (k, v) in self.resources.drain() {
             if Arc::strong_count(&v) > 1 {
                 next.insert(k, v);
-            } else {
-                self.info.size -= v.size();
-                self.info.num -= 1;
             }
         }
-
         self.resources = next;
     }
 }

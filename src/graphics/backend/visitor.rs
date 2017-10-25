@@ -417,7 +417,7 @@ impl OpenGLVisitor {
             }
         }
 
-        let mut vao_cache = &mut self.vertex_array_objects.borrow_mut();
+        let vao_cache = &mut self.vertex_array_objects.borrow_mut();
         let mut removes = vec![];
 
         for pair in vao_cache.keys() {
@@ -489,7 +489,7 @@ impl OpenGLVisitor {
             bail!("out of max texture slots.");
         }
 
-        let mut cache = &mut self.active_textures.borrow_mut();
+        let cache = &mut self.active_textures.borrow_mut();
         if cache[slot as usize] != id {
             gl::ActiveTexture(gl::TEXTURE0 + slot);
             gl::BindTexture(gl::TEXTURE_2D, id);
@@ -572,7 +572,7 @@ impl OpenGLVisitor {
     }
 
     pub unsafe fn delete_texture(&self, id: GLuint) -> Result<()> {
-        let mut cache = &mut self.active_textures.borrow_mut();
+        let cache = &mut self.active_textures.borrow_mut();
         for i in 0..MAX_TEXTURE_SLOTS {
             if cache[i] == id {
                 cache[i] = 0;
@@ -685,7 +685,7 @@ impl OpenGLVisitor {
             }
         }
 
-        let mut vao_cache = &mut self.vertex_array_objects.borrow_mut();
+        let vao_cache = &mut self.vertex_array_objects.borrow_mut();
         let mut removes = vec![];
 
         for pair in vao_cache.keys() {

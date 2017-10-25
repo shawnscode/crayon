@@ -13,12 +13,12 @@ extern crate futures;
 
 #[macro_use]
 extern crate error_chain;
-#[macro_use]
-extern crate derive_builder;
 
 extern crate zip;
 extern crate two_lock_queue;
 extern crate bit_set;
+
+extern crate image;
 
 #[macro_use]
 pub extern crate lazy_static;

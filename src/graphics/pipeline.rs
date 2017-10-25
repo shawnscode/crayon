@@ -164,8 +164,7 @@ pub enum BlendFactor {
 }
 
 /// A struct that encapsulate all the necessary render states.
-#[derive(Debug, PartialEq, Clone, Copy, Builder, Serialize, Deserialize)]
-#[builder(field(private))]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub struct RenderState {
     pub cull_face: CullFace,
     pub front_face_order: FrontFaceOrder,
