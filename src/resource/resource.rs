@@ -7,10 +7,9 @@ use std::borrow::Borrow;
 
 use two_lock_queue;
 use futures;
-use futures::prelude::*;
 
 use utils::HashValue;
-use super::{Resource, ResourceParser, ExternalResourceSystem};
+use super::{Resource, ResourceParser, ExternalResourceSystem, ResourceFuture};
 use super::arena::ArenaWithCache;
 use super::filesystem::{Filesystem, FilesystemDriver};
 use super::errors::*;
@@ -218,21 +217,6 @@ impl ResourceSystem {
         }
 
         Ok(rc)
-    }
-}
-
-pub struct ResourceFuture<T>(futures::sync::oneshot::Receiver<Result<Arc<T>>>);
-
-impl<T> Future for ResourceFuture<T> {
-    type Item = Arc<T>;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.0.poll() {
-            Ok(Async::Ready(x)) => Ok(Async::Ready(x?)),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(_) => bail!(ErrorKind::FutureCanceled),
-        }
     }
 }
 

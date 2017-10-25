@@ -1,5 +1,9 @@
 #[macro_use]
 extern crate crayon;
+extern crate image;
+
+mod support;
+use support::*;
 
 use std::sync::Arc;
 use crayon::prelude::*;
@@ -59,7 +63,7 @@ impl Window {
         let setup = graphics::TextureSetup::default();
         let texture = shared
             .resource
-            .load_extern::<Texture, asset::GraphicsResourceSystem<graphics::TextureHandle>, &str>("/std/texture.png", setup)
+            .load_extern::<TextureParser, asset::GraphicsResourceSystem<graphics::TextureHandle>, &str>("/std/texture.png", setup)
             .wait()
             .unwrap();
 
