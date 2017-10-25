@@ -166,7 +166,7 @@ impl ResourceSystem {
                       -> Result<Arc<S::Item>>
         where S: ExternalResourceSystem + 'static
     {
-        let tid = TypeId::of::<S::Item>();
+        let tid = TypeId::of::<S>();
         let mut externs = externs.write().unwrap();
         let wrapper = externs.get_mut(&tid).ok_or(ErrorKind::NotRegistered)?;
         ResourceSystem::cast_extern::<S>(wrapper.system.as_mut()).load(path, src, options)
@@ -223,9 +223,7 @@ impl ResourceSystem {
 
 pub struct ResourceFuture<T>(futures::sync::oneshot::Receiver<Result<Arc<T>>>);
 
-impl<T> Future for ResourceFuture<T>
-    where T: Resource
-{
+impl<T> Future for ResourceFuture<T> {
     type Item = Arc<T>;
     type Error = Error;
 
@@ -280,7 +278,7 @@ impl ResourceSystemShared {
         self.filesystems.read().unwrap().exists(path)
     }
 
-    pub fn load_extern<T, S, P>(&self, path: &P, options: S::Options) -> ResourceFuture<S::Item>
+    pub fn load_extern<T, S, P>(&self, path: P, options: S::Options) -> ResourceFuture<S::Item>
         where T: ResourceParser,
               S: ExternalResourceSystem<Data = T::Item> + 'static,
               P: AsRef<Path>

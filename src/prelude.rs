@@ -14,5 +14,8 @@ pub use application::errors;
 pub use graphics;
 pub use graphics::Color;
 
+pub use asset;
+pub use asset::{Bytes, Texture};
+
 pub use rayon;
 pub use futures::Future;
