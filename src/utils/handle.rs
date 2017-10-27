@@ -81,6 +81,7 @@ impl<'a> Borrow<HandleIndex> for &'a Handle {
     }
 }
 
+#[macro_export]
 macro_rules! impl_handle {
     ($name: ident) => (
         #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -93,14 +94,14 @@ macro_rules! impl_handle {
             }
         }
 
-        impl $crate::std::ops::Deref for $name {
+        impl ::std::ops::Deref for $name {
             type Target = $crate::utils::handle::Handle;
             fn deref(&self) -> &$crate::utils::handle::Handle {
                 &self.0
             }
         }
 
-        impl $crate::std::borrow::Borrow<$crate::utils::handle::Handle> for $name {
+        impl ::std::borrow::Borrow<$crate::utils::handle::Handle> for $name {
             fn borrow(&self) -> &$crate::utils::handle::Handle {
                 &self.0
             }

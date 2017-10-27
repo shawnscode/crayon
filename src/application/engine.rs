@@ -70,8 +70,8 @@ impl Engine {
            })
     }
 
-    pub fn shared(&self) -> FrameShared {
-        FrameShared {
+    pub fn shared(&self) -> Context {
+        Context {
             video: self.graphics.shared(),
             resource: self.resource.shared(),
         }
@@ -154,7 +154,7 @@ impl Engine {
         Ok(self)
     }
 
-    fn execute_frame(application: Arc<RwLock<Application>>, mut shared: FrameShared) -> Result<()> {
+    fn execute_frame(application: Arc<RwLock<Application>>, mut shared: Context) -> Result<()> {
         let mut application = application.write().unwrap();
         application.on_update(&mut shared)?;
         application.on_render(&mut shared)?;

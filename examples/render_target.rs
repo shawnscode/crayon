@@ -118,7 +118,7 @@ impl Window {
 }
 
 impl Application for Window {
-    fn on_update(&mut self, shared: &mut FrameShared) -> errors::Result<()> {
+    fn on_update(&mut self, shared: &mut Context) -> errors::Result<()> {
 
         {
             shared

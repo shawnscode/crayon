@@ -12,6 +12,16 @@ pub struct IndexBufferSetup {
     pub format: IndexFormat,
 }
 
+impl Default for IndexBufferSetup {
+    fn default() -> Self {
+        IndexBufferSetup {
+            hint: BufferHint::Immutable,
+            num: 0,
+            format: IndexFormat::U16,
+        }
+    }
+}
+
 impl_handle!(IndexBufferHandle);
 
 impl IndexBufferSetup {
@@ -76,6 +86,13 @@ impl IndexFormat {
             &IndexFormat::U16 => 2,
             &IndexFormat::U32 => 4,
         }
+    }
+
+    pub fn as_bytes<T>(values: &[T]) -> &[u8]
+        where T: Copy
+    {
+        let len = values.len() * ::std::mem::size_of::<T>();
+        unsafe { ::std::slice::from_raw_parts(values.as_ptr() as *const u8, len) }
     }
 }
 

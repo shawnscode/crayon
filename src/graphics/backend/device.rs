@@ -66,7 +66,7 @@ struct FrameBufferObject {
 
 #[derive(Debug, Copy, Clone)]
 struct DrawCall {
-    priority: u64,
+    order: u64,
     view: ViewStateHandle,
     pipeline: PipelineStateHandle,
     uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
@@ -125,7 +125,7 @@ impl Device {
     }
 
     pub fn submit(&self,
-                  priority: u64,
+                  order: u64,
                   view: ViewStateHandle,
                   pipeline: PipelineStateHandle,
                   textures: TaskBufferPtr<[(TaskBufferPtr<str>, TextureHandle)]>,
@@ -140,7 +140,7 @@ impl Device {
             vo.drawcalls
                 .borrow_mut()
                 .push(DrawCall {
-                          priority: priority,
+                          order: order,
                           view: view,
                           pipeline: pipeline,
                           textures: textures,
@@ -210,7 +210,7 @@ impl Device {
             if !vo.setup.sequence {
                 vo.drawcalls
                     .borrow_mut()
-                    .sort_by(|lhs, rhs| rhs.priority.cmp(&lhs.priority));
+                    .sort_by(|lhs, rhs| rhs.order.cmp(&lhs.order));
             }
 
             // Submit real OpenGL drawcall in order.
@@ -257,6 +257,7 @@ impl Device {
                 let vbo = self.vertex_buffers
                     .get(dc.vb)
                     .ok_or(ErrorKind::InvalidHandle)?;
+
                 self.visitor.bind_buffer(gl::ARRAY_BUFFER, vbo.id)?;
                 self.visitor
                     .bind_attribute_layout(&pso.setup.layout, &vbo.setup.layout)?;
@@ -264,6 +265,7 @@ impl Device {
                 // Bind index buffer object if available.
                 if let Some(v) = dc.ib {
                     if let Some(ibo) = self.index_buffers.get(v) {
+                        self.visitor.bind_buffer(gl::ELEMENT_ARRAY_BUFFER, ibo.id)?;
                         gl::DrawElements(dc.primitive.into(),
                                          dc.len as GLsizei,
                                          ibo.setup.format.into(),

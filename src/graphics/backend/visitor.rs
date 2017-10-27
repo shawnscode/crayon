@@ -78,11 +78,11 @@ impl OpenGLVisitor {
     pub unsafe fn bind_buffer(&self, tp: GLenum, id: GLuint) -> Result<()> {
         assert!(tp == gl::ARRAY_BUFFER || tp == gl::ELEMENT_ARRAY_BUFFER);
 
-        if let Some(record) = self.active_bufs.borrow().get(&tp) {
-            if *record == id {
-                return Ok(());
-            }
-        }
+        // if let Some(record) = self.active_bufs.borrow().get(&tp) {
+        //     if *record == id {
+        //         return Ok(());
+        //     }
+        // }
 
         gl::BindBuffer(tp, id);
         self.active_bufs.borrow_mut().insert(tp, id);
