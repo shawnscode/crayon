@@ -1,9 +1,7 @@
 #[macro_use]
 extern crate crayon;
-extern crate crayon_workflow;
 
-mod utils;
-
+use std::sync::Arc;
 use crayon::prelude::*;
 
 impl_vertex!{
@@ -13,84 +11,88 @@ impl_vertex!{
 }
 
 struct Window {
-    view: graphics::ViewStateRef,
-    pso: graphics::PipelineStateRef,
-    vbo: graphics::VertexBufferRef,
-    texture: TexturePtr,
+    vso: graphics::ViewStateHandle,
+    pso: graphics::PipelineStateHandle,
+    vbo: graphics::VertexBufferHandle,
+    texture: Arc<graphics::TextureHandle>,
 }
 
 impl Window {
-    fn new(app: &mut Application) -> errors::Result<Self> {
-        let quad_vertices: [Vertex; 6] = [Vertex::new([-1.0, -1.0]),
-                                          Vertex::new([1.0, -1.0]),
-                                          Vertex::new([-1.0, 1.0]),
-                                          Vertex::new([-1.0, 1.0]),
-                                          Vertex::new([1.0, -1.0]),
-                                          Vertex::new([1.0, 1.0])];
+    fn new(engine: &mut Engine) -> errors::Result<Self> {
+        engine
+            .resource
+            .mount("std",
+                   resource::filesystem::DirectoryFS::new("examples/resources")?)?;
+
+        let shared = engine.shared();
+
+        let verts: [Vertex; 6] = [Vertex::new([-1.0, -1.0]),
+                                  Vertex::new([1.0, -1.0]),
+                                  Vertex::new([-1.0, 1.0]),
+                                  Vertex::new([-1.0, 1.0]),
+                                  Vertex::new([1.0, -1.0]),
+                                  Vertex::new([1.0, 1.0])];
 
         let attributes = graphics::AttributeLayoutBuilder::new()
             .with(graphics::VertexAttribute::Position, 2)
             .finish();
 
-        let layout = Vertex::layout();
-        let state = graphics::RenderState::default();
+        // Create vertex buffer object.
+        let mut setup = graphics::VertexBufferSetup::default();
+        setup.num = verts.len();
+        setup.layout = Vertex::layout();
+        let vbo = shared
+            .video
+            .create_vertex_buffer(setup, Some(Vertex::as_bytes(&verts[..])))?;
 
-        let vbo = app.graphics
-            .create_vertex_buffer(&layout,
-                                  graphics::ResourceHint::Static,
-                                  48,
-                                  Some(Vertex::as_bytes(&quad_vertices[..])))
-            .unwrap();
-        let view = app.graphics.create_view(None).unwrap();
-        let pipeline = app.graphics
-            .create_pipeline(include_str!("resources/shaders/texture.vs"),
-                             include_str!("resources/shaders/texture.fs"),
-                             &state,
-                             &attributes)
-            .unwrap();
+        // Create the view state.
+        let setup = graphics::ViewStateSetup::default();
+        let vso = shared.video.create_view(setup)?;
 
-        let texture: TexturePtr = app.resources.load("texture.png").unwrap();
+        // Create pipeline state.
+        let mut setup = graphics::PipelineStateSetup::default();
+        setup.layout = attributes;
+        let vs = include_str!("resources/texture.vs").to_owned();
+        let fs = include_str!("resources/texture.fs").to_owned();
+        let pso = shared.video.create_pipeline(setup, vs, fs)?;
+
+        let setup = graphics::TextureSetup::default();
+        let texture = shared
+            .resource
+            .load_extern::<Texture, asset::GraphicsResourceSystem<graphics::TextureHandle>, &str>("/std/texture.png", setup)
+            .wait()
+            .unwrap();
 
         Ok(Window {
-               view: view,
-               pso: pipeline,
+               vso: vso,
+               pso: pso,
                vbo: vbo,
                texture: texture,
            })
     }
 }
 
-impl ApplicationInstance for Window {
-    fn on_update(&mut self, app: &mut Application) -> errors::Result<()> {
-        let mut texture = self.texture.write().unwrap();
-        texture.update_video_object(&mut app.graphics)?;
-
-        {
-            let len = self.vbo.object.read().unwrap().len();
-            let mut task = app.graphics.create_frame_task();
-            task.with_order(0)
-                .with_view(*self.view)
-                .with_pipeline(*self.pso)
-                .with_data(*self.vbo, None)
-                .with_texture("renderedTexture", texture.video_object().unwrap())
-                .submit(graphics::Primitive::Triangles, 0, len)?;
-        }
+impl Application for Window {
+    fn on_update(&mut self, shared: &mut FrameShared) -> errors::Result<()> {
+        shared
+            .video
+            .make()
+            .with_view(self.vso)
+            .with_pipeline(self.pso)
+            .with_data(self.vbo, None)
+            .with_texture("renderedTexture", *self.texture)
+            .submit(graphics::Primitive::Triangles, 0, 6)?;
 
         Ok(())
     }
 }
 
 fn main() {
-    utils::compile();
-
     let mut settings = Settings::default();
     settings.window.width = 232;
     settings.window.height = 217;
 
-    let manifest = "examples/compiled-resources/manifest";
-    let mut app = Application::new_with(settings).unwrap();
-    app.resources.load_manifest(manifest).unwrap();
-
-    let mut window = Window::new(&mut app).unwrap();
-    app.run(&mut window).unwrap();
+    let mut engine = Engine::new_with(settings).unwrap();
+    let window = Window::new(&mut engine).unwrap();
+    engine.run(window).unwrap();
 }

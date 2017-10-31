@@ -9,21 +9,23 @@ impl_vertex!{
     }
 }
 
+struct Pass {
+    view: graphics::ViewStateHandle,
+    pipeline: graphics::PipelineStateHandle,
+    mesh: graphics::VertexBufferHandle,
+}
+
 struct Window {
-    view: graphics::ViewStateRef,
-    pso: graphics::PipelineStateRef,
-    vbo: graphics::VertexBufferRef,
-    texture: graphics::TextureRef,
-
-    view_pass_2: graphics::ViewStateRef,
-    pso_pass_2: graphics::PipelineStateRef,
-    vbo_pass_2: graphics::VertexBufferRef,
-
+    pass: Pass,
+    post_effect: Pass,
+    texture: graphics::TextureHandle,
     time: f32,
 }
 
 impl Window {
-    pub fn new(app: &mut Application) -> errors::Result<Self> {
+    pub fn new(engine: &mut Engine) -> errors::Result<Self> {
+        let shared = engine.shared();
+
         let vertices: [Vertex; 3] = [Vertex::new([0.0, 0.5]),
                                      Vertex::new([0.5, -0.5]),
                                      Vertex::new([-0.5, -0.5])];
@@ -39,87 +41,107 @@ impl Window {
             .with(graphics::VertexAttribute::Position, 2)
             .finish();
 
-        let layout = Vertex::layout();
-
         //
-        let vbo_fb = app.graphics
-            .create_vertex_buffer(&layout,
-                                  graphics::ResourceHint::Static,
-                                  (vertices.len() * layout.stride() as usize) as u32,
-                                  Some(Vertex::as_bytes(&vertices[..])))?;
+        let (pass, rendered_texture) = {
+            // Create vertex buffer object.
+            let mut setup = graphics::VertexBufferSetup::default();
+            setup.num = vertices.len();
+            setup.layout = Vertex::layout();
+            let vbo = shared
+                .video
+                .create_vertex_buffer(setup, Some(Vertex::as_bytes(&vertices[..])))?;
 
-        let state = graphics::RenderState::default();
-        let rendered_texture =
-            app.graphics
-                .create_render_texture(graphics::RenderTextureFormat::RGBA8, 568, 320)?;
+            // Create render texture for post effect.
+            let mut setup = graphics::RenderTextureSetup::default();
+            setup.format = graphics::RenderTextureFormat::RGBA8;
+            setup.dimensions = (568, 320);
+            let rendered_texture = shared.video.create_render_texture(setup)?;
 
-        let fbo = app.graphics.create_framebuffer()?;
-        {
-            let mut item = fbo.object.write().unwrap();
-            item.update_texture_attachment(&rendered_texture, Some(0))?;
-        }
+            // Create custom frame buffer.
+            let mut setup = graphics::FrameBufferSetup::default();
+            setup.set_texture_attachment(rendered_texture, Some(0))?;
+            let fbo = shared.video.create_framebuffer(setup)?;
 
-        let view_fb = app.graphics.create_view(Some(fbo))?;
-        {
-            let mut item = view_fb.object.write().unwrap();
-            item.update_clear(Some(Color::gray()), None, None);
-        }
+            // Create the view state for pass 1.
+            let mut setup = graphics::ViewStateSetup::default();
+            setup.framebuffer = Some(fbo);
+            setup.clear_color = Some(Color::gray());
+            let view = shared.video.create_view(setup)?;
 
-        let pipeline_fb = app.graphics
-            .create_pipeline(include_str!("resources/shaders/render_target_p1.vs"),
-                             include_str!("resources/shaders/render_target_p1.fs"),
-                             &state,
-                             &attributes)?;
+            // Create pipeline state.
+            let vs = include_str!("resources/render_target_p1.vs").to_owned();
+            let fs = include_str!("resources/render_target_p1.fs").to_owned();
+            let mut setup = graphics::PipelineStateSetup::default();
+            setup.layout = attributes;
+            let pipeline = shared.video.create_pipeline(setup, vs, fs)?;
 
-        let vbo = app.graphics
-            .create_vertex_buffer(&layout,
-                                  graphics::ResourceHint::Static,
-                                  (quad_vertices.len() * layout.stride() as usize) as u32,
-                                  Some(Vertex::as_bytes(&quad_vertices[..])))?;
-        let view = app.graphics.create_view(None)?;
-        let pipeline = app.graphics
-            .create_pipeline(include_str!("resources/shaders/render_target_p2.vs"),
-                             include_str!("resources/shaders/render_target_p2.fs"),
-                             &state,
-                             &attributes)?;
+            (Pass {
+                 view: view,
+                 pipeline: pipeline,
+                 mesh: vbo,
+             },
+             rendered_texture)
+        };
+
+        let post_effect = {
+            let mut setup = graphics::VertexBufferSetup::default();
+            setup.num = quad_vertices.len();
+            setup.layout = Vertex::layout();
+            let vbo = shared
+                .video
+                .create_vertex_buffer(setup, Some(Vertex::as_bytes(&quad_vertices[..])))?;
+
+            let setup = graphics::ViewStateSetup::default();
+            let view = shared.video.create_view(setup)?;
+
+            let mut setup = graphics::PipelineStateSetup::default();
+            setup.layout = attributes;
+            let vs = include_str!("resources/render_target_p2.vs").to_owned();
+            let fs = include_str!("resources/render_target_p2.fs").to_owned();
+            let pipeline = shared.video.create_pipeline(setup, vs, fs)?;
+
+            Pass {
+                view: view,
+                pipeline: pipeline,
+                mesh: vbo,
+            }
+        };
 
         Ok(Window {
-               view: view_fb,
-               pso: pipeline_fb,
-               vbo: vbo_fb,
+               pass: pass,
+               post_effect: post_effect,
                texture: rendered_texture,
-
-               view_pass_2: view,
-               pso_pass_2: pipeline,
-               vbo_pass_2: vbo,
 
                time: 0.0,
            })
     }
 }
 
-impl ApplicationInstance for Window {
-    fn on_update(&mut self, app: &mut Application) -> errors::Result<()> {
+impl Application for Window {
+    fn on_update(&mut self, shared: &mut FrameShared) -> errors::Result<()> {
+
         {
-            let len = self.vbo.object.read().unwrap().len();
-            let mut task = app.graphics.create_frame_task();
-            task.with_order(0)
-                .with_view(*self.view)
-                .with_pipeline(*self.pso)
-                .with_data(*self.vbo, None)
-                .submit(graphics::Primitive::Triangles, 0, len)?;
+            shared
+                .video
+                .make()
+                .with_order(0)
+                .with_view(self.pass.view)
+                .with_pipeline(self.pass.pipeline)
+                .with_data(self.pass.mesh, None)
+                .submit(graphics::Primitive::Triangles, 0, 3)?;
         }
 
         {
-            let len = self.vbo_pass_2.object.read().unwrap().len();
-            let mut task = app.graphics.create_frame_task();
-            task.with_order(1)
-                .with_view(*self.view_pass_2)
-                .with_pipeline(*self.pso_pass_2)
-                .with_data(*self.vbo_pass_2, None)
+            shared
+                .video
+                .make()
+                .with_order(1)
+                .with_view(self.post_effect.view)
+                .with_pipeline(self.post_effect.pipeline)
+                .with_data(self.post_effect.mesh, None)
                 .with_uniform_variable("time", self.time.into())
-                .with_texture("renderedTexture", *self.texture)
-                .submit(graphics::Primitive::Triangles, 0, len)?;
+                .with_texture("renderedTexture", self.texture)
+                .submit(graphics::Primitive::Triangles, 0, 6)?;
         }
 
         self.time += 0.05;
@@ -128,11 +150,11 @@ impl ApplicationInstance for Window {
 }
 
 fn main() {
-    let mut settings = crayon::core::settings::Settings::default();
+    let mut settings = Settings::default();
     settings.window.width = 568;
     settings.window.height = 320;
 
-    let mut app = Application::new_with(settings).unwrap();
-    let mut window = Window::new(&mut app).unwrap();
-    app.run(&mut window).unwrap();
+    let mut engine = Engine::new_with(settings).unwrap();
+    let window = Window::new(&mut engine).unwrap();
+    engine.run(window).unwrap();
 }
