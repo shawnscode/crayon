@@ -2,6 +2,7 @@
 
 use std::any::Any;
 use std::borrow::Borrow;
+use std::sync::{RwLock, RwLockWriteGuard, RwLockReadGuard};
 use bit_set::BitSet;
 
 use super::*;
@@ -13,9 +14,13 @@ use super::super::utils::{HandleIndex, HandlePool, HandleIter};
 pub struct World {
     entities: HandlePool,
     masks: Vec<BitSet>,
-    erasers: Vec<Box<FnMut(&mut Any, HandleIndex) -> () + Send + Sync>>,
+    erasers: Vec<Box<FnMut(&Any, HandleIndex) -> () + Send + Sync>>,
     arenas: Vec<Option<Box<Any + Send + Sync>>>,
 }
+
+/// Make sure that `World` can be used on multi-threads.
+unsafe impl Send for World {}
+unsafe impl Sync for World {}
 
 impl World {
     /// Constructs a new empty `World`.
@@ -66,7 +71,7 @@ impl World {
         if self.is_alive(ent) {
             for x in self.masks[ent.index() as usize].iter() {
                 let erase = &mut self.erasers[x];
-                erase(self.arenas[x].as_mut().unwrap(), ent.index())
+                erase(self.arenas[x].as_ref().unwrap().as_ref(), ent.index())
             }
 
             self.masks[ent.index() as usize].clear();
@@ -83,8 +88,12 @@ impl World {
         if T::type_index() >= self.arenas.len() {
             for _ in self.arenas.len()..(T::type_index() + 1) {
                 // Keeps downcast type info in closure.
-                let eraser = Box::new(|any: &mut Any, id: HandleIndex| {
-                                          any.downcast_mut::<T::Storage>().unwrap().remove(id);
+                let eraser = Box::new(|any: &Any, id: HandleIndex| {
+                                          any.downcast_ref::<RwLock<T::Storage>>()
+                                              .unwrap()
+                                              .write()
+                                              .unwrap()
+                                              .remove(id);
                                       });
 
                 self.erasers.push(eraser);
@@ -97,7 +106,7 @@ impl World {
             return;
         }
 
-        self.arenas[T::type_index()] = Some(Box::new(T::Storage::new()));
+        self.arenas[T::type_index()] = Some(Box::new(RwLock::new(T::Storage::new())));
     }
 
     /// Add components to entity, returns the old value if exists.
@@ -106,13 +115,16 @@ impl World {
     {
         if self.is_alive(ent) {
             let result = if self.masks[ent.index() as usize].contains(T::type_index()) {
-                self._arena_mut::<T>().remove(ent.index())
+                self.raw_arena::<T>().write().unwrap().remove(ent.index())
             } else {
                 self.masks[ent.index() as usize].insert(T::type_index());
                 None
             };
 
-            self._arena_mut::<T>().insert(ent.index(), value);
+            self.raw_arena::<T>()
+                .write()
+                .unwrap()
+                .insert(ent.index(), value);
             result
         } else {
             None
@@ -131,7 +143,7 @@ impl World {
     {
         if self.masks[ent.index() as usize].contains(T::type_index()) {
             self.masks[ent.index() as usize].remove(T::type_index());
-            self._arena_mut::<T>().remove(ent.index())
+            self.raw_arena::<T>().write().unwrap().remove(ent.index())
         } else {
             None
         }
@@ -146,71 +158,52 @@ impl World {
     }
 
     /// Returns a reference to the component corresponding to the `Entity`.
+    pub fn get<T>(&self, ent: Entity) -> Option<T>
+        where T: Component + Copy
+    {
+        if self.has::<T>(ent) {
+            unsafe {
+                Some(*self.raw_arena::<T>()
+                          .read()
+                          .unwrap()
+                          .get_unchecked(ent.index()))
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Returns the mutable arena wrapper.
     ///
     /// # Panics
-    /// Panics if any T is currently mutably borrowed.
-    pub fn get<T>(&self, ent: Entity) -> Option<&T>
+    ///
+    /// Panics if user has not register the arena with type `T`.
+    #[inline]
+    pub fn arena_mut<T>(&self) -> ArenaWriteGuard<T>
         where T: Component
     {
-        if self.has::<T>(ent) {
-            unsafe { Some(self._arena::<T>().get_unchecked(ent.index())) }
-        } else {
-            None
-        }
+        ArenaWriteGuard { storage: self.raw_arena::<T>().write().unwrap() }
     }
 
-    /// Returns a mutable reference to the component corresponding to the `Entity`.
+    /// Returns the immutable arena wrapper.
+    ///
     /// # Panics
-    /// Panics if any T is currently borrowed.
-    pub fn get_mut<T>(&mut self, ent: Entity) -> Option<&mut T>
+    ///
+    /// Panics if user has not register the arena with type `T`.
+    #[inline]
+    pub fn arena<T>(&self) -> ArenaReadGuard<T>
         where T: Component
     {
-        if self.has::<T>(ent) {
-            unsafe { Some(self._arena_mut::<T>().get_unchecked_mut(ent.index())) }
-        } else {
-            None
-        }
+        ArenaReadGuard { storage: self.raw_arena::<T>().read().unwrap() }
     }
 
     #[inline]
-    pub fn arena_mut<T>(&mut self) -> ArenaMutGetter<T>
+    fn raw_arena<T>(&self) -> &RwLock<T::Storage>
         where T: Component
     {
-        ArenaMutGetter { storage: self._arena_mut::<T>() }
-    }
-
-    #[inline]
-    pub fn arena<T>(&self) -> ArenaGetter<T>
-        where T: Component
-    {
-        ArenaGetter { storage: self._arena::<T>() }
-    }
-
-    #[inline]
-    fn _arena_mut<T>(&mut self) -> &mut T::Storage
-        where T: Component
-    {
-        Self::_cast_mut::<T>(
-            self.arenas[T::type_index()]
-                .as_mut()
+        Self::any::<T>(
+            self.arenas.get(T::type_index())
                 .expect("Tried to perform an operation on component type that not registered.")
-                .as_mut()
-        )
-    }
-
-    #[inline]
-    fn _cast_mut<T>(v: &mut Any) -> &mut T::Storage
-        where T: Component
-    {
-        v.downcast_mut::<T::Storage>().unwrap()
-    }
-
-    #[inline]
-    fn _arena<T>(&self) -> &T::Storage
-        where T: Component
-    {
-        Self::_cast::<T>(
-            self.arenas[T::type_index()]
                 .as_ref()
                 .expect("Tried to perform an operation on component type that not registered.")
                 .as_ref()
@@ -218,20 +211,20 @@ impl World {
     }
 
     #[inline]
-    fn _cast<T>(v: &Any) -> &T::Storage
+    fn any<T>(v: &Any) -> &RwLock<T::Storage>
         where T: Component
     {
-        v.downcast_ref::<T::Storage>().unwrap()
+        v.downcast_ref::<RwLock<T::Storage>>().unwrap()
     }
 }
 
-pub struct ArenaGetter<'a, T>
+pub struct ArenaReadGuard<'a, T>
     where T: Component
 {
-    storage: &'a T::Storage,
+    storage: RwLockReadGuard<'a, T::Storage>,
 }
 
-impl<'a, T> ArenaGetter<'a, T>
+impl<'a, T> ArenaReadGuard<'a, T>
     where T: Component
 {
     #[inline]
@@ -249,13 +242,13 @@ impl<'a, T> ArenaGetter<'a, T>
     }
 }
 
-pub struct ArenaMutGetter<'a, T>
+pub struct ArenaWriteGuard<'a, T>
     where T: Component
 {
-    storage: &'a mut T::Storage,
+    storage: RwLockWriteGuard<'a, T::Storage>,
 }
 
-impl<'a, T> ArenaMutGetter<'a, T>
+impl<'a, T> ArenaWriteGuard<'a, T>
     where T: Component
 {
     #[inline]

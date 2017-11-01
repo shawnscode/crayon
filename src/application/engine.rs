@@ -112,7 +112,7 @@ impl Engine {
             self.advance();
             self.graphics.swap_frames();
 
-            let video_info = {
+            let (video_info, duration) = {
                 let shared = self.shared();
                 let application = application.clone();
                 let (rx, tx) = mpsc::channel();
@@ -129,8 +129,8 @@ impl Engine {
                 // This will block the main-thread until all the graphics commands
                 // is finished by GPU.
                 let video_info = self.graphics.advance().unwrap();
-                tx.recv().unwrap()?;
-                video_info
+                let duration = tx.recv().unwrap()?;
+                (video_info, duration)
             };
 
             // Advance resource system.
@@ -138,7 +138,12 @@ impl Engine {
 
             //
             {
-                let info = FrameInfo { video: video_info };
+                let info = FrameInfo {
+                    video: video_info,
+                    duration: duration,
+                    fps: self.get_fps(),
+                };
+
                 let mut shared = self.shared();
                 let application = application.clone();
 
@@ -154,12 +159,15 @@ impl Engine {
         Ok(self)
     }
 
-    fn execute_frame(application: Arc<RwLock<Application>>, mut shared: Context) -> Result<()> {
+    fn execute_frame(application: Arc<RwLock<Application>>,
+                     mut shared: Context)
+                     -> Result<time::Duration> {
+        let ts = time::Instant::now();
         let mut application = application.write().unwrap();
         application.on_update(&mut shared)?;
         application.on_render(&mut shared)?;
 
-        Ok(())
+        Ok(time::Instant::now() - ts)
     }
 
     /// Stop the whole application.
@@ -174,7 +182,7 @@ impl Engine {
         if self.max_fps > 0 {
             let td = Duration::from_millis((1000 / self.max_fps) as u64);
             while self.last_frame_timepoint.elapsed() <= td {
-                if (self.last_frame_timepoint.elapsed() + Duration::from_millis(5)) < td {
+                if (self.last_frame_timepoint.elapsed() + Duration::from_millis(2)) < td {
                     std::thread::sleep(Duration::from_millis(1));
                 } else {
                     std::thread::yield_now();

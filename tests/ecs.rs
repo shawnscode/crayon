@@ -8,7 +8,7 @@ use crayon::prelude::*;
 use std::sync::{Arc, RwLock};
 use rand::{Rng, SeedableRng, XorShiftRng};
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
 struct Position {
     x: u32,
     y: u32,
@@ -39,18 +39,20 @@ fn basic() {
 
     {
         let p = world.get::<Position>(e1).unwrap();
-        assert_eq!(*p, Position { x: 1, y: 2 });
+        assert_eq!(p, Position { x: 1, y: 2 });
     }
 
     {
-        let p = world.get_mut::<Position>(e1).unwrap();
+        let mut arena = world.arena_mut::<Position>();
+
+        let p = arena.get_mut(e1).unwrap();
         p.x = 2;
         p.y = 5;
     }
 
     {
         let p = world.get::<Position>(e1).unwrap();
-        assert_eq!(*p, Position { x: 2, y: 5 });
+        assert_eq!(p, Position { x: 2, y: 5 });
     }
 
     world.remove::<Position>(e1);
@@ -108,7 +110,7 @@ fn duplicated_add() {
     assert!(world.add::<Position>(e1, Position { x: 1, y: 2 }) == None);
     assert!(world.add::<Position>(e1, Position { x: 2, y: 4 }) == Some(Position { x: 1, y: 2 }));
 
-    assert!(*world.get::<Position>(e1).unwrap() == Position { x: 2, y: 4 })
+    assert!(world.get::<Position>(e1).unwrap() == Position { x: 2, y: 4 })
 }
 
 #[test]
@@ -145,7 +147,7 @@ fn random_allocate() {
     }
 
     for i in v {
-        assert_eq!(*world.get::<Position>(i).unwrap(),
+        assert_eq!(world.get::<Position>(i).unwrap(),
                    Position {
                        x: i.index(),
                        y: i.version(),
@@ -193,10 +195,10 @@ fn iter_with() {
     }
 
     {
-        let (view, _) = world.view_with_2::<Position, Reference>();
-        for _ in view {
-            // arenas.0.get_mut(e).unwrap().x += e.version();
-            // *arenas.1.get_mut(e).unwrap().value.write().unwrap() += 1;
+        let (view, mut arenas) = world.view_with_2::<Position, Reference>();
+        for e in view {
+            arenas.0.get_mut(e).unwrap().x += e.version();
+            *arenas.1.get_mut(e).unwrap().value.write().unwrap() += 1;
         }
     }
 

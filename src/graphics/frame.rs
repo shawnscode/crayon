@@ -17,7 +17,8 @@ pub enum PreFrameTask {
     CreateView(ViewStateHandle, ViewStateSetup),
     CreatePipeline(PipelineStateHandle, PipelineStateSetup, String, String),
     CreateFrameBuffer(FrameBufferHandle, FrameBufferSetup),
-    CreateTexture(TextureHandle, TextureSetup, Vec<u8>),
+    CreateTexture(TextureHandle, TextureSetup, Option<TaskBufferPtr<[u8]>>),
+    UpdateTexture(TextureHandle, Rect, TaskBufferPtr<[u8]>),
     CreateRenderTexture(TextureHandle, RenderTextureSetup),
     CreateRenderBuffer(RenderBufferHandle, RenderBufferSetup),
     CreateVertexBuffer(VertexBufferHandle, VertexBufferSetup, Option<TaskBufferPtr<[u8]>>),
@@ -92,11 +93,17 @@ impl Frame {
                     device.create_index_buffer(handle, setup, buf)?;
                 }
                 PreFrameTask::UpdateIndexBuffer(handle, offset, data) => {
-                    let data = &self.buf.as_bytes(data);
-                    device.update_index_buffer(handle, offset, &data)?;
+                    let buf = &self.buf.as_bytes(data);
+                    device.update_index_buffer(handle, offset, &buf)?;
                 }
                 PreFrameTask::CreateTexture(handle, setup, data) => {
-                    device.create_texture(handle, setup, data)?;
+                    let field = &self.buf;
+                    let buf = data.map(|v| field.as_slice(v));
+                    device.create_texture(handle, setup, buf)?;
+                }
+                PreFrameTask::UpdateTexture(handle, rect, data) => {
+                    let buf = &self.buf.as_bytes(data);
+                    device.update_texture(handle, rect, &buf)?;
                 }
                 PreFrameTask::CreateRenderTexture(handle, setup) => {
                     device.create_render_texture(handle, setup)?;

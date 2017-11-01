@@ -28,14 +28,18 @@ use std::sync::Arc;
 use self::errors::*;
 use graphics;
 use resource;
+use std::time;
 
 pub struct Context {
     pub video: Arc<graphics::GraphicsSystemShared>,
     pub resource: Arc<resource::ResourceSystemShared>,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct FrameInfo {
     pub video: graphics::GraphicsFrameInfo,
+    pub duration: time::Duration,
+    pub fps: u32,
 }
 
 /// `Application` is a user-friendly facade to building application, which defines a number

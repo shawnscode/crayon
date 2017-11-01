@@ -64,7 +64,7 @@ impl resource::ExternalResourceSystem for GraphicsResourceSystem<graphics::Textu
         options.format = src.format();
 
         let handle = self.video
-            .create_texture(options, src.data().to_owned())
+            .create_texture(options, Some(src.data()))
             .unwrap();
         let handle = Arc::new(handle);
         self.arena.insert(hash, handle.clone());

@@ -212,12 +212,17 @@ impl GraphicsSystemShared {
 impl GraphicsSystemShared {
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
-    pub fn create_texture(&self, setup: TextureSetup, data: Vec<u8>) -> Result<TextureHandle> {
+    pub fn create_texture(&self,
+                          setup: TextureSetup,
+                          data: Option<&[u8]>)
+                          -> Result<TextureHandle> {
         let handle = self.textures.write().unwrap().create().into();
 
         {
-            let task = PreFrameTask::CreateTexture(handle, setup, data);
-            self.frames.front().pre.push(task);
+            let mut frame = self.frames.front();
+            let ptr = data.map(|v| frame.buf.extend_from_slice(v));
+            let task = PreFrameTask::CreateTexture(handle, setup, ptr);
+            frame.pre.push(task);
         }
 
         Ok(handle)
@@ -233,6 +238,19 @@ impl GraphicsSystemShared {
         }
 
         Ok(handle)
+    }
+
+    /// Update the texture.
+    pub fn update_texture(&self, handle: TextureHandle, rect: Rect, data: &[u8]) -> Result<()> {
+        if self.textures.read().unwrap().is_alive(handle) {
+            let mut frame = self.frames.front();
+            let ptr = frame.buf.extend_from_slice(data);
+            let task = PreFrameTask::UpdateTexture(handle, rect, ptr);
+            frame.pre.push(task);
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
     }
 
     /// Deletes a texture object.

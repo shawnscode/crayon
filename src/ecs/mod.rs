@@ -37,7 +37,7 @@ pub mod component;
 pub mod world;
 
 pub use self::component::{Component, ComponentArena, HashMapArena, VecArena};
-pub use self::world::{World, ArenaGetter, ArenaMutGetter};
+pub use self::world::{World, ArenaReadGuard, ArenaWriteGuard};
 
 /// `Entity` type, as seen by the user, its a alias to `Handle` internally.
 pub type Entity = Handle;

@@ -52,6 +52,7 @@ impl OpenGLVisitor {
         gl::Disable(gl::POLYGON_OFFSET_FILL);
         gl::Disable(gl::BLEND);
         gl::ColorMask(1, 1, 1, 1);
+        gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
         OpenGLVisitor {
             cull_face: Cell::new(CullFace::Nothing),
@@ -539,6 +540,28 @@ impl OpenGLVisitor {
 
         check()?;
         Ok(id)
+    }
+
+    pub unsafe fn update_texture(&self,
+                                 id: GLuint,
+                                 format: GLenum,
+                                 tt: GLenum,
+                                 rect: Rect,
+                                 data: &[u8])
+                                 -> Result<()> {
+        self.bind_texture(0, id)?;
+
+        gl::TexSubImage2D(gl::TEXTURE_2D,
+                          0,
+                          rect.min.x,
+                          rect.min.y,
+                          rect.width(),
+                          rect.height(),
+                          format,
+                          tt,
+                          ::std::mem::transmute(&data[0]));
+
+        check()
     }
 
     pub unsafe fn update_texture_parameters(&self,
