@@ -8,7 +8,20 @@ use rayon;
 use super::*;
 use graphics;
 use resource;
-use asset;
+use assets;
+use super::context::{Context, ContextSystem};
+
+impl ContextSystem for resource::ResourceSystem {
+    type Shared = resource::ResourceSystemShared;
+}
+
+impl ContextSystem for graphics::GraphicsSystem {
+    type Shared = graphics::GraphicsSystemShared;
+}
+
+impl ContextSystem for assets::TextureSystem {
+    type Shared = assets::TextureSystem;
+}
 
 /// `Engine` is the root object of the game application. It binds various sub-systems in
 /// a central place and takes take of trivial tasks like the execution order or life-time
@@ -28,6 +41,8 @@ pub struct Engine {
     pub window: Arc<graphics::Window>,
     pub graphics: graphics::GraphicsSystem,
     pub resource: resource::ResourceSystem,
+
+    context: Arc<RwLock<Context>>,
 }
 
 impl Engine {
@@ -46,11 +61,19 @@ impl Engine {
         let window = Arc::new(wb.build(&input)?);
 
         let graphics = graphics::GraphicsSystem::new(window.clone())?;
-        let mut resource = resource::ResourceSystem::new()?;
-        asset::register(&mut resource, graphics.shared());
+        let resource = resource::ResourceSystem::new()?;
 
         let confs = rayon::Configuration::new();
         let scheduler = rayon::ThreadPool::new(confs).unwrap();
+
+        let mut context = Context::new();
+        context.insert::<graphics::GraphicsSystem>(graphics.shared());
+        context.insert::<resource::ResourceSystem>(resource.shared());
+
+        {
+            let texture = assets::TextureSystem::new(&context);
+            context.insert::<assets::TextureSystem>(Arc::new(texture));
+        }
 
         Ok(Engine {
                min_fps: settings.engine.min_fps,
@@ -67,14 +90,12 @@ impl Engine {
                window: window,
                graphics: graphics,
                resource: resource,
+               context: Arc::new(RwLock::new(context)),
            })
     }
 
-    pub fn shared(&self) -> FrameShared {
-        FrameShared {
-            video: self.graphics.shared(),
-            resource: self.resource.shared(),
-        }
+    pub fn context(&self) -> &Arc<RwLock<Context>> {
+        &self.context
     }
 
     /// Run the main loop of `Engine`, this will block the working
@@ -112,13 +133,14 @@ impl Engine {
             self.advance();
             self.graphics.swap_frames();
 
-            let video_info = {
-                let shared = self.shared();
+            let (video_info, duration) = {
                 let application = application.clone();
                 let (rx, tx) = mpsc::channel();
 
+                let ctx = self.context.clone();
                 let closure = move || {
-                    let v = Engine::execute_frame(application, shared);
+                    let ctx = ctx.read().unwrap();
+                    let v = Engine::execute_frame(application, &ctx);
                     rx.send(v).unwrap();
                 };
 
@@ -129,37 +151,40 @@ impl Engine {
                 // This will block the main-thread until all the graphics commands
                 // is finished by GPU.
                 let video_info = self.graphics.advance().unwrap();
-                tx.recv().unwrap()?;
-                video_info
+                let duration = tx.recv().unwrap()?;
+                (video_info, duration)
             };
 
-            // Advance resource system.
-            self.resource.advance()?;
+            let info = FrameInfo {
+                video: video_info,
+                duration: duration,
+                fps: self.get_fps(),
+            };
 
-            //
-            {
-                let info = FrameInfo { video: video_info };
-                let mut shared = self.shared();
-                let application = application.clone();
+            let ctx = self.context.clone();
+            let application = application.clone();
 
-                let closure = || {
-                    let mut application = application.write().unwrap();
-                    application.on_post_update(&mut shared, &info)
-                };
+            let closure = || {
+                let ctx = ctx.read().unwrap();
+                let mut application = application.write().unwrap();
+                application.on_post_update(&ctx, &info)
+            };
 
-                self.scheduler.install(closure)?;
-            }
+            self.scheduler.install(closure)?;
         }
 
         Ok(self)
     }
 
-    fn execute_frame(application: Arc<RwLock<Application>>, mut shared: FrameShared) -> Result<()> {
+    fn execute_frame(application: Arc<RwLock<Application>>,
+                     ctx: &Context)
+                     -> Result<time::Duration> {
+        let ts = time::Instant::now();
         let mut application = application.write().unwrap();
-        application.on_update(&mut shared)?;
-        application.on_render(&mut shared)?;
+        application.on_update(&ctx)?;
+        application.on_render(&ctx)?;
 
-        Ok(())
+        Ok(time::Instant::now() - ts)
     }
 
     /// Stop the whole application.
@@ -174,7 +199,7 @@ impl Engine {
         if self.max_fps > 0 {
             let td = Duration::from_millis((1000 / self.max_fps) as u64);
             while self.last_frame_timepoint.elapsed() <= td {
-                if (self.last_frame_timepoint.elapsed() + Duration::from_millis(5)) < td {
+                if (self.last_frame_timepoint.elapsed() + Duration::from_millis(2)) < td {
                     std::thread::sleep(Duration::from_millis(1));
                 } else {
                     std::thread::yield_now();

@@ -17,22 +17,12 @@ It is loosely inspired by some amazing blogs on [bitsquid](https://bitsquid.blog
 
 *Warning*: This project is a work in progress and far from a stable version right now.
 
-### Usage (Workflow)
-The most recommanded way to work with `crayon` is following commands below:
-
-``` sh
-git clone git@github.com:shawnscode/crayon.git && cd crayon
-cargo install --path crayon-cli --force
-```
-
-If everything goes well, you should get a CLI tool named `crayon-cli`. Its barely useable right now, and only supports basic project creation and resource manipulations. In spite of the unstable status of this project, feel free to checkout and build to follow progress recently.
-
 ### Quick Example
 For the sake of brevity, you can also run a simple and quick example with commands:
 
 ``` sh
 git clone git@github.com:shawnscode/crayon.git && cd crayon
-cargo run --example sprite
+cargo run --example render_target
 ```
 
 ### Examples and Screenshots

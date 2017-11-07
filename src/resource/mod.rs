@@ -8,38 +8,53 @@
 pub mod errors;
 pub mod filesystem;
 pub mod cache;
-pub mod arena;
 
-pub use self::resource::{ResourceSystem, ResourceSystemShared, ResourceFuture};
+pub use self::resource::{ResourceSystem, ResourceSystemShared};
 
 mod resource;
+
 use std::sync::Arc;
 use std::path::Path;
+use std::error::Error;
+use std::result::Result;
 
-/// A slim proxy trait that adds a standardized interface of resource.
-pub trait Resource: Send + Sync + 'static {
-    fn size(&self) -> usize;
+use futures;
+use futures::{Async, Poll, Future};
+
+/// The future version of resource.
+pub struct ResourceFuture<T, E: Error>(futures::sync::oneshot::Receiver<Result<Arc<T>, E>>);
+
+impl<T, E> Future for ResourceFuture<T, E>
+    where E: Error + From<self::errors::Error>
+{
+    type Item = Arc<T>;
+    type Error = E;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match self.0.poll() {
+            Ok(Async::Ready(x)) => Ok(Async::Ready(x?)),
+            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Err(_) => {
+                let err: self::errors::Error = self::errors::ErrorKind::FutureCanceled.into();
+                Err(err.into())
+            }
+        }
+    }
 }
 
-/// Resources comes with various formats usually, we could introduce a conversion
-/// from plain bytes to resource instance by implementing trait `ResourceParser`.
-pub trait ResourceParser {
-    type Item: Resource;
-
-    fn parse(bytes: &[u8]) -> self::errors::Result<Self::Item>;
-}
-
-///
-pub trait ExternalResourceSystem {
+pub trait ResourceArenaLoader: Send + Sync + 'static {
     type Item: Send + Sync + 'static;
-    type Data: Resource;
-    type Options: Send + Sync + Copy;
+    type Error: Error + From<self::errors::Error> + Send;
 
-    fn load(&mut self,
-            path: &Path,
-            src: &Self::Data,
-            options: Self::Options)
-            -> self::errors::Result<Arc<Self::Item>>;
+    fn get(&self, path: &Path) -> Option<Arc<Self::Item>>;
+    fn parse(&self, bytes: &[u8]) -> Result<Self::Item, Self::Error>;
+    fn insert(&self, path: &Path, item: Arc<Self::Item>);
+}
 
-    fn unload_unused(&mut self);
+pub trait ResourceArenaMapper: Send + Sync + 'static {
+    type Source: Send + Sync + 'static;
+    type Item: Send + Sync + 'static;
+    type Error: Error + From<self::errors::Error> + Send;
+
+    fn map(&self, src: &Self::Source) -> Result<Arc<Self::Item>, Self::Error>;
 }

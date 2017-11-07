@@ -13,6 +13,7 @@ use super::*;
 use super::visitor::*;
 
 use super::super::frame::{TaskBuffer, TaskBufferPtr};
+use super::super::rect::Rect;
 
 type ResourceID = GLuint;
 
@@ -66,7 +67,7 @@ struct FrameBufferObject {
 
 #[derive(Debug, Copy, Clone)]
 struct DrawCall {
-    priority: u64,
+    order: u64,
     view: ViewStateHandle,
     pipeline: PipelineStateHandle,
     uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
@@ -125,7 +126,7 @@ impl Device {
     }
 
     pub fn submit(&self,
-                  priority: u64,
+                  order: u64,
                   view: ViewStateHandle,
                   pipeline: PipelineStateHandle,
                   textures: TaskBufferPtr<[(TaskBufferPtr<str>, TextureHandle)]>,
@@ -140,7 +141,7 @@ impl Device {
             vo.drawcalls
                 .borrow_mut()
                 .push(DrawCall {
-                          priority: priority,
+                          order: order,
                           view: view,
                           pipeline: pipeline,
                           textures: textures,
@@ -210,7 +211,7 @@ impl Device {
             if !vo.setup.sequence {
                 vo.drawcalls
                     .borrow_mut()
-                    .sort_by(|lhs, rhs| rhs.priority.cmp(&lhs.priority));
+                    .sort_by(|lhs, rhs| rhs.order.cmp(&lhs.order));
             }
 
             // Submit real OpenGL drawcall in order.
@@ -257,6 +258,7 @@ impl Device {
                 let vbo = self.vertex_buffers
                     .get(dc.vb)
                     .ok_or(ErrorKind::InvalidHandle)?;
+
                 self.visitor.bind_buffer(gl::ARRAY_BUFFER, vbo.id)?;
                 self.visitor
                     .bind_attribute_layout(&pso.setup.layout, &vbo.setup.layout)?;
@@ -264,6 +266,7 @@ impl Device {
                 // Bind index buffer object if available.
                 if let Some(v) = dc.ib {
                     if let Some(ibo) = self.index_buffers.get(v) {
+                        self.visitor.bind_buffer(gl::ELEMENT_ARRAY_BUFFER, ibo.id)?;
                         gl::DrawElements(dc.primitive.into(),
                                          dc.len as GLsizei,
                                          ibo.setup.format.into(),
@@ -558,7 +561,7 @@ impl Device {
     pub unsafe fn create_texture(&mut self,
                                  handle: TextureHandle,
                                  setup: TextureSetup,
-                                 data: Vec<u8>)
+                                 data: Option<&[u8]>)
                                  -> Result<()> {
         let (internal_format, in_format, pixel_type) = setup.format.into();
         let id = self.visitor
@@ -570,7 +573,7 @@ impl Device {
                             setup.mipmap,
                             setup.dimensions.0,
                             setup.dimensions.1,
-                            Some(&data))?;
+                            data)?;
 
         self.textures
             .set(handle,
@@ -579,6 +582,31 @@ impl Device {
                      setup: GenericTextureSetup::Normal(setup),
                  });
         Ok(())
+    }
+
+    pub unsafe fn update_texture(&mut self,
+                                 handle: TextureHandle,
+                                 rect: Rect,
+                                 data: &[u8])
+                                 -> Result<()> {
+        if let Some(texture) = self.textures.get(handle) {
+            if let GenericTextureSetup::Normal(setup) = texture.setup {
+                if data.len() > rect.size() as usize || rect.min.x as u32 >= setup.dimensions.0 ||
+                   rect.min.y as u32 >= setup.dimensions.1 ||
+                   rect.max.x < 0 || rect.max.y < 0 {
+                    bail!(ErrorKind::OutOfBounds);
+                }
+
+                let (_, format, tt) = setup.format.into();
+                self.visitor
+                    .update_texture(texture.id, format, tt, rect, data)?;
+                Ok(())
+            } else {
+                bail!("Can not update render texture.");
+            }
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
     }
 
     pub unsafe fn delete_texture(&mut self, handle: TextureHandle) -> Result<()> {

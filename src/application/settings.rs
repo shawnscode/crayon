@@ -21,7 +21,7 @@ impl Default for EngineSettings {
     fn default() -> Self {
         EngineSettings {
             min_fps: 0,
-            max_fps: 0,
+            max_fps: 30,
             max_inactive_fps: 0,
             time_smooth_step: 0,
         }

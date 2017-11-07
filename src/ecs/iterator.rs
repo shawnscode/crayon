@@ -103,7 +103,7 @@ macro_rules! build_view_with {
             }
 
             impl World {
-                pub fn $name<$($cps), *>(&self) -> (View, ($(ArenaMutGetter<$cps>), *))
+                pub fn $name<$($cps), *>(&self) -> (View, ($(ArenaWriteGuard<$cps>), *))
                     where $($cps:Component, )*
                 {
                     let mut mask = BitSet::new();
@@ -114,7 +114,7 @@ macro_rules! build_view_with {
                             world: self,
                             mask: mask,
                         },
-                        ( $(self.arena_mut::<$cps>().unwrap()), * )
+                        ( $(self.arena_mut::<$cps>()), * )
                     )
                 }
             }

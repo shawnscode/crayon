@@ -18,8 +18,6 @@ extern crate zip;
 extern crate two_lock_queue;
 extern crate bit_set;
 
-extern crate image;
-
 #[macro_use]
 pub extern crate lazy_static;
 pub extern crate rayon;
@@ -33,5 +31,5 @@ pub mod ecs;
 #[macro_use]
 pub mod graphics;
 pub mod resource;
-pub mod asset;
+pub mod assets;
 pub mod prelude;
