@@ -3,7 +3,7 @@ use crayon::prelude::*;
 pub struct TextureParser {}
 
 impl assets::texture_sys::TextureFormat for TextureParser {
-    fn parse(bytes: &[u8]) -> resource::errors::Result<Texture> {
+    fn parse(bytes: &[u8]) -> assets::texture_sys::Result<Texture> {
         use image;
         use image::GenericImage;
 

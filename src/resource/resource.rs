@@ -4,6 +4,7 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::borrow::Borrow;
+use std;
 
 use two_lock_queue;
 use futures;
@@ -90,7 +91,7 @@ impl ResourceSystem {
                driver: &FilesystemDriver,
                locks: &mut HashSet<HashValue<Path>>,
                buf: &mut Vec<u8>)
-               -> Result<Arc<T::Item>>
+               -> std::result::Result<Arc<T::Item>, T::Error>
         where T: ResourceArenaLoader
     {
         if let Some(v) = slave.get(&path) {
@@ -99,7 +100,8 @@ impl ResourceSystem {
 
         let hash = path.into();
         if locks.contains(&hash) {
-            bail!(ErrorKind::CircularReferenceFound);
+            let err: Error = ErrorKind::CircularReferenceFound.into();
+            return Err(err.into());
         }
 
         let rc = {
@@ -147,7 +149,7 @@ impl ResourceSystemShared {
         self.filesystems.read().unwrap().exists(path)
     }
 
-    pub fn load<T, P>(&self, slave: T, path: P) -> ResourceFuture<T::Item>
+    pub fn load<T, P>(&self, slave: T, path: P) -> ResourceFuture<T::Item, T::Error>
         where T: ResourceArenaLoader,
               P: AsRef<Path>
     {
@@ -177,7 +179,10 @@ impl ResourceSystemShared {
         ResourceFuture(rx)
     }
 
-    pub fn map<T>(&self, slave: T, src: ResourceFuture<T::Source>) -> ResourceFuture<T::Item>
+    pub fn map<T>(&self,
+                  slave: T,
+                  src: ResourceFuture<T::Source, T::Error>)
+                  -> ResourceFuture<T::Item, T::Error>
         where T: ResourceArenaMapper
     {
         let (tx, rx) = futures::sync::oneshot::channel();

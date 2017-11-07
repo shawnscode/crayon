@@ -10,8 +10,18 @@ use utils::HashValue;
 
 use super::texture::Texture;
 
+error_chain!{
+    types {
+        Error, ErrorKind, ResultExt, Result;
+    }
+
+    links {
+        Resource(resource::errors::Error, resource::errors::ErrorKind);
+    }
+}
+
 pub trait TextureFormat {
-    fn parse(bytes: &[u8]) -> errors::Result<Texture>;
+    fn parse(bytes: &[u8]) -> Result<Texture>;
 }
 
 pub struct TextureSystem {
@@ -37,7 +47,7 @@ impl TextureSystem {
         }
     }
 
-    pub fn load<P, T>(&self, path: P) -> resource::ResourceFuture<Texture>
+    pub fn load<T, P>(&self, path: P) -> resource::ResourceFuture<Texture, Error>
         where P: AsRef<Path>,
               T: TextureFormat + Send + Sync + 'static
     {
@@ -45,10 +55,10 @@ impl TextureSystem {
         self.resource.load(slave, path)
     }
 
-    pub fn load_into_video<P, T>(&self,
+    pub fn load_into_video<T, P>(&self,
                                  path: P,
                                  setup: graphics::TextureSetup)
-                                 -> resource::ResourceFuture<graphics::TextureHandle>
+                                 -> resource::ResourceFuture<graphics::TextureHandle, Error>
         where P: AsRef<Path>,
               T: TextureFormat + Send + Sync + 'static
     {
@@ -67,8 +77,6 @@ impl TextureSystem {
         self.resource.map(slave, first_pass)
     }
 }
-
-use resource::errors;
 
 struct TextureSystemLoader<T>
     where T: TextureFormat
@@ -92,13 +100,14 @@ impl<T> resource::ResourceArenaLoader for TextureSystemLoader<T>
     where T: TextureFormat + Send + Sync + 'static
 {
     type Item = Texture;
+    type Error = Error;
 
     fn get(&self, path: &Path) -> Option<Arc<Self::Item>> {
         let mut arena = self.textures.write().unwrap();
         arena.get(path)
     }
 
-    fn parse(&self, bytes: &[u8]) -> errors::Result<Self::Item> {
+    fn parse(&self, bytes: &[u8]) -> Result<Self::Item> {
         T::parse(bytes)
     }
 
@@ -119,8 +128,9 @@ struct TextureSystemMapper {
 impl resource::ResourceArenaMapper for TextureSystemMapper {
     type Source = Texture;
     type Item = graphics::TextureHandle;
+    type Error = Error;
 
-    fn map(&self, src: &Self::Source) -> errors::Result<Arc<Self::Item>> {
+    fn map(&self, src: &Self::Source) -> Result<Arc<Self::Item>> {
         let mut setup = self.setup;
         setup.dimensions = src.dimensions();
         setup.format = src.format();

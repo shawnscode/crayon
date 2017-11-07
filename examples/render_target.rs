@@ -24,7 +24,8 @@ struct Window {
 
 impl Window {
     pub fn new(engine: &mut Engine) -> errors::Result<Self> {
-        let shared = engine.shared();
+        let ctx = engine.context().read().unwrap();
+        let video = ctx.shared::<GraphicsSystem>();
 
         let vertices: [Vertex; 3] = [Vertex::new([0.0, 0.5]),
                                      Vertex::new([0.5, -0.5]),
@@ -47,33 +48,32 @@ impl Window {
             let mut setup = graphics::VertexBufferSetup::default();
             setup.num = vertices.len();
             setup.layout = Vertex::layout();
-            let vbo = shared
-                .video
+            let vbo = video
                 .create_vertex_buffer(setup, Some(Vertex::as_bytes(&vertices[..])))?;
 
             // Create render texture for post effect.
             let mut setup = graphics::RenderTextureSetup::default();
             setup.format = graphics::RenderTextureFormat::RGBA8;
             setup.dimensions = (568, 320);
-            let rendered_texture = shared.video.create_render_texture(setup)?;
+            let rendered_texture = video.create_render_texture(setup)?;
 
             // Create custom frame buffer.
             let mut setup = graphics::FrameBufferSetup::default();
             setup.set_texture_attachment(rendered_texture, Some(0))?;
-            let fbo = shared.video.create_framebuffer(setup)?;
+            let fbo = video.create_framebuffer(setup)?;
 
             // Create the view state for pass 1.
             let mut setup = graphics::ViewStateSetup::default();
             setup.framebuffer = Some(fbo);
             setup.clear_color = Some(Color::gray());
-            let view = shared.video.create_view(setup)?;
+            let view = video.create_view(setup)?;
 
             // Create pipeline state.
             let vs = include_str!("resources/render_target_p1.vs").to_owned();
             let fs = include_str!("resources/render_target_p1.fs").to_owned();
             let mut setup = graphics::PipelineStateSetup::default();
             setup.layout = attributes;
-            let pipeline = shared.video.create_pipeline(setup, vs, fs)?;
+            let pipeline = video.create_pipeline(setup, vs, fs)?;
 
             (Pass {
                  view: view,
@@ -87,18 +87,17 @@ impl Window {
             let mut setup = graphics::VertexBufferSetup::default();
             setup.num = quad_vertices.len();
             setup.layout = Vertex::layout();
-            let vbo = shared
-                .video
+            let vbo = video
                 .create_vertex_buffer(setup, Some(Vertex::as_bytes(&quad_vertices[..])))?;
 
             let setup = graphics::ViewStateSetup::default();
-            let view = shared.video.create_view(setup)?;
+            let view = video.create_view(setup)?;
 
             let mut setup = graphics::PipelineStateSetup::default();
             setup.layout = attributes;
             let vs = include_str!("resources/render_target_p2.vs").to_owned();
             let fs = include_str!("resources/render_target_p2.fs").to_owned();
-            let pipeline = shared.video.create_pipeline(setup, vs, fs)?;
+            let pipeline = video.create_pipeline(setup, vs, fs)?;
 
             Pass {
                 view: view,
@@ -118,11 +117,11 @@ impl Window {
 }
 
 impl Application for Window {
-    fn on_update(&mut self, shared: &mut Context) -> errors::Result<()> {
+    fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
+        let video = ctx.shared::<GraphicsSystem>();
 
         {
-            shared
-                .video
+            video
                 .make()
                 .with_order(0)
                 .with_view(self.pass.view)
@@ -132,8 +131,7 @@ impl Application for Window {
         }
 
         {
-            shared
-                .video
+            video
                 .make()
                 .with_order(1)
                 .with_view(self.post_effect.view)

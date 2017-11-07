@@ -64,7 +64,7 @@ impl Window {
 
         let setup = graphics::TextureSetup::default();
         let texture_handle = texture
-            .load_into_video::<&str, TextureParser>("/std/texture.png", setup)
+            .load_into_video::<TextureParser, &str>("/std/texture.png", setup)
             .wait()
             .unwrap();
 
