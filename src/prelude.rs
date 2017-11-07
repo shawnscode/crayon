@@ -15,7 +15,7 @@ pub use graphics;
 pub use graphics::{Color, GraphicsSystem};
 
 pub use assets;
-pub use assets::{Bytes, Texture, TextureSystem};
+pub use assets::{Texture, TextureSystem};
 
 pub use rayon;
 pub use futures::Future;
