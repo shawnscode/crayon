@@ -65,11 +65,6 @@ impl ResourceSystem {
         self.filesystems.write().unwrap().unmount(ident);
     }
 
-    ///
-    pub fn advance(&self) -> Result<()> {
-        Ok(())
-    }
-
     fn run(chan: two_lock_queue::Receiver<ResourceTask>, driver: Arc<RwLock<FilesystemDriver>>) {
         let mut locks: HashSet<HashValue<Path>> = HashSet::new();
         let mut buf = Vec::new();

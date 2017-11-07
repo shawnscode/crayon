@@ -22,9 +22,9 @@ pub struct TextureSystem {
 }
 
 impl TextureSystem {
-    pub fn new(ctx: application::Context) -> Self {
-        // let resource = ctx.shared::<ResourceSystem>();
-        // let video = ctx.shared::<GraphicsSystem>();
+    pub fn new(ctx: &application::Context) -> Self {
+        let resource = ctx.shared::<resource::ResourceSystem>().clone();
+        let video = ctx.shared::<graphics::GraphicsSystem>().clone();
 
         let textures = resource::cache::ArenaWithCache::with_capacity(0);
         let video_textures = HashMap::new();
@@ -32,8 +32,8 @@ impl TextureSystem {
         TextureSystem {
             textures: Arc::new(RwLock::new(textures)),
             video_textures: Arc::new(RwLock::new(video_textures)),
-            resource: ctx.resource,
-            video: ctx.video,
+            resource: resource,
+            video: video,
         }
     }
 

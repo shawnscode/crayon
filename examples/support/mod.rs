@@ -2,10 +2,8 @@ use crayon::prelude::*;
 
 pub struct TextureParser {}
 
-impl resource::ResourceParser for TextureParser {
-    type Item = Texture;
-
-    fn parse(bytes: &[u8]) -> resource::errors::Result<Self::Item> {
+impl assets::texture_sys::TextureFormat for TextureParser {
+    fn parse(bytes: &[u8]) -> resource::errors::Result<Texture> {
         use image;
         use image::GenericImage;
 

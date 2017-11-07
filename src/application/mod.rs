@@ -16,24 +16,18 @@ pub mod errors;
 pub mod settings;
 pub mod event;
 pub mod input;
+pub mod context;
 
 pub use self::settings::Settings;
 pub use self::event::{KeyboardButton, MouseButton};
+pub use self::context::Context;
 
 mod engine;
 pub use self::engine::Engine;
 
-use std::sync::Arc;
-
 use self::errors::*;
 use graphics;
-use resource;
 use std::time;
-
-pub struct Context {
-    pub video: Arc<graphics::GraphicsSystemShared>,
-    pub resource: Arc<resource::ResourceSystemShared>,
-}
 
 #[derive(Debug, Copy, Clone)]
 pub struct FrameInfo {
@@ -47,17 +41,17 @@ pub struct FrameInfo {
 pub trait Application {
     /// `Application::on_update` is called every frame. Its the main workhorse
     /// function for frame updates.
-    fn on_update(&mut self, _: &mut Context) -> Result<()> {
+    fn on_update(&mut self, _: &Context) -> Result<()> {
         Ok(())
     }
 
     /// `Application::on_render` is called before we starts rendering the scene.
-    fn on_render(&mut self, _: &mut Context) -> Result<()> {
+    fn on_render(&mut self, _: &Context) -> Result<()> {
         Ok(())
     }
 
     /// `Application::on_post_update` is called after camera has rendered the scene.
-    fn on_post_update(&mut self, _: &mut Context, _: &FrameInfo) -> Result<()> {
+    fn on_post_update(&mut self, _: &Context, _: &FrameInfo) -> Result<()> {
         Ok(())
     }
 }

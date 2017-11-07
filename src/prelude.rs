@@ -12,10 +12,10 @@ pub use application::{Application, Context, FrameInfo, Engine, Settings};
 pub use application::errors;
 
 pub use graphics;
-pub use graphics::Color;
+pub use graphics::{Color, GraphicsSystem};
 
 pub use assets;
-pub use assets::{Bytes, Texture};
+pub use assets::{Bytes, Texture, TextureSystem};
 
 pub use rayon;
 pub use futures::Future;
