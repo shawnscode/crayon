@@ -31,5 +31,5 @@ pub mod ecs;
 #[macro_use]
 pub mod graphics;
 pub mod resource;
-pub mod asset;
+pub mod assets;
 pub mod prelude;

@@ -4,6 +4,11 @@ use std::collections::HashMap;
 
 use utils::hash::HashValue;
 
+/// A slim proxy trait that adds a standardized interface of meansurable resources.
+pub trait Meansurable: Send + Sync + 'static {
+    fn size(&self) -> usize;
+}
+
 #[derive(Debug)]
 struct ResourceDesc<T> {
     hash: HashValue<Path>,
@@ -15,7 +20,9 @@ struct ResourceDesc<T> {
 
 /// A cache that holds a limited size of path-resource pairs. When the capacity of
 /// the cache is exceeded, the least-recently-used resource will be removed.
-pub struct Cache<T> {
+pub struct Cache<T>
+    where T: Meansurable
+{
     cache: HashMap<HashValue<Path>, ResourceDesc<T>>,
     lru_front: Option<HashValue<Path>>,
     lru_back: Option<HashValue<Path>>,
@@ -23,7 +30,9 @@ pub struct Cache<T> {
     threshold: usize,
 }
 
-impl<T> Cache<T> {
+impl<T> Cache<T>
+    where T: Meansurable
+{
     /// Create a new and empty `Cache`.
     pub fn new(threshold: usize) -> Self {
         Cache {
@@ -54,10 +63,11 @@ impl<T> Cache<T> {
     ///
     /// If the cache did have this path present, the resource associated with this
     /// path is replaced with new one.
-    pub fn insert<P>(&mut self, path: P, size: usize, resource: Arc<T>)
+    pub fn insert<P>(&mut self, path: P, resource: Arc<T>)
         where P: Into<HashValue<Path>>
     {
         let hash = path.into();
+        let size = resource.size();
 
         if let Some(desc) = self.cache.remove(&hash) {
             self.detach(&desc);
@@ -150,26 +160,96 @@ impl<T> Cache<T> {
     }
 }
 
+///
+pub struct ArenaWithCache<T>
+    where T: Meansurable
+{
+    cache: Cache<T>,
+    resources: HashMap<HashValue<Path>, Arc<T>>,
+}
+
+impl<T> ArenaWithCache<T>
+    where T: Meansurable
+{
+    /// Create a new resource arena with the specified cache capactiy.
+    pub fn with_capacity(size: usize) -> Self {
+        let cache = Cache::<T>::new(size);
+
+        ArenaWithCache {
+            cache: cache,
+            resources: HashMap::new(),
+        }
+    }
+
+    /// Reset the internal cache size.
+    #[inline]
+    pub fn set_cache_size(&mut self, size: usize) {
+        self.cache.set_threshold(size);
+    }
+
+    /// Returns a clone of the resource corresponding to the key.
+    pub fn get<H>(&mut self, hash: H) -> Option<Arc<T>>
+        where H: Into<HashValue<Path>>
+    {
+        let hash = hash.into();
+        if let Some(rc) = self.resources.get(&hash) {
+            self.cache.insert(hash, rc.clone());
+            return Some(rc.clone());
+        }
+
+        None
+    }
+
+    /// Inserts a key-value pair into the arena.
+    ///
+    /// If the arena did not have this key present, `None` is returned. Otherwise the
+    /// old value is returned.
+    pub fn insert<H>(&mut self, hash: H, item: Arc<T>) -> Option<Arc<T>>
+        where H: Into<HashValue<Path>>
+    {
+        let hash = hash.into();
+        self.cache.insert(hash, item.clone());
+        self.resources.insert(hash, item)
+    }
+
+    /// Iterates the arena, removing all resources that have no external references.
+    pub fn unload_unused(&mut self) {
+        let mut next = HashMap::new();
+        for (k, v) in self.resources.drain() {
+            if Arc::strong_count(&v) > 1 {
+                next.insert(k, v);
+            }
+        }
+        self.resources = next;
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
 
+    impl Meansurable for String {
+        fn size(&self) -> usize {
+            self.len()
+        }
+    }
+
     #[test]
     fn lru() {
         let mut cache = Cache::new(4);
-        cache.insert("/1", 2, Arc::new("a1".to_owned()));
-        cache.insert("/2", 2, Arc::new("a2".to_owned()));
-        cache.insert("/2", 2, Arc::new("a2".to_owned()));
+        cache.insert("/1", Arc::new("a1".to_owned()));
+        cache.insert("/2", Arc::new("a2".to_owned()));
+        cache.insert("/2", Arc::new("a2".to_owned()));
         assert!(cache.contains("/1"));
         assert!(cache.contains("/2"));
 
-        cache.insert("/3", 2, Arc::new("a3".to_owned()));
+        cache.insert("/3", Arc::new("a3".to_owned()));
         assert!(!cache.contains("/1"));
         assert!(cache.contains("/2"));
         assert!(cache.contains("/3"));
 
         cache.get("/2").unwrap();
-        cache.insert("/4", 2, Arc::new("a4".to_owned()));
+        cache.insert("/4", Arc::new("a4".to_owned()));
         assert!(cache.contains("/2"));
         assert!(!cache.contains("/3"));
         assert!(cache.contains("/4"));
@@ -182,18 +262,18 @@ mod test {
         {
             let a1 = Arc::new("a1".to_owned());
             let a2 = Arc::new("a2".to_owned());
-            cache.insert("/1", 2, a1.clone());
-            cache.insert("/2", 2, a2.clone());
+            cache.insert("/1", a1.clone());
+            cache.insert("/2", a2.clone());
             assert!(cache.contains("/1"));
             assert!(cache.contains("/2"));
 
-            cache.insert("/3", 2, Arc::new("a3".to_owned()));
+            cache.insert("/3", Arc::new("a3".to_owned()));
             assert!(!cache.contains("/1"));
             assert!(cache.contains("/2"));
             assert!(cache.contains("/3"));
         }
 
-        cache.insert("/4", 2, Arc::new("a4".to_owned()));
+        cache.insert("/4", Arc::new("a4".to_owned()));
         assert!(!cache.contains("/1"));
         assert!(!cache.contains("/2"));
         assert!(cache.contains("/3"));
@@ -204,26 +284,26 @@ mod test {
     fn zero_size() {
         let mut cache = Cache::new(0);
 
-        cache.insert("/1", 1, Arc::new("a4".to_owned()));
+        cache.insert("/1", Arc::new("a4".to_owned()));
         assert!(!cache.contains("/1"));
     }
 
     #[test]
     fn reset_threshold() {
         let mut cache = Cache::new(4);
-        cache.insert("/1", 2, Arc::new("a1".to_owned()));
-        cache.insert("/2", 2, Arc::new("a2".to_owned()));
+        cache.insert("/1", Arc::new("a1".to_owned()));
+        cache.insert("/2", Arc::new("a2".to_owned()));
 
         cache.set_threshold(7);
-        cache.insert("/3", 2, Arc::new("a3".to_owned()));
-        cache.insert("/4", 2, Arc::new("a4".to_owned()));
+        cache.insert("/3", Arc::new("a3".to_owned()));
+        cache.insert("/4", Arc::new("a4".to_owned()));
         assert!(!cache.contains("/1"));
         assert!(cache.contains("/2"));
         assert!(cache.contains("/3"));
         assert!(cache.contains("/4"));
 
         cache.set_threshold(4);
-        assert!(!cache.contains("/1"));
+        assert!(!cache.contains("/0"));
         assert!(!cache.contains("/2"));
         assert!(cache.contains("/3"));
         assert!(cache.contains("/4"));

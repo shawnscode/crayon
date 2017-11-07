@@ -8,7 +8,6 @@
 pub mod errors;
 pub mod filesystem;
 pub mod cache;
-pub mod arena;
 
 pub use self::resource::{ResourceSystem, ResourceSystemShared};
 
@@ -20,19 +19,6 @@ use std::path::Path;
 use futures;
 use futures::{Async, Poll, Future};
 use self::errors::*;
-
-/// A slim proxy trait that adds a standardized interface of resource.
-pub trait Resource: Send + Sync + 'static {
-    fn size(&self) -> usize;
-}
-
-/// Resources comes with various formats usually, we could introduce a conversion
-/// from plain bytes to resource instance by implementing trait `ResourceParser`.
-pub trait ResourceParser {
-    type Item: Resource;
-
-    fn parse(bytes: &[u8]) -> self::errors::Result<Self::Item>;
-}
 
 /// The future version of resource.
 pub struct ResourceFuture<T>(futures::sync::oneshot::Receiver<Result<Arc<T>>>);
@@ -50,17 +36,17 @@ impl<T> Future for ResourceFuture<T> {
     }
 }
 
-///
-pub trait ExternalResourceSystem {
+pub trait ResourceArenaLoader: Send + Sync + 'static {
     type Item: Send + Sync + 'static;
-    type Data: Resource;
-    type Options: Send + Sync + Copy;
 
-    fn load(&mut self,
-            path: &Path,
-            src: &Self::Data,
-            options: Self::Options)
-            -> self::errors::Result<Arc<Self::Item>>;
+    fn get(&self, path: &Path) -> Option<Arc<Self::Item>>;
+    fn parse(&self, bytes: &[u8]) -> Result<Self::Item>;
+    fn insert(&self, path: &Path, item: Arc<Self::Item>);
+}
 
-    fn unload_unused(&mut self);
+pub trait ResourceArenaMapper: Send + Sync + 'static {
+    type Source: Send + Sync + 'static;
+    type Item: Send + Sync + 'static;
+
+    fn map(&self, src: &Self::Source) -> Result<Arc<Self::Item>>;
 }

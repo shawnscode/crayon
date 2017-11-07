@@ -8,7 +8,6 @@ use rayon;
 use super::*;
 use graphics;
 use resource;
-use asset;
 
 /// `Engine` is the root object of the game application. It binds various sub-systems in
 /// a central place and takes take of trivial tasks like the execution order or life-time
@@ -46,8 +45,7 @@ impl Engine {
         let window = Arc::new(wb.build(&input)?);
 
         let graphics = graphics::GraphicsSystem::new(window.clone())?;
-        let mut resource = resource::ResourceSystem::new()?;
-        asset::register(&mut resource, graphics.shared());
+        let resource = resource::ResourceSystem::new()?;
 
         let confs = rayon::Configuration::new();
         let scheduler = rayon::ThreadPool::new(confs).unwrap();
