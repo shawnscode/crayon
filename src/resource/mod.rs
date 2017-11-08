@@ -24,6 +24,15 @@ use futures::{Async, Poll, Future};
 /// The future version of resource.
 pub struct ResourceFuture<T, E: Error>(futures::sync::oneshot::Receiver<Result<Arc<T>, E>>);
 
+impl<T, E> ResourceFuture<T, E>
+    where E: Error + From<self::errors::Error>
+{
+    #[inline]
+    pub fn new(rx: futures::sync::oneshot::Receiver<Result<Arc<T>, E>>) -> Self {
+        ResourceFuture(rx)
+    }
+}
+
 impl<T, E> Future for ResourceFuture<T, E>
     where E: Error + From<self::errors::Error>
 {

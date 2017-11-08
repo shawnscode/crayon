@@ -2,6 +2,7 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use futures;
 
 use resource;
 use graphics;
@@ -62,8 +63,19 @@ impl TextureSystem {
         where P: AsRef<Path>,
               T: TextureFormat + Send + Sync + 'static
     {
+        let hash = path.as_ref().into();
+
+        {
+            let handles = self.video_textures.read().unwrap();
+            if let Some(v) = handles.get(&hash) {
+                let (tx, rx) = futures::sync::oneshot::channel();
+                tx.send(Ok(v.clone())).is_ok();
+                return resource::ResourceFuture::new(rx);
+            }
+        }
+
         let slave = TextureSystemMapper {
-            hash: path.as_ref().into(),
+            hash: hash,
             textures: self.video_textures.clone(),
             video: self.video.clone(),
             setup: setup,
@@ -131,6 +143,11 @@ impl resource::ResourceArenaMapper for TextureSystemMapper {
     type Error = Error;
 
     fn map(&self, src: &Self::Source) -> Result<Arc<Self::Item>> {
+        let textures = self.textures.write().unwrap();
+        if let Some(v) = textures.get(&self.hash) {
+            return Ok(v.clone());
+        }
+
         let mut setup = self.setup;
         setup.dimensions = src.dimensions();
         setup.format = src.format();
@@ -139,7 +156,6 @@ impl resource::ResourceArenaMapper for TextureSystemMapper {
 
         let rc = Arc::new(handle);
         self.textures.write().unwrap().insert(self.hash, rc.clone());
-
         return Ok(rc);
     }
 }
