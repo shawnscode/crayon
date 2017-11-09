@@ -1,0 +1,11 @@
+[package]
+name = "crayon-canvas"
+version = "0.0.5"
+authors = ["Jingkai Mao <oammix@gmail.com>"]
+
+[dependencies]
+crayon = { path = "../../" }
+lazy_static = "0.2.8"
+error-chain = "0.11.0"
+lyon = "0.8.4"
+rusttype = "0.2.3"
