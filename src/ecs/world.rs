@@ -1,7 +1,6 @@
 //! The `World` struct contains entities and its the component arenas.
 
 use std::any::Any;
-use std::borrow::Borrow;
 use std::sync::{RwLock, RwLockWriteGuard, RwLockReadGuard};
 use bit_set::BitSet;
 
