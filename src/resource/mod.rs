@@ -8,6 +8,7 @@
 pub mod errors;
 pub mod filesystem;
 pub mod cache;
+pub mod arena;
 
 pub use self::resource::{ResourceSystem, ResourceSystemShared};
 

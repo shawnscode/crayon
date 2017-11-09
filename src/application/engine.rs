@@ -155,22 +155,29 @@ impl Engine {
                 (video_info, duration)
             };
 
-            let info = FrameInfo {
-                video: video_info,
-                duration: duration,
-                fps: self.get_fps(),
-            };
+            {
+                let info = FrameInfo {
+                    video: video_info,
+                    duration: duration,
+                    fps: self.get_fps(),
+                };
 
-            let ctx = self.context.clone();
-            let application = application.clone();
+                let ctx = self.context.clone();
+                let application = application.clone();
 
-            let closure = || {
-                let ctx = ctx.read().unwrap();
-                let mut application = application.write().unwrap();
-                application.on_post_update(&ctx, &info)
-            };
+                let closure = || {
+                    let ctx = ctx.read().unwrap();
+                    let mut application = application.write().unwrap();
+                    application.on_post_update(&ctx, &info)
+                };
 
-            self.scheduler.install(closure)?;
+                self.scheduler.install(closure)?;
+            }
+
+            {
+                let ctx = self.context.read().unwrap();
+                ctx.shared::<assets::TextureSystem>().unload_unused();
+            }
         }
 
         Ok(self)

@@ -1,6 +1,5 @@
 use std::path::Path;
 use std::sync::{Arc, RwLock};
-use std::collections::HashMap;
 use std::marker::PhantomData;
 use futures;
 
@@ -26,8 +25,8 @@ pub trait TextureFormat {
 }
 
 pub struct TextureSystem {
-    textures: Arc<RwLock<resource::cache::ArenaWithCache<Texture>>>,
-    video_textures: Arc<RwLock<HashMap<HashValue<Path>, Arc<graphics::TextureHandle>>>>,
+    textures: Arc<RwLock<resource::arena::ArenaWithCache<Texture>>>,
+    video_textures: Arc<RwLock<resource::arena::Arena<graphics::TextureHandle>>>,
     resource: Arc<resource::ResourceSystemShared>,
     video: Arc<graphics::GraphicsSystemShared>,
 }
@@ -37,8 +36,8 @@ impl TextureSystem {
         let resource = ctx.shared::<resource::ResourceSystem>().clone();
         let video = ctx.shared::<graphics::GraphicsSystem>().clone();
 
-        let textures = resource::cache::ArenaWithCache::with_capacity(0);
-        let video_textures = HashMap::new();
+        let textures = resource::arena::ArenaWithCache::with_capacity(0);
+        let video_textures = resource::arena::Arena::new();
 
         TextureSystem {
             textures: Arc::new(RwLock::new(textures)),
@@ -67,7 +66,7 @@ impl TextureSystem {
 
         {
             let handles = self.video_textures.read().unwrap();
-            if let Some(v) = handles.get(&hash) {
+            if let Some(v) = handles.get(hash) {
                 let (tx, rx) = futures::sync::oneshot::channel();
                 tx.send(Ok(v.clone())).is_ok();
                 return resource::ResourceFuture::new(rx);
@@ -88,19 +87,30 @@ impl TextureSystem {
 
         self.resource.map(slave, first_pass)
     }
+
+    pub(crate) fn unload_unused(&self) {
+        let video = self.video.clone();
+        let delete = |_, v: Arc<graphics::TextureHandle>| { video.delete_texture(*v); };
+
+        self.textures.write().unwrap().unload_unused(None);
+        self.video_textures
+            .write()
+            .unwrap()
+            .unload_unused(Some(&delete));
+    }
 }
 
 struct TextureSystemLoader<T>
     where T: TextureFormat
 {
-    textures: Arc<RwLock<resource::cache::ArenaWithCache<Texture>>>,
+    textures: Arc<RwLock<resource::arena::ArenaWithCache<Texture>>>,
     _phantom: PhantomData<T>,
 }
 
 impl<T> TextureSystemLoader<T>
     where T: TextureFormat
 {
-    fn new(textures: Arc<RwLock<resource::cache::ArenaWithCache<Texture>>>) -> Self {
+    fn new(textures: Arc<RwLock<resource::arena::ArenaWithCache<Texture>>>) -> Self {
         TextureSystemLoader {
             textures: textures,
             _phantom: PhantomData,
@@ -116,7 +126,7 @@ impl<T> resource::ResourceArenaLoader for TextureSystemLoader<T>
 
     fn get(&self, path: &Path) -> Option<Arc<Self::Item>> {
         let mut arena = self.textures.write().unwrap();
-        arena.get(path)
+        arena.get(path).map(|v| v.clone())
     }
 
     fn parse(&self, bytes: &[u8]) -> Result<Self::Item> {
@@ -131,7 +141,7 @@ impl<T> resource::ResourceArenaLoader for TextureSystemLoader<T>
 
 struct TextureSystemMapper {
     hash: HashValue<Path>,
-    textures: Arc<RwLock<HashMap<HashValue<Path>, Arc<graphics::TextureHandle>>>>,
+    textures: Arc<RwLock<resource::arena::Arena<graphics::TextureHandle>>>,
 
     setup: graphics::TextureSetup,
     video: Arc<graphics::GraphicsSystemShared>,
@@ -144,7 +154,7 @@ impl resource::ResourceArenaMapper for TextureSystemMapper {
 
     fn map(&self, src: &Self::Source) -> Result<Arc<Self::Item>> {
         let textures = self.textures.write().unwrap();
-        if let Some(v) = textures.get(&self.hash) {
+        if let Some(v) = textures.get(self.hash) {
             return Ok(v.clone());
         }
 
