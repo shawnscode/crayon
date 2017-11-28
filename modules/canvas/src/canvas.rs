@@ -1,7 +1,4 @@
-use std::sync::Arc;
-use std::collections::VecDeque;
-
-use crayon::{ecs, application, utils};
+use crayon::{ecs, application};
 use crayon::ecs::Arena;
 
 use errors::*;
@@ -9,17 +6,28 @@ use node::Node;
 use element::Element;
 use renderer::CanvasRenderer;
 use layout::Layout;
-use assets::{Font, FontHandle};
+use assets::FontSystem;
 
 pub struct CanvasSystem {
     world: ecs::World,
     entities: ecs::Entity,
-    fonts: utils::ObjectPool<Arc<Font>>,
+    fonts: FontSystem,
     renderer: CanvasRenderer,
-
     // design_resolution: (u32, u32),
     // design_dpi: u32,
 }
+
+/*
+    let node = canvas->create_node();
+    let handle = canvas->create_font_from("/std/fonts/G.ttf");
+
+    canvas->set_element(node, Text::build().with_font(handle).with_font_size(16).finish());
+    canvas->set_layout(node, BoxLayout::build());
+    canvas->set_parent(node, None);
+
+    canvas.font(handle).layout(self.text, Scale::normalize(self.size), None)
+    canvas.font(handle).
+*/
 
 impl CanvasSystem {
     pub fn new(ctx: &application::Context) -> Result<Self> {
@@ -28,6 +36,7 @@ impl CanvasSystem {
         world.register::<Element>();
         world.register::<Layout>();
 
+        let fonts = FontSystem::new(ctx);
         let renderer = CanvasRenderer::new(ctx)?;
         let root = world
             .build()
@@ -39,8 +48,8 @@ impl CanvasSystem {
         Ok(CanvasSystem {
                entities: root,
                world: world,
-               fonts: utils::ObjectPool::new(),
                renderer: renderer,
+               fonts: fonts,
            })
     }
 
@@ -119,7 +128,7 @@ impl CanvasSystem {
     }
 
     /// Draw the whole scene.
-    pub fn draw(&mut self, ctx: &application::Context) -> Result<()> {
+    pub fn draw(&mut self, _: &application::Context) -> Result<()> {
         let mut children = Vec::new();
 
         {
@@ -138,30 +147,28 @@ impl CanvasSystem {
 
         unsafe {
             for v in children {
-                elements.get_unchecked(v).draw(ctx);
-                Self::draw_recursive(ctx, &nodes, &elements, v)?;
+                elements
+                    .get_unchecked(v)
+                    .draw(&mut self.renderer, &mut self.fonts);
+                Self::draw_recursive(&mut self.renderer, &mut self.fonts, &nodes, &elements, v)?;
             }
         }
 
-        self.renderer.flush(ctx)?;
+        self.renderer.flush()?;
         Ok(())
     }
 
-    unsafe fn draw_recursive(ctx: &application::Context,
+    unsafe fn draw_recursive(renderer: &mut CanvasRenderer,
+                             fonts: &mut FontSystem,
                              nodes: &ecs::Arena<Node>,
                              elements: &ecs::Arena<Element>,
                              ent: ecs::Entity)
                              -> Result<()> {
         for v in Node::children(nodes, ent) {
-            elements.get_unchecked(v).draw(ctx);
-            Self::draw_recursive(ctx, nodes, elements, v)?;
+            elements.get_unchecked(v).draw(renderer, fonts);
+            Self::draw_recursive(renderer, fonts, nodes, elements, v)?;
         }
 
         Ok(())
-    }
-
-    #[inline]
-    pub fn font(&self, handle: FontHandle) -> Option<&Arc<Font>> {
-        self.fonts.get(handle)
     }
 }

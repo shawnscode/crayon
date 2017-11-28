@@ -1,7 +1,7 @@
 use crayon::{ecs, math, application};
 use crayon::ecs::VecArena;
 
-use prelude::{Element, Node};
+use prelude::Element;
 use errors::*;
 
 #[derive(Debug, Copy, Clone)]

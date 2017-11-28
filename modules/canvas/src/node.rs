@@ -1,8 +1,7 @@
-use crayon::{math, ecs};
+use crayon::ecs;
 use crayon::ecs::VecArena;
 
 use errors::*;
-use canvas::CanvasSystem;
 
 /// `Node` is used to store and manipulate the postiion, rotation and scale
 /// of the object. Every `Node` can have a parent, which allows you to apply

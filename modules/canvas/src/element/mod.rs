@@ -4,6 +4,7 @@ use crayon::{math, application};
 use crayon::ecs::VecArena;
 
 use renderer::CanvasRenderer;
+use assets::FontSystem;
 
 #[derive(Debug, Clone)]
 pub enum Element {
@@ -25,10 +26,10 @@ impl Default for Element {
 }
 
 impl Element {
-    pub fn draw(&self, ctx: &application::Context) {
+    pub fn draw(&self, renderer: &mut CanvasRenderer, fonts: &mut FontSystem) {
         match *self {
             Element::Empty(_) => {}
-            Element::Text(ref element) => element.draw(ctx),
+            Element::Text(ref element) => element.draw(renderer, fonts),
         }
     }
 

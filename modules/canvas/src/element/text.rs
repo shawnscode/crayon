@@ -1,7 +1,7 @@
 use crayon::ecs::HashMapArena;
 use crayon::{graphics, application, math};
 
-use assets::FontHandle;
+use assets::{FontHandle, FontSystem};
 use renderer::*;
 
 /// An anchor aligns text horizontally to its given x position.
@@ -54,11 +54,13 @@ impl Default for Text {
 declare_component!(Text, HashMapArena);
 
 impl Text {
-    pub fn draw(&self, renderer: &mut CanvasRenderer) {
-        renderer.draw_text("Hello, World! 你好，世界！");
+    pub fn draw(&self, renderer: &mut CanvasRenderer, fonts: &mut FontSystem) {
+        let (verts, idxes, texture) = fonts.draw(self.font, &self.text, self.size as f32).unwrap();
+        renderer.draw(&verts, &idxes, texture);
     }
 
-    pub fn prefered_size(&self, ctx: &application::Context) -> Option<math::Vector2<f32>> {
+    pub fn prefered_size(&self, _: &application::Context) -> Option<math::Vector2<f32>> {
+        // canvas->font(self.font).bounding_box(&self.text, self.size as f32, None).size()
         None
     }
 }

@@ -6,6 +6,8 @@ extern crate lazy_static;
 extern crate error_chain;
 
 extern crate rusttype;
+extern crate unicode_normalization;
+extern crate linked_hash_map;
 extern crate lyon;
 
 pub mod assets;
