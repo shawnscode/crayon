@@ -9,7 +9,6 @@ extern crate gl;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
-extern crate futures;
 
 #[macro_use]
 extern crate error_chain;
@@ -22,6 +21,7 @@ extern crate bit_set;
 pub extern crate lazy_static;
 pub extern crate rayon;
 pub extern crate cgmath as math;
+pub extern crate futures;
 
 #[macro_use]
 pub mod utils;

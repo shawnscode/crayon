@@ -16,6 +16,7 @@ error_chain!{
     }
 
     links {
+        Graphics(graphics::errors::Error, graphics::errors::ErrorKind);
         Resource(resource::errors::Error, resource::errors::ErrorKind);
     }
 }
@@ -47,7 +48,7 @@ impl TextureSystem {
         }
     }
 
-    pub fn load<T, P>(&self, path: P) -> resource::ResourceFuture<Texture, Error>
+    pub fn load<T, P>(&self, path: P) -> resource::ResourceFuture<Arc<Texture>, Error>
         where P: AsRef<Path>,
               T: TextureFormat + Send + Sync + 'static
     {
@@ -58,7 +59,7 @@ impl TextureSystem {
     pub fn load_into_video<T, P>(&self,
                                  path: P,
                                  setup: graphics::TextureSetup)
-                                 -> resource::ResourceFuture<graphics::TextureHandle, Error>
+                                 -> resource::ResourceFuture<Arc<graphics::TextureHandle>, Error>
         where P: AsRef<Path>,
               T: TextureFormat + Send + Sync + 'static
     {
@@ -121,21 +122,23 @@ impl<T> TextureSystemLoader<T>
 impl<T> resource::ResourceArenaLoader for TextureSystemLoader<T>
     where T: TextureFormat + Send + Sync + 'static
 {
-    type Item = Texture;
+    type Item = Arc<Texture>;
     type Error = Error;
 
-    fn get(&self, path: &Path) -> Option<Arc<Self::Item>> {
+    fn get(&self, path: &Path) -> Option<Self::Item> {
         let mut arena = self.textures.write().unwrap();
         arena.get(path).map(|v| v.clone())
     }
 
-    fn parse(&self, bytes: &[u8]) -> Result<Self::Item> {
-        T::parse(bytes)
-    }
+    fn insert(&self, path: &Path, bytes: &[u8]) -> Result<Self::Item> {
+        let item = Arc::new(T::parse(bytes)?);
 
-    fn insert(&self, path: &Path, item: Arc<Self::Item>) {
-        let mut arena = self.textures.write().unwrap();
-        arena.insert(path, item);
+        {
+            let mut arena = self.textures.write().unwrap();
+            arena.insert(path, item.clone());
+        }
+
+        Ok(item)
     }
 }
 
@@ -148,21 +151,22 @@ struct TextureSystemMapper {
 }
 
 impl resource::ResourceArenaMapper for TextureSystemMapper {
-    type Source = Texture;
-    type Item = graphics::TextureHandle;
+    type Source = Arc<Texture>;
+    type Item = Arc<graphics::TextureHandle>;
     type Error = Error;
 
-    fn map(&self, src: &Self::Source) -> Result<Arc<Self::Item>> {
-        let textures = self.textures.write().unwrap();
-        if let Some(v) = textures.get(self.hash) {
-            return Ok(v.clone());
+    fn map(&self, src: &Self::Source) -> Result<Self::Item> {
+        {
+            let textures = self.textures.write().unwrap();
+            if let Some(v) = textures.get(self.hash) {
+                return Ok(v.clone());
+            }
         }
 
         let mut setup = self.setup;
         setup.dimensions = src.dimensions();
         setup.format = src.format();
-
-        let handle = self.video.create_texture(setup, Some(src.data())).unwrap();
+        let handle = self.video.create_texture(setup, Some(src.data()))?;
 
         let rc = Arc::new(handle);
         self.textures.write().unwrap().insert(self.hash, rc.clone());

@@ -14,7 +14,6 @@ pub use self::resource::{ResourceSystem, ResourceSystemShared};
 
 mod resource;
 
-use std::sync::Arc;
 use std::path::Path;
 use std::error::Error;
 use std::result::Result;
@@ -23,13 +22,13 @@ use futures;
 use futures::{Async, Poll, Future};
 
 /// The future version of resource.
-pub struct ResourceFuture<T, E: Error>(futures::sync::oneshot::Receiver<Result<Arc<T>, E>>);
+pub struct ResourceFuture<T, E: Error>(futures::sync::oneshot::Receiver<Result<T, E>>);
 
 impl<T, E> ResourceFuture<T, E>
     where E: Error + From<self::errors::Error>
 {
     #[inline]
-    pub fn new(rx: futures::sync::oneshot::Receiver<Result<Arc<T>, E>>) -> Self {
+    pub fn new(rx: futures::sync::oneshot::Receiver<Result<T, E>>) -> Self {
         ResourceFuture(rx)
     }
 }
@@ -37,7 +36,7 @@ impl<T, E> ResourceFuture<T, E>
 impl<T, E> Future for ResourceFuture<T, E>
     where E: Error + From<self::errors::Error>
 {
-    type Item = Arc<T>;
+    type Item = T;
     type Error = E;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -56,9 +55,11 @@ pub trait ResourceArenaLoader: Send + Sync + 'static {
     type Item: Send + Sync + 'static;
     type Error: Error + From<self::errors::Error> + Send;
 
-    fn get(&self, path: &Path) -> Option<Arc<Self::Item>>;
-    fn parse(&self, bytes: &[u8]) -> Result<Self::Item, Self::Error>;
-    fn insert(&self, path: &Path, item: Arc<Self::Item>);
+    fn get(&self, _: &Path) -> Option<Self::Item> {
+        None
+    }
+
+    fn insert(&self, path: &Path, bytes: &[u8]) -> Result<Self::Item, Self::Error>;
 }
 
 pub trait ResourceArenaMapper: Send + Sync + 'static {
@@ -66,5 +67,5 @@ pub trait ResourceArenaMapper: Send + Sync + 'static {
     type Item: Send + Sync + 'static;
     type Error: Error + From<self::errors::Error> + Send;
 
-    fn map(&self, src: &Self::Source) -> Result<Arc<Self::Item>, Self::Error>;
+    fn map(&self, src: &Self::Source) -> Result<Self::Item, Self::Error>;
 }

@@ -18,4 +18,6 @@ pub use assets;
 pub use assets::{Texture, TextureSystem};
 
 pub use rayon;
+
+pub use futures;
 pub use futures::Future;
