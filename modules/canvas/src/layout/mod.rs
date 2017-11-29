@@ -1,6 +1,10 @@
-use crayon::{ecs, math, application};
-use crayon::ecs::VecArena;
+use std::borrow::Borrow;
 
+use crayon::{ecs, math, utils};
+use crayon::ecs::VecArena;
+use crayon::math::Transform;
+
+use assets::FontSystem;
 use prelude::Element;
 use errors::*;
 
@@ -11,11 +15,12 @@ pub enum LayoutController {
 
 #[derive(Debug, Copy, Clone)]
 pub struct Layout {
-    pub position: math::Vector2<f32>,
+    pub decomposed: math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>,
 
+    /// The calculated size of this widget after performing layout.
+    pub(crate) size: math::Vector2<f32>,
     /// The design size of this widget.
-    pub size: math::Vector2<f32>,
-    pub(crate) fixed_size: Option<math::Vector2<f32>>,
+    pub fixed_size: Option<math::Vector2<f32>>,
 
     /// The normalized position in the parent widget that the lower left corner is anchored to.
     pub anchor_min: math::Vector2<f32>,
@@ -32,7 +37,7 @@ declare_component!(Layout, VecArena);
 impl Default for Layout {
     fn default() -> Self {
         Layout {
-            position: math::Vector2::new(0.0, 0.0),
+            decomposed: math::Decomposed::one(),
             size: math::Vector2::new(0.0, 0.0),
             fixed_size: None,
             anchor_min: math::Vector2::new(0.5, 0.5),
@@ -44,21 +49,48 @@ impl Default for Layout {
 }
 
 impl Layout {
-    pub unsafe fn perform(ctx: &application::Context,
-                          elements: &ecs::Arena<Element>,
-                          layouts: &mut ecs::ArenaMut<Layout>,
-                          parent: ecs::Entity,
-                          children: &[ecs::Entity])
-                          -> Result<()> {
+    pub fn set_position<T>(&mut self, position: T)
+        where T: Into<math::Vector2<f32>>
+    {
+        let p = position.into();
+        self.decomposed.disp = math::Vector3::new(p.x, p.y, 0.0);
+    }
+
+    pub fn set_pivot<T>(&mut self, pivot: T)
+        where T: Into<math::Vector2<f32>>
+    {
+        self.pivot = pivot.into();
+        self.pivot.x = self.pivot.x.min(1.0).max(0.0);
+        self.pivot.y = self.pivot.y.min(1.0).max(0.0);
+    }
+
+    pub fn matrix(&self) -> math::Matrix4<f32> {
+        let mut decomposed = self.decomposed;
+        decomposed.disp.x -= self.pivot.x * self.size.x;
+        decomposed.disp.y += (1.0 - self.pivot.y) * self.size.y;
+        math::Matrix4::from(decomposed)
+    }
+}
+
+impl Layout {
+    pub unsafe fn perform<T, U>(fonts: &mut FontSystem,
+                                elements: &ecs::Arena<Element>,
+                                layouts: &mut ecs::ArenaMut<Layout>,
+                                parent: ecs::Entity,
+                                children: T)
+                                -> Result<()>
+        where T: IntoIterator<Item = U>,
+              U: Borrow<utils::Handle>
+    {
         let ctrl = layouts.get_unchecked_mut(parent).layout;
 
         match ctrl {
             None => {
                 for v in children {
-                    let e = elements.get_unchecked(*v);
-                    let l = layouts.get_unchecked_mut(*v);
+                    let e = elements.get_unchecked(*v.borrow());
+                    let l = layouts.get_unchecked_mut(*v.borrow());
 
-                    let prefered_size = e.prefered_size(ctx).unwrap_or(l.size);
+                    let prefered_size = e.prefered_size(fonts).unwrap_or(l.size);
                     l.size = l.fixed_size.unwrap_or(prefered_size);
                 }
             }

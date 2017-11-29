@@ -6,36 +6,29 @@ use crayon::{application, resource, utils, futures, graphics, math};
 use crayon::futures::Future;
 use rusttype;
 
-use super::font::{Font, FontHandle};
+use super::font::{Font, FontHandle, LayoutIter};
 use super::font_error::*;
-use renderer::CanvasVertex;
 
 pub struct FontSystem {
     fallback: Font,
     fonts: utils::ObjectPool<FontState>,
     handles: HashMap<utils::HashValue<Path>, utils::Handle>,
-
-    texture_cache: rusttype::gpu_cache::Cache,
-    texture: Option<graphics::TextureHandle>,
-
+    texture_cache: FontTextureCache,
     resource: Arc<resource::ResourceSystemShared>,
-    video: Arc<graphics::GraphicsSystemShared>,
+    dpi_factor: f32,
 }
 
 impl FontSystem {
     pub fn new(ctx: &application::Context) -> Self {
-        let fallback = include_bytes!("../../assets/fonts/FiraSans-Regular.ttf");
+        let fallback = include_bytes!("../../resources/fonts/FiraSans-Regular.ttf");
 
         FontSystem {
             fonts: utils::ObjectPool::new(),
             handles: HashMap::new(),
             fallback: Font::new(&fallback[..]),
-
-            texture_cache: rusttype::gpu_cache::Cache::new(1024, 1024, 0.25, 0.25),
-            texture: None,
-
+            texture_cache: FontTextureCache::new(ctx),
             resource: ctx.shared::<resource::ResourceSystem>().clone(),
-            video: ctx.shared::<graphics::GraphicsSystem>().clone(),
+            dpi_factor: 1.0,
         }
     }
 
@@ -71,16 +64,40 @@ impl FontSystem {
         }
     }
 
-    #[inline]
-    pub fn get(&self, handle: FontHandle) -> Option<&Font> {
-        self.fonts.get(handle).and_then(|v| v.try_ready())
+    pub fn set_dpi_factor(&mut self, dpi_factor: f32) {
+        self.dpi_factor = dpi_factor;
     }
 
-    pub fn draw(&mut self,
-                handle: Option<FontHandle>,
-                text: &str,
-                scale: f32)
-                -> Result<(Vec<CanvasVertex>, Vec<u16>, graphics::TextureHandle)> {
+    /// The conservative pixel-boundary bounding box for this text. This is the smallest
+    /// rectangle aligned to pixel boundaries that encloses the shape.
+    pub fn bounding_box(&mut self,
+                        handle: Option<FontHandle>,
+                        text: &str,
+                        scale: f32,
+                        h_wrap: Option<f32>,
+                        v_wrap: Option<f32>)
+                        -> (math::Vector2<f32>, math::Vector2<f32>) {
+        let font = if let Some(handle) = handle {
+            if let Some(v) = self.fonts.get_mut(handle).and_then(|v| v.try_ready()) {
+                v
+            } else {
+                &self.fallback
+            }
+        } else {
+            &self.fallback
+        };
+
+        font.bounding_box(text, scale, h_wrap, v_wrap)
+    }
+
+    /// A convenience function for laying out glyphs for a text.
+    pub fn layout<'a, 'b>(&'a mut self,
+                          handle: Option<FontHandle>,
+                          text: &'b str,
+                          scale: f32,
+                          h_wrap_limit: Option<f32>,
+                          v_wrap_limit: Option<f32>)
+                          -> Result<(graphics::TextureHandle, FontGlyphIter<'a, 'b>)> {
         let (id, font) = if let Some(handle) = handle {
             if let Some(v) = self.fonts.get_mut(handle).and_then(|v| v.try_ready()) {
                 ((handle.index() + 1) as usize, v)
@@ -91,57 +108,91 @@ impl FontSystem {
             (0, &self.fallback)
         };
 
-        for v in font.layout(text, scale, None) {
-            self.texture_cache.queue_glyph(id, v);
+        let dpi_factor = self.dpi_factor;
+        let h_wrap_limit = h_wrap_limit.map(|v| v * dpi_factor);
+        let v_wrap_limit = v_wrap_limit.map(|v| v * dpi_factor);
+
+        for v in font.layout(text, scale * self.dpi_factor, h_wrap_limit, v_wrap_limit) {
+            self.texture_cache.add(id, v);
         }
 
-        let handle = self.update_texture_cache()?;
+        let handle = self.texture_cache.update_texture()?;
 
-        let mut verts = Vec::new();
-        let mut idxes = Vec::new();
-        let color = [0, 0, 0, 255];
-        let dimensions = (640.0, 480.0);
+        Ok((handle,
+            FontGlyphIter {
+                texture_cache: &self.texture_cache,
+                id: id,
+                iter: font.layout(text, scale * self.dpi_factor, h_wrap_limit, v_wrap_limit),
+                inverse_dpi_factor: 1.0 / self.dpi_factor,
+            }))
+    }
+}
 
-        for v in font.layout(text, scale, None) {
-            if let Ok(Some((uv, screen))) = self.texture_cache.rect_for(0, &v) {
-                let min = (math::Vector2::new(screen.min.x as f32 / dimensions.0 - 0.5,
-                                              1.0 - screen.min.y as f32 / dimensions.1 - 0.5)) *
-                          2.0;
-                let max = (math::Vector2::new(screen.max.x as f32 / dimensions.0 - 0.5,
-                                              1.0 - screen.max.y as f32 / dimensions.1 - 0.5)) *
-                          2.0;
+pub struct FontGlyphIter<'a, 'b> {
+    texture_cache: &'a FontTextureCache,
+    id: usize,
+    iter: LayoutIter<'a, 'b>,
+    inverse_dpi_factor: f32,
+}
 
-                let offset = verts.len() as u16;
-                verts.push(CanvasVertex::new([min.x, max.y], [uv.min.x, uv.max.y], color));
-                verts.push(CanvasVertex::new([min.x, min.y], [uv.min.x, uv.min.y], color));
-                verts.push(CanvasVertex::new([max.x, min.y], [uv.max.x, uv.min.y], color));
-                verts.push(CanvasVertex::new([max.x, max.y], [uv.max.x, uv.max.y], color));
+impl<'a, 'b> Iterator for FontGlyphIter<'a, 'b> {
+    type Item = (rusttype::Rect<f32>, rusttype::Rect<i32>);
 
-                idxes.push(offset + 0);
-                idxes.push(offset + 1);
-                idxes.push(offset + 2);
-                idxes.push(offset + 2);
-                idxes.push(offset + 3);
-                idxes.push(offset + 0);
+    fn next(&mut self) -> Option<Self::Item> {
+        for v in &mut self.iter {
+            if let Some((uv, mut screen)) = self.texture_cache.rect_for(self.id, &v) {
+                screen.min.x = (screen.min.x as f32 * self.inverse_dpi_factor) as i32;
+                screen.min.y = (screen.min.y as f32 * self.inverse_dpi_factor) as i32;
+                screen.max.x = (screen.max.x as f32 * self.inverse_dpi_factor) as i32;
+                screen.max.y = (screen.max.y as f32 * self.inverse_dpi_factor) as i32;
+                return Some((uv, screen));
             }
         }
 
-        Ok((verts, idxes, handle))
+        None
+    }
+}
+
+struct FontTextureCache {
+    texture_cache: rusttype::gpu_cache::Cache,
+    texture: Option<graphics::TextureHandle>,
+    video: Arc<graphics::GraphicsSystemShared>,
+}
+
+impl FontTextureCache {
+    fn new(ctx: &application::Context) -> Self {
+        FontTextureCache {
+            texture_cache: rusttype::gpu_cache::Cache::new(1024, 1024, 0.25, 0.25),
+            texture: None,
+            video: ctx.shared::<graphics::GraphicsSystem>().clone(),
+        }
     }
 
-    fn update_texture_cache(&mut self) -> Result<graphics::TextureHandle> {
-        let handle = if self.texture.is_none() {
+    #[inline]
+    fn add(&mut self, id: usize, glyph: rusttype::PositionedGlyph) {
+        self.texture_cache.queue_glyph(id, glyph);
+    }
+
+    #[inline]
+    fn rect_for(&self,
+                id: usize,
+                glyph: &rusttype::PositionedGlyph)
+                -> Option<(rusttype::Rect<f32>, rusttype::Rect<i32>)> {
+        self.texture_cache.rect_for(id, glyph).unwrap()
+    }
+
+    fn update_texture(&mut self) -> Result<graphics::TextureHandle> {
+        if self.texture.is_none() {
             let mut setup = graphics::TextureSetup::default();
             setup.filter = graphics::TextureFilter::Linear;
             setup.mipmap = false;
             setup.dimensions = (1024, 1024);
             setup.format = graphics::TextureFormat::U8;
 
-            self.video.create_texture(setup, None)?
-        } else {
-            self.texture.unwrap()
-        };
+            self.texture = Some(self.video.create_texture(setup, None)?);
+        }
 
+        let handle = self.texture.unwrap();
         let video = &self.video;
         self.texture_cache
             .cache_queued(|rect, data| {
@@ -149,7 +200,7 @@ impl FontSystem {
                                                                                rect.min.y as i32),
                                                              math::Point2::new(rect.max.x as i32,
                                                                                rect.max.y as i32));
-                              video.update_texture(handle, rect, data);
+                              video.update_texture(handle, rect, data).unwrap();
                           })
             .unwrap();
 

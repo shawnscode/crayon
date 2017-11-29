@@ -1,5 +1,5 @@
-use crayon::{ecs, application};
-use crayon::ecs::Arena;
+use crayon::{ecs, application, math};
+use crayon::ecs::{Arena, ArenaMut};
 
 use errors::*;
 use node::Node;
@@ -10,27 +10,18 @@ use assets::FontSystem;
 
 pub struct CanvasSystem {
     world: ecs::World,
-    entities: ecs::Entity,
+    screen: ecs::Entity,
     fonts: FontSystem,
     renderer: CanvasRenderer,
-    // design_resolution: (u32, u32),
-    // design_dpi: u32,
+    design_resolution: (f32, f32),
+    dpi_factor: f32,
 }
 
-/*
-    let node = canvas->create_node();
-    let handle = canvas->create_font_from("/std/fonts/G.ttf");
-
-    canvas->set_element(node, Text::build().with_font(handle).with_font_size(16).finish());
-    canvas->set_layout(node, BoxLayout::build());
-    canvas->set_parent(node, None);
-
-    canvas.font(handle).layout(self.text, Scale::normalize(self.size), None)
-    canvas.font(handle).
-*/
-
 impl CanvasSystem {
-    pub fn new(ctx: &application::Context) -> Result<Self> {
+    pub fn new(ctx: &application::Context,
+               design_resolution: (f32, f32),
+               dpi_factor: f32)
+               -> Result<Self> {
         let mut world = ecs::World::new();
         world.register::<Node>();
         world.register::<Element>();
@@ -38,27 +29,33 @@ impl CanvasSystem {
 
         let fonts = FontSystem::new(ctx);
         let renderer = CanvasRenderer::new(ctx)?;
-        let root = world
+
+        let mut layout = Layout::default();
+        layout.anchor_min = math::Vector2::new(0.0, 0.0);
+        layout.anchor_max = math::Vector2::new(1.0, 1.0);
+        layout.pivot = math::Vector2::new(0.0, 0.0);
+        layout.size = design_resolution.into();
+        layout.fixed_size = Some(design_resolution.into());
+
+        let screen = world
             .build()
             .with_default::<Node>()
-            .with_default::<Layout>()
             .with_default::<Element>()
+            .with::<Layout>(layout)
             .finish();
 
         Ok(CanvasSystem {
-               entities: root,
                world: world,
+               screen: screen,
                renderer: renderer,
                fonts: fonts,
+               design_resolution: design_resolution,
+               dpi_factor: dpi_factor,
            })
     }
 
-    pub fn world(&self) -> &ecs::World {
-        &self.world
-    }
-
-    pub fn world_mut(&mut self) -> &mut ecs::World {
-        &mut self.world
+    pub fn set_dpi_factor(&mut self, dpi_factor: f32) {
+        self.dpi_factor = dpi_factor;
     }
 
     pub fn create(&mut self) -> ecs::Entity {
@@ -70,58 +67,67 @@ impl CanvasSystem {
             .finish()
     }
 
-    pub fn create_text(&mut self) -> ecs::Entity {
-        use element::text;
-        self.world
-            .build()
-            .with_default::<Node>()
-            .with::<Element>(Element::Text(text::Text::default()))
-            .finish()
+    pub fn set_element(&mut self, node: ecs::Entity, element: Element) {
+        unsafe {
+            *self.world.arena_mut::<Element>().get_unchecked_mut(node) = element;
+        }
+    }
+
+    pub fn set_layout(&mut self, node: ecs::Entity, layout: Layout) {
+        unsafe {
+            *self.world.arena_mut::<Layout>().get_unchecked_mut(node) = layout;
+        }
     }
 
     ///
-    pub fn perform_layout(&mut self, ctx: &application::Context) -> Result<()> {
+    pub fn advance(&mut self) -> Result<()> {
+        self.fonts.set_dpi_factor(self.dpi_factor);
+        self.fonts.advance();
+        Ok(())
+    }
+
+    ///
+    pub fn perform_layout(&mut self, _ctx: &application::Context) -> Result<()> {
         let mut children = Vec::new();
 
         {
             let (view, arena) = self.world.view_with::<Node>();
             for node in view {
                 unsafe {
-                    if arena.get_unchecked(node).is_root() {
+                    if arena.get_unchecked(node).is_root() && self.screen != node {
                         children.push(node);
                     }
                 }
             }
         }
 
-        let mut nodes = self.world.arena::<Node>();
-        let mut elements = self.world.arena::<Element>();
+        let nodes = self.world.arena::<Node>();
+        let elements = self.world.arena::<Element>();
         let mut layouts = self.world.arena_mut::<Layout>();
 
+        let fonts = &mut self.fonts;
+
         unsafe {
-            Layout::perform(ctx, &elements, &mut layouts, self.entities, &children)?;
+            Layout::perform(fonts, &elements, &mut layouts, self.screen, &children)?;
 
             for v in children {
-                Self::perform_layout_recursive(ctx, &nodes, &elements, &mut layouts, v)?;
+                Self::perform_layout_recursive(fonts, &nodes, &elements, &mut layouts, v)?;
             }
         }
 
         Ok(())
     }
 
-    fn perform_layout_recursive(ctx: &application::Context,
-                                nodes: &ecs::Arena<Node>,
-                                elements: &ecs::Arena<Element>,
-                                layouts: &mut ecs::ArenaMut<Layout>,
-                                ent: ecs::Entity)
-                                -> Result<()> {
-        let children: Vec<_> = Node::children(nodes, ent).collect();
+    unsafe fn perform_layout_recursive(fonts: &mut FontSystem,
+                                       nodes: &ecs::Arena<Node>,
+                                       elements: &ecs::Arena<Element>,
+                                       layouts: &mut ecs::ArenaMut<Layout>,
+                                       ent: ecs::Entity)
+                                       -> Result<()> {
+        Layout::perform(fonts, elements, layouts, ent, Node::children(nodes, ent))?;
 
-        unsafe {
-            Layout::perform(ctx, elements, layouts, ent, &children)?;
-            for v in children {
-                Self::perform_layout_recursive(ctx, nodes, elements, layouts, v)?;
-            }
+        for v in Node::children(nodes, ent) {
+            Self::perform_layout_recursive(fonts, nodes, elements, layouts, v)?;
         }
 
         Ok(())
@@ -144,17 +150,28 @@ impl CanvasSystem {
 
         let nodes = self.world.arena::<Node>();
         let elements = self.world.arena::<Element>();
+        let layouts = self.world.arena_mut::<Layout>();
+
+        let renderer = &mut self.renderer;
+        let fonts = &mut self.fonts;
+
+        let hsize = self.design_resolution.0;
+        let vsize = self.design_resolution.1;
+        let transform: math::Matrix4<f32> = math::ortho(0.0, hsize, 0.0, vsize, 0.0, 1.0).into();
 
         unsafe {
             for v in children {
-                elements
-                    .get_unchecked(v)
-                    .draw(&mut self.renderer, &mut self.fonts);
-                Self::draw_recursive(&mut self.renderer, &mut self.fonts, &nodes, &elements, v)?;
+                let l = layouts.get_unchecked(v);
+                let t = transform * l.matrix();
+
+                renderer.set_matrix(t);
+                elements.get_unchecked(v).draw(renderer, fonts, l.size)?;
+
+                Self::draw_recursive(renderer, fonts, &nodes, &elements, &layouts, v, t)?;
             }
         }
 
-        self.renderer.flush()?;
+        renderer.flush()?;
         Ok(())
     }
 
@@ -162,11 +179,18 @@ impl CanvasSystem {
                              fonts: &mut FontSystem,
                              nodes: &ecs::Arena<Node>,
                              elements: &ecs::Arena<Element>,
-                             ent: ecs::Entity)
+                             layouts: &ecs::ArenaMut<Layout>,
+                             ent: ecs::Entity,
+                             transform: math::Matrix4<f32>)
                              -> Result<()> {
         for v in Node::children(nodes, ent) {
-            elements.get_unchecked(v).draw(renderer, fonts);
-            Self::draw_recursive(renderer, fonts, nodes, elements, v)?;
+            let l = layouts.get_unchecked(v);
+            let t = transform * l.matrix();
+
+            renderer.set_matrix(t);
+            elements.get_unchecked(v).draw(renderer, fonts, l.size)?;
+
+            Self::draw_recursive(renderer, fonts, nodes, elements, layouts, v, t)?;
         }
 
         Ok(())

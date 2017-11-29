@@ -13,6 +13,7 @@ impl_vertex!{
 
 struct Window {
     canvas: CanvasSystem,
+    fps: Entity,
 }
 
 impl Window {
@@ -23,22 +24,68 @@ impl Window {
                    resource::filesystem::DirectoryFS::new("examples/resources")?)?;
 
         let ctx = engine.context().read().unwrap();
-        let mut canvas = CanvasSystem::new(&ctx).unwrap();
-        canvas.create_text();
+        let mut canvas = CanvasSystem::new(&ctx, (640.0, 480.0), 2.0).unwrap();
 
-        Ok(Window { canvas: canvas })
+        Self::create_text(&mut canvas,
+                          [320.0, 240.0],
+                          [0.5, 0.5],
+                          "Hello, World!",
+                          64,
+                          Color::blue());
+
+        let fps = Self::create_text(&mut canvas,
+                                    [0.0, 480.0],
+                                    [0.0, 1.0],
+                                    "FPS: 30",
+                                    16,
+                                    Color::black());
+
+        Ok(Window {
+               canvas: canvas,
+               fps: fps,
+           })
+    }
+
+    fn create_text(sys: &mut CanvasSystem,
+                   position: [f32; 2],
+                   pivot: [f32; 2],
+                   n: &str,
+                   size: u32,
+                   color: Color)
+                   -> Entity {
+        let node = sys.create();
+
+        let mut text = Text::default();
+        text.text = n.to_owned();
+        text.color = color;
+        text.size = size;
+
+        sys.set_element(node, Element::Text(text));
+
+        let mut layout = Layout::default();
+        layout.set_position(position);
+        layout.set_pivot(pivot);
+
+        sys.set_layout(node, layout);
+        node
     }
 }
 
 impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
-        // self.canvas.perform_layout(ctx).unwrap();
+        self.canvas.advance().unwrap();
+        self.canvas.perform_layout(ctx).unwrap();
         self.canvas.draw(ctx).unwrap();
         Ok(())
     }
 
-    fn on_post_update(&mut self, _: &Context, _: &FrameInfo) -> errors::Result<()> {
-        // println!("\nFRAME\n-----------------------\n{:#?}", info);
+    fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> errors::Result<()> {
+        let mut text = Text::default();
+        text.text = format!("FPS: {:?}\n{:#?}", info.fps, info.video);
+        text.color = Color::black();
+        text.size = 16;
+
+        self.canvas.set_element(self.fps, Element::Text(text));
         Ok(())
     }
 }

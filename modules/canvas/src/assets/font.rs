@@ -24,17 +24,19 @@ impl Font {
     pub fn bounding_box<'a, 'b>(&'a self,
                                 text: &'b str,
                                 scale: f32,
-                                wrap_limits: Option<u32>)
+                                h_wrap: Option<f32>,
+                                v_wrap: Option<f32>)
                                 -> (math::Vector2<f32>, math::Vector2<f32>) {
-        // use std::cmp;
-        let (min, max) = (math::Vector2::new(0.0, 0.0), math::Vector2::new(0.0, 0.0));
-        for glyph in self.layout(text, scale, wrap_limits) {
-            if let Some(_) = glyph.pixel_bounding_box() {
-                // min.x = cmp::min(min.x, v.min.x);
-                // min.y = cmp::min(min.y, v.min.y);
+        let v_metrics = self.font.v_metrics(rusttype::Scale::uniform(scale));
+        let mut min = math::Vector2::new(0.0f32, 0.0);
+        let mut max = math::Vector2::new(0.0f32, v_metrics.ascent);
 
-                // max.x = cmp::max(max.x, v.max.x);
-                // max.y = cmp::max(max.y, v.max.y);
+        for glyph in self.layout(text, scale, h_wrap, v_wrap) {
+            if let Some(v) = glyph.pixel_bounding_box() {
+                min.x = min.x.min(v.min.x as f32);
+                min.y = min.y.min(v.min.y as f32);
+                max.x = max.x.max(v.max.x as f32);
+                max.y = max.y.max(v.max.y as f32);
             }
         }
 
@@ -45,7 +47,8 @@ impl Font {
     pub fn layout<'a, 'b>(&'a self,
                           text: &'b str,
                           scale: f32,
-                          wrap_limits: Option<u32>)
+                          h_wrap_limits: Option<f32>,
+                          v_wrap_limits: Option<f32>)
                           -> LayoutIter<'a, 'b> {
         let scale = rusttype::Scale::uniform(scale);
         let v_metrics = self.font.v_metrics(scale);
@@ -54,7 +57,8 @@ impl Font {
             chars: text.nfc(),
             caret: rusttype::point(0.0, v_metrics.ascent),
             scale: scale,
-            wrap_limits: wrap_limits,
+            h_wrap_limits: h_wrap_limits,
+            v_wrap_limits: v_wrap_limits,
             last_glyph: None,
         }
     }
@@ -66,24 +70,30 @@ pub struct LayoutIter<'a, 'b> {
     chars: Recompositions<Chars<'b>>,
     caret: rusttype::Point<f32>,
     scale: rusttype::Scale,
-    wrap_limits: Option<u32>,
+    h_wrap_limits: Option<f32>,
+    v_wrap_limits: Option<f32>,
     last_glyph: Option<rusttype::GlyphId>,
 }
 
 impl<'a, 'b> Iterator for LayoutIter<'a, 'b> {
     type Item = rusttype::PositionedGlyph<'a>;
 
-    fn next(&mut self) -> Option<rusttype::PositionedGlyph<'a>> {
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(height) = self.v_wrap_limits {
+            if height < self.caret.y {
+                return None;
+            }
+        }
+
         let v_metrics = self.font.v_metrics(self.scale);
         let advance_height = v_metrics.ascent - v_metrics.descent + v_metrics.line_gap;
 
         for c in &mut self.chars {
             if c.is_control() {
                 match c {
-                    '\r' => {
+                    '\n' => {
                         self.caret = rusttype::point(0.0, self.caret.y + advance_height);
                     }
-                    '\n' => {}
                     _ => {}
                 }
                 continue;
@@ -102,10 +112,17 @@ impl<'a, 'b> Iterator for LayoutIter<'a, 'b> {
             self.last_glyph = Some(glyph.id());
             let mut glyph = glyph.scaled(self.scale).positioned(self.caret);
 
-            if let Some(width) = self.wrap_limits {
+            if let Some(width) = self.h_wrap_limits {
                 if let Some(bb) = glyph.pixel_bounding_box() {
                     if bb.max.x > width as i32 {
                         self.caret = rusttype::point(0.0, self.caret.y + advance_height);
+
+                        if let Some(height) = self.v_wrap_limits {
+                            if height < self.caret.y {
+                                return None;
+                            }
+                        }
+
                         glyph = glyph.into_unpositioned().positioned(self.caret);
                         self.last_glyph = None;
                     }

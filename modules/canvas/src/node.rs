@@ -115,6 +115,14 @@ impl Node {
         }
     }
 
+    /// Return an iterator of references to its ancestors.
+    pub fn ancestors(arena: &ecs::Arena<Node>, handle: ecs::Entity) -> Ancestors {
+        Ancestors {
+            arena: arena,
+            cursor: arena.get(handle).and_then(|v| v.parent),
+        }
+    }
+
     /// Returns an iterator of references to this transform's children.
     pub fn children(arena: &ecs::Arena<Node>, handle: ecs::Entity) -> Children {
         Children {
@@ -130,6 +138,38 @@ impl Node {
             arena: arena,
             root: handle,
             cursor: arena.get(handle).and_then(|v| v.first_child),
+        }
+    }
+
+    /// Return true if rhs is one of the ancestor of this `Node`.
+    pub fn is_ancestor(arena: &ecs::Arena<Node>, lhs: ecs::Entity, rhs: ecs::Entity) -> bool {
+        for v in Node::ancestors(arena, lhs) {
+            if v == rhs {
+                return true;
+            }
+        }
+
+        false
+    }
+}
+
+/// An iterator of references to its ancestors.
+pub struct Ancestors<'a> {
+    arena: &'a ecs::Arena<Node>,
+    cursor: Option<ecs::Entity>,
+}
+
+impl<'a> Iterator for Ancestors<'a> {
+    type Item = ecs::Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            if let Some(node) = self.cursor {
+                let v = &self.arena.get_unchecked(node);
+                return ::std::mem::replace(&mut self.cursor, v.parent);
+            }
+
+            None
         }
     }
 }

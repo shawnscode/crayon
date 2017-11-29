@@ -1,10 +1,11 @@
 pub mod text;
 
-use crayon::{math, application};
+use crayon::math;
 use crayon::ecs::VecArena;
 
 use renderer::CanvasRenderer;
 use assets::FontSystem;
+use errors::*;
 
 #[derive(Debug, Clone)]
 pub enum Element {
@@ -26,10 +27,14 @@ impl Default for Element {
 }
 
 impl Element {
-    pub fn draw(&self, renderer: &mut CanvasRenderer, fonts: &mut FontSystem) {
+    pub fn draw(&self,
+                renderer: &mut CanvasRenderer,
+                fonts: &mut FontSystem,
+                size: math::Vector2<f32>)
+                -> Result<()> {
         match *self {
-            Element::Empty(_) => {}
-            Element::Text(ref element) => element.draw(renderer, fonts),
+            Element::Empty(_) => Ok(()),
+            Element::Text(ref element) => element.draw(renderer, fonts, size),
         }
     }
 
@@ -40,10 +45,10 @@ impl Element {
         }
     }
 
-    pub fn prefered_size(&self, ctx: &application::Context) -> Option<math::Vector2<f32>> {
+    pub fn prefered_size(&self, fonts: &mut FontSystem) -> Option<math::Vector2<f32>> {
         match *self {
             Element::Empty(_) => None,
-            Element::Text(ref element) => element.prefered_size(ctx),
+            Element::Text(ref element) => element.prefered_size(fonts),
         }
     }
 }
