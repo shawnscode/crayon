@@ -14,6 +14,7 @@ impl_vertex!{
 
 const MAX_VERTICES: usize = ::std::u16::MAX as usize;
 
+/// The renderer of canvas system.
 pub struct CanvasRenderer {
     video: Arc<graphics::GraphicsSystemShared>,
 
@@ -30,6 +31,8 @@ pub struct CanvasRenderer {
 }
 
 impl CanvasRenderer {
+    /// Creates a new `CanvasRenderer`. This will allocates essential video
+    /// resources in background.
     pub fn new(ctx: &application::Context) -> Result<Self> {
         let video = ctx.shared::<graphics::GraphicsSystem>();
 
@@ -85,17 +88,14 @@ impl CanvasRenderer {
            })
     }
 
+    /// Set the current transformation matrix, it will be applied to all the
+    /// vertices your submitted later.
     pub fn set_matrix(&mut self, matrix: math::Matrix4<f32>) {
         self.current_matrix = matrix;
     }
 
-    #[inline(always)]
-    fn transform(&self, position: [f32; 2]) -> [f32; 2] {
-        let p = math::Vector4::new(position[0], position[1], 0.0, 1.0);
-        let p = self.current_matrix * p;
-        [p.x, p.y]
-    }
-
+    /// Submits data for drawing. Notes that the renderer will trying to batch
+    /// vertices and indices your submitted to avoid unnessessary draw call.
     pub fn submit(&mut self,
                   verts: &[CanvasVertex],
                   idxes: &[u16],
@@ -130,6 +130,7 @@ impl CanvasRenderer {
         Ok(())
     }
 
+    /// Flush the batched data into video card.
     pub fn flush(&mut self) -> Result<()> {
         if self.idxes.len() <= 0 {
             return Ok(());
@@ -157,6 +158,13 @@ impl CanvasRenderer {
         self.verts.clear();
         self.idxes.clear();
         Ok(())
+    }
+
+    #[inline(always)]
+    fn transform(&self, position: [f32; 2]) -> [f32; 2] {
+        let p = math::Vector4::new(position[0], position[1], 0.0, 1.0);
+        let p = self.current_matrix * p;
+        [p.x, p.y]
     }
 }
 

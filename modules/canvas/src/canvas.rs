@@ -1,4 +1,5 @@
-use crayon::{ecs, application, math};
+use std::borrow::Borrow;
+use crayon::{ecs, application, math, utils};
 use crayon::ecs::{Arena, ArenaMut};
 
 use errors::*;
@@ -54,10 +55,13 @@ impl CanvasSystem {
            })
     }
 
+    /// Sets the current hdpi-factor.
     pub fn set_dpi_factor(&mut self, dpi_factor: f32) {
         self.dpi_factor = dpi_factor;
     }
 
+    /// Creates a new and empty node. It has no parent in the hierary, and will be
+    /// treated as root initially.
     pub fn create(&mut self) -> ecs::Entity {
         self.world
             .build()
@@ -67,45 +71,34 @@ impl CanvasSystem {
             .finish()
     }
 
+    /// Sets the element component for specified code.
     pub fn set_element(&mut self, node: ecs::Entity, element: Element) {
         unsafe {
             *self.world.arena_mut::<Element>().get_unchecked_mut(node) = element;
         }
     }
 
+    /// Sets the layout component for specified node.
     pub fn set_layout(&mut self, node: ecs::Entity, layout: Layout) {
         unsafe {
             *self.world.arena_mut::<Layout>().get_unchecked_mut(node) = layout;
         }
     }
 
-    ///
+    /// Advances the `CanvasSystem` with essential updates.
     pub fn advance(&mut self) -> Result<()> {
         self.fonts.set_dpi_factor(self.dpi_factor);
         self.fonts.advance();
         Ok(())
     }
 
-    ///
-    pub fn perform_layout(&mut self, _ctx: &application::Context) -> Result<()> {
-        let mut children = Vec::new();
-
-        {
-            let (view, arena) = self.world.view_with::<Node>();
-            for node in view {
-                unsafe {
-                    if arena.get_unchecked(node).is_root() && self.screen != node {
-                        children.push(node);
-                    }
-                }
-            }
-        }
-
+    /// Layouts all the active nodes. This should be called every frames before drawing.
+    pub fn perform_layout(&mut self, _: &application::Context) -> Result<()> {
+        let children = self.collect_root_nodes();
+        let fonts = &mut self.fonts;
         let nodes = self.world.arena::<Node>();
         let elements = self.world.arena::<Element>();
         let mut layouts = self.world.arena_mut::<Layout>();
-
-        let fonts = &mut self.fonts;
 
         unsafe {
             Layout::perform(fonts, &elements, &mut layouts, self.screen, &children)?;
@@ -122,77 +115,76 @@ impl CanvasSystem {
                                        nodes: &ecs::Arena<Node>,
                                        elements: &ecs::Arena<Element>,
                                        layouts: &mut ecs::ArenaMut<Layout>,
-                                       ent: ecs::Entity)
+                                       node: ecs::Entity)
                                        -> Result<()> {
-        Layout::perform(fonts, elements, layouts, ent, Node::children(nodes, ent))?;
+        Layout::perform(fonts, elements, layouts, node, Node::children(nodes, node))?;
 
-        for v in Node::children(nodes, ent) {
+        for v in Node::children(nodes, node) {
             Self::perform_layout_recursive(fonts, nodes, elements, layouts, v)?;
         }
 
         Ok(())
     }
 
-    /// Draw the whole scene.
+    /// Draws the whole scene.
     pub fn draw(&mut self, _: &application::Context) -> Result<()> {
+        let hsize = self.design_resolution.0;
+        let vsize = self.design_resolution.1;
+        let transform: math::Matrix4<f32> = math::ortho(0.0, hsize, 0.0, vsize, 0.0, 1.0).into();
+        let children = self.collect_root_nodes();
+
+        unsafe {
+            Self::draw_recursive(&mut self.renderer,
+                                 &mut self.fonts,
+                                 &self.world.arena::<Node>(),
+                                 &self.world.arena::<Element>(),
+                                 &mut self.world.arena_mut::<Layout>(),
+                                 transform,
+                                 &children)?;
+        }
+
+        self.renderer.flush()?;
+        Ok(())
+    }
+
+    unsafe fn draw_recursive<T, U>(renderer: &mut CanvasRenderer,
+                                   fonts: &mut FontSystem,
+                                   nodes: &ecs::Arena<Node>,
+                                   elements: &ecs::Arena<Element>,
+                                   layouts: &ecs::ArenaMut<Layout>,
+                                   transform: math::Matrix4<f32>,
+                                   children: T)
+                                   -> Result<()>
+        where T: IntoIterator<Item = U>,
+              U: Borrow<utils::Handle>
+    {
+        for v in children {
+            let node = *v.borrow();
+            let l = layouts.get_unchecked(node);
+            let t = transform * l.matrix();
+
+            renderer.set_matrix(t);
+            elements.get_unchecked(node).draw(renderer, fonts, l.size)?;
+
+            let c = Node::children(nodes, node);
+            Self::draw_recursive(renderer, fonts, nodes, elements, layouts, t, c)?;
+        }
+
+        Ok(())
+    }
+
+    fn collect_root_nodes(&self) -> Vec<ecs::Entity> {
         let mut children = Vec::new();
 
-        {
+        unsafe {
             let (view, arena) = self.world.view_with::<Node>();
             for node in view {
-                unsafe {
-                    if arena.get_unchecked(node).is_root() {
-                        children.push(node);
-                    }
+                if arena.get_unchecked(node).is_root() && node != self.screen {
+                    children.push(node);
                 }
             }
         }
 
-        let nodes = self.world.arena::<Node>();
-        let elements = self.world.arena::<Element>();
-        let layouts = self.world.arena_mut::<Layout>();
-
-        let renderer = &mut self.renderer;
-        let fonts = &mut self.fonts;
-
-        let hsize = self.design_resolution.0;
-        let vsize = self.design_resolution.1;
-        let transform: math::Matrix4<f32> = math::ortho(0.0, hsize, 0.0, vsize, 0.0, 1.0).into();
-
-        unsafe {
-            for v in children {
-                let l = layouts.get_unchecked(v);
-                let t = transform * l.matrix();
-
-                renderer.set_matrix(t);
-                elements.get_unchecked(v).draw(renderer, fonts, l.size)?;
-
-                Self::draw_recursive(renderer, fonts, &nodes, &elements, &layouts, v, t)?;
-            }
-        }
-
-        renderer.flush()?;
-        Ok(())
-    }
-
-    unsafe fn draw_recursive(renderer: &mut CanvasRenderer,
-                             fonts: &mut FontSystem,
-                             nodes: &ecs::Arena<Node>,
-                             elements: &ecs::Arena<Element>,
-                             layouts: &ecs::ArenaMut<Layout>,
-                             ent: ecs::Entity,
-                             transform: math::Matrix4<f32>)
-                             -> Result<()> {
-        for v in Node::children(nodes, ent) {
-            let l = layouts.get_unchecked(v);
-            let t = transform * l.matrix();
-
-            renderer.set_matrix(t);
-            elements.get_unchecked(v).draw(renderer, fonts, l.size)?;
-
-            Self::draw_recursive(renderer, fonts, nodes, elements, layouts, v, t)?;
-        }
-
-        Ok(())
+        children
     }
 }

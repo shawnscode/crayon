@@ -1,3 +1,7 @@
+//! # Crayon's Canvas Module
+//!
+//! A _Canvas_ is the area that all UI nodes should be inside.
+
 #[macro_use]
 extern crate crayon;
 #[macro_use]
@@ -19,8 +23,3 @@ mod canvas;
 mod node;
 mod element;
 mod layout;
-
-// use crayon;
-// pub fn register(resource: &mut crayon::resource::ResourceSystem) {
-//     resource
-// }
