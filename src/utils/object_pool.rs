@@ -86,13 +86,13 @@ impl<T: Sized> ObjectPool<T> {
         }
     }
 
-    /// Returns the total number of alive handle in this `HandlePoolWith`.
+    /// Returns the total number of alive handle in this `ObjectPool`.
     #[inline]
     pub fn len(&self) -> usize {
         self.handles.size()
     }
 
-    /// Returns an iterator over the `HandlePoolWith`.
+    /// Returns an iterator over the `ObjectPool`.
     #[inline]
     pub fn iter(&self) -> HandleIter {
         self.handles.iter()

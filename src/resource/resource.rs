@@ -1,5 +1,3 @@
-
-use std::collections::HashSet;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -10,7 +8,6 @@ use two_lock_queue;
 use futures;
 use futures::Future;
 
-use utils::HashValue;
 use super::{ResourceFuture, ResourceArenaLoader, ResourceArenaMapper};
 use super::filesystem::{Filesystem, FilesystemDriver};
 use super::errors::*;
@@ -67,14 +64,13 @@ impl ResourceSystem {
     }
 
     fn run(chan: two_lock_queue::Receiver<ResourceTask>, driver: Arc<RwLock<FilesystemDriver>>) {
-        let mut locks: HashSet<HashValue<Path>> = HashSet::new();
         let mut buf = Vec::new();
 
         loop {
             match chan.recv().unwrap() {
                 ResourceTask::Load { mut closure } => {
                     let driver = driver.read().unwrap();
-                    closure(&driver, &mut locks, &mut buf);
+                    closure(&driver, &mut buf);
                 }
 
                 ResourceTask::Map { mut closure } => {
@@ -89,32 +85,18 @@ impl ResourceSystem {
     fn load<T>(slave: &T,
                path: &Path,
                driver: &FilesystemDriver,
-               locks: &mut HashSet<HashValue<Path>>,
                buf: &mut Vec<u8>)
-               -> std::result::Result<Arc<T::Item>, T::Error>
+               -> std::result::Result<T::Item, T::Error>
         where T: ResourceArenaLoader
     {
         if let Some(v) = slave.get(&path) {
-            return Ok(v.clone());
+            return Ok(v);
         }
 
-        let hash = path.into();
-        if locks.contains(&hash) {
-            let err: Error = ErrorKind::CircularReferenceFound.into();
-            return Err(err.into());
-        }
-
-        let rc = {
-            locks.insert(hash);
-            let from = buf.len();
-            driver.load_into(&path, buf)?;
-            let resource = slave.parse(&buf[from..])?;
-            locks.remove(&hash);
-            Arc::new(resource)
-        };
-
-        slave.insert(&path, rc.clone());
-        Ok(rc)
+        let from = buf.len();
+        driver.load_into(&path, buf)?;
+        let asset = slave.insert(&path, &buf[from..])?;
+        Ok(asset)
     }
 }
 
@@ -124,11 +106,7 @@ pub struct ResourceSystemShared {
 }
 
 enum ResourceTask {
-    Load {
-        closure: Box<FnMut(&FilesystemDriver,
-                           &mut HashSet<HashValue<Path>>,
-                           &mut Vec<u8>) + Send + Sync>,
-    },
+    Load { closure: Box<FnMut(&FilesystemDriver, &mut Vec<u8>) + Send + Sync>, },
     Map { closure: Box<FnMut() + Send + Sync> },
     Stop,
 }
@@ -157,20 +135,18 @@ impl ResourceSystemShared {
 
         // Returns directly if we have this resource in memory.
         if let Some(v) = slave.get(path.as_ref()) {
-            tx.send(Ok(v.clone())).is_ok();
+            tx.send(Ok(v)).is_ok();
             return ResourceFuture(rx);
         }
 
         // Hacks: Optimize this when Box<FnOnce> is usable.
         let path = path.as_ref().to_owned();
         let payload = Arc::new(RwLock::new(Some((tx, path, slave))));
-        let closure =
-            move |d: &FilesystemDriver, l: &mut HashSet<HashValue<Path>>, b: &mut Vec<u8>| {
-                if let Some(data) = payload.write().unwrap().take() {
-                    let v = ResourceSystem::load::<T>(&data.2, &data.1, d, l, b);
-                    data.0.send(v).is_ok();
-                }
-            };
+        let closure = move |d: &FilesystemDriver, b: &mut Vec<u8>| if let Some(data) =
+            payload.write().unwrap().take() {
+            let v = ResourceSystem::load::<T>(&data.2, &data.1, d, b);
+            data.0.send(v).is_ok();
+        };
 
         self.chan
             .send(ResourceTask::Load { closure: Box::new(closure) })
@@ -189,10 +165,17 @@ impl ResourceSystemShared {
 
         // Hacks: Optimize this when Box<FnOnce> is usable.
         let payload = Arc::new(RwLock::new(Some((tx, slave, src))));
-        let closure = move || if let Some(data) = payload.write().unwrap().take() {
-            let v = match data.2.wait() {
+        let closure = move || if let Some(mut data) = payload.write().unwrap().take() {
+            let v = match data.2.poll() {
                 Err(err) => Err(err),
-                Ok(v) => data.1.map(&v),
+                Ok(task) => {
+                    match task {
+                        futures::Async::Ready(v) => data.1.map(&v),
+                        futures::Async::NotReady => {
+                            unreachable!("Trying to map from unknown source.")
+                        }
+                    }
+                }
             };
 
             data.0.send(v).is_ok();

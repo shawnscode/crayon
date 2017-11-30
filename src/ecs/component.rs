@@ -131,7 +131,11 @@ impl<T> ComponentArena<T> for VecArena<T>
     }
 
     fn get(&self, id: HandleIndex) -> Option<&T> {
-        self.values.get(id as usize)
+        if self.mask.contains(id as usize) {
+            self.values.get(id as usize)
+        } else {
+            None
+        }
     }
 
     unsafe fn get_unchecked(&self, id: HandleIndex) -> &T {
@@ -139,7 +143,11 @@ impl<T> ComponentArena<T> for VecArena<T>
     }
 
     fn get_mut(&mut self, id: HandleIndex) -> Option<&mut T> {
-        self.values.get_mut(id as usize)
+        if self.mask.contains(id as usize) {
+            self.values.get_mut(id as usize)
+        } else {
+            None
+        }
     }
 
     unsafe fn get_unchecked_mut(&mut self, id: HandleIndex) -> &mut T {
