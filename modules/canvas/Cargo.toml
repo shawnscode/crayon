@@ -1,10 +1,17 @@
 [package]
 name = "crayon-canvas"
-version = "0.0.6"
+version = "0.0.5"
 authors = ["Jingkai Mao <oammix@gmail.com>"]
+description = "An experimental entity-component-based multithread game engine."
+repository = "https://github.com/shawnscode/crayon"
+keywords = ["crayon", "entity-component", "game-dev", "ui", "canvas"]
+categories = ["game-engines", "multimedia", "gui"]
+
+[badges]
+travis-ci = { repository = "shawnscode/crayon", branch = "master" }
 
 [dependencies]
-crayon = { path = "../../" }
+crayon = { path = "../../", version = "0.0.5" }
 lazy_static = "1.0.0"
 error-chain = "0.11.0"
 
