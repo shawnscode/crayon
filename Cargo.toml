@@ -1,6 +1,6 @@
 [package]
 name = "crayon"
-version = "0.0.5"
+version = "0.0.6"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 
 description = "An experimental entity-component-based multithread game engine."
@@ -14,6 +14,9 @@ categories = ["game-engines", "multimedia"]
 
 [badges]
 travis-ci = { repository = "shawnscode/crayon", branch = "master" }
+
+[workspace]
+members = [ "crayon-examples", "modules/canvas" ]
 
 [dependencies]
 libc = "0.2.33"
