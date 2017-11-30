@@ -1,7 +1,6 @@
 //! The `World` struct contains entities and its the component arenas.
 
 use std::any::Any;
-use std::borrow::Borrow;
 use std::sync::{RwLock, RwLockWriteGuard, RwLockReadGuard};
 use bit_set::BitSet;
 
@@ -218,28 +217,38 @@ impl World {
     }
 }
 
+pub trait Arena<T>
+    where T: Component
+{
+    fn get(&self, ent: Entity) -> Option<&T>;
+    unsafe fn get_unchecked(&self, ent: Entity) -> &T;
+}
+
 pub struct ArenaReadGuard<'a, T>
     where T: Component
 {
     storage: RwLockReadGuard<'a, T::Storage>,
 }
 
-impl<'a, T> ArenaReadGuard<'a, T>
+impl<'a, T> Arena<T> for ArenaReadGuard<'a, T>
     where T: Component
 {
     #[inline]
-    pub fn get<U>(&self, index: U) -> Option<&T>
-        where U: Borrow<HandleIndex>
-    {
-        self.storage.get(*index.borrow())
+    fn get(&self, ent: Entity) -> Option<&T> {
+        self.storage.get(ent.index())
     }
 
     #[inline]
-    pub unsafe fn get_unchecked<U>(&self, index: U) -> &T
-        where U: Borrow<HandleIndex>
-    {
-        self.storage.get_unchecked(*index.borrow())
+    unsafe fn get_unchecked(&self, ent: Entity) -> &T {
+        self.storage.get_unchecked(ent.index())
     }
+}
+
+pub trait ArenaMut<T>: Arena<T>
+    where T: Component
+{
+    fn get_mut(&mut self, ent: Entity) -> Option<&mut T>;
+    unsafe fn get_unchecked_mut(&mut self, ent: Entity) -> &mut T;
 }
 
 pub struct ArenaWriteGuard<'a, T>
@@ -248,35 +257,31 @@ pub struct ArenaWriteGuard<'a, T>
     storage: RwLockWriteGuard<'a, T::Storage>,
 }
 
-impl<'a, T> ArenaWriteGuard<'a, T>
+impl<'a, T> Arena<T> for ArenaWriteGuard<'a, T>
     where T: Component
 {
     #[inline]
-    pub fn get<U>(&self, index: U) -> Option<&T>
-        where U: Borrow<HandleIndex>
-    {
-        self.storage.get(*index.borrow())
+    fn get(&self, ent: Entity) -> Option<&T> {
+        self.storage.get(ent.index())
     }
 
     #[inline]
-    pub unsafe fn get_unchecked<U>(&self, index: U) -> &T
-        where U: Borrow<HandleIndex>
-    {
-        self.storage.get_unchecked(*index.borrow())
+    unsafe fn get_unchecked(&self, ent: Entity) -> &T {
+        self.storage.get_unchecked(ent.index())
+    }
+}
+
+impl<'a, T> ArenaMut<T> for ArenaWriteGuard<'a, T>
+    where T: Component
+{
+    #[inline]
+    fn get_mut(&mut self, ent: Entity) -> Option<&mut T> {
+        self.storage.get_mut(ent.index())
     }
 
     #[inline]
-    pub fn get_mut<U>(&mut self, index: U) -> Option<&mut T>
-        where U: Borrow<HandleIndex>
-    {
-        self.storage.get_mut(*index.borrow())
-    }
-
-    #[inline]
-    pub unsafe fn get_unchecked_mut<U>(&mut self, index: U) -> &mut T
-        where U: Borrow<HandleIndex>
-    {
-        self.storage.get_unchecked_mut(*index.borrow())
+    unsafe fn get_unchecked_mut(&mut self, ent: Entity) -> &mut T {
+        self.storage.get_unchecked_mut(ent.index())
     }
 }
 

@@ -213,8 +213,8 @@ fn iter_with() {
             };
 
             assert_eq!(i, *e);
-            assert_eq!(*arenas.0.get(e).unwrap(), p);
-            assert_eq!(*arenas.1.get(e).unwrap().value.read().unwrap(), 1);
+            assert_eq!(*arenas.0.get(*e).unwrap(), p);
+            assert_eq!(*arenas.1.get(*e).unwrap().value.read().unwrap(), 1);
         }
     }
 }
