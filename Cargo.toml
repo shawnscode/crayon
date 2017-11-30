@@ -6,7 +6,7 @@ authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 description = "An experimental entity-component-based multithread game engine."
 repository = "https://github.com/shawnscode/crayon"
 documentation = "http://docs.rs/crayon"
-readme = "../README.md"
+readme = "README.md"
 license = "Apache-2.0"
 
 keywords = ["ecs", "entity-component", "game-dev", "multithread"]
@@ -14,6 +14,9 @@ categories = ["game-engines", "multimedia"]
 
 [badges]
 travis-ci = { repository = "shawnscode/crayon", branch = "master" }
+
+[workspace]
+members = [ "crayon-examples", "modules/canvas" ]
 
 [dependencies]
 libc = "0.2.33"
@@ -25,8 +28,8 @@ error-chain = "0.11.0"
 
 futures = "0.1.17"
 rayon = "0.9.0"
-serde = "1.0.21"
-serde_derive = "1.0.21"
+serde = "1.0.22"
+serde_derive = "1.0.22"
 
 cgmath = "0.15.0"
 bit-set = "0.4.0"
@@ -35,5 +38,3 @@ zip = "0.2.6"
 
 [dev-dependencies]
 rand = "0.3.18"
-image = "0.17.0"
-crayon-canvas = { path = "modules/canvas" }

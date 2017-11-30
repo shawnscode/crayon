@@ -21,10 +21,10 @@ It is loosely inspired by some amazing blogs on [bitsquid](https://bitsquid.blog
 For the sake of brevity, you can also run a simple and quick example with commands:
 
 ``` sh
-git clone git@github.com:shawnscode/crayon.git && cd crayon
-cargo run --example render_target
+git clone git@github.com:shawnscode/crayon.git && cd crayon/crayon-examples
+cargo run canvas
 ```
 
 ### Examples and Screenshots
 
-[Here](./examples).
+[Here](./crayon-examples).

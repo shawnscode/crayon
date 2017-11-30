@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate crayon;
-
 use crayon::prelude::*;
 
 impl_vertex!{
@@ -69,8 +66,8 @@ impl Window {
             let view = video.create_view(setup)?;
 
             // Create pipeline state.
-            let vs = include_str!("resources/render_target_p1.vs").to_owned();
-            let fs = include_str!("resources/render_target_p1.fs").to_owned();
+            let vs = include_str!("../../resources/render_target_p1.vs").to_owned();
+            let fs = include_str!("../../resources/render_target_p1.fs").to_owned();
             let mut setup = graphics::PipelineStateSetup::default();
             setup.layout = attributes;
             let pipeline = video.create_pipeline(setup, vs, fs)?;
@@ -95,8 +92,8 @@ impl Window {
 
             let mut setup = graphics::PipelineStateSetup::default();
             setup.layout = attributes;
-            let vs = include_str!("resources/render_target_p2.vs").to_owned();
-            let fs = include_str!("resources/render_target_p2.fs").to_owned();
+            let vs = include_str!("../../resources/render_target_p2.vs").to_owned();
+            let fs = include_str!("../../resources/render_target_p2.fs").to_owned();
             let pipeline = video.create_pipeline(setup, vs, fs)?;
 
             Pass {
@@ -147,7 +144,7 @@ impl Application for Window {
     }
 }
 
-fn main() {
+pub fn main(_: &[String]) {
     let mut settings = Settings::default();
     settings.window.width = 568;
     settings.window.height = 320;

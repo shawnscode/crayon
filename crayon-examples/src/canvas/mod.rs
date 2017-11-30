@@ -1,15 +1,5 @@
-#[macro_use]
-extern crate crayon;
-extern crate crayon_canvas;
-
 use crayon::prelude::*;
 use crayon_canvas::prelude::*;
-
-impl_vertex!{
-    Vertex {
-        position => [Position; Float; 2; false],
-    }
-}
 
 struct Window {
     canvas: CanvasSystem,
@@ -20,8 +10,7 @@ impl Window {
     fn new(engine: &mut Engine) -> errors::Result<Self> {
         engine
             .resource
-            .mount("std",
-                   resource::filesystem::DirectoryFS::new("examples/resources")?)?;
+            .mount("std", resource::filesystem::DirectoryFS::new("resources")?)?;
 
         let ctx = engine.context().read().unwrap();
         let mut canvas = CanvasSystem::new(&ctx, (640.0, 480.0), 2.0).unwrap();
@@ -90,7 +79,7 @@ impl Application for Window {
     }
 }
 
-fn main() {
+pub fn main(_: &[String]) {
     let mut settings = Settings::default();
     settings.window.width = 640;
     settings.window.height = 480;

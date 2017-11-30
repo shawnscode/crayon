@@ -11,6 +11,3 @@ script:
     - cargo test --all --verbose -- --ignored
     - cargo build --all --verbose --no-default-features
     - cargo test --all --verbose --no-default-features -- --ignored
-    - cd modules/canvas
-    - cargo build --all --verbose
-    - cargo test --all --verbose -- --ignored

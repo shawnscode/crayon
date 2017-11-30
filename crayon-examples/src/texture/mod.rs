@@ -1,12 +1,6 @@
-#[macro_use]
-extern crate crayon;
-extern crate image;
-
-mod support;
-use support::*;
-
 use std::sync::Arc;
 use crayon::prelude::*;
+use utils::*;
 
 impl_vertex!{
     Vertex {
@@ -25,8 +19,7 @@ impl Window {
     fn new(engine: &mut Engine) -> errors::Result<Self> {
         engine
             .resource
-            .mount("std",
-                   resource::filesystem::DirectoryFS::new("examples/resources")?)?;
+            .mount("std", resource::filesystem::DirectoryFS::new("resources")?)?;
 
         let ctx = engine.context();
         let ctx = ctx.read().unwrap();
@@ -58,8 +51,8 @@ impl Window {
         // Create pipeline state.
         let mut setup = graphics::PipelineStateSetup::default();
         setup.layout = attributes;
-        let vs = include_str!("resources/texture.vs").to_owned();
-        let fs = include_str!("resources/texture.fs").to_owned();
+        let vs = include_str!("../../resources/texture.vs").to_owned();
+        let fs = include_str!("../../resources/texture.fs").to_owned();
         let pso = video.create_pipeline(setup, vs, fs)?;
 
         let setup = graphics::TextureSetup::default();
@@ -91,7 +84,7 @@ impl Application for Window {
     }
 }
 
-fn main() {
+pub fn main(_: &[String]) {
     let mut settings = Settings::default();
     settings.window.width = 232;
     settings.window.height = 217;
