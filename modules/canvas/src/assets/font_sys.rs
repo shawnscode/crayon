@@ -154,7 +154,7 @@ impl<'a, 'b> Iterator for FontGlyphIter<'a, 'b> {
 }
 
 struct FontTextureCache {
-    texture_cache: rusttype::gpu_cache::Cache,
+    texture_cache: rusttype::gpu_cache::Cache<'static>,
     texture: Option<graphics::TextureHandle>,
     video: Arc<graphics::GraphicsSystemShared>,
 }
@@ -170,7 +170,7 @@ impl FontTextureCache {
 
     #[inline]
     fn add(&mut self, id: usize, glyph: rusttype::PositionedGlyph) {
-        self.texture_cache.queue_glyph(id, glyph);
+        self.texture_cache.queue_glyph(id, glyph.standalone());
     }
 
     #[inline]

@@ -1,17 +1,15 @@
 [package]
 name = "crayon-canvas"
-version = "0.0.5"
+version = "0.0.6"
 authors = ["Jingkai Mao <oammix@gmail.com>"]
 
 [dependencies]
 crayon = { path = "../../" }
-lazy_static = "0.2.8"
+lazy_static = "1.0.0"
 error-chain = "0.11.0"
-lyon = "0.8.4"
 
-rusttype = "0.2.3"
+rusttype = "0.3.0"
 unicode-normalization = "0.1.5"
-linked-hash-map = "0.5.0"
 
 [dev-dependencies]
-rand = "0.3.16"
+rand = "0.3.18"

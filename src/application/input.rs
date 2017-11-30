@@ -81,6 +81,14 @@ impl Input {
                         collects.push(event::Event::Application(event::ApplicationEvent::Awakened))
                     }
 
+                    glutin::Event::Suspended(v) => {
+                        if v {
+                            collects.push(event::Event::Application(event::ApplicationEvent::Suspended));
+                        } else {
+                            collects.push(event::Event::Application(event::ApplicationEvent::Resumed));
+                        }
+                    }
+
                     _ => {}
                 }
             });
@@ -90,13 +98,6 @@ impl Input {
     #[doc(hidden)]
     fn parse_window_event(event: glutin::WindowEvent) -> Option<event::Event> {
         match event {
-            glutin::WindowEvent::Suspended(v) => {
-                Some(event::Event::Application(if v {
-                                                   event::ApplicationEvent::Suspended
-                                               } else {
-                                                   event::ApplicationEvent::Resumed
-                                               }))
-            }
             glutin::WindowEvent::Closed => {
                 Some(event::Event::Application(event::ApplicationEvent::Closed))
             }
