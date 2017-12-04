@@ -5,10 +5,9 @@ use std::collections::HashMap;
 use gl;
 use gl::types::*;
 
-use graphics::Color;
-
-use super::*;
+use utils::{Color, Rect};
 use graphics::*;
+use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpenGLBuffer {

@@ -196,10 +196,10 @@ impl FontTextureCache {
         let video = &self.video;
         self.texture_cache
             .cache_queued(|rect, data| {
-                              let rect = graphics::Rect::new(math::Point2::new(rect.min.x as i32,
-                                                                               rect.min.y as i32),
-                                                             math::Point2::new(rect.max.x as i32,
-                                                                               rect.max.y as i32));
+                              let rect = utils::Rect::new(math::Point2::new(rect.min.x as i32,
+                                                                            rect.min.y as i32),
+                                                          math::Point2::new(rect.max.x as i32,
+                                                                            rect.max.y as i32));
                               video.update_texture(handle, rect, data).unwrap();
                           })
             .unwrap();

@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use crayon::{graphics, application, math};
+use crayon::{graphics, application, math, utils};
 use crayon::math::One;
 
 use errors::*;
@@ -38,7 +38,7 @@ impl CanvasRenderer {
 
         let mut setup = graphics::ViewStateSetup::default();
         setup.sequence = true;
-        setup.clear_color = Some(graphics::Color::gray());
+        setup.clear_color = Some(utils::Color::gray());
         let vso = video.create_view(setup)?;
 
         let layout = graphics::AttributeLayoutBuilder::new()

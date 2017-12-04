@@ -1,8 +1,8 @@
 //! Named bucket of draw calls with the wrapping of rendering operations to a render
 //! target, clearing, MSAA resolving and so on.
 
+use utils::Color;
 use super::errors::*;
-use super::color::Color;
 use super::texture::{TextureHandle, RenderBufferHandle};
 
 pub const MAX_ATTACHMENTS: usize = 8;

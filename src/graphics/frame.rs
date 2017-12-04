@@ -11,6 +11,7 @@ use super::errors::*;
 use super::backend::Device;
 
 use utils;
+use utils::Rect;
 
 #[derive(Debug, Clone)]
 pub enum PreFrameTask {

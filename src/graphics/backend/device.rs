@@ -6,14 +6,13 @@ use std::collections::HashMap;
 use gl;
 use gl::types::*;
 
-use utils::Handle;
+use utils::{Handle, Rect};
 use graphics::*;
 
 use super::*;
 use super::visitor::*;
 
 use super::super::frame::{TaskBuffer, TaskBufferPtr};
-use super::super::rect::Rect;
 
 type ResourceID = GLuint;
 

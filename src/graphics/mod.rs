@@ -56,8 +56,6 @@
 
 mod backend;
 mod uniform_variable;
-mod color;
-mod rect;
 
 pub mod view;
 pub mod pipeline;
@@ -75,9 +73,6 @@ pub use self::view::*;
 pub use self::pipeline::*;
 pub use self::mesh::*;
 pub use self::texture::*;
-
-pub use self::rect::*;
-pub use self::color::*;
 pub use self::uniform_variable::*;
 pub use self::frame::DrawCallBuilder;
 

@@ -3,7 +3,7 @@
 use std::sync::{Arc, RwLock, Mutex, MutexGuard};
 use std::time::Duration;
 
-use utils::HandlePool;
+use utils::{Rect, HandlePool};
 
 use super::*;
 use super::errors::*;
