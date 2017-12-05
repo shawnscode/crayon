@@ -248,8 +248,8 @@ impl Device {
                         self.visitor
                             .bind_uniform(location, &UniformVariable::I32(i as i32))?;
                         self.visitor.bind_texture(i as u32, to.id)?;
-                    } else {
-                        bail!(format!("use invalid texture handle {:?} at {}", texture, name));
+                        // } else {
+                        //     bail!(format!("use invalid texture handle {:?} at {}", texture, name));
                     }
                 }
 

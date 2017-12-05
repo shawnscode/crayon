@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use crayon::prelude::*;
 use utils::*;
 
@@ -9,10 +8,11 @@ impl_vertex!{
 }
 
 struct Window {
+    label: graphics::ResourceLabel,
     vso: graphics::ViewStateHandle,
     pso: graphics::PipelineStateHandle,
     vbo: graphics::VertexBufferHandle,
-    texture: Arc<graphics::TextureHandle>,
+    texture: graphics::TextureHandle,
 }
 
 impl Window {
@@ -24,7 +24,7 @@ impl Window {
         let ctx = engine.context();
         let ctx = ctx.read().unwrap();
         let video = ctx.shared::<GraphicsSystem>();
-        let texture = ctx.shared::<TextureSystem>();
+        let label = video.create_label();
 
         let verts: [Vertex; 6] = [Vertex::new([-1.0, -1.0]),
                                   Vertex::new([1.0, -1.0]),
@@ -42,30 +42,30 @@ impl Window {
         setup.num = verts.len();
         setup.layout = Vertex::layout();
         let vbo = video
-            .create_vertex_buffer(setup, Some(Vertex::as_bytes(&verts[..])))?;
+            .create_vertex_buffer(label, setup, Some(Vertex::as_bytes(&verts[..])))?;
 
         // Create the view state.
         let setup = graphics::ViewStateSetup::default();
-        let vso = video.create_view(setup)?;
+        let vso = video.create_view(label, setup)?;
 
         // Create pipeline state.
         let mut setup = graphics::PipelineStateSetup::default();
         setup.layout = attributes;
         let vs = include_str!("../../resources/texture.vs").to_owned();
         let fs = include_str!("../../resources/texture.fs").to_owned();
-        let pso = video.create_pipeline(setup, vs, fs)?;
+        let pso = video.create_pipeline(label, setup, vs, fs)?;
 
         let setup = graphics::TextureSetup::default();
-        let texture_handle = texture
-            .load_into_video::<TextureParser, &str>("/std/texture.png", setup)
-            .wait()
+        let texture = video
+            .create_texture_from::<TextureParser, &str>(label, setup, "/std/texture.png")
             .unwrap();
 
         Ok(Window {
                vso: vso,
                pso: pso,
                vbo: vbo,
-               texture: texture_handle,
+               texture: texture,
+               label: label,
            })
     }
 }
@@ -77,9 +77,14 @@ impl Application for Window {
             .with_view(self.vso)
             .with_pipeline(self.pso)
             .with_data(self.vbo, None)
-            .with_texture("renderedTexture", *self.texture)
+            .with_texture("renderedTexture", self.texture)
             .submit(graphics::Primitive::Triangles, 0, 6)?;
 
+        Ok(())
+    }
+
+    fn on_exit(&mut self, ctx: &Context) -> errors::Result<()> {
+        ctx.shared::<GraphicsSystem>().delete_label(self.label);
         Ok(())
     }
 }

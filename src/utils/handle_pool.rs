@@ -71,8 +71,12 @@ impl HandlePool {
     {
         let handle = handle.borrow();
         let index = handle.index() as usize;
-        (index < self.versions.len()) && ((self.versions[index] & 0x1) == 1) &&
-        (self.versions[index] == handle.version())
+        self.is_alive_at(index) && (self.versions[index] == handle.version())
+    }
+
+    #[inline(always)]
+    fn is_alive_at(&self, index: usize) -> bool {
+        (index < self.versions.len()) && ((self.versions[index] & 0x1) == 1)
     }
 
     /// Recycles the `Handle` index, and mark its version as dead.
@@ -89,9 +93,20 @@ impl HandlePool {
         }
     }
 
+    /// Recycles the `Handle` index, and mark its version as dead.
+    pub fn free_at(&mut self, index: usize) -> Option<Handle> {
+        if !self.is_alive_at(index) {
+            None
+        } else {
+            self.versions[index] += 1;
+            self.frees.push(InverseHandleIndex(index as HandleIndex));
+            Some(Handle::new(index as HandleIndex, self.versions[index] - 1))
+        }
+    }
+
     /// Returns the total number of alive handle in this `HandlePool`.
     #[inline]
-    pub fn size(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.versions.len() - self.frees.len()
     }
 

@@ -6,16 +6,13 @@ pub use ecs;
 pub use ecs::{Entity, Component, World, VecArena, HashMapArena, Arena, ArenaMut};
 
 pub use resource;
-pub use resource::{ResourceSystem, ResourceFuture};
+pub use resource::ResourceSystem;
 
 pub use application::{Application, Context, FrameInfo, Engine, Settings};
 pub use application::errors;
 
 pub use graphics;
 pub use graphics::GraphicsSystem;
-
-pub use assets;
-pub use assets::{Texture, TextureSystem};
 
 pub use utils;
 pub use utils::{Color, Rect};

@@ -22,6 +22,7 @@ pub struct CanvasRenderer {
     pso: graphics::PipelineStateHandle,
     vbo: graphics::VertexBufferHandle,
     ibo: graphics::IndexBufferHandle,
+    label: graphics::ResourceLabel,
 
     verts: Vec<CanvasVertex>,
     idxes: Vec<u16>,
@@ -35,11 +36,12 @@ impl CanvasRenderer {
     /// resources in background.
     pub fn new(ctx: &application::Context) -> Result<Self> {
         let video = ctx.shared::<graphics::GraphicsSystem>();
+        let label = video.create_label();
 
         let mut setup = graphics::ViewStateSetup::default();
         setup.sequence = true;
         setup.clear_color = Some(utils::Color::gray());
-        let vso = video.create_view(setup)?;
+        let vso = video.create_view(label, setup)?;
 
         let layout = graphics::AttributeLayoutBuilder::new()
             .with(graphics::VertexAttribute::Position, 2)
@@ -56,21 +58,21 @@ impl CanvasRenderer {
 
         let vs = include_str!("../resources/canvas.vs").to_owned();
         let fs = include_str!("../resources/canvas.fs").to_owned();
-        let pso = video.create_pipeline(setup, vs, fs)?;
+        let pso = video.create_pipeline(label, setup, vs, fs)?;
 
         let mut setup = graphics::VertexBufferSetup::default();
         setup.layout = CanvasVertex::layout();
         setup.num = MAX_VERTICES;
         setup.hint = graphics::BufferHint::Stream;
 
-        let vbo = video.create_vertex_buffer(setup, None)?;
+        let vbo = video.create_vertex_buffer(label, setup, None)?;
 
         let mut setup = graphics::IndexBufferSetup::default();
         setup.format = graphics::IndexFormat::U16;
         setup.num = MAX_VERTICES * 2;
         setup.hint = graphics::BufferHint::Stream;
 
-        let ibo = video.create_index_buffer(setup, None)?;
+        let ibo = video.create_index_buffer(label, setup, None)?;
 
         Ok(CanvasRenderer {
                video: video.clone(),
@@ -79,6 +81,7 @@ impl CanvasRenderer {
                pso: pso,
                vbo: vbo,
                ibo: ibo,
+               label: label,
 
                verts: Vec::new(),
                idxes: Vec::new(),
@@ -170,9 +173,6 @@ impl CanvasRenderer {
 
 impl Drop for CanvasRenderer {
     fn drop(&mut self) {
-        self.video.delete_vertex_buffer(self.vbo);
-        self.video.delete_index_buffer(self.ibo);
-        self.video.delete_view(self.vso);
-        self.video.delete_pipeline(self.pso);
+        self.video.delete_label(self.label);
     }
 }

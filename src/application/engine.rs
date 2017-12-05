@@ -8,7 +8,6 @@ use rayon;
 use super::*;
 use graphics;
 use resource;
-use assets;
 use super::context::{Context, ContextSystem};
 
 impl ContextSystem for resource::ResourceSystem {
@@ -17,10 +16,6 @@ impl ContextSystem for resource::ResourceSystem {
 
 impl ContextSystem for graphics::GraphicsSystem {
     type Shared = graphics::GraphicsSystemShared;
-}
-
-impl ContextSystem for assets::TextureSystem {
-    type Shared = assets::TextureSystem;
 }
 
 /// `Engine` is the root object of the game application. It binds various sub-systems in
@@ -60,20 +55,18 @@ impl Engine {
         let input = input::Input::new();
         let window = Arc::new(wb.build(&input)?);
 
-        let graphics = graphics::GraphicsSystem::new(window.clone())?;
         let resource = resource::ResourceSystem::new()?;
+        let resource_shared = resource.shared();
+
+        let graphics = graphics::GraphicsSystem::new(window.clone(), resource_shared.clone())?;
+        let graphics_shared = graphics.shared();
 
         let confs = rayon::Configuration::new();
         let scheduler = rayon::ThreadPool::new(confs).unwrap();
 
         let mut context = Context::new();
-        context.insert::<graphics::GraphicsSystem>(graphics.shared());
-        context.insert::<resource::ResourceSystem>(resource.shared());
-
-        {
-            let texture = assets::TextureSystem::new(&context);
-            context.insert::<assets::TextureSystem>(Arc::new(texture));
-        }
+        context.insert::<resource::ResourceSystem>(resource_shared);
+        context.insert::<graphics::GraphicsSystem>(graphics_shared);
 
         Ok(Engine {
                min_fps: settings.engine.min_fps,
@@ -173,11 +166,12 @@ impl Engine {
 
                 self.scheduler.install(closure)?;
             }
+        }
 
-            {
-                let ctx = self.context.read().unwrap();
-                ctx.shared::<assets::TextureSystem>().unload_unused();
-            }
+        {
+            let mut application = application.write().unwrap();
+            let ctx = self.context.read().unwrap();
+            application.on_exit(&ctx).unwrap();
         }
 
         Ok(self)

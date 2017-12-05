@@ -76,5 +76,6 @@ pub use self::texture::*;
 pub use self::uniform_variable::*;
 pub use self::frame::DrawCallBuilder;
 
-pub use self::graphics::{GraphicsSystem, GraphicsSystemShared, GraphicsFrameInfo};
+pub use self::graphics::{GraphicsSystem, GraphicsSystemShared, GraphicsFrameInfo, ResourceLabel,
+                         TextureParser, Texture};
 pub use self::window::{Window, WindowBuilder};

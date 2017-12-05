@@ -5,7 +5,7 @@ use super::{Handle, HandlePool, HandleIter};
 /// attached instance `T` will be created/ freed.
 pub struct ObjectPool<T: Sized> {
     handles: HandlePool,
-    values: Vec<Option<T>>,
+    entries: Vec<Option<T>>,
 }
 
 impl<T: Sized> ObjectPool<T> {
@@ -13,7 +13,7 @@ impl<T: Sized> ObjectPool<T> {
     pub fn new() -> Self {
         ObjectPool {
             handles: HandlePool::new(),
-            values: Vec::new(),
+            entries: Vec::new(),
         }
     }
 
@@ -21,7 +21,7 @@ impl<T: Sized> ObjectPool<T> {
     pub fn with_capacity(capacity: usize) -> Self {
         ObjectPool {
             handles: HandlePool::with_capacity(capacity),
-            values: Vec::with_capacity(capacity),
+            entries: Vec::with_capacity(capacity),
         }
     }
 
@@ -29,10 +29,10 @@ impl<T: Sized> ObjectPool<T> {
     pub fn create(&mut self, value: T) -> Handle {
         let handle = self.handles.create();
 
-        if handle.index() >= self.values.len() as u32 {
-            self.values.push(Some(value));
+        if handle.index() >= self.entries.len() as u32 {
+            self.entries.push(Some(value));
         } else {
-            self.values[handle.index() as usize] = Some(value);
+            self.entries[handle.index() as usize] = Some(value);
         }
 
         handle
@@ -45,7 +45,7 @@ impl<T: Sized> ObjectPool<T> {
     {
         let handle = handle.borrow();
         if self.handles.is_alive(handle) {
-            self.values[handle.index() as usize].as_mut()
+            self.entries[handle.index() as usize].as_mut()
         } else {
             None
         }
@@ -58,12 +58,14 @@ impl<T: Sized> ObjectPool<T> {
     {
         let handle = handle.borrow();
         if self.handles.is_alive(handle) {
-            self.values[handle.index() as usize].as_ref()
+            self.entries[handle.index() as usize].as_ref()
         } else {
             None
         }
     }
 
+    /// Returns true if this `Handle` was created by `ObjectPool`, and has not been
+    /// freed yet.
     #[inline]
     pub fn is_alive<H>(&self, handle: H) -> bool
         where H: Borrow<Handle>
@@ -79,23 +81,72 @@ impl<T: Sized> ObjectPool<T> {
         let handle = handle.borrow();
         if self.handles.free(handle) {
             let mut v = None;
-            ::std::mem::swap(&mut v, &mut self.values[handle.index() as usize]);
+            ::std::mem::swap(&mut v, &mut self.entries[handle.index() as usize]);
             v
         } else {
             None
         }
     }
 
+    /// Remove all objects matching with `predicate` from pool incrementally.
+    pub fn free_if<P>(&mut self, predicate: P) -> FreeIter<T, P>
+        where P: FnMut(&T) -> bool
+    {
+        FreeIter {
+            index: 0,
+            entries: &mut self.entries[..],
+            handles: &mut self.handles,
+            predicate: predicate,
+        }
+    }
+
     /// Returns the total number of alive handle in this `ObjectPool`.
     #[inline]
     pub fn len(&self) -> usize {
-        self.handles.size()
+        self.handles.len()
     }
 
     /// Returns an iterator over the `ObjectPool`.
     #[inline]
     pub fn iter(&self) -> HandleIter {
         self.handles.iter()
+    }
+}
+
+pub struct FreeIter<'a, T: 'a, P>
+    where P: FnMut(&T) -> bool
+{
+    index: usize,
+    entries: &'a mut [Option<T>],
+    handles: &'a mut HandlePool,
+    predicate: P,
+}
+
+impl<'a, T: 'a, P> Iterator for FreeIter<'a, T, P>
+    where P: FnMut(&T) -> bool
+{
+    type Item = Handle;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            for i in self.index..self.entries.len() {
+                let v = self.entries.get_unchecked_mut(i);
+
+                let free = if let &mut Some(ref payload) = v {
+                    (self.predicate)(payload)
+                } else {
+                    false
+                };
+
+                if free {
+                    let handle = self.handles.free_at(i).unwrap();
+                    *v = None;
+                    return Some(handle);
+                }
+            }
+
+            None
+        }
     }
 }
 
