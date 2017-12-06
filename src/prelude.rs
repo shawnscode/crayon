@@ -18,6 +18,3 @@ pub use utils;
 pub use utils::{Color, Rect};
 
 pub use rayon;
-
-pub use futures;
-pub use futures::Future;

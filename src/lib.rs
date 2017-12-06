@@ -21,7 +21,6 @@ extern crate bit_set;
 pub extern crate lazy_static;
 pub extern crate rayon;
 pub extern crate cgmath as math;
-pub extern crate futures;
 
 #[macro_use]
 pub mod utils;
