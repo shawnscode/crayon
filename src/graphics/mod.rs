@@ -68,6 +68,7 @@ pub mod macros;
 pub mod frame;
 pub mod graphics;
 pub mod window;
+pub mod utils;
 
 pub use self::view::*;
 pub use self::pipeline::*;
@@ -76,6 +77,6 @@ pub use self::texture::*;
 pub use self::uniform_variable::*;
 pub use self::frame::DrawCallBuilder;
 
-pub use self::graphics::{GraphicsSystem, GraphicsSystemShared, GraphicsFrameInfo, ResourceLabel,
-                         TextureParser, Texture};
+pub use self::graphics::{GraphicsSystem, GraphicsSystemShared, GraphicsFrameInfo, TextureParser,
+                         Texture};
 pub use self::window::{Window, WindowBuilder};

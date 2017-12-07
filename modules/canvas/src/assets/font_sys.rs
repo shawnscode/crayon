@@ -172,7 +172,6 @@ enum FontState {
 struct FontTextureCache {
     texture_cache: rusttype::gpu_cache::Cache<'static>,
     texture: Option<graphics::TextureHandle>,
-    label: graphics::ResourceLabel,
     video: Arc<graphics::GraphicsSystemShared>,
 }
 
@@ -183,7 +182,6 @@ impl FontTextureCache {
         FontTextureCache {
             texture_cache: rusttype::gpu_cache::Cache::new(1024, 1024, 0.25, 0.25),
             texture: None,
-            label: video.create_label(),
             video: video,
         }
     }
@@ -208,8 +206,7 @@ impl FontTextureCache {
             setup.mipmap = false;
             setup.dimensions = (1024, 1024);
             setup.format = graphics::TextureFormat::U8;
-
-            self.texture = Some(self.video.create_texture(self.label, setup, None)?);
+            self.texture = Some(self.video.create_texture(setup, None)?);
         }
 
         let handle = self.texture.unwrap();
@@ -225,6 +222,14 @@ impl FontTextureCache {
             .unwrap();
 
         Ok(handle)
+    }
+}
+
+impl Drop for FontTextureCache {
+    fn drop(&mut self) {
+        if let Some(handle) = self.texture.take() {
+            self.video.delete_texture(handle);
+        }
     }
 }
 

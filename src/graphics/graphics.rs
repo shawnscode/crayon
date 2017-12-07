@@ -5,9 +5,9 @@ use std::time::Duration;
 use std::marker::PhantomData;
 use std::path::Path;
 
-use utils::{Rect, ObjectPool};
+use utils::Rect;
 use resource;
-use resource::ResourceSystemShared;
+use resource::{ResourceSystemShared, Registery};
 
 use super::*;
 use super::errors::*;
@@ -103,31 +103,18 @@ impl GraphicsSystem {
     }
 }
 
-/// Unique resource label.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct ResourceLabel(u64);
-
-impl ResourceLabel {
-    #[inline(always)]
-    pub fn new(v: u64) -> Self {
-        ResourceLabel(v)
-    }
-}
-
-type Registery<T> = resource::Registery<T, ResourceLabel>;
-
 /// The multi-thread friendly parts of `GraphicsSystem`.
 pub struct GraphicsSystemShared {
     resource: Arc<ResourceSystemShared>,
     frames: Arc<DoubleFrame>,
-    label: RwLock<u64>,
 
-    views: RwLock<ObjectPool<ResourceLabel>>,
-    pipelines: RwLock<ObjectPool<ResourceLabel>>,
-    framebuffers: RwLock<ObjectPool<ResourceLabel>>,
-    vertex_buffers: RwLock<ObjectPool<ResourceLabel>>,
-    index_buffers: RwLock<ObjectPool<ResourceLabel>>,
-    render_buffers: RwLock<ObjectPool<ResourceLabel>>,
+    views: RwLock<Registery<()>>,
+    pipelines: RwLock<Registery<()>>,
+    framebuffers: RwLock<Registery<()>>,
+    render_buffers: RwLock<Registery<()>>,
+
+    vertex_buffers: RwLock<Registery<()>>,
+    index_buffers: RwLock<Registery<()>>,
 
     textures: RwLock<Registery<Arc<RwLock<TextureState>>>>,
 }
@@ -138,82 +125,14 @@ impl GraphicsSystemShared {
         GraphicsSystemShared {
             resource: resource,
             frames: frames,
-            label: RwLock::new(0),
 
-            views: RwLock::new(ObjectPool::new()),
-            pipelines: RwLock::new(ObjectPool::new()),
-            framebuffers: RwLock::new(ObjectPool::new()),
-            vertex_buffers: RwLock::new(ObjectPool::new()),
-            index_buffers: RwLock::new(ObjectPool::new()),
-            render_buffers: RwLock::new(ObjectPool::new()),
+            views: RwLock::new(Registery::new()),
+            pipelines: RwLock::new(Registery::new()),
+            framebuffers: RwLock::new(Registery::new()),
+            render_buffers: RwLock::new(Registery::new()),
+            vertex_buffers: RwLock::new(Registery::new()),
+            index_buffers: RwLock::new(Registery::new()),
             textures: RwLock::new(Registery::new()),
-        }
-    }
-
-    /// Create a fresh and unused `ResourceLabel` in this registery.
-    #[inline]
-    pub fn create_label(&self) -> ResourceLabel {
-        let mut label = self.label.write().unwrap();
-        *label = *label + 1;
-        ResourceLabel::new(*label)
-    }
-
-    /// Remove all resource matching label from registry incrementally.
-    pub fn delete_label(&self, label: ResourceLabel) {
-        {
-            let mut views = self.views.write().unwrap();
-            for v in views.free_if(|v| *v == label) {
-                let task = PostFrameTask::DeleteView(v.into());
-                self.frames.front().post.push(task);
-            }
-        }
-
-        {
-            let mut pipelines = self.pipelines.write().unwrap();
-            for v in pipelines.free_if(|v| *v == label) {
-                let task = PostFrameTask::DeletePipeline(v.into());
-                self.frames.front().post.push(task);
-            }
-        }
-
-        {
-            let mut framebuffers = self.framebuffers.write().unwrap();
-            for v in framebuffers.free_if(|v| *v == label) {
-                let task = PostFrameTask::DeleteFrameBuffer(v.into());
-                self.frames.front().post.push(task);
-            }
-        }
-
-        {
-            let mut render_buffers = self.render_buffers.write().unwrap();
-            for v in render_buffers.free_if(|v| *v == label) {
-                let task = PostFrameTask::DeleteRenderBuffer(v.into());
-                self.frames.front().post.push(task);
-            }
-        }
-
-        {
-            let mut vertex_buffers = self.vertex_buffers.write().unwrap();
-            for v in vertex_buffers.free_if(|v| *v == label) {
-                let task = PostFrameTask::DeleteVertexBuffer(v.into());
-                self.frames.front().post.push(task);
-            }
-        }
-
-        {
-            let mut index_buffers = self.index_buffers.write().unwrap();
-            for v in index_buffers.free_if(|v| *v == label) {
-                let task = PostFrameTask::DeleteIndexBuffer(v.into());
-                self.frames.front().post.push(task);
-            }
-        }
-
-        {
-            let mut textures = self.textures.write().unwrap();
-            for v in textures.delete(label) {
-                let task = PostFrameTask::DeleteTexture(v.into());
-                self.frames.front().post.push(task);
-            }
         }
     }
 
@@ -226,12 +145,9 @@ impl GraphicsSystemShared {
 
 impl GraphicsSystemShared {
     /// Creates an view with `ViewStateSetup`.
-    pub fn create_view(&self,
-                       label: ResourceLabel,
-                       setup: ViewStateSetup)
-                       -> Result<ViewStateHandle> {
-
-        let handle = self.views.write().unwrap().create(label).into();
+    pub fn create_view(&self, setup: ViewStateSetup) -> Result<ViewStateHandle> {
+        let location = resource::Location::unique("");
+        let handle = self.views.write().unwrap().create(location, ()).into();
 
         {
             let task = PreFrameTask::CreateView(handle, setup);
@@ -241,15 +157,23 @@ impl GraphicsSystemShared {
         Ok(handle)
     }
 
+    /// Delete view state object.
+    pub fn delete_view(&self, handle: ViewStateHandle) {
+        if self.views.write().unwrap().dec_rc(handle.into()).is_some() {
+            let task = PostFrameTask::DeleteView(handle);
+            self.frames.front().post.push(task);
+        }
+    }
+
     /// Create a pipeline with initial shaders and render state. Pipeline encapusulate
     /// all the informations we need to configurate OpenGL before real drawing.
     pub fn create_pipeline(&self,
-                           label: ResourceLabel,
                            setup: PipelineStateSetup,
                            vs: String,
                            fs: String)
                            -> Result<PipelineStateHandle> {
-        let handle = self.pipelines.write().unwrap().create(label).into();
+        let location = resource::Location::unique("");
+        let handle = self.pipelines.write().unwrap().create(location, ()).into();
 
         {
             let task = PreFrameTask::CreatePipeline(handle, setup, vs, fs);
@@ -259,15 +183,29 @@ impl GraphicsSystemShared {
         Ok(handle)
     }
 
+    /// Delete pipeline state object.
+    pub fn delete_pipeline(&self, handle: PipelineStateHandle) {
+        if self.pipelines
+               .write()
+               .unwrap()
+               .dec_rc(handle.into())
+               .is_some() {
+            let task = PostFrameTask::DeletePipeline(handle);
+            self.frames.front().post.push(task);
+        }
+    }
+
     /// Create a framebuffer object. A framebuffer allows you to render primitives directly to a texture,
     /// which can then be used in other rendering operations.
     ///
     /// At least one color attachment has been attached before you can use it.
-    pub fn create_framebuffer(&self,
-                              label: ResourceLabel,
-                              setup: FrameBufferSetup)
-                              -> Result<FrameBufferHandle> {
-        let handle = self.framebuffers.write().unwrap().create(label).into();
+    pub fn create_framebuffer(&self, setup: FrameBufferSetup) -> Result<FrameBufferHandle> {
+        let location = resource::Location::unique("");
+        let handle = self.framebuffers
+            .write()
+            .unwrap()
+            .create(location, ())
+            .into();
 
         {
             let task = PreFrameTask::CreateFrameBuffer(handle, setup);
@@ -277,12 +215,26 @@ impl GraphicsSystemShared {
         Ok(handle)
     }
 
+    /// Delete frame buffer object.
+    pub fn delete_framebuffer(&self, handle: FrameBufferHandle) {
+        if self.framebuffers
+               .write()
+               .unwrap()
+               .dec_rc(handle.into())
+               .is_some() {
+            let task = PostFrameTask::DeleteFrameBuffer(handle);
+            self.frames.front().post.push(task);
+        }
+    }
+
     /// Create a render buffer object, which could be attached to framebuffer.
-    pub fn create_render_buffer(&self,
-                                label: ResourceLabel,
-                                setup: RenderBufferSetup)
-                                -> Result<RenderBufferHandle> {
-        let handle = self.render_buffers.write().unwrap().create(label).into();
+    pub fn create_render_buffer(&self, setup: RenderBufferSetup) -> Result<RenderBufferHandle> {
+        let location = resource::Location::unique("");
+        let handle = self.render_buffers
+            .write()
+            .unwrap()
+            .create(location, ())
+            .into();
 
         {
             let task = PreFrameTask::CreateRenderBuffer(handle, setup);
@@ -292,9 +244,22 @@ impl GraphicsSystemShared {
         Ok(handle)
     }
 
+    /// Delete frame buffer object.
+    pub fn delete_render_buffer(&self, handle: RenderBufferHandle) {
+        if self.render_buffers
+               .write()
+               .unwrap()
+               .dec_rc(handle.into())
+               .is_some() {
+            let task = PostFrameTask::DeleteRenderBuffer(handle);
+            self.frames.front().post.push(task);
+        }
+    }
+}
+
+impl GraphicsSystemShared {
     /// Create vertex buffer object with vertex layout declaration and optional data.
     pub fn create_vertex_buffer(&self,
-                                label: ResourceLabel,
                                 setup: VertexBufferSetup,
                                 data: Option<&[u8]>)
                                 -> Result<VertexBufferHandle> {
@@ -304,7 +269,12 @@ impl GraphicsSystemShared {
             }
         }
 
-        let handle = self.vertex_buffers.write().unwrap().create(label).into();
+        let location = resource::Location::unique("");
+        let handle = self.vertex_buffers
+            .write()
+            .unwrap()
+            .create(location, ())
+            .into();
 
         {
             let mut frame = self.frames.front();
@@ -324,7 +294,7 @@ impl GraphicsSystemShared {
                                 offset: usize,
                                 data: &[u8])
                                 -> Result<()> {
-        if self.vertex_buffers.read().unwrap().is_alive(handle) {
+        if self.vertex_buffers.read().unwrap().is_alive(handle.into()) {
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(data);
             let task = PreFrameTask::UpdateVertexBuffer(handle, offset, ptr);
@@ -335,9 +305,20 @@ impl GraphicsSystemShared {
         }
     }
 
+    /// Delete vertex buffer object.
+    pub fn delete_vertex_buffer(&self, handle: VertexBufferHandle) {
+        if self.vertex_buffers
+               .write()
+               .unwrap()
+               .dec_rc(handle.into())
+               .is_some() {
+            let task = PostFrameTask::DeleteVertexBuffer(handle);
+            self.frames.front().post.push(task);
+        }
+    }
+
     /// Create index buffer object with optional data.
     pub fn create_index_buffer(&self,
-                               label: ResourceLabel,
                                setup: IndexBufferSetup,
                                data: Option<&[u8]>)
                                -> Result<IndexBufferHandle> {
@@ -347,7 +328,12 @@ impl GraphicsSystemShared {
             }
         }
 
-        let handle = self.index_buffers.write().unwrap().create(label).into();
+        let location = resource::Location::unique("");
+        let handle = self.index_buffers
+            .write()
+            .unwrap()
+            .create(location, ())
+            .into();
 
         {
             let mut frame = self.frames.front();
@@ -367,7 +353,7 @@ impl GraphicsSystemShared {
                                offset: usize,
                                data: &[u8])
                                -> Result<()> {
-        if self.index_buffers.read().unwrap().is_alive(handle) {
+        if self.index_buffers.read().unwrap().is_alive(handle.into()) {
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(data);
             let task = PreFrameTask::UpdateIndexBuffer(handle, offset, ptr);
@@ -375,6 +361,18 @@ impl GraphicsSystemShared {
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    /// Delete index buffer object.
+    pub fn delete_index_buffer(&self, handle: IndexBufferHandle) {
+        if self.index_buffers
+               .write()
+               .unwrap()
+               .dec_rc(handle.into())
+               .is_some() {
+            let task = PostFrameTask::DeleteIndexBuffer(handle);
+            self.frames.front().post.push(task);
         }
     }
 }
@@ -391,7 +389,7 @@ pub trait TextureParser {
 
 impl GraphicsSystemShared {
     /// Lookup texture object from location.
-    pub fn lookup_texture_from<T>(&self, location: resource::Location) -> Option<TextureHandle> {
+    pub fn lookup_texture_from(&self, location: resource::Location) -> Option<TextureHandle> {
         self.textures
             .read()
             .unwrap()
@@ -401,18 +399,21 @@ impl GraphicsSystemShared {
 
     /// Create texture object from location.
     pub fn create_texture_from<T>(&self,
-                                  label: ResourceLabel,
-                                  setup: TextureSetup,
-                                  location: resource::Location)
+                                  location: resource::Location,
+                                  setup: TextureSetup)
                                   -> Result<TextureHandle>
         where T: TextureParser + Send + Sync + 'static
     {
-        let state = Arc::new(RwLock::new(TextureState::NotReady));
+        if let Some(v) = self.lookup_texture_from(location) {
+            self.textures.write().unwrap().inc_rc(v.into());
+            return Ok(v);
+        }
 
+        let state = Arc::new(RwLock::new(TextureState::NotReady));
         let handle = self.textures
             .write()
             .unwrap()
-            .add(location, label, state.clone())
+            .create(location, state.clone())
             .into();
 
         let loader: TextureLoader<T> = TextureLoader {
@@ -430,7 +431,6 @@ impl GraphicsSystemShared {
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
     pub fn create_texture(&self,
-                          label: ResourceLabel,
                           setup: TextureSetup,
                           data: Option<&[u8]>)
                           -> Result<TextureHandle> {
@@ -439,7 +439,7 @@ impl GraphicsSystemShared {
         let handle = self.textures
             .write()
             .unwrap()
-            .add(location, label, state)
+            .create(location, state)
             .into();
 
         {
@@ -453,16 +453,13 @@ impl GraphicsSystemShared {
     }
 
     /// Create render texture object, which could be attached with a framebuffer.
-    pub fn create_render_texture(&self,
-                                 label: ResourceLabel,
-                                 setup: RenderTextureSetup)
-                                 -> Result<TextureHandle> {
+    pub fn create_render_texture(&self, setup: RenderTextureSetup) -> Result<TextureHandle> {
         let location = resource::Location::unique("");
         let state = Arc::new(RwLock::new(TextureState::Ready));
         let handle = self.textures
             .write()
             .unwrap()
-            .add(location, label, state)
+            .create(location, state)
             .into();
 
         {
@@ -473,7 +470,7 @@ impl GraphicsSystemShared {
         Ok(handle)
     }
 
-    /// Update the texture.
+    /// Update the texture object.
     ///
     /// Notes that this method might fails without any error when the texture is not
     /// ready for operating.
@@ -489,6 +486,18 @@ impl GraphicsSystemShared {
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    /// Delete the texture object.
+    pub fn delete_texture(&self, handle: TextureHandle) {
+        if self.textures
+               .write()
+               .unwrap()
+               .dec_rc(handle.into())
+               .is_some() {
+            let task = PostFrameTask::DeleteTexture(handle);
+            self.frames.front().post.push(task);
         }
     }
 }

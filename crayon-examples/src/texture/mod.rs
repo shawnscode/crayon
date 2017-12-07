@@ -8,7 +8,8 @@ impl_vertex!{
 }
 
 struct Window {
-    label: graphics::ResourceLabel,
+    label: graphics::utils::GraphicsResourceLabel,
+
     vso: graphics::ViewStateHandle,
     pso: graphics::PipelineStateHandle,
     vbo: graphics::VertexBufferHandle,
@@ -24,7 +25,7 @@ impl Window {
         let ctx = engine.context();
         let ctx = ctx.read().unwrap();
         let video = ctx.shared::<GraphicsSystem>();
-        let label = video.create_label();
+        let mut label = graphics::utils::GraphicsResourceLabel::new();
 
         let verts: [Vertex; 6] = [Vertex::new([-1.0, -1.0]),
                                   Vertex::new([1.0, -1.0]),
@@ -41,25 +42,26 @@ impl Window {
         let mut setup = graphics::VertexBufferSetup::default();
         setup.num = verts.len();
         setup.layout = Vertex::layout();
-        let vbo = video
-            .create_vertex_buffer(label, setup, Some(Vertex::as_bytes(&verts[..])))?;
+        let vbo =
+            label.push(video
+                           .create_vertex_buffer(setup, Some(Vertex::as_bytes(&verts[..])))?);
 
         // Create the view state.
         let setup = graphics::ViewStateSetup::default();
-        let vso = video.create_view(label, setup)?;
+        let vso = label.push(video.create_view(setup)?);
 
         // Create pipeline state.
         let mut setup = graphics::PipelineStateSetup::default();
         setup.layout = attributes;
         let vs = include_str!("../../resources/texture.vs").to_owned();
         let fs = include_str!("../../resources/texture.fs").to_owned();
-        let pso = video.create_pipeline(label, setup, vs, fs)?;
+        let pso = label.push(video.create_pipeline(setup, vs, fs)?);
 
         let setup = graphics::TextureSetup::default();
         let location = Location::unique("/std/texture.png");
-        let texture = video
-            .create_texture_from::<TextureParser>(label, setup, location)
-            .unwrap();
+        let texture = label.push(video
+                                     .create_texture_from::<TextureParser>(location, setup)
+                                     .unwrap());
 
         Ok(Window {
                vso: vso,
@@ -85,7 +87,8 @@ impl Application for Window {
     }
 
     fn on_exit(&mut self, ctx: &Context) -> errors::Result<()> {
-        ctx.shared::<GraphicsSystem>().delete_label(self.label);
+        let video = ctx.shared::<GraphicsSystem>();
+        self.label.clear(&video);
         Ok(())
     }
 }

@@ -1,30 +1,35 @@
 use std::collections::HashMap;
 
 use utils::{HandlePool, Handle};
-use super::location::{Location, LocationAtom};
+use super::location::LocationAtom;
 
-struct Entry<T, Label>
-    where T: Sized + 'static,
-          Label: Sized + PartialEq + Eq + 'static
-{
+struct Entry<T: Sized + 'static> {
     value: T,
-    label: Label,
     location: LocationAtom,
+    rc: usize,
+}
+
+impl<T: Sized + 'static> Entry<T> {
+    fn new(location: LocationAtom, value: T) -> Self {
+        Entry {
+            location: location,
+            value: value,
+            rc: 1,
+        }
+    }
 }
 
 /// Compact resource registery.
-pub struct Registery<T, Label>
-    where T: Sized + 'static,
-          Label: Sized + PartialEq + Eq + 'static
+pub struct Registery<T>
+    where T: Sized + 'static
 {
     handles: HandlePool,
-    entries: Vec<Option<Entry<T, Label>>>,
+    entries: Vec<Option<Entry<T>>>,
     locations: HashMap<LocationAtom, Handle>,
 }
 
-impl<T, Label> Registery<T, Label>
-    where T: Sized,
-          Label: Sized + PartialEq + Eq
+impl<T> Registery<T>
+    where T: Sized
 {
     /// Construct a new, empty `Registery`.
     pub fn new() -> Self {
@@ -45,15 +50,14 @@ impl<T, Label> Registery<T, Label>
     }
 
     /// Add a new entry to the register.
-    pub fn add(&mut self, location: Location, label: Label, value: T) -> Handle {
-        let hash = location.hash();
-        let entry = Entry {
-            location: hash,
-            label: label,
-            value: value,
-        };
+    pub fn create<L>(&mut self, location: L, value: T) -> Handle
+        where L: Into<LocationAtom>
+    {
+        let location = location.into();
+        assert!(self.lookup(location).is_none());
 
         let handle = self.handles.create();
+        let entry = Entry::new(location, value);
 
         if handle.index() >= self.entries.len() as u32 {
             self.entries.push(Some(entry));
@@ -62,28 +66,68 @@ impl<T, Label> Registery<T, Label>
         }
 
         if location.is_shared() {
-            self.locations.insert(hash, handle);
+            self.locations.insert(location, handle);
         }
 
         handle
     }
 
-    /// Get the handle with `Location`.
-    pub fn lookup(&self, location: Location) -> Option<Handle> {
-        let hash = location.hash();
-        if hash.is_shared() {
-            self.locations.get(&hash).map(|v| *v)
-        } else {
+    /// Increase the reference count of resource matched `handle`.
+    pub fn inc_rc(&mut self, handle: Handle) {
+        if !self.handles.is_alive(handle) {
+            return;
+        }
+
+        unsafe {
+            self.entries
+                .get_unchecked_mut(handle.index() as usize)
+                .as_mut()
+                .unwrap()
+                .rc += 1;
+        }
+    }
+
+    /// Decrease the reference count of resource matched `handle`. If reference count is zero
+    /// after decreasing, it will be deleted from this `Registery`.
+    pub fn dec_rc(&mut self, handle: Handle) -> Option<T> {
+        if !self.handles.is_alive(handle) {
+            return None;
+        }
+
+        unsafe {
+            let has_reference = {
+                let entry = self.entries
+                    .get_unchecked_mut(handle.index() as usize)
+                    .as_mut()
+                    .unwrap();
+                entry.rc -= 1;
+                entry.rc == 0
+            };
+
+            if has_reference {
+                let mut v = None;
+                let block = self.entries.get_unchecked_mut(handle.index() as usize);
+                ::std::mem::swap(&mut v, block);
+
+                let v = v.unwrap();
+                self.handles.free(handle);
+                self.locations.remove(&v.location);
+                return Some(v.value);
+            }
+
             None
         }
     }
 
-    /// Remove all entries matching with `label` incrementally.
-    pub fn delete(&mut self, label: Label) -> DeleteIter<T, Label> {
-        DeleteIter {
-            index: 0,
-            label: label,
-            registery: self,
+    /// Get the handle with `Location`.
+    pub fn lookup<L>(&self, location: L) -> Option<Handle>
+        where L: Into<LocationAtom>
+    {
+        let location = location.into();
+        if location.is_shared() {
+            self.locations.get(&location).map(|v| *v)
+        } else {
+            None
         }
     }
 
@@ -122,51 +166,5 @@ impl<T, Label> Registery<T, Label>
     #[inline]
     pub fn len(&self) -> usize {
         self.handles.len()
-    }
-}
-
-pub struct DeleteIter<'a, T, Label>
-    where T: Sized + 'static,
-          Label: Sized + PartialEq + Eq + 'static
-{
-    index: usize,
-    label: Label,
-    registery: &'a mut Registery<T, Label>,
-}
-
-impl<'a, T, Label> Iterator for DeleteIter<'a, T, Label>
-    where T: Sized + 'static,
-          Label: Sized + PartialEq + Eq + 'static
-{
-    type Item = Handle;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        unsafe {
-            for i in self.index..self.registery.entries.len() {
-                let v = self.registery.entries.get_unchecked_mut(i);
-
-                let location = if let &mut Some(ref entry) = v {
-                    if entry.label == self.label {
-                        Some(entry.location)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                if let Some(location) = location {
-                    *v = None;
-
-                    if location.is_shared() {
-                        self.registery.locations.remove(&location).unwrap();
-                    }
-
-                    return Some(self.registery.handles.free_at(i).unwrap());
-                }
-            }
-
-            None
-        }
     }
 }

@@ -42,7 +42,10 @@ impl<'a> Location<'a> {
 
     /// Gets hash object of `Location`.
     pub fn hash(&self) -> LocationAtom {
-        LocationAtom::from(self)
+        LocationAtom {
+            code: self.code,
+            location: self.location.into(),
+        }
     }
 }
 
@@ -73,14 +76,16 @@ pub struct LocationAtom {
     location: HashValue<Path>,
 }
 
-impl LocationAtom {
-    pub fn from(v: &Location) -> Self {
+impl<'a> From<Location<'a>> for LocationAtom {
+    fn from(v: Location) -> Self {
         LocationAtom {
             code: v.code,
             location: v.location.into(),
         }
     }
+}
 
+impl LocationAtom {
     /// Returns true if this location is shared.
     pub fn is_shared(&self) -> bool {
         self.code != Signature::Unique
