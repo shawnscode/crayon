@@ -28,7 +28,7 @@ impl CanvasSystem {
         world.register::<Element>();
         world.register::<Layout>();
 
-        let fonts = FontSystem::new(ctx);
+        let fonts = FontSystem::new(ctx)?;
         let renderer = CanvasRenderer::new(ctx)?;
 
         let mut layout = Layout::default();
@@ -88,7 +88,6 @@ impl CanvasSystem {
     /// Advances the `CanvasSystem` with essential updates.
     pub fn advance(&mut self) -> Result<()> {
         self.fonts.set_dpi_factor(self.dpi_factor);
-        self.fonts.advance();
         Ok(())
     }
 

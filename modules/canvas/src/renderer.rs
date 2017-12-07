@@ -16,13 +16,13 @@ const MAX_VERTICES: usize = ::std::u16::MAX as usize;
 
 /// The renderer of canvas system.
 pub struct CanvasRenderer {
+    _video_label: graphics::RAIIGuard,
     video: Arc<graphics::GraphicsSystemShared>,
 
     vso: graphics::ViewStateHandle,
     pso: graphics::PipelineStateHandle,
     vbo: graphics::VertexBufferHandle,
     ibo: graphics::IndexBufferHandle,
-    label: graphics::utils::GraphicsResourceLabel,
 
     verts: Vec<CanvasVertex>,
     idxes: Vec<u16>,
@@ -36,12 +36,12 @@ impl CanvasRenderer {
     /// resources in background.
     pub fn new(ctx: &application::Context) -> Result<Self> {
         let video = ctx.shared::<graphics::GraphicsSystem>();
-        let mut label = graphics::utils::GraphicsResourceLabel::new();
+        let mut label = graphics::utils::RAIIGuard::new(video.clone());
 
         let mut setup = graphics::ViewStateSetup::default();
         setup.sequence = true;
         setup.clear_color = Some(utils::Color::gray());
-        let vso = label.push(video.create_view(setup)?);
+        let vso = label.create_view(setup)?;
 
         let layout = graphics::AttributeLayoutBuilder::new()
             .with(graphics::VertexAttribute::Position, 2)
@@ -58,30 +58,30 @@ impl CanvasRenderer {
 
         let vs = include_str!("../resources/canvas.vs").to_owned();
         let fs = include_str!("../resources/canvas.fs").to_owned();
-        let pso = label.push(video.create_pipeline(setup, vs, fs)?);
+        let pso = label.create_pipeline(setup, vs, fs)?;
 
         let mut setup = graphics::VertexBufferSetup::default();
         setup.layout = CanvasVertex::layout();
         setup.num = MAX_VERTICES;
         setup.hint = graphics::BufferHint::Stream;
 
-        let vbo = label.push(video.create_vertex_buffer(setup, None)?);
+        let vbo = label.create_vertex_buffer(setup, None)?;
 
         let mut setup = graphics::IndexBufferSetup::default();
         setup.format = graphics::IndexFormat::U16;
         setup.num = MAX_VERTICES * 2;
         setup.hint = graphics::BufferHint::Stream;
 
-        let ibo = label.push(video.create_index_buffer(setup, None)?);
+        let ibo = label.create_index_buffer(setup, None)?;
 
         Ok(CanvasRenderer {
+               _video_label: label,
                video: video.clone(),
 
                vso: vso,
                pso: pso,
                vbo: vbo,
                ibo: ibo,
-               label: label,
 
                verts: Vec::new(),
                idxes: Vec::new(),
@@ -168,11 +168,5 @@ impl CanvasRenderer {
         let p = math::Vector4::new(position[0], position[1], 0.0, 1.0);
         let p = self.current_matrix * p;
         [p.x, p.y]
-    }
-}
-
-impl Drop for CanvasRenderer {
-    fn drop(&mut self) {
-        self.label.clear(&self.video);
     }
 }

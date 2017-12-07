@@ -6,70 +6,36 @@ use crayon::{application, resource, utils, graphics, math};
 use rusttype;
 
 use super::font::{Font, FontHandle, LayoutIter};
-use super::font_error::*;
+use super::errors::*;
 
 pub struct FontSystem {
-    fallback: Font,
     dpi_factor: f32,
-
     texture_cache: FontTextureCache,
-    font_states: utils::ObjectPool<FontState>,
-    font_requests: Arc<RwLock<HashMap<FontHandle, FontState>>>,
-    handles: HashMap<utils::HashValue<Path>, FontHandle>,
-
-    resource: Arc<resource::ResourceSystemShared>,
+    cache: FontCache,
 }
 
 impl FontSystem {
-    pub fn new(ctx: &application::Context) -> Self {
-        let fallback = include_bytes!("../../resources/fonts/FiraSans-Regular.ttf");
-
-        FontSystem {
-            fallback: Font::new(&fallback[..]),
-            dpi_factor: 1.0,
-            texture_cache: FontTextureCache::new(ctx),
-            font_states: utils::ObjectPool::new(),
-            font_requests: Arc::new(RwLock::new(HashMap::new())),
-            handles: HashMap::new(),
-            resource: ctx.shared::<resource::ResourceSystem>().clone(),
-        }
+    pub fn new(ctx: &application::Context) -> Result<Self> {
+        Ok(FontSystem {
+               dpi_factor: 1.0,
+               texture_cache: FontTextureCache::new(ctx),
+               cache: FontCache::new(ctx)?,
+           })
     }
 
-    pub fn load<P>(&mut self, path: P) -> FontHandle
-        where P: AsRef<Path>
-    {
-        let hash: utils::HashValue<Path> = path.as_ref().into();
-        if let Some(handle) = self.handles.get(&hash) {
-            return *handle;
-        }
-
-        let handle = self.font_states.create(FontState::NotReady).into();
-        self.handles.insert(hash, handle);
-
-        let loader = FontLoader::new(self.font_requests.clone(), handle);
-        self.resource.load_async(loader, path);
-
-        handle
+    #[inline(always)]
+    pub fn create_from(&mut self, location: resource::Location) -> Result<FontHandle> {
+        self.cache.create_from(location)
     }
 
-    pub fn unload<P>(&mut self, path: P)
-        where P: AsRef<Path>
-    {
-        let hash = path.as_ref().into();
-        if let Some(handle) = self.handles.remove(&hash) {
-            self.font_states.free(handle);
-        }
+    #[inline(always)]
+    pub fn lookup_from(&mut self, location: resource::Location) -> Option<FontHandle> {
+        self.cache.lookup_from(location)
     }
 
-    pub(crate) fn advance(&mut self) {
-        {
-            let mut requests = self.font_requests.write().unwrap();
-            for (k, v) in requests.drain() {
-                if let Some(state) = self.font_states.get_mut(&k as &utils::Handle) {
-                    *state = v;
-                }
-            }
-        }
+    #[inline(always)]
+    pub fn delete(&mut self, handle: FontHandle) {
+        self.cache.delete(handle);
     }
 
     pub fn set_dpi_factor(&mut self, dpi_factor: f32) {
@@ -85,17 +51,7 @@ impl FontSystem {
                         h_wrap: Option<f32>,
                         v_wrap: Option<f32>)
                         -> (math::Vector2<f32>, math::Vector2<f32>) {
-        let font = if let Some(handle) = handle {
-            if let Some(&FontState::Ready(ref v)) =
-                self.font_states.get(&handle as &utils::Handle) {
-                v
-            } else {
-                &self.fallback
-            }
-        } else {
-            &self.fallback
-        };
-
+        let (_, font) = self.cache.get(handle);
         font.bounding_box(text, scale, h_wrap, v_wrap)
     }
 
@@ -107,22 +63,13 @@ impl FontSystem {
                           h_wrap_limit: Option<f32>,
                           v_wrap_limit: Option<f32>)
                           -> Result<(graphics::TextureHandle, FontGlyphIter<'a, 'b>)> {
-        let (id, font) = if let Some(handle) = handle {
-            if let Some(&FontState::Ready(ref v)) =
-                self.font_states.get(&handle as &utils::Handle) {
-                ((handle.index() + 1) as usize, v)
-            } else {
-                (0, &self.fallback)
-            }
-        } else {
-            (0, &self.fallback)
-        };
+        let (id, font) = self.cache.get(handle);
 
         let dpi_factor = self.dpi_factor;
         let h_wrap_limit = h_wrap_limit.map(|v| v * dpi_factor);
         let v_wrap_limit = v_wrap_limit.map(|v| v * dpi_factor);
 
-        for v in font.layout(text, scale * self.dpi_factor, h_wrap_limit, v_wrap_limit) {
+        for v in font.layout(text, scale * dpi_factor, h_wrap_limit, v_wrap_limit) {
             self.texture_cache.add(id, v);
         }
 
@@ -132,8 +79,8 @@ impl FontSystem {
             FontGlyphIter {
                 texture_cache: &self.texture_cache,
                 id: id,
-                iter: font.layout(text, scale * self.dpi_factor, h_wrap_limit, v_wrap_limit),
-                inverse_dpi_factor: 1.0 / self.dpi_factor,
+                iter: font.layout(text, scale * dpi_factor, h_wrap_limit, v_wrap_limit),
+                inverse_dpi_factor: 1.0 / dpi_factor,
             }))
     }
 }
@@ -164,9 +111,85 @@ impl<'a, 'b> Iterator for FontGlyphIter<'a, 'b> {
 }
 
 enum FontState {
-    Disposed,
-    Ready(Font),
     NotReady,
+    Ready(Option<Font>),
+    Err(String),
+}
+
+struct FontCache {
+    fallback: Font,
+    fonts: HashMap<FontHandle, Font>,
+    states: resource::Registery<Arc<RwLock<FontState>>>,
+    resource: Arc<resource::ResourceSystemShared>,
+}
+
+impl FontCache {
+    fn new(ctx: &application::Context) -> Result<Self> {
+        let fallback = include_bytes!("../../resources/fonts/FiraSans-Regular.ttf");
+
+        let cache = FontCache {
+            fallback: Font::new(&fallback[..]),
+            fonts: HashMap::new(),
+            states: resource::Registery::new(),
+            resource: ctx.shared::<resource::ResourceSystem>().clone(),
+        };
+
+        Ok(cache)
+    }
+
+    fn lookup_from(&mut self, location: resource::Location) -> Option<FontHandle> {
+        self.states.lookup(location).map(|v| v.into())
+    }
+
+    fn create_from(&mut self, location: resource::Location) -> Result<FontHandle> {
+        if let Some(handle) = self.states.lookup(location) {
+            self.states.inc_rc(handle);
+            return Ok(handle.into());
+        }
+
+        let state = Arc::new(RwLock::new(FontState::NotReady));
+
+        let loader = FontLoader { state: state.clone() };
+        self.resource.load_async(loader, location.uri());
+
+        Ok(self.states.create(location, state).into())
+    }
+
+    fn delete(&mut self, handle: FontHandle) {
+        if self.states.dec_rc(handle.into()).is_some() {
+            self.fonts.remove(&handle);
+        }
+    }
+
+    fn get(&mut self, handle: Option<FontHandle>) -> (usize, &Font) {
+        if let Some(handle) = handle {
+            if let Some(state) = self.states.get(handle.into()) {
+                let mut state = state.write().unwrap();
+                let ready = {
+                    match *state {
+                        FontState::Ready(_) => true,
+                        _ => false,
+                    }
+                };
+
+                if ready {
+                    let mut v = FontState::Ready(None);
+                    ::std::mem::swap(&mut state as &mut FontState, &mut v);
+
+                    match v {
+                        FontState::Ready(Some(font)) => {
+                            self.fonts.insert(handle, font);
+                        }
+                        _ => {}
+                    }
+
+                    return (handle.index() as usize + 1, self.fonts.get(&handle).unwrap());
+                }
+            }
+        }
+
+        (0, &self.fallback)
+    }
 }
 
 struct FontTextureCache {
@@ -234,35 +257,19 @@ impl Drop for FontTextureCache {
 }
 
 struct FontLoader {
-    font_requests: Arc<RwLock<HashMap<FontHandle, FontState>>>,
-    handle: FontHandle,
-}
-
-impl FontLoader {
-    fn new(font_requests: Arc<RwLock<HashMap<FontHandle, FontState>>>, handle: FontHandle) -> Self {
-        FontLoader {
-            font_requests: font_requests,
-            handle: handle,
-        }
-    }
-
-    #[inline(always)]
-    fn try_parse(v: resource::errors::Result<&[u8]>) -> Result<Font> {
-        Ok(Font::new(v?))
-    }
+    state: Arc<RwLock<FontState>>,
 }
 
 impl resource::ResourceAsyncLoader for FontLoader {
     fn on_finished(&mut self, path: &Path, result: resource::errors::Result<&[u8]>) {
-        let state = match Self::try_parse(result) {
-            Ok(font) => FontState::Ready(font),
+        let state = match result {
+            Ok(bytes) => FontState::Ready(Some(Font::new(bytes))),
             Err(error) => {
-                println!("Failed to load font from {:?}, due to {:?}.", path, error);
-                FontState::Disposed
+                let error = format!("Failed to load font from {:?}, due to {:?}.", path, error);
+                FontState::Err(error)
             }
         };
 
-        let mut requests = self.font_requests.write().unwrap();
-        requests.insert(self.handle, state);
+        *self.state.write().unwrap() = state;
     }
 }

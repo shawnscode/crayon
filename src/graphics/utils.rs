@@ -1,8 +1,123 @@
-use super::{TextureHandle, VertexBufferHandle, IndexBufferHandle, ViewStateHandle,
-            PipelineStateHandle, FrameBufferHandle, RenderBufferHandle};
-use super::GraphicsSystemShared;
+use std::sync::Arc;
 
-pub enum GraphicsResource {
+use super::*;
+use super::errors::*;
+use resource::Location;
+
+pub struct RAIIGuard {
+    stack: Vec<Resource>,
+    video: Arc<GraphicsSystemShared>,
+}
+
+impl RAIIGuard {
+    pub fn new(video: Arc<GraphicsSystemShared>) -> Self {
+        RAIIGuard {
+            stack: Vec::new(),
+            video: video,
+        }
+    }
+
+    #[inline(always)]
+    pub fn create_view(&mut self, setup: ViewStateSetup) -> Result<ViewStateHandle> {
+        let v = self.video.create_view(setup)?;
+        Ok(self.push(v))
+    }
+
+    #[inline(always)]
+    pub fn create_pipeline(&mut self,
+                           setup: PipelineStateSetup,
+                           vs: String,
+                           fs: String)
+                           -> Result<PipelineStateHandle> {
+        let v = self.video.create_pipeline(setup, vs, fs)?;
+        Ok(self.push(v))
+    }
+
+    #[inline(always)]
+    pub fn create_framebuffer(&mut self, setup: FrameBufferSetup) -> Result<FrameBufferHandle> {
+        let v = self.video.create_framebuffer(setup)?;
+        Ok(self.push(v))
+    }
+
+    #[inline(always)]
+    pub fn create_render_buffer(&mut self, setup: RenderBufferSetup) -> Result<RenderBufferHandle> {
+        let v = self.video.create_render_buffer(setup)?;
+        Ok(self.push(v))
+    }
+
+    #[inline(always)]
+    pub fn create_vertex_buffer(&mut self,
+                                setup: VertexBufferSetup,
+                                data: Option<&[u8]>)
+                                -> Result<VertexBufferHandle> {
+        let v = self.video.create_vertex_buffer(setup, data)?;
+        Ok(self.push(v))
+    }
+
+    #[inline(always)]
+    pub fn create_index_buffer(&mut self,
+                               setup: IndexBufferSetup,
+                               data: Option<&[u8]>)
+                               -> Result<IndexBufferHandle> {
+        let v = self.video.create_index_buffer(setup, data)?;
+        Ok(self.push(v))
+    }
+
+    #[inline(always)]
+    pub fn create_texture_from<T>(&mut self,
+                                  location: Location,
+                                  setup: TextureSetup)
+                                  -> Result<TextureHandle>
+        where T: TextureParser + Send + Sync + 'static
+    {
+        let v = self.video.create_texture_from::<T>(location, setup)?;
+        Ok(self.push(v))
+    }
+
+    #[inline(always)]
+    pub fn create_render_texture(&mut self, setup: RenderTextureSetup) -> Result<TextureHandle> {
+        let v = self.video.create_render_texture(setup)?;
+        Ok(self.push(v))
+    }
+
+    #[inline(always)]
+    pub fn create_texture(&mut self,
+                          setup: TextureSetup,
+                          data: Option<&[u8]>)
+                          -> Result<TextureHandle> {
+        let v = self.video.create_texture(setup, data)?;
+        Ok(self.push(v))
+    }
+
+    pub fn clear(&mut self) {
+        for v in self.stack.drain(..) {
+            match v {
+                Resource::Texture(handle) => self.video.delete_texture(handle),
+                Resource::VertexBuffer(handle) => self.video.delete_vertex_buffer(handle),
+                Resource::IndexBuffer(handle) => self.video.delete_index_buffer(handle),
+                Resource::ViewState(handle) => self.video.delete_view(handle),
+                Resource::PipelineState(handle) => self.video.delete_pipeline(handle),
+                Resource::FrameBuffer(handle) => self.video.delete_framebuffer(handle),
+                Resource::RenderBuffer(handle) => self.video.delete_render_buffer(handle),
+            }
+        }
+    }
+
+    fn push<T>(&mut self, resource: T) -> T
+        where T: Copy + Into<Resource>
+    {
+        self.stack.push(resource.into());
+        resource
+    }
+}
+
+impl Drop for RAIIGuard {
+    fn drop(&mut self) {
+        self.clear();
+    }
+}
+
+enum Resource {
     Texture(TextureHandle),
     VertexBuffer(VertexBufferHandle),
     IndexBuffer(IndexBufferHandle),
@@ -12,75 +127,44 @@ pub enum GraphicsResource {
     RenderBuffer(RenderBufferHandle),
 }
 
-impl From<TextureHandle> for GraphicsResource {
-    fn from(handle: TextureHandle) -> GraphicsResource {
-        GraphicsResource::Texture(handle)
+impl From<TextureHandle> for Resource {
+    fn from(handle: TextureHandle) -> Resource {
+        Resource::Texture(handle)
     }
 }
 
-impl From<VertexBufferHandle> for GraphicsResource {
-    fn from(handle: VertexBufferHandle) -> GraphicsResource {
-        GraphicsResource::VertexBuffer(handle)
+impl From<VertexBufferHandle> for Resource {
+    fn from(handle: VertexBufferHandle) -> Resource {
+        Resource::VertexBuffer(handle)
     }
 }
 
-impl From<IndexBufferHandle> for GraphicsResource {
-    fn from(handle: IndexBufferHandle) -> GraphicsResource {
-        GraphicsResource::IndexBuffer(handle)
+impl From<IndexBufferHandle> for Resource {
+    fn from(handle: IndexBufferHandle) -> Resource {
+        Resource::IndexBuffer(handle)
     }
 }
 
-impl From<ViewStateHandle> for GraphicsResource {
-    fn from(handle: ViewStateHandle) -> GraphicsResource {
-        GraphicsResource::ViewState(handle)
+impl From<ViewStateHandle> for Resource {
+    fn from(handle: ViewStateHandle) -> Resource {
+        Resource::ViewState(handle)
     }
 }
 
-impl From<PipelineStateHandle> for GraphicsResource {
-    fn from(handle: PipelineStateHandle) -> GraphicsResource {
-        GraphicsResource::PipelineState(handle)
+impl From<PipelineStateHandle> for Resource {
+    fn from(handle: PipelineStateHandle) -> Resource {
+        Resource::PipelineState(handle)
     }
 }
 
-impl From<FrameBufferHandle> for GraphicsResource {
-    fn from(handle: FrameBufferHandle) -> GraphicsResource {
-        GraphicsResource::FrameBuffer(handle)
+impl From<FrameBufferHandle> for Resource {
+    fn from(handle: FrameBufferHandle) -> Resource {
+        Resource::FrameBuffer(handle)
     }
 }
 
-impl From<RenderBufferHandle> for GraphicsResource {
-    fn from(handle: RenderBufferHandle) -> GraphicsResource {
-        GraphicsResource::RenderBuffer(handle)
-    }
-}
-
-pub struct GraphicsResourceLabel {
-    stack: Vec<GraphicsResource>,
-}
-
-impl GraphicsResourceLabel {
-    pub fn new() -> Self {
-        GraphicsResourceLabel { stack: Vec::new() }
-    }
-
-    pub fn push<T>(&mut self, resource: T) -> T
-        where T: Copy + Into<GraphicsResource>
-    {
-        self.stack.push(resource.into());
-        resource
-    }
-
-    pub fn clear(&mut self, video: &GraphicsSystemShared) {
-        for v in self.stack.drain(..) {
-            match v {
-                GraphicsResource::Texture(handle) => video.delete_texture(handle),
-                GraphicsResource::VertexBuffer(handle) => video.delete_vertex_buffer(handle),
-                GraphicsResource::IndexBuffer(handle) => video.delete_index_buffer(handle),
-                GraphicsResource::ViewState(handle) => video.delete_view(handle),
-                GraphicsResource::PipelineState(handle) => video.delete_pipeline(handle),
-                GraphicsResource::FrameBuffer(handle) => video.delete_framebuffer(handle),
-                GraphicsResource::RenderBuffer(handle) => video.delete_render_buffer(handle),
-            }
-        }
+impl From<RenderBufferHandle> for Resource {
+    fn from(handle: RenderBufferHandle) -> Resource {
+        Resource::RenderBuffer(handle)
     }
 }

@@ -1,4 +1,4 @@
-use crayon::{resource, graphics};
+use crayon::{graphics, resource};
 
 error_chain!{
     types {
