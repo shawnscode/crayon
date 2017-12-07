@@ -85,8 +85,13 @@ impl<'a> Borrow<HandleIndex> for &'a Handle {
 macro_rules! impl_handle {
     ($name: ident) => (
         #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-
         pub struct $name ($crate::utils::handle::Handle);
+
+        impl From<$name> for $crate::utils::handle::Handle {
+            fn from(handle: $name) -> Self {
+                handle.0
+            }
+        }
 
         impl From<$crate::utils::handle::Handle> for $name {
             fn from(handle: $crate::utils::handle::Handle) -> Self {

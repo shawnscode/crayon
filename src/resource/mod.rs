@@ -48,13 +48,22 @@
 //! in general, it should NOT causes any low-level memory crashes, instead of throw an error,
 //! or silently ignore the invalid `Handle`.
 //!
-//! ## Asynchronization (TODO)
+//! ## Asynchronization
+//!
+//!
 //!
 //! ## Sharing (TODO)
+//!
 
 pub mod errors;
 pub mod filesystem;
 pub mod cache;
+
+mod location;
+pub use self::location::Location;
+
+mod registery;
+pub use self::registery::Registery;
 
 mod resource;
 pub use self::resource::{ResourceSystem, ResourceSystemShared, ResourceAsyncLoader};

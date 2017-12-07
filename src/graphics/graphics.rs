@@ -114,6 +114,8 @@ impl ResourceLabel {
     }
 }
 
+type Registery<T> = resource::Registery<T, ResourceLabel>;
+
 /// The multi-thread friendly parts of `GraphicsSystem`.
 pub struct GraphicsSystemShared {
     resource: Arc<ResourceSystemShared>,
@@ -127,7 +129,7 @@ pub struct GraphicsSystemShared {
     index_buffers: RwLock<ObjectPool<ResourceLabel>>,
     render_buffers: RwLock<ObjectPool<ResourceLabel>>,
 
-    textures: RwLock<ObjectPool<(ResourceLabel, Arc<RwLock<TextureState>>)>>,
+    textures: RwLock<Registery<Arc<RwLock<TextureState>>>>,
 }
 
 impl GraphicsSystemShared {
@@ -144,7 +146,7 @@ impl GraphicsSystemShared {
             vertex_buffers: RwLock::new(ObjectPool::new()),
             index_buffers: RwLock::new(ObjectPool::new()),
             render_buffers: RwLock::new(ObjectPool::new()),
-            textures: RwLock::new(ObjectPool::new()),
+            textures: RwLock::new(Registery::new()),
         }
     }
 
@@ -208,7 +210,7 @@ impl GraphicsSystemShared {
 
         {
             let mut textures = self.textures.write().unwrap();
-            for v in textures.free_if(|v| v.0 == label) {
+            for v in textures.delete(label) {
                 let task = PostFrameTask::DeleteTexture(v.into());
                 self.frames.front().post.push(task);
             }
@@ -388,21 +390,29 @@ pub trait TextureParser {
 }
 
 impl GraphicsSystemShared {
+    /// Lookup texture object from location.
+    pub fn lookup_texture_from<T>(&self, location: resource::Location) -> Option<TextureHandle> {
+        self.textures
+            .read()
+            .unwrap()
+            .lookup(location)
+            .map(|v| v.into())
+    }
+
     /// Create texture object from location.
-    pub fn create_texture_from<T, P>(&self,
-                                     label: ResourceLabel,
-                                     setup: TextureSetup,
-                                     location: P)
-                                     -> Result<TextureHandle>
-        where T: TextureParser + Send + Sync + 'static,
-              P: AsRef<Path>
+    pub fn create_texture_from<T>(&self,
+                                  label: ResourceLabel,
+                                  setup: TextureSetup,
+                                  location: resource::Location)
+                                  -> Result<TextureHandle>
+        where T: TextureParser + Send + Sync + 'static
     {
         let state = Arc::new(RwLock::new(TextureState::NotReady));
 
         let handle = self.textures
             .write()
             .unwrap()
-            .create((label, state.clone()))
+            .add(location, label, state.clone())
             .into();
 
         let loader: TextureLoader<T> = TextureLoader {
@@ -413,7 +423,7 @@ impl GraphicsSystemShared {
             _phantom: PhantomData,
         };
 
-        self.resource.load_async(loader, location);
+        self.resource.load_async(loader, location.uri());
         Ok(handle)
     }
 
@@ -424,8 +434,13 @@ impl GraphicsSystemShared {
                           setup: TextureSetup,
                           data: Option<&[u8]>)
                           -> Result<TextureHandle> {
+        let location = resource::Location::unique("");
         let state = Arc::new(RwLock::new(TextureState::Ready));
-        let handle = self.textures.write().unwrap().create((label, state)).into();
+        let handle = self.textures
+            .write()
+            .unwrap()
+            .add(location, label, state)
+            .into();
 
         {
             let mut frame = self.frames.front();
@@ -442,8 +457,13 @@ impl GraphicsSystemShared {
                                  label: ResourceLabel,
                                  setup: RenderTextureSetup)
                                  -> Result<TextureHandle> {
+        let location = resource::Location::unique("");
         let state = Arc::new(RwLock::new(TextureState::Ready));
-        let handle = self.textures.write().unwrap().create((label, state)).into();
+        let handle = self.textures
+            .write()
+            .unwrap()
+            .add(location, label, state)
+            .into();
 
         {
             let task = PreFrameTask::CreateRenderTexture(handle, setup);
@@ -458,7 +478,7 @@ impl GraphicsSystemShared {
     /// Notes that this method might fails without any error when the texture is not
     /// ready for operating.
     pub fn update_texture(&self, handle: TextureHandle, rect: Rect, data: &[u8]) -> Result<()> {
-        if let Some(&(_, ref state)) = self.textures.read().unwrap().get(handle) {
+        if let Some(state) = self.textures.read().unwrap().get(handle.into()) {
             if TextureState::Ready == *state.read().unwrap() {
                 let mut frame = self.frames.front();
                 let ptr = frame.buf.extend_from_slice(data);

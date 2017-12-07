@@ -6,7 +6,7 @@ pub use ecs;
 pub use ecs::{Entity, Component, World, VecArena, HashMapArena, Arena, ArenaMut};
 
 pub use resource;
-pub use resource::ResourceSystem;
+pub use resource::{ResourceSystem, Location};
 
 pub use application::{Application, Context, FrameInfo, Engine, Settings};
 pub use application::errors;

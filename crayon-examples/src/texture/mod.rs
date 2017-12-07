@@ -56,8 +56,9 @@ impl Window {
         let pso = video.create_pipeline(label, setup, vs, fs)?;
 
         let setup = graphics::TextureSetup::default();
+        let location = Location::unique("/std/texture.png");
         let texture = video
-            .create_texture_from::<TextureParser, &str>(label, setup, "/std/texture.png")
+            .create_texture_from::<TextureParser>(label, setup, location)
             .unwrap();
 
         Ok(Window {
