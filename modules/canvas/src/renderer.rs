@@ -102,12 +102,11 @@ impl CanvasRenderer {
     pub fn submit(&mut self,
                   verts: &[CanvasVertex],
                   idxes: &[u16],
-                  texture: graphics::TextureHandle)
+                  texture: Option<graphics::TextureHandle>)
                   -> Result<()> {
         assert!(verts.len() <= MAX_VERTICES);
 
-        if (self.verts.len() + verts.len()) >= MAX_VERTICES ||
-           (self.current_texture.is_some() && self.current_texture != Some(texture)) {
+        if (self.verts.len() + verts.len()) >= MAX_VERTICES || self.current_texture != texture {
             self.flush()?;
         }
 
@@ -115,8 +114,7 @@ impl CanvasRenderer {
             return Ok(());
         }
 
-        let offset = self.verts.len() as u16;
-        self.current_texture = Some(texture);
+        self.current_texture = texture;
 
         for &v in verts {
             let mut v = v;
@@ -124,6 +122,7 @@ impl CanvasRenderer {
             self.verts.push(v);
         }
 
+        let offset = self.verts.len() as u16;
         for &i in idxes {
             assert!(i < verts.len() as u16,
                     "Invalid index into vertices you submitted.");

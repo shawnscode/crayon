@@ -7,13 +7,13 @@ use node::Node;
 use element::Element;
 use renderer::CanvasRenderer;
 use layout::Layout;
-use assets::FontSystem;
+use assets::{FontSystem, AtlasSystem, CanvasAssets};
 
 pub struct CanvasSystem {
     world: ecs::World,
     screen: ecs::Entity,
-    fonts: FontSystem,
     renderer: CanvasRenderer,
+    assets: CanvasAssets,
     design_resolution: (f32, f32),
     dpi_factor: f32,
 }
@@ -29,6 +29,7 @@ impl CanvasSystem {
         world.register::<Layout>();
 
         let fonts = FontSystem::new(ctx)?;
+        let atlas = AtlasSystem::new(ctx)?;
         let renderer = CanvasRenderer::new(ctx)?;
 
         let mut layout = Layout::default();
@@ -49,7 +50,10 @@ impl CanvasSystem {
                world: world,
                screen: screen,
                renderer: renderer,
-               fonts: fonts,
+               assets: CanvasAssets {
+                   fonts: fonts,
+                   atlas: atlas,
+               },
                design_resolution: design_resolution,
                dpi_factor: dpi_factor,
            })
@@ -72,9 +76,11 @@ impl CanvasSystem {
     }
 
     /// Sets the element component for specified code.
-    pub fn set_element(&mut self, node: ecs::Entity, element: Element) {
+    pub fn set_element<T>(&mut self, node: ecs::Entity, element: T)
+        where T: Into<Element>
+    {
         unsafe {
-            *self.world.arena_mut::<Element>().get_unchecked_mut(node) = element;
+            *self.world.arena_mut::<Element>().get_unchecked_mut(node) = element.into();
         }
     }
 
@@ -87,39 +93,39 @@ impl CanvasSystem {
 
     /// Advances the `CanvasSystem` with essential updates.
     pub fn advance(&mut self) -> Result<()> {
-        self.fonts.set_dpi_factor(self.dpi_factor);
+        self.assets.fonts.set_dpi_factor(self.dpi_factor);
         Ok(())
     }
 
     /// Layouts all the active nodes. This should be called every frames before drawing.
     pub fn perform_layout(&mut self, _: &application::Context) -> Result<()> {
-        let children = self.collect_root_nodes();
-        let fonts = &mut self.fonts;
+        let children = self.collect();
+        let assets = &mut self.assets;
         let nodes = self.world.arena::<Node>();
         let elements = self.world.arena::<Element>();
         let mut layouts = self.world.arena_mut::<Layout>();
 
         unsafe {
-            Layout::perform(fonts, &elements, &mut layouts, self.screen, &children)?;
+            Layout::perform(assets, &elements, &mut layouts, self.screen, &children)?;
 
             for v in children {
-                Self::perform_layout_recursive(fonts, &nodes, &elements, &mut layouts, v)?;
+                Self::perform_layout_recursive(assets, &nodes, &elements, &mut layouts, v)?;
             }
         }
 
         Ok(())
     }
 
-    unsafe fn perform_layout_recursive(fonts: &mut FontSystem,
+    unsafe fn perform_layout_recursive(assets: &mut CanvasAssets,
                                        nodes: &ecs::Arena<Node>,
                                        elements: &ecs::Arena<Element>,
                                        layouts: &mut ecs::ArenaMut<Layout>,
                                        node: ecs::Entity)
                                        -> Result<()> {
-        Layout::perform(fonts, elements, layouts, node, Node::children(nodes, node))?;
+        Layout::perform(assets, elements, layouts, node, Node::children(nodes, node))?;
 
         for v in Node::children(nodes, node) {
-            Self::perform_layout_recursive(fonts, nodes, elements, layouts, v)?;
+            Self::perform_layout_recursive(assets, nodes, elements, layouts, v)?;
         }
 
         Ok(())
@@ -130,11 +136,11 @@ impl CanvasSystem {
         let hsize = self.design_resolution.0;
         let vsize = self.design_resolution.1;
         let transform: math::Matrix4<f32> = math::ortho(0.0, hsize, 0.0, vsize, 0.0, 1.0).into();
-        let children = self.collect_root_nodes();
+        let children = self.collect();
 
         unsafe {
             Self::draw_recursive(&mut self.renderer,
-                                 &mut self.fonts,
+                                 &mut self.assets,
                                  &self.world.arena::<Node>(),
                                  &self.world.arena::<Element>(),
                                  &mut self.world.arena_mut::<Layout>(),
@@ -147,7 +153,7 @@ impl CanvasSystem {
     }
 
     unsafe fn draw_recursive<T, U>(renderer: &mut CanvasRenderer,
-                                   fonts: &mut FontSystem,
+                                   assets: &mut CanvasAssets,
                                    nodes: &ecs::Arena<Node>,
                                    elements: &ecs::Arena<Element>,
                                    layouts: &ecs::ArenaMut<Layout>,
@@ -163,16 +169,16 @@ impl CanvasSystem {
             let t = transform * l.matrix();
 
             renderer.set_matrix(t);
-            elements.get_unchecked(node).draw(renderer, fonts, l.size)?;
+            elements.get_unchecked(node).draw(renderer, assets, l.size)?;
 
             let c = Node::children(nodes, node);
-            Self::draw_recursive(renderer, fonts, nodes, elements, layouts, t, c)?;
+            Self::draw_recursive(renderer, assets, nodes, elements, layouts, t, c)?;
         }
 
         Ok(())
     }
 
-    fn collect_root_nodes(&self) -> Vec<ecs::Entity> {
+    fn collect(&self) -> Vec<ecs::Entity> {
         let mut children = Vec::new();
 
         unsafe {

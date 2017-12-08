@@ -53,7 +53,7 @@ impl Text {
                          CanvasVertex::new([max.x, -max.y], [uv.max.x, uv.max.y], color)];
 
             let idxes = [0, 1, 2, 2, 3, 0];
-            renderer.submit(&verts, &idxes, texture)?;
+            renderer.submit(&verts, &idxes, Some(texture))?;
         }
 
         Ok(())
