@@ -75,16 +75,13 @@ impl Window {
 
 impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
-        ctx.shared::<GraphicsSystem>()
-            .submit(0,
-                    self.vso,
-                    self.pso,
-                    &[Some(self.texture.into())],
-                    self.vbo,
-                    None,
-                    graphics::Primitive::Triangles,
-                    0,
-                    6)?;
+        let video = ctx.shared::<GraphicsSystem>();
+
+        let mut dc = DrawCall::new(self.vso, self.pso);
+        dc.set_mesh(self.vbo, None);
+        dc.set_uniform_variable("renderedTexture", self.texture);
+        dc.submit(&video, graphics::Primitive::Triangles, 0, 6)?;
+
         Ok(())
     }
 }

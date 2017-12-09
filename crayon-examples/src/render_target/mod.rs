@@ -124,29 +124,17 @@ impl Application for Window {
         let video = ctx.shared::<GraphicsSystem>();
 
         {
-            video
-                .submit(0,
-                        self.pass.view,
-                        self.pass.pipeline,
-                        &[],
-                        self.pass.mesh,
-                        None,
-                        graphics::Primitive::Triangles,
-                        0,
-                        3)?;
+            let mut dc = DrawCall::new(self.pass.view, self.pass.pipeline);
+            dc.set_mesh(self.pass.mesh, None);
+            dc.submit(&video, graphics::Primitive::Triangles, 0, 3)?;
         }
 
         {
-            video
-                .submit(0,
-                        self.post_effect.view,
-                        self.post_effect.pipeline,
-                        &[Some(self.texture.into()), Some(self.time.into())],
-                        self.post_effect.mesh,
-                        None,
-                        graphics::Primitive::Triangles,
-                        0,
-                        6)?;
+            let mut dc = DrawCall::new(self.post_effect.view, self.post_effect.pipeline);
+            dc.set_mesh(self.post_effect.mesh, None);
+            dc.set_uniform_variable("renderedTexture", self.texture);
+            dc.set_uniform_variable("time", self.time);
+            dc.submit(&video, graphics::Primitive::Triangles, 0, 6)?;
         }
 
         self.time += 0.05;

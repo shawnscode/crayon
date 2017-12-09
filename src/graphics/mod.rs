@@ -61,6 +61,7 @@ pub mod errors;
 pub mod graphics;
 pub mod window;
 pub mod guard;
+pub mod drawcall;
 
 pub use self::assets::view::*;
 pub use self::assets::pipeline::*;
@@ -71,6 +72,7 @@ pub use self::assets::texture::*;
 pub use self::assets::texture_loader::{TextureData, TextureParser};
 
 pub use self::guard::RAIIGuard;
+pub use self::drawcall::DrawCall;
 pub use self::graphics::{GraphicsSystem, GraphicsSystemShared, GraphicsFrameInfo};
 pub use self::window::{Window, WindowBuilder};
 

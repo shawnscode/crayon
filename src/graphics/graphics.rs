@@ -2,8 +2,9 @@
 
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
+use std::collections::HashMap;
 
-use utils::Rect;
+use utils::{Rect, HashValue};
 use resource;
 use resource::{ResourceSystemShared, Registery};
 
@@ -102,13 +103,15 @@ impl GraphicsSystem {
     }
 }
 
+type PipelineState = HashMap<HashValue<str>, usize>;
+
 /// The multi-thread friendly parts of `GraphicsSystem`.
 pub struct GraphicsSystemShared {
     resource: Arc<ResourceSystemShared>,
     frames: Arc<DoubleFrame>,
 
     views: RwLock<Registery<()>>,
-    pipelines: RwLock<Registery<()>>,
+    pipelines: RwLock<Registery<PipelineState>>,
     framebuffers: RwLock<Registery<()>>,
     render_buffers: RwLock<Registery<()>>,
     vertex_buffers: RwLock<Registery<()>>,
@@ -139,35 +142,63 @@ impl GraphicsSystemShared {
                   order: u64,
                   view: ViewStateHandle,
                   pipeline: PipelineStateHandle,
-                  uniforms: &[Option<UniformVariable>],
+                  uniforms: &[(HashValue<str>, UniformVariable)],
                   vb: VertexBufferHandle,
                   ib: Option<IndexBufferHandle>,
                   primitive: Primitive,
                   from: u32,
                   len: u32)
                   -> Result<()> {
-        if self.views.read().unwrap().is_alive(view.into()) {
-            let mut frame = self.frames.front();
-            let uniforms = frame.buf.extend_from_slice(uniforms);
-
-            let dc = DrawCall {
-                order: order,
-                view: view,
-                pipeline: pipeline,
-                uniforms: uniforms,
-                vb: vb,
-                ib: ib,
-                primitive: primitive,
-                from: from,
-                len: len,
-            };
-
-            frame.drawcalls.push(dc);
-            Ok(())
-
-        } else {
-            bail!(ErrorKind::InvalidHandle);
+        if !self.views.read().unwrap().is_alive(view.into()) {
+            bail!("Undefined view state handle.");
         }
+
+        if !self.vertex_buffers.read().unwrap().is_alive(vb.into()) {
+            bail!("Undefined vertex buffer handle.");
+        }
+
+        if let Some(ib) = ib {
+            if !self.index_buffers.read().unwrap().is_alive(ib.into()) {
+                bail!("Undefined index buffer handle.");
+            }
+        }
+
+        let mut frame = self.frames.front();
+
+        let uniforms = {
+            let mut pack = [None; MAX_UNIFORM_VARIABLES];
+            let mut len = 0;
+
+            if let Some(pso) = self.pipelines.read().unwrap().get(pipeline.into()) {
+                for &(n, v) in uniforms {
+                    if let Some(location) = pso.get(&n) {
+                        pack[*location] = Some(frame.buf.extend(&v));
+                        len = len.max((*location + 1));
+                    } else {
+                        bail!(format!("Undefined uniform variable: {:?}.", n));
+                    }
+                }
+            } else {
+                bail!("Undefined pipeline state handle.");
+            }
+
+            frame.buf.extend_from_slice(&pack[0..len])
+        };
+
+        let dc = FrameDrawCall {
+            order: order,
+            view: view,
+            pipeline: pipeline,
+            uniforms: uniforms,
+            vb: vb,
+            ib: ib,
+            primitive: primitive,
+            from: from,
+            len: len,
+        };
+
+        frame.drawcalls.push(dc);
+        Ok(())
     }
 }
 
@@ -196,8 +227,19 @@ impl GraphicsSystemShared {
     /// Create a pipeline with initial shaders and render state. Pipeline encapusulate
     /// all the informations we need to configurate OpenGL before real drawing.
     pub fn create_pipeline(&self, setup: PipelineStateSetup) -> Result<PipelineStateHandle> {
-        let location = resource::Location::unique("");
-        let handle = self.pipelines.write().unwrap().create(location, ()).into();
+        if setup.uniform_variables.len() > MAX_UNIFORM_VARIABLES {
+            bail!("Too many uniform variables (>= {:?}).",
+                  MAX_UNIFORM_VARIABLES);
+        }
+
+        let mut pipeline = PipelineState::new();
+        for (i, v) in setup.uniform_variables.iter().enumerate() {
+            let v: HashValue<str> = v.into();
+            pipeline.insert(v, i);
+        }
+
+        let loc = resource::Location::unique("");
+        let handle = self.pipelines.write().unwrap().create(loc, pipeline).into();
 
         {
             let task = PreFrameTask::CreatePipeline(handle, setup);

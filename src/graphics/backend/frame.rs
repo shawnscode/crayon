@@ -22,11 +22,11 @@ pub(crate) enum PreFrameTask {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct DrawCall {
+pub(crate) struct FrameDrawCall {
     pub order: u64,
     pub view: ViewStateHandle,
     pub pipeline: PipelineStateHandle,
-    pub uniforms: DataBufferPtr<[Option<UniformVariable>]>,
+    pub uniforms: DataBufferPtr<[Option<DataBufferPtr<UniformVariable>>]>,
     pub vb: VertexBufferHandle,
     pub ib: Option<IndexBufferHandle>,
     pub primitive: Primitive,
@@ -48,7 +48,7 @@ pub(crate) enum PostFrameTask {
 #[derive(Debug, Clone)]
 pub(crate) struct Frame {
     pub pre: Vec<PreFrameTask>,
-    pub drawcalls: Vec<DrawCall>,
+    pub drawcalls: Vec<FrameDrawCall>,
     pub post: Vec<PostFrameTask>,
     pub buf: DataBuffer,
 }

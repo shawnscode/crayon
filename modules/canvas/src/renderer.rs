@@ -148,13 +148,14 @@ impl CanvasRenderer {
             self.video.update_index_buffer(self.ibo, 0, slice)?;
         }
 
-        self.video
-            .submit(0,
-                    self.vso,
-                    self.pso,
-                    &[self.current_texture.map(|v| v.into())],
-                    self.vbo,
-                    Some(self.ibo),
+        let mut dc = graphics::DrawCall::new(self.vso, self.pso);
+        dc.set_mesh(self.vbo, self.ibo);
+
+        if let Some(texture) = self.current_texture {
+            dc.set_uniform_variable("mainTexture", texture);
+        }
+
+        dc.submit(&self.video,
                     graphics::Primitive::Triangles,
                     0,
                     self.idxes.len() as u32)?;

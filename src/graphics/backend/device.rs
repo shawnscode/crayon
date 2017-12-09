@@ -11,7 +11,7 @@ use graphics::*;
 
 use super::errors::*;
 use super::visitor::*;
-use super::frame::DrawCall;
+use super::frame::FrameDrawCall;
 
 type ResourceID = GLuint;
 type UniformID = GLint;
@@ -39,7 +39,7 @@ struct PipelineStateObject {
 
 #[derive(Debug, Clone)]
 struct ViewStateObject {
-    drawcalls: RefCell<Vec<DrawCall>>,
+    drawcalls: RefCell<Vec<FrameDrawCall>>,
     setup: ViewStateSetup,
 }
 
@@ -112,7 +112,7 @@ impl Device {
         Ok(())
     }
 
-    pub fn submit(&self, dc: DrawCall) -> Result<()> {
+    pub fn submit(&self, dc: FrameDrawCall) -> Result<()> {
         if let Some(vo) = self.views.get(dc.view) {
             vo.drawcalls.borrow_mut().push(dc);
             Ok(())
@@ -180,11 +180,12 @@ impl Device {
                 // Bind program and associated uniforms and textures.
                 let pso = self.bind_pipeline(dc.pipeline)?;
                 let texture_idx = 0;
-                for (i, variable) in buf.as_slice(dc.uniforms).iter().enumerate() {
-                    if let &Some(variable) = variable {
+                for (i, v) in buf.as_slice(dc.uniforms).iter().enumerate() {
+                    if let &Some(ptr) = v {
+                        let variable = buf.as_ref(ptr);
                         let location = pso.uniform_locations[i];
 
-                        if let UniformVariable::Texture(handle) = variable {
+                        if let &UniformVariable::Texture(handle) = variable {
                             if let Some(texture) = self.textures.get(handle) {
                                 let v = UniformVariable::I32(texture_idx);
                                 self.visitor.bind_uniform(location, &v)?;
