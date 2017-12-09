@@ -5,7 +5,6 @@ pub mod errors;
 pub mod capabilities;
 pub mod device;
 pub mod visitor;
+pub mod frame;
 
-pub use self::errors::*;
-pub use self::device::Device;
 pub use self::capabilities::{Capabilities, Version, Profile};

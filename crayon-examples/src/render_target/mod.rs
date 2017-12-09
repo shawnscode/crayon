@@ -13,7 +13,7 @@ struct Pass {
 }
 
 struct Window {
-    _label: graphics::utils::RAIIGuard,
+    _label: graphics::RAIIGuard,
     pass: Pass,
     post_effect: Pass,
     texture: graphics::TextureHandle,
@@ -24,7 +24,7 @@ impl Window {
     pub fn new(engine: &mut Engine) -> errors::Result<Self> {
         let ctx = engine.context().read().unwrap();
         let video = ctx.shared::<GraphicsSystem>().clone();
-        let mut label = graphics::utils::RAIIGuard::new(video);
+        let mut label = graphics::RAIIGuard::new(video);
 
         let vertices: [Vertex; 3] = [Vertex::new([0.0, 0.5]),
                                      Vertex::new([0.5, -0.5]),
@@ -68,11 +68,11 @@ impl Window {
             let view = label.create_view(setup)?;
 
             // Create pipeline state.
-            let vs = include_str!("../../resources/render_target_p1.vs").to_owned();
-            let fs = include_str!("../../resources/render_target_p1.fs").to_owned();
             let mut setup = graphics::PipelineStateSetup::default();
             setup.layout = attributes;
-            let pipeline = label.create_pipeline(setup, vs, fs)?;
+            setup.vs = include_str!("../../resources/render_target_p1.vs").to_owned();
+            setup.fs = include_str!("../../resources/render_target_p1.fs").to_owned();
+            let pipeline = label.create_pipeline(setup)?;
 
             (Pass {
                  view: view,
@@ -94,9 +94,11 @@ impl Window {
 
             let mut setup = graphics::PipelineStateSetup::default();
             setup.layout = attributes;
-            let vs = include_str!("../../resources/render_target_p2.vs").to_owned();
-            let fs = include_str!("../../resources/render_target_p2.fs").to_owned();
-            let pipeline = label.create_pipeline(setup, vs, fs)?;
+            setup.vs = include_str!("../../resources/render_target_p2.vs").to_owned();
+            setup.fs = include_str!("../../resources/render_target_p2.fs").to_owned();
+            setup.uniform_variables.push("renderedTexture".into());
+            setup.uniform_variables.push("time".into());
+            let pipeline = label.create_pipeline(setup)?;
 
             Pass {
                 view: view,
@@ -123,24 +125,28 @@ impl Application for Window {
 
         {
             video
-                .make()
-                .with_order(0)
-                .with_view(self.pass.view)
-                .with_pipeline(self.pass.pipeline)
-                .with_data(self.pass.mesh, None)
-                .submit(graphics::Primitive::Triangles, 0, 3)?;
+                .submit(0,
+                        self.pass.view,
+                        self.pass.pipeline,
+                        &[],
+                        self.pass.mesh,
+                        None,
+                        graphics::Primitive::Triangles,
+                        0,
+                        3)?;
         }
 
         {
             video
-                .make()
-                .with_order(1)
-                .with_view(self.post_effect.view)
-                .with_pipeline(self.post_effect.pipeline)
-                .with_data(self.post_effect.mesh, None)
-                .with_uniform_variable("time", self.time.into())
-                .with_texture("renderedTexture", self.texture)
-                .submit(graphics::Primitive::Triangles, 0, 6)?;
+                .submit(0,
+                        self.post_effect.view,
+                        self.post_effect.pipeline,
+                        &[Some(self.texture.into()), Some(self.time.into())],
+                        self.post_effect.mesh,
+                        None,
+                        graphics::Primitive::Triangles,
+                        0,
+                        6)?;
         }
 
         self.time += 0.05;

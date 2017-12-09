@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
+use resource::Location;
 use super::*;
 use super::errors::*;
-use resource::Location;
+use super::assets::texture_loader::TextureParser;
 
 pub struct RAIIGuard {
     stack: Vec<Resource>,
@@ -24,12 +25,8 @@ impl RAIIGuard {
     }
 
     #[inline(always)]
-    pub fn create_pipeline(&mut self,
-                           setup: PipelineStateSetup,
-                           vs: String,
-                           fs: String)
-                           -> Result<PipelineStateHandle> {
-        let v = self.video.create_pipeline(setup, vs, fs)?;
+    pub fn create_pipeline(&mut self, setup: PipelineStateSetup) -> Result<PipelineStateHandle> {
+        let v = self.video.create_pipeline(setup)?;
         Ok(self.push(v))
     }
 

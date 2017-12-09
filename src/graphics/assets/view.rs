@@ -2,10 +2,9 @@
 //! target, clearing, MSAA resolving and so on.
 
 use utils::Color;
-use super::errors::*;
-use super::texture::{TextureHandle, RenderBufferHandle};
-
-pub const MAX_ATTACHMENTS: usize = 8;
+use graphics::MAX_FRAMEBUFFER_ATTACHMENTS;
+use graphics::assets::texture::{TextureHandle, RenderBufferHandle};
+use graphics::errors::*;
 
 /// View represent bucket of draw calls. Drawcalls inside bucket are sorted before
 /// submitting to underlaying OpenGL. In case where order has to be preserved (for
@@ -57,7 +56,7 @@ impl_handle!(ViewStateHandle);
 /// color buffers, depth buffer, stencil buffer.
 #[derive(Debug, Default, Copy, Clone)]
 pub struct FrameBufferSetup {
-    attachments: [Option<FrameBufferAttachment>; MAX_ATTACHMENTS],
+    attachments: [Option<FrameBufferAttachment>; MAX_FRAMEBUFFER_ATTACHMENTS],
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -77,7 +76,7 @@ impl FrameBufferSetup {
                           slot: Option<usize>)
                           -> Result<()> {
         let slot = slot.unwrap_or(0);
-        if slot >= MAX_ATTACHMENTS {
+        if slot >= MAX_FRAMEBUFFER_ATTACHMENTS {
             bail!("out of bounds");
         }
 
@@ -91,7 +90,7 @@ impl FrameBufferSetup {
                                   slot: Option<usize>)
                                   -> Result<()> {
         let slot = slot.unwrap_or(0);
-        if slot >= MAX_ATTACHMENTS {
+        if slot >= MAX_FRAMEBUFFER_ATTACHMENTS {
             bail!("out of bounds");
         }
 

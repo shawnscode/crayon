@@ -1,9 +1,7 @@
 //! The centralized management of video sub-system.
 
-use std::sync::{Arc, RwLock, Mutex, MutexGuard};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use std::marker::PhantomData;
-use std::path::Path;
 
 use utils::Rect;
 use resource;
@@ -11,9 +9,10 @@ use resource::{ResourceSystemShared, Registery};
 
 use super::*;
 use super::errors::*;
-use super::frame::*;
-use super::backend::Device;
+use super::backend::frame::*;
+use super::backend::device::Device;
 use super::window::Window;
+use super::assets::texture_loader::{TextureLoader, TextureParser, TextureState};
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct GraphicsFrameInfo {
@@ -112,7 +111,6 @@ pub struct GraphicsSystemShared {
     pipelines: RwLock<Registery<()>>,
     framebuffers: RwLock<Registery<()>>,
     render_buffers: RwLock<Registery<()>>,
-
     vertex_buffers: RwLock<Registery<()>>,
     index_buffers: RwLock<Registery<()>>,
 
@@ -137,9 +135,39 @@ impl GraphicsSystemShared {
     }
 
     /// Make a new draw call.
-    #[inline]
-    pub fn make(&self) -> DrawCallBuilder {
-        DrawCallBuilder::new(self.frames.front())
+    pub fn submit(&self,
+                  order: u64,
+                  view: ViewStateHandle,
+                  pipeline: PipelineStateHandle,
+                  uniforms: &[Option<UniformVariable>],
+                  vb: VertexBufferHandle,
+                  ib: Option<IndexBufferHandle>,
+                  primitive: Primitive,
+                  from: u32,
+                  len: u32)
+                  -> Result<()> {
+        if self.views.read().unwrap().is_alive(view.into()) {
+            let mut frame = self.frames.front();
+            let uniforms = frame.buf.extend_from_slice(uniforms);
+
+            let dc = DrawCall {
+                order: order,
+                view: view,
+                pipeline: pipeline,
+                uniforms: uniforms,
+                vb: vb,
+                ib: ib,
+                primitive: primitive,
+                from: from,
+                len: len,
+            };
+
+            frame.drawcalls.push(dc);
+            Ok(())
+
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
     }
 }
 
@@ -167,16 +195,12 @@ impl GraphicsSystemShared {
 
     /// Create a pipeline with initial shaders and render state. Pipeline encapusulate
     /// all the informations we need to configurate OpenGL before real drawing.
-    pub fn create_pipeline(&self,
-                           setup: PipelineStateSetup,
-                           vs: String,
-                           fs: String)
-                           -> Result<PipelineStateHandle> {
+    pub fn create_pipeline(&self, setup: PipelineStateSetup) -> Result<PipelineStateHandle> {
         let location = resource::Location::unique("");
         let handle = self.pipelines.write().unwrap().create(location, ()).into();
 
         {
-            let task = PreFrameTask::CreatePipeline(handle, setup, vs, fs);
+            let task = PreFrameTask::CreatePipeline(handle, setup);
             self.frames.front().pre.push(task);
         }
 
@@ -377,16 +401,6 @@ impl GraphicsSystemShared {
     }
 }
 
-pub struct Texture {
-    pub format: TextureFormat,
-    pub dimensions: (u32, u32),
-    pub data: Vec<u8>,
-}
-
-pub trait TextureParser {
-    fn parse(bytes: &[u8]) -> Result<Texture>;
-}
-
 impl GraphicsSystemShared {
     /// Lookup texture object from location.
     pub fn lookup_texture_from(&self, location: resource::Location) -> Option<TextureHandle> {
@@ -410,21 +424,14 @@ impl GraphicsSystemShared {
         }
 
         let state = Arc::new(RwLock::new(TextureState::NotReady));
-        let handle = self.textures
-            .write()
-            .unwrap()
-            .create(location, state.clone())
-            .into();
-
-        let loader: TextureLoader<T> = TextureLoader {
-            state: state,
-            setup: setup,
-            handle: handle,
-            frames: self.frames.clone(),
-            _phantom: PhantomData,
+        let handle = {
+            let mut textures = self.textures.write().unwrap();
+            textures.create(location, state.clone()).into()
         };
 
+        let loader = TextureLoader::<T>::new(handle, state, setup, self.frames.clone());
         self.resource.load_async(loader, location.uri());
+
         Ok(handle)
     }
 
@@ -434,13 +441,9 @@ impl GraphicsSystemShared {
                           setup: TextureSetup,
                           data: Option<&[u8]>)
                           -> Result<TextureHandle> {
-        let location = resource::Location::unique("");
+        let loc = resource::Location::unique("");
         let state = Arc::new(RwLock::new(TextureState::Ready));
-        let handle = self.textures
-            .write()
-            .unwrap()
-            .create(location, state)
-            .into();
+        let handle = self.textures.write().unwrap().create(loc, state).into();
 
         {
             let mut frame = self.frames.front();
@@ -454,13 +457,9 @@ impl GraphicsSystemShared {
 
     /// Create render texture object, which could be attached with a framebuffer.
     pub fn create_render_texture(&self, setup: RenderTextureSetup) -> Result<TextureHandle> {
-        let location = resource::Location::unique("");
+        let loc = resource::Location::unique("");
         let state = Arc::new(RwLock::new(TextureState::Ready));
-        let handle = self.textures
-            .write()
-            .unwrap()
-            .create(location, state)
-            .into();
+        let handle = self.textures.write().unwrap().create(loc, state).into();
 
         {
             let task = PreFrameTask::CreateRenderTexture(handle, setup);
@@ -499,88 +498,5 @@ impl GraphicsSystemShared {
             let task = PostFrameTask::DeleteTexture(handle);
             self.frames.front().post.push(task);
         }
-    }
-}
-
-#[derive(PartialEq, Eq)]
-enum TextureState {
-    NotReady,
-    Ready,
-    Err(String),
-}
-
-struct TextureLoader<T>
-    where T: TextureParser
-{
-    handle: TextureHandle,
-    setup: TextureSetup,
-    state: Arc<RwLock<TextureState>>,
-    frames: Arc<DoubleFrame>,
-    _phantom: PhantomData<T>,
-}
-
-impl<T> resource::ResourceAsyncLoader for TextureLoader<T>
-    where T: TextureParser + Send + Sync + 'static
-{
-    fn on_finished(&mut self, path: &Path, result: resource::errors::Result<&[u8]>) {
-        let state = match result {
-            Ok(bytes) => {
-                match T::parse(bytes) {
-                    Ok(texture) => {
-                        self.setup.dimensions = texture.dimensions;
-                        self.setup.format = texture.format;
-
-                        let mut frame = self.frames.front();
-                        let ptr = frame.buf.extend_from_slice(&texture.data);
-                        let task = PreFrameTask::CreateTexture(self.handle, self.setup, Some(ptr));
-                        frame.pre.push(task);
-                        TextureState::Ready
-                    }
-                    Err(error) => {
-                        let error = format!("Failed to load texture at {:?}.\n{:?}", path, error);
-                        TextureState::Err(error)
-                    }
-                }
-            }
-            Err(error) => {
-                let error = format!("Failed to load texture at {:?}.\n{:?}", path, error);
-                TextureState::Err(error)
-            }
-        };
-
-        *self.state.write().unwrap() = state;
-    }
-}
-
-struct DoubleFrame {
-    idx: RwLock<usize>,
-    frames: [Mutex<Frame>; 2],
-}
-
-impl DoubleFrame {
-    fn with_capacity(capacity: usize) -> Self {
-        DoubleFrame {
-            idx: RwLock::new(0),
-            frames: [Mutex::new(Frame::with_capacity(capacity)),
-                     Mutex::new(Frame::with_capacity(capacity))],
-        }
-    }
-
-    #[inline]
-    fn front(&self) -> MutexGuard<Frame> {
-        self.frames[*self.idx.read().unwrap()].lock().unwrap()
-    }
-
-    #[inline]
-    fn back(&self) -> MutexGuard<Frame> {
-        self.frames[(*self.idx.read().unwrap() + 1) % 2]
-            .lock()
-            .unwrap()
-    }
-
-    #[inline]
-    fn swap_frames(&self) {
-        let mut idx = self.idx.write().unwrap();
-        *idx = (*idx + 1) % 2;
     }
 }

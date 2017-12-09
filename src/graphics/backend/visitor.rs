@@ -7,7 +7,8 @@ use gl::types::*;
 
 use utils::{Color, Rect};
 use graphics::*;
-use super::*;
+
+use super::errors::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpenGLBuffer {
@@ -20,7 +21,7 @@ pub enum OpenGLBuffer {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct VAOPair(GLuint, GLuint);
 
-pub struct OpenGLVisitor {
+pub(crate) struct OpenGLVisitor {
     cull_face: Cell<CullFace>,
     front_face_order: Cell<FrontFaceOrder>,
     depth_test: Cell<Comparison>,
@@ -162,6 +163,7 @@ impl OpenGLVisitor {
 
     pub unsafe fn bind_uniform(&self, location: GLint, variable: &UniformVariable) -> Result<()> {
         match *variable {
+            UniformVariable::Texture(_) => unreachable!(),
             UniformVariable::I32(v) => gl::Uniform1i(location, v),
             UniformVariable::F32(v) => gl::Uniform1f(location, v),
             UniformVariable::Vector2f(v) => gl::Uniform2f(location, v[0], v[1]),

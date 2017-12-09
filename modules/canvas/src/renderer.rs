@@ -36,7 +36,7 @@ impl CanvasRenderer {
     /// resources in background.
     pub fn new(ctx: &application::Context) -> Result<Self> {
         let video = ctx.shared::<graphics::GraphicsSystem>();
-        let mut label = graphics::utils::RAIIGuard::new(video.clone());
+        let mut label = graphics::RAIIGuard::new(video.clone());
 
         let mut setup = graphics::ViewStateSetup::default();
         setup.sequence = true;
@@ -51,14 +51,16 @@ impl CanvasRenderer {
 
         let mut setup = graphics::PipelineStateSetup::default();
         setup.layout = layout;
-        setup.state.color_blend =
+        setup.render_state.color_blend =
             Some((graphics::Equation::Add,
                   graphics::BlendFactor::Value(graphics::BlendValue::SourceAlpha),
                   graphics::BlendFactor::OneMinusValue(graphics::BlendValue::SourceAlpha)));
 
-        let vs = include_str!("../resources/canvas.vs").to_owned();
-        let fs = include_str!("../resources/canvas.fs").to_owned();
-        let pso = label.create_pipeline(setup, vs, fs)?;
+        setup.vs = include_str!("../resources/canvas.vs").to_owned();
+        setup.fs = include_str!("../resources/canvas.fs").to_owned();
+
+        setup.uniform_variables.push("mainTexture".into());
+        let pso = label.create_pipeline(setup)?;
 
         let mut setup = graphics::VertexBufferSetup::default();
         setup.layout = CanvasVertex::layout();
@@ -146,16 +148,16 @@ impl CanvasRenderer {
             self.video.update_index_buffer(self.ibo, 0, slice)?;
         }
 
-        let mut dc = self.video.make();
-
-        if let Some(handle) = self.current_texture {
-            dc.with_texture("mainTexture", handle);
-        }
-
-        dc.with_view(self.vso)
-            .with_pipeline(self.pso)
-            .with_data(self.vbo, Some(self.ibo))
-            .submit(graphics::Primitive::Triangles, 0, self.idxes.len() as u32)?;
+        self.video
+            .submit(0,
+                    self.vso,
+                    self.pso,
+                    &[self.current_texture.map(|v| v.into())],
+                    self.vbo,
+                    Some(self.ibo),
+                    graphics::Primitive::Triangles,
+                    0,
+                    self.idxes.len() as u32)?;
 
         self.verts.clear();
         self.idxes.clear();

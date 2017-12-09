@@ -8,7 +8,7 @@ impl_vertex!{
 }
 
 struct Window {
-    _label: graphics::utils::RAIIGuard,
+    _label: graphics::RAIIGuard,
 
     vso: graphics::ViewStateHandle,
     pso: graphics::PipelineStateHandle,
@@ -25,7 +25,7 @@ impl Window {
         let ctx = engine.context();
         let ctx = ctx.read().unwrap();
         let video = ctx.shared::<GraphicsSystem>().clone();
-        let mut label = graphics::utils::RAIIGuard::new(video);
+        let mut label = graphics::RAIIGuard::new(video);
 
         let verts: [Vertex; 6] = [Vertex::new([-1.0, -1.0]),
                                   Vertex::new([1.0, -1.0]),
@@ -52,9 +52,10 @@ impl Window {
         // Create pipeline state.
         let mut setup = graphics::PipelineStateSetup::default();
         setup.layout = attributes;
-        let vs = include_str!("../../resources/texture.vs").to_owned();
-        let fs = include_str!("../../resources/texture.fs").to_owned();
-        let pso = label.create_pipeline(setup, vs, fs)?;
+        setup.vs = include_str!("../../resources/texture.vs").to_owned();
+        setup.fs = include_str!("../../resources/texture.fs").to_owned();
+        setup.uniform_variables.push("renderedTexture".into());
+        let pso = label.create_pipeline(setup)?;
 
         let setup = graphics::TextureSetup::default();
         let location = Location::unique("/std/texture.png");
@@ -75,13 +76,15 @@ impl Window {
 impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
         ctx.shared::<GraphicsSystem>()
-            .make()
-            .with_view(self.vso)
-            .with_pipeline(self.pso)
-            .with_data(self.vbo, None)
-            .with_texture("renderedTexture", self.texture)
-            .submit(graphics::Primitive::Triangles, 0, 6)?;
-
+            .submit(0,
+                    self.vso,
+                    self.pso,
+                    &[Some(self.texture.into())],
+                    self.vbo,
+                    None,
+                    graphics::Primitive::Triangles,
+                    0,
+                    6)?;
         Ok(())
     }
 }

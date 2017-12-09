@@ -55,29 +55,30 @@
 //! multi-thread friendly APIs.
 
 mod backend;
-mod uniform_variable;
-
-pub mod view;
-pub mod pipeline;
-pub mod mesh;
-pub mod texture;
+pub mod assets;
 
 pub mod errors;
-#[macro_use]
-pub mod macros;
-pub mod frame;
 pub mod graphics;
 pub mod window;
-pub mod utils;
+pub mod guard;
 
-pub use self::view::*;
-pub use self::pipeline::*;
-pub use self::mesh::*;
-pub use self::texture::*;
-pub use self::uniform_variable::*;
-pub use self::frame::DrawCallBuilder;
+pub use self::assets::view::*;
+pub use self::assets::pipeline::*;
 
-pub use self::utils::RAIIGuard;
-pub use self::graphics::{GraphicsSystem, GraphicsSystemShared, GraphicsFrameInfo, TextureParser,
-                         Texture};
+pub use self::assets::mesh::*;
+
+pub use self::assets::texture::*;
+pub use self::assets::texture_loader::{TextureData, TextureParser};
+
+pub use self::guard::RAIIGuard;
+pub use self::graphics::{GraphicsSystem, GraphicsSystemShared, GraphicsFrameInfo};
 pub use self::window::{Window, WindowBuilder};
+
+/// Maximum number of attributes in vertex layout.
+pub const MAX_VERTEX_ATTRIBUTES: usize = 12;
+/// Maximum number of textures in shader.
+pub const MAX_TEXTURE_SLOTS: usize = 16;
+/// Maximum number of attachments in framebuffer.
+pub const MAX_FRAMEBUFFER_ATTACHMENTS: usize = 8;
+///
+pub const MAX_UNIFORM_VARIABLES: usize = 32;

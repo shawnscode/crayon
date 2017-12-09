@@ -1,7 +1,6 @@
 //! Immutable or dynamic 2D texture.
 
-pub const MAX_TEXTURE_SLOTS: usize = 16;
-
+/// The public attributes of a texture object.
 #[derive(Debug, Copy, Clone)]
 pub struct TextureSetup {
     pub format: TextureFormat,
