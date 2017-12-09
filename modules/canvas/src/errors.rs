@@ -9,7 +9,7 @@ error_chain!{
     links {
         Graphics(graphics::errors::Error, graphics::errors::ErrorKind);
         Resource(resource::errors::Error, resource::errors::ErrorKind);
-        Font(assets::font_error::Error, assets::font_error::ErrorKind);
+        Assets(assets::errors::Error, assets::errors::ErrorKind);
     }
 
     errors {

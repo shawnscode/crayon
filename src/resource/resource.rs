@@ -1,18 +1,18 @@
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::thread;
-use std::borrow::Borrow;
-use std;
 
 use two_lock_queue;
-use futures;
-use futures::Future;
 
-use super::{ResourceFuture, ResourceArenaLoader, ResourceArenaMapper};
 use super::filesystem::{Filesystem, FilesystemDriver};
 use super::errors::*;
 
-/// The centralized resource management system.
+/// The callbacks of async loader.
+pub trait ResourceAsyncLoader: Send + Sync + 'static {
+    fn on_finished(&mut self, _: &Path, _: Result<&[u8]>);
+}
+
+/// Takes care of loading data asynchronously through pluggable filesystems.
 pub struct ResourceSystem {
     filesystems: Arc<RwLock<FilesystemDriver>>,
     shared: Arc<ResourceSystemShared>,
@@ -49,7 +49,7 @@ impl ResourceSystem {
     /// Mount a file-system drive with identifier.
     #[inline]
     pub fn mount<S, F>(&self, ident: S, fs: F) -> Result<()>
-        where S: Borrow<str>,
+        where S: AsRef<str>,
               F: Filesystem + 'static
     {
         self.filesystems.write().unwrap().mount(ident, fs)
@@ -58,7 +58,7 @@ impl ResourceSystem {
     /// Unmount a file-system from this collection.
     #[inline]
     pub fn unmount<S>(&self, ident: S)
-        where S: Borrow<str>
+        where S: AsRef<str>
     {
         self.filesystems.write().unwrap().unmount(ident);
     }
@@ -73,33 +73,24 @@ impl ResourceSystem {
                     closure(&driver, &mut buf);
                 }
 
-                ResourceTask::Map { mut closure } => {
-                    closure();
-                }
-
                 ResourceTask::Stop => return,
             }
         }
     }
 
-    fn load<T>(slave: &T,
-               path: &Path,
-               driver: &FilesystemDriver,
-               buf: &mut Vec<u8>)
-               -> std::result::Result<T::Item, T::Error>
-        where T: ResourceArenaLoader
+    fn load<T>(slave: &mut T, path: &Path, driver: &FilesystemDriver, buf: &mut Vec<u8>)
+        where T: ResourceAsyncLoader
     {
-        if let Some(v) = slave.get(&path) {
-            return Ok(v);
-        }
-
         let from = buf.len();
-        driver.load_into(&path, buf)?;
-        let asset = slave.insert(&path, &buf[from..])?;
-        Ok(asset)
+
+        match driver.load_into(&path, buf) {
+            Ok(_) => slave.on_finished(&path, Ok(&buf[from..])),
+            Err(err) => slave.on_finished(&path, Err(err)),
+        };
     }
 }
 
+/// The multi-thread friendly parts of `ResourceSystem`.
 pub struct ResourceSystemShared {
     filesystems: Arc<RwLock<FilesystemDriver>>,
     chan: two_lock_queue::Sender<ResourceTask>,
@@ -107,7 +98,6 @@ pub struct ResourceSystemShared {
 
 enum ResourceTask {
     Load { closure: Box<FnMut(&FilesystemDriver, &mut Vec<u8>) + Send + Sync>, },
-    Map { closure: Box<FnMut() + Send + Sync> },
     Stop,
 }
 
@@ -121,71 +111,34 @@ impl ResourceSystemShared {
         }
     }
 
+    /// Return whether the path points at an existing file.
     pub fn exists<T, P>(&self, path: P) -> bool
         where P: AsRef<Path>
     {
         self.filesystems.read().unwrap().exists(path)
     }
 
-    pub fn load<T, P>(&self, slave: T, path: P) -> ResourceFuture<T::Item, T::Error>
-        where T: ResourceArenaLoader,
+    /// Load a file at location `path` asynchronously.
+    ///
+    /// `ResourceAsyncLoader::on_finished` will be called if task finishs or any
+    /// error triggered when loading.
+    pub fn load_async<T, P>(&self, worker: T, path: P)
+        where T: ResourceAsyncLoader,
               P: AsRef<Path>
     {
-        let (tx, rx) = futures::sync::oneshot::channel();
-
-        // Returns directly if we have this resource in memory.
-        if let Some(v) = slave.get(path.as_ref()) {
-            tx.send(Ok(v)).is_ok();
-            return ResourceFuture(rx);
-        }
-
         // Hacks: Optimize this when Box<FnOnce> is usable.
         let path = path.as_ref().to_owned();
-        let payload = Arc::new(RwLock::new(Some((tx, path, slave))));
-        let closure = move |d: &FilesystemDriver, b: &mut Vec<u8>| if let Some(data) =
-            payload.write().unwrap().take() {
-            let v = ResourceSystem::load::<T>(&data.2, &data.1, d, b);
-            data.0.send(v).is_ok();
+        let payload = Arc::new(RwLock::new(Some((worker, path))));
+        let closure = move |d: &FilesystemDriver, b: &mut Vec<u8>| {
+            // ..
+            if let Some(mut data) = payload.write().unwrap().take() {
+                ResourceSystem::load::<T>(&mut data.0, &data.1, d, b);
+            }
         };
 
         self.chan
             .send(ResourceTask::Load { closure: Box::new(closure) })
             .unwrap();
-
-        ResourceFuture(rx)
-    }
-
-    pub fn map<T>(&self,
-                  slave: T,
-                  src: ResourceFuture<T::Source, T::Error>)
-                  -> ResourceFuture<T::Item, T::Error>
-        where T: ResourceArenaMapper
-    {
-        let (tx, rx) = futures::sync::oneshot::channel();
-
-        // Hacks: Optimize this when Box<FnOnce> is usable.
-        let payload = Arc::new(RwLock::new(Some((tx, slave, src))));
-        let closure = move || if let Some(mut data) = payload.write().unwrap().take() {
-            let v = match data.2.poll() {
-                Err(err) => Err(err),
-                Ok(task) => {
-                    match task {
-                        futures::Async::Ready(v) => data.1.map(&v),
-                        futures::Async::NotReady => {
-                            unreachable!("Trying to map from unknown source.")
-                        }
-                    }
-                }
-            };
-
-            data.0.send(v).is_ok();
-        };
-
-        self.chan
-            .send(ResourceTask::Map { closure: Box::new(closure) })
-            .unwrap();
-
-        ResourceFuture(rx)
     }
 }
 

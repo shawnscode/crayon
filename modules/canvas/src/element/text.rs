@@ -1,5 +1,5 @@
 use crayon::ecs::HashMapArena;
-use crayon::{graphics, math};
+use crayon::{math, utils};
 
 use assets::{FontHandle, FontSystem};
 use renderer::*;
@@ -10,7 +10,7 @@ pub struct Text {
     pub visible: bool,
     pub text: String,
     pub size: u32,
-    pub color: graphics::Color,
+    pub color: utils::Color,
     pub font: Option<FontHandle>,
 }
 
@@ -19,7 +19,7 @@ impl Default for Text {
         Text {
             text: "".to_owned(),
             size: 16,
-            color: graphics::Color::black(),
+            color: utils::Color::black(),
             font: None,
             visible: true,
         }
@@ -53,7 +53,7 @@ impl Text {
                          CanvasVertex::new([max.x, -max.y], [uv.max.x, uv.max.y], color)];
 
             let idxes = [0, 1, 2, 2, 3, 0];
-            renderer.submit(&verts, &idxes, texture)?;
+            renderer.submit(&verts, &idxes, Some(texture))?;
         }
 
         Ok(())

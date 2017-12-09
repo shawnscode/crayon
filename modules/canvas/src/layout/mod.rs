@@ -4,7 +4,7 @@ use crayon::{ecs, math, utils};
 use crayon::ecs::VecArena;
 use crayon::math::Transform;
 
-use assets::FontSystem;
+use assets::CanvasAssets;
 use prelude::Element;
 use errors::*;
 
@@ -42,7 +42,7 @@ impl Default for Layout {
             fixed_size: None,
             anchor_min: math::Vector2::new(0.5, 0.5),
             anchor_max: math::Vector2::new(0.5, 0.5),
-            pivot: math::Vector2::new(0.5, 0.5),
+            pivot: math::Vector2::new(0.0, 0.0),
             layout: None,
         }
     }
@@ -73,12 +73,12 @@ impl Layout {
 }
 
 impl Layout {
-    pub unsafe fn perform<T, U>(fonts: &mut FontSystem,
-                                elements: &ecs::Arena<Element>,
-                                layouts: &mut ecs::ArenaMut<Layout>,
-                                parent: ecs::Entity,
-                                children: T)
-                                -> Result<()>
+    pub(crate) unsafe fn perform<T, U>(assets: &mut CanvasAssets,
+                                       elements: &ecs::Arena<Element>,
+                                       layouts: &mut ecs::ArenaMut<Layout>,
+                                       parent: ecs::Entity,
+                                       children: T)
+                                       -> Result<()>
         where T: IntoIterator<Item = U>,
               U: Borrow<utils::Handle>
     {
@@ -90,7 +90,7 @@ impl Layout {
                     let e = elements.get_unchecked(*v.borrow());
                     let l = layouts.get_unchecked_mut(*v.borrow());
 
-                    let prefered_size = e.prefered_size(fonts).unwrap_or(l.size);
+                    let prefered_size = e.prefered_size(assets).unwrap_or(l.size);
                     l.size = l.fixed_size.unwrap_or(prefered_size);
                 }
             }

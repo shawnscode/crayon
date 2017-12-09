@@ -26,7 +26,6 @@ glutin = "0.10.1"
 lazy_static = "1.0.0"
 error-chain = "0.11.0"
 
-futures = "0.1.17"
 rayon = "0.9.0"
 serde = "1.0.22"
 serde_derive = "1.0.22"

@@ -60,8 +60,8 @@ impl World {
 
     /// Returns the number of current alive entities in this `World`.
     #[inline]
-    pub fn size(&self) -> usize {
-        self.entities.size()
+    pub fn len(&self) -> usize {
+        self.entities.len()
     }
 
     /// Recycles the `Entity` handle, free corresponding components.
@@ -336,14 +336,14 @@ mod test {
     #[test]
     fn basic() {
         let mut world = World::new();
-        assert_eq!(world.size(), 0);
+        assert_eq!(world.len(), 0);
 
         let e = world.create();
         assert!(world.is_alive(e));
-        assert_eq!(world.size(), 1);
+        assert_eq!(world.len(), 1);
 
         world.free(e);
         assert!(!world.is_alive(e));
-        assert_eq!(world.size(), 0);
+        assert_eq!(world.len(), 0);
     }
 }

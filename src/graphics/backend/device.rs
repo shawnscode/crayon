@@ -6,16 +6,15 @@ use std::collections::HashMap;
 use gl;
 use gl::types::*;
 
-use utils::Handle;
+use utils::{Handle, Rect, DataBuffer};
 use graphics::*;
 
-use super::*;
+use super::errors::*;
 use super::visitor::*;
-
-use super::super::frame::{TaskBuffer, TaskBufferPtr};
-use super::super::rect::Rect;
+use super::frame::FrameDrawCall;
 
 type ResourceID = GLuint;
+type UniformID = GLint;
 
 #[derive(Debug, Clone, Copy)]
 struct VertexBufferObject {
@@ -32,13 +31,15 @@ struct IndexBufferObject {
 #[derive(Debug)]
 struct PipelineStateObject {
     id: ResourceID,
-    setup: PipelineStateSetup,
+    render_state: RenderState,
+    layout: AttributeLayout,
+    uniform_locations: Vec<UniformID>,
     uniforms: HashMap<String, UniformVariable>,
 }
 
 #[derive(Debug, Clone)]
 struct ViewStateObject {
-    drawcalls: RefCell<Vec<DrawCall>>,
+    drawcalls: RefCell<Vec<FrameDrawCall>>,
     setup: ViewStateSetup,
 }
 
@@ -65,21 +66,7 @@ struct FrameBufferObject {
     id: ResourceID,
 }
 
-#[derive(Debug, Copy, Clone)]
-struct DrawCall {
-    order: u64,
-    view: ViewStateHandle,
-    pipeline: PipelineStateHandle,
-    uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
-    textures: TaskBufferPtr<[(TaskBufferPtr<str>, TextureHandle)]>,
-    vb: VertexBufferHandle,
-    ib: Option<IndexBufferHandle>,
-    primitive: Primitive,
-    from: u32,
-    len: u32,
-}
-
-pub struct Device {
+pub(crate) struct Device {
     visitor: OpenGLVisitor,
 
     vertex_buffers: DataVec<VertexBufferObject>,
@@ -125,40 +112,16 @@ impl Device {
         Ok(())
     }
 
-    pub fn submit(&self,
-                  order: u64,
-                  view: ViewStateHandle,
-                  pipeline: PipelineStateHandle,
-                  textures: TaskBufferPtr<[(TaskBufferPtr<str>, TextureHandle)]>,
-                  uniforms: TaskBufferPtr<[(TaskBufferPtr<str>, UniformVariable)]>,
-                  vb: VertexBufferHandle,
-                  ib: Option<IndexBufferHandle>,
-                  primitive: Primitive,
-                  from: u32,
-                  len: u32)
-                  -> Result<()> {
-        if let Some(vo) = self.views.get(view) {
-            vo.drawcalls
-                .borrow_mut()
-                .push(DrawCall {
-                          order: order,
-                          view: view,
-                          pipeline: pipeline,
-                          textures: textures,
-                          uniforms: uniforms,
-                          vb: vb,
-                          ib: ib,
-                          primitive: primitive,
-                          from: from,
-                          len: len,
-                      });
+    pub fn submit(&self, dc: FrameDrawCall) -> Result<()> {
+        if let Some(vo) = self.views.get(dc.view) {
+            vo.drawcalls.borrow_mut().push(dc);
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
         }
     }
 
-    pub unsafe fn flush(&self, buf: &TaskBuffer, dimensions: (u32, u32)) -> Result<()> {
+    pub unsafe fn flush(&self, buf: &DataBuffer, dimensions: (u32, u32)) -> Result<()> {
         // Collects avaiable views.
         let (mut views, mut ordered_views) = (vec![], vec![]);
         for (i, v) in self.views.buf.iter().enumerate() {
@@ -178,8 +141,6 @@ impl Device {
                                   rv.setup.order.cmp(&lv.setup.order)
                               });
 
-        let mut uniforms = vec![];
-        let mut textures = vec![];
         ordered_views.append(&mut views);
 
         let dimensions = (dimensions.0 as u16, dimensions.1 as u16);
@@ -216,41 +177,23 @@ impl Device {
 
             // Submit real OpenGL drawcall in order.
             for dc in vo.drawcalls.borrow().iter() {
-                uniforms.clear();
-                for &(name, variable) in buf.as_slice(dc.uniforms) {
-                    let name = buf.as_str(name);
-                    uniforms.push((name, variable));
-                }
-
-                textures.clear();
-                for &(name, texture) in buf.as_slice(dc.textures) {
-                    let name = buf.as_str(name);
-                    textures.push((name, texture));
-                }
-
                 // Bind program and associated uniforms and textures.
                 let pso = self.bind_pipeline(dc.pipeline)?;
+                let texture_idx = 0;
+                for (i, v) in buf.as_slice(dc.uniforms).iter().enumerate() {
+                    if let &Some(ptr) = v {
+                        let variable = buf.as_ref(ptr);
+                        let location = pso.uniform_locations[i];
 
-                for &(name, variable) in &uniforms {
-                    let location = self.visitor.get_uniform_location(pso.id, &name)?;
-                    if location == -1 {
-                        bail!(format!("failed to locate uniform {}.", &name));
-                    }
-                    self.visitor.bind_uniform(location, &variable)?;
-                }
-
-                for (i, &(name, texture)) in textures.iter().enumerate() {
-                    if let Some(to) = self.textures.get(texture) {
-                        let location = self.visitor.get_uniform_location(pso.id, &name)?;
-                        if location == -1 {
-                            bail!(format!("failed to locate texture {}.", &name));
+                        if let &UniformVariable::Texture(handle) = variable {
+                            if let Some(texture) = self.textures.get(handle) {
+                                let v = UniformVariable::I32(texture_idx);
+                                self.visitor.bind_uniform(location, &v)?;
+                                self.visitor.bind_texture(texture_idx as u32, texture.id)?;
+                            }
+                        } else {
+                            self.visitor.bind_uniform(location, &variable)?;
                         }
-
-                        self.visitor
-                            .bind_uniform(location, &UniformVariable::I32(i as i32))?;
-                        self.visitor.bind_texture(i as u32, to.id)?;
-                    } else {
-                        bail!(format!("use invalid texture handle {:?} at {}", texture, name));
                     }
                 }
 
@@ -261,7 +204,7 @@ impl Device {
 
                 self.visitor.bind_buffer(gl::ARRAY_BUFFER, vbo.id)?;
                 self.visitor
-                    .bind_attribute_layout(&pso.setup.layout, &vbo.setup.layout)?;
+                    .bind_attribute_layout(&pso.layout, &vbo.setup.layout)?;
 
                 // Bind index buffer object if available.
                 if let Some(v) = dc.ib {
@@ -298,7 +241,7 @@ impl Device {
 
         self.visitor.bind_program(pso.id)?;
 
-        let state = &pso.setup.state;
+        let state = &pso.render_state;
         self.visitor.set_cull_face(state.cull_face)?;
         self.visitor.set_front_face_order(state.front_face_order)?;
         self.visitor.set_depth_test(state.depth_test)?;
@@ -641,12 +584,10 @@ impl Device {
     /// are minimal requirement to build a proper program.
     pub unsafe fn create_pipeline(&mut self,
                                   handle: PipelineStateHandle,
-                                  setup: PipelineStateSetup,
-                                  vs_src: String,
-                                  fs_src: String)
+                                  setup: PipelineStateSetup)
                                   -> Result<()> {
 
-        let pid = self.visitor.create_program(&vs_src, &fs_src)?;
+        let pid = self.visitor.create_program(&setup.vs, &setup.fs)?;
 
         for (name, _) in setup.layout.iter() {
             let name: &'static str = name.into();
@@ -656,28 +597,40 @@ impl Device {
             }
         }
 
+        let mut uniform_locations = Vec::new();
+        for name in setup.uniform_variables {
+            let location = self.visitor.get_uniform_location(pid, &name)?;
+            if location == -1 {
+                bail!(format!("failed to locate uniform {:?}", name));
+            }
+
+            uniform_locations.push(location);
+        }
+
         self.pipelines
             .set(handle,
                  PipelineStateObject {
                      id: pid,
-                     setup: setup,
+                     render_state: setup.render_state,
+                     layout: setup.layout,
+                     uniform_locations: uniform_locations,
                      uniforms: HashMap::new(),
                  });
         check()
     }
 
-    pub fn update_pipeline_uniform(&mut self,
-                                   handle: PipelineStateHandle,
-                                   name: &str,
-                                   variable: &UniformVariable)
-                                   -> Result<()> {
-        if let Some(pso) = self.pipelines.get_mut(handle) {
-            pso.uniforms.insert(name.to_string(), *variable);
-            Ok(())
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
-    }
+    // pub fn update_pipeline_uniform(&mut self,
+    //                                handle: PipelineStateHandle,
+    //                                name: &str,
+    //                                variable: &UniformVariable)
+    //                                -> Result<()> {
+    //     if let Some(pso) = self.pipelines.get_mut(handle) {
+    //         pso.uniforms.insert(name.to_string(), *variable);
+    //         Ok(())
+    //     } else {
+    //         bail!(ErrorKind::InvalidHandle);
+    //     }
+    // }
 
     /// Free named program object.
     pub unsafe fn delete_pipeline(&mut self, handle: PipelineStateHandle) -> Result<()> {
@@ -710,13 +663,13 @@ impl<T> DataVec<T>
             .and_then(|v| v.as_ref())
     }
 
-    pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
-        where H: Borrow<Handle>
-    {
-        self.buf
-            .get_mut(handle.borrow().index() as usize)
-            .and_then(|v| v.as_mut())
-    }
+    // pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
+    //     where H: Borrow<Handle>
+    // {
+    //     self.buf
+    //         .get_mut(handle.borrow().index() as usize)
+    //         .and_then(|v| v.as_mut())
+    // }
 
     pub fn set<H>(&mut self, handle: H, value: T)
         where H: Borrow<Handle>
