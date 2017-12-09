@@ -25,8 +25,8 @@ impl RAIIGuard {
     }
 
     #[inline(always)]
-    pub fn create_pipeline(&mut self, setup: PipelineStateSetup) -> Result<PipelineStateHandle> {
-        let v = self.video.create_pipeline(setup)?;
+    pub fn create_shader(&mut self, setup: ShaderSetup) -> Result<ShaderHandle> {
+        let v = self.video.create_shader(setup)?;
         Ok(self.push(v))
     }
 
@@ -93,7 +93,7 @@ impl RAIIGuard {
                 Resource::VertexBuffer(handle) => self.video.delete_vertex_buffer(handle),
                 Resource::IndexBuffer(handle) => self.video.delete_index_buffer(handle),
                 Resource::ViewState(handle) => self.video.delete_view(handle),
-                Resource::PipelineState(handle) => self.video.delete_pipeline(handle),
+                Resource::PipelineState(handle) => self.video.delete_shader(handle),
                 Resource::FrameBuffer(handle) => self.video.delete_framebuffer(handle),
                 Resource::RenderBuffer(handle) => self.video.delete_render_buffer(handle),
             }
@@ -119,7 +119,7 @@ enum Resource {
     VertexBuffer(VertexBufferHandle),
     IndexBuffer(IndexBufferHandle),
     ViewState(ViewStateHandle),
-    PipelineState(PipelineStateHandle),
+    PipelineState(ShaderHandle),
     FrameBuffer(FrameBufferHandle),
     RenderBuffer(RenderBufferHandle),
 }
@@ -148,8 +148,8 @@ impl From<ViewStateHandle> for Resource {
     }
 }
 
-impl From<PipelineStateHandle> for Resource {
-    fn from(handle: PipelineStateHandle) -> Resource {
+impl From<ShaderHandle> for Resource {
+    fn from(handle: ShaderHandle) -> Resource {
         Resource::PipelineState(handle)
     }
 }

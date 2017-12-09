@@ -11,7 +11,7 @@ use graphics::*;
 
 use super::errors::*;
 use super::visitor::*;
-use super::frame::DrawCall;
+use super::frame::FrameDrawCall;
 
 type ResourceID = GLuint;
 type UniformID = GLint;
@@ -29,7 +29,7 @@ struct IndexBufferObject {
 }
 
 #[derive(Debug)]
-struct PipelineStateObject {
+struct ShaderObject {
     id: ResourceID,
     render_state: RenderState,
     layout: AttributeLayout,
@@ -39,7 +39,7 @@ struct PipelineStateObject {
 
 #[derive(Debug, Clone)]
 struct ViewStateObject {
-    drawcalls: RefCell<Vec<DrawCall>>,
+    drawcalls: RefCell<Vec<FrameDrawCall>>,
     setup: ViewStateSetup,
 }
 
@@ -71,13 +71,13 @@ pub(crate) struct Device {
 
     vertex_buffers: DataVec<VertexBufferObject>,
     index_buffers: DataVec<IndexBufferObject>,
-    pipelines: DataVec<PipelineStateObject>,
+    shaders: DataVec<ShaderObject>,
     views: DataVec<ViewStateObject>,
     textures: DataVec<TextureObject>,
     render_buffers: DataVec<RenderBufferObject>,
     framebuffers: DataVec<FrameBufferObject>,
 
-    active_pipeline: Cell<Option<PipelineStateHandle>>,
+    active_shader: Cell<Option<ShaderHandle>>,
 }
 
 unsafe impl Send for Device {}
@@ -89,12 +89,12 @@ impl Device {
             visitor: OpenGLVisitor::new(),
             vertex_buffers: DataVec::new(),
             index_buffers: DataVec::new(),
-            pipelines: DataVec::new(),
+            shaders: DataVec::new(),
             views: DataVec::new(),
             textures: DataVec::new(),
             render_buffers: DataVec::new(),
             framebuffers: DataVec::new(),
-            active_pipeline: Cell::new(None),
+            active_shader: Cell::new(None),
         }
     }
 }
@@ -107,12 +107,12 @@ impl Device {
             }
         }
 
-        self.active_pipeline.set(None);
+        self.active_shader.set(None);
         self.visitor.bind_framebuffer(0, false)?;
         Ok(())
     }
 
-    pub fn submit(&self, dc: DrawCall) -> Result<()> {
+    pub fn submit(&self, dc: FrameDrawCall) -> Result<()> {
         if let Some(vo) = self.views.get(dc.view) {
             vo.drawcalls.borrow_mut().push(dc);
             Ok(())
@@ -178,13 +178,14 @@ impl Device {
             // Submit real OpenGL drawcall in order.
             for dc in vo.drawcalls.borrow().iter() {
                 // Bind program and associated uniforms and textures.
-                let pso = self.bind_pipeline(dc.pipeline)?;
+                let shader = self.bind_shader(dc.shader)?;
                 let texture_idx = 0;
-                for (i, variable) in buf.as_slice(dc.uniforms).iter().enumerate() {
-                    if let &Some(variable) = variable {
-                        let location = pso.uniform_locations[i];
+                for (i, v) in buf.as_slice(dc.uniforms).iter().enumerate() {
+                    if let &Some(ptr) = v {
+                        let variable = buf.as_ref(ptr);
+                        let location = shader.uniform_locations[i];
 
-                        if let UniformVariable::Texture(handle) = variable {
+                        if let &UniformVariable::Texture(handle) = variable {
                             if let Some(texture) = self.textures.get(handle) {
                                 let v = UniformVariable::I32(texture_idx);
                                 self.visitor.bind_uniform(location, &v)?;
@@ -203,7 +204,7 @@ impl Device {
 
                 self.visitor.bind_buffer(gl::ARRAY_BUFFER, vbo.id)?;
                 self.visitor
-                    .bind_attribute_layout(&pso.layout, &vbo.setup.layout)?;
+                    .bind_attribute_layout(&shader.layout, &vbo.setup.layout)?;
 
                 // Bind index buffer object if available.
                 if let Some(v) = dc.ib {
@@ -227,20 +228,18 @@ impl Device {
         Ok(())
     }
 
-    unsafe fn bind_pipeline(&self, pipeline: PipelineStateHandle) -> Result<&PipelineStateObject> {
-        let pso = self.pipelines
-            .get(pipeline)
-            .ok_or(ErrorKind::InvalidHandle)?;
+    unsafe fn bind_shader(&self, handle: ShaderHandle) -> Result<&ShaderObject> {
+        let shader = self.shaders.get(handle).ok_or(ErrorKind::InvalidHandle)?;
 
-        if let Some(v) = self.active_pipeline.get() {
-            if v == pipeline {
-                return Ok(&pso);
+        if let Some(v) = self.active_shader.get() {
+            if v == handle {
+                return Ok(&shader);
             }
         }
 
-        self.visitor.bind_program(pso.id)?;
+        self.visitor.bind_program(shader.id)?;
 
-        let state = &pso.render_state;
+        let state = &shader.render_state;
         self.visitor.set_cull_face(state.cull_face)?;
         self.visitor.set_front_face_order(state.front_face_order)?;
         self.visitor.set_depth_test(state.depth_test)?;
@@ -251,15 +250,15 @@ impl Device {
         let c = &state.color_write;
         self.visitor.set_color_write(c.0, c.1, c.2, c.3)?;
 
-        for (name, variable) in &pso.uniforms {
-            let location = self.visitor.get_uniform_location(pso.id, &name)?;
+        for (name, variable) in &shader.uniforms {
+            let location = self.visitor.get_uniform_location(shader.id, &name)?;
             if location != -1 {
                 self.visitor.bind_uniform(location, &variable)?;
             }
         }
 
-        self.active_pipeline.set(Some(pipeline));
-        Ok(&pso)
+        self.active_shader.set(Some(handle));
+        Ok(&shader)
     }
 }
 
@@ -581,10 +580,7 @@ impl Device {
     /// Initializes named program object. A program object is an object to
     /// which shader objects can be attached. Vertex and fragment shader
     /// are minimal requirement to build a proper program.
-    pub unsafe fn create_pipeline(&mut self,
-                                  handle: PipelineStateHandle,
-                                  setup: PipelineStateSetup)
-                                  -> Result<()> {
+    pub unsafe fn create_shader(&mut self, handle: ShaderHandle, setup: ShaderSetup) -> Result<()> {
 
         let pid = self.visitor.create_program(&setup.vs, &setup.fs)?;
 
@@ -606,9 +602,9 @@ impl Device {
             uniform_locations.push(location);
         }
 
-        self.pipelines
+        self.shaders
             .set(handle,
-                 PipelineStateObject {
+                 ShaderObject {
                      id: pid,
                      render_state: setup.render_state,
                      layout: setup.layout,
@@ -618,13 +614,13 @@ impl Device {
         check()
     }
 
-    // pub fn update_pipeline_uniform(&mut self,
-    //                                handle: PipelineStateHandle,
+    // pub fn update_shader_uniform(&mut self,
+    //                                handle: ShaderHandle,
     //                                name: &str,
     //                                variable: &UniformVariable)
     //                                -> Result<()> {
-    //     if let Some(pso) = self.pipelines.get_mut(handle) {
-    //         pso.uniforms.insert(name.to_string(), *variable);
+    //     if let Some(shader) = self.shaders.get_mut(handle) {
+    //         shader.uniforms.insert(name.to_string(), *variable);
     //         Ok(())
     //     } else {
     //         bail!(ErrorKind::InvalidHandle);
@@ -632,9 +628,9 @@ impl Device {
     // }
 
     /// Free named program object.
-    pub unsafe fn delete_pipeline(&mut self, handle: PipelineStateHandle) -> Result<()> {
-        if let Some(pso) = self.pipelines.remove(handle) {
-            self.visitor.delete_program(pso.id)
+    pub unsafe fn delete_shader(&mut self, handle: ShaderHandle) -> Result<()> {
+        if let Some(shader) = self.shaders.remove(handle) {
+            self.visitor.delete_program(shader.id)
         } else {
             bail!(ErrorKind::InvalidHandle);
         }

@@ -2,8 +2,9 @@
 
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
+use std::collections::HashMap;
 
-use utils::Rect;
+use utils::{Rect, HashValue};
 use resource;
 use resource::{ResourceSystemShared, Registery};
 
@@ -19,7 +20,7 @@ pub struct GraphicsFrameInfo {
     pub duration: Duration,
     pub drawcall: usize,
     pub alive_views: usize,
-    pub alive_pipelines: usize,
+    pub alive_shaders: usize,
     pub alive_frame_buffers: usize,
     pub alive_vertex_buffers: usize,
     pub alive_index_buffers: usize,
@@ -90,7 +91,7 @@ impl GraphicsSystem {
             info.duration = time::Instant::now() - ts;
 
             info.alive_views = self.shared.views.read().unwrap().len();
-            info.alive_pipelines = self.shared.pipelines.read().unwrap().len();
+            info.alive_shaders = self.shared.shaders.read().unwrap().len();
             info.alive_frame_buffers = self.shared.framebuffers.read().unwrap().len();
             info.alive_vertex_buffers = self.shared.vertex_buffers.read().unwrap().len();
             info.alive_index_buffers = self.shared.index_buffers.read().unwrap().len();
@@ -102,13 +103,15 @@ impl GraphicsSystem {
     }
 }
 
+type PipelineState = HashMap<HashValue<str>, usize>;
+
 /// The multi-thread friendly parts of `GraphicsSystem`.
 pub struct GraphicsSystemShared {
     resource: Arc<ResourceSystemShared>,
     frames: Arc<DoubleFrame>,
 
     views: RwLock<Registery<()>>,
-    pipelines: RwLock<Registery<()>>,
+    shaders: RwLock<Registery<PipelineState>>,
     framebuffers: RwLock<Registery<()>>,
     render_buffers: RwLock<Registery<()>>,
     vertex_buffers: RwLock<Registery<()>>,
@@ -125,7 +128,7 @@ impl GraphicsSystemShared {
             frames: frames,
 
             views: RwLock::new(Registery::new()),
-            pipelines: RwLock::new(Registery::new()),
+            shaders: RwLock::new(Registery::new()),
             framebuffers: RwLock::new(Registery::new()),
             render_buffers: RwLock::new(Registery::new()),
             vertex_buffers: RwLock::new(Registery::new()),
@@ -138,36 +141,64 @@ impl GraphicsSystemShared {
     pub fn submit(&self,
                   order: u64,
                   view: ViewStateHandle,
-                  pipeline: PipelineStateHandle,
-                  uniforms: &[Option<UniformVariable>],
+                  shader: ShaderHandle,
+                  uniforms: &[(HashValue<str>, UniformVariable)],
                   vb: VertexBufferHandle,
                   ib: Option<IndexBufferHandle>,
                   primitive: Primitive,
                   from: u32,
                   len: u32)
                   -> Result<()> {
-        if self.views.read().unwrap().is_alive(view.into()) {
-            let mut frame = self.frames.front();
-            let uniforms = frame.buf.extend_from_slice(uniforms);
-
-            let dc = DrawCall {
-                order: order,
-                view: view,
-                pipeline: pipeline,
-                uniforms: uniforms,
-                vb: vb,
-                ib: ib,
-                primitive: primitive,
-                from: from,
-                len: len,
-            };
-
-            frame.drawcalls.push(dc);
-            Ok(())
-
-        } else {
-            bail!(ErrorKind::InvalidHandle);
+        if !self.views.read().unwrap().is_alive(view.into()) {
+            bail!("Undefined view state handle.");
         }
+
+        if !self.vertex_buffers.read().unwrap().is_alive(vb.into()) {
+            bail!("Undefined vertex buffer handle.");
+        }
+
+        if let Some(ib) = ib {
+            if !self.index_buffers.read().unwrap().is_alive(ib.into()) {
+                bail!("Undefined index buffer handle.");
+            }
+        }
+
+        let mut frame = self.frames.front();
+
+        let uniforms = {
+            let mut pack = [None; MAX_UNIFORM_VARIABLES];
+            let mut len = 0;
+
+            if let Some(shader) = self.shaders.read().unwrap().get(shader.into()) {
+                for &(n, v) in uniforms {
+                    if let Some(location) = shader.get(&n) {
+                        pack[*location] = Some(frame.buf.extend(&v));
+                        len = len.max((*location + 1));
+                    } else {
+                        bail!(format!("Undefined uniform variable: {:?}.", n));
+                    }
+                }
+            } else {
+                bail!("Undefined shader state handle.");
+            }
+
+            frame.buf.extend_from_slice(&pack[0..len])
+        };
+
+        let dc = FrameDrawCall {
+            order: order,
+            view: view,
+            shader: shader,
+            uniforms: uniforms,
+            vb: vb,
+            ib: ib,
+            primitive: primitive,
+            from: from,
+            len: len,
+        };
+
+        frame.drawcalls.push(dc);
+        Ok(())
     }
 }
 
@@ -193,11 +224,22 @@ impl GraphicsSystemShared {
         }
     }
 
-    /// Create a pipeline with initial shaders and render state. Pipeline encapusulate
+    /// Create a shader with initial shaders and render state. Pipeline encapusulate
     /// all the informations we need to configurate OpenGL before real drawing.
-    pub fn create_pipeline(&self, setup: PipelineStateSetup) -> Result<PipelineStateHandle> {
-        let location = resource::Location::unique("");
-        let handle = self.pipelines.write().unwrap().create(location, ()).into();
+    pub fn create_shader(&self, setup: ShaderSetup) -> Result<ShaderHandle> {
+        if setup.uniform_variables.len() > MAX_UNIFORM_VARIABLES {
+            bail!("Too many uniform variables (>= {:?}).",
+                  MAX_UNIFORM_VARIABLES);
+        }
+
+        let mut shader = PipelineState::new();
+        for (i, v) in setup.uniform_variables.iter().enumerate() {
+            let v: HashValue<str> = v.into();
+            shader.insert(v, i);
+        }
+
+        let loc = resource::Location::unique("");
+        let handle = self.shaders.write().unwrap().create(loc, shader).into();
 
         {
             let task = PreFrameTask::CreatePipeline(handle, setup);
@@ -207,9 +249,9 @@ impl GraphicsSystemShared {
         Ok(handle)
     }
 
-    /// Delete pipeline state object.
-    pub fn delete_pipeline(&self, handle: PipelineStateHandle) {
-        if self.pipelines
+    /// Delete shader state object.
+    pub fn delete_shader(&self, handle: ShaderHandle) {
+        if self.shaders
                .write()
                .unwrap()
                .dec_rc(handle.into())

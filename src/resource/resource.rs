@@ -1,7 +1,6 @@
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::thread;
-use std::borrow::Borrow;
 
 use two_lock_queue;
 
@@ -50,7 +49,7 @@ impl ResourceSystem {
     /// Mount a file-system drive with identifier.
     #[inline]
     pub fn mount<S, F>(&self, ident: S, fs: F) -> Result<()>
-        where S: Borrow<str>,
+        where S: AsRef<str>,
               F: Filesystem + 'static
     {
         self.filesystems.write().unwrap().mount(ident, fs)
@@ -59,7 +58,7 @@ impl ResourceSystem {
     /// Unmount a file-system from this collection.
     #[inline]
     pub fn unmount<S>(&self, ident: S)
-        where S: Borrow<str>
+        where S: AsRef<str>
     {
         self.filesystems.write().unwrap().unmount(ident);
     }

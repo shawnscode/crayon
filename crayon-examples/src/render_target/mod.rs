@@ -8,7 +8,7 @@ impl_vertex!{
 
 struct Pass {
     view: graphics::ViewStateHandle,
-    pipeline: graphics::PipelineStateHandle,
+    shader: graphics::ShaderHandle,
     mesh: graphics::VertexBufferHandle,
 }
 
@@ -67,16 +67,16 @@ impl Window {
             setup.clear_color = Some(Color::gray());
             let view = label.create_view(setup)?;
 
-            // Create pipeline state.
-            let mut setup = graphics::PipelineStateSetup::default();
+            // Create shader state.
+            let mut setup = graphics::ShaderSetup::default();
             setup.layout = attributes;
             setup.vs = include_str!("../../resources/render_target_p1.vs").to_owned();
             setup.fs = include_str!("../../resources/render_target_p1.fs").to_owned();
-            let pipeline = label.create_pipeline(setup)?;
+            let shader = label.create_shader(setup)?;
 
             (Pass {
                  view: view,
-                 pipeline: pipeline,
+                 shader: shader,
                  mesh: vbo,
              },
              rendered_texture)
@@ -92,17 +92,17 @@ impl Window {
             let setup = graphics::ViewStateSetup::default();
             let view = label.create_view(setup)?;
 
-            let mut setup = graphics::PipelineStateSetup::default();
+            let mut setup = graphics::ShaderSetup::default();
             setup.layout = attributes;
             setup.vs = include_str!("../../resources/render_target_p2.vs").to_owned();
             setup.fs = include_str!("../../resources/render_target_p2.fs").to_owned();
             setup.uniform_variables.push("renderedTexture".into());
             setup.uniform_variables.push("time".into());
-            let pipeline = label.create_pipeline(setup)?;
+            let shader = label.create_shader(setup)?;
 
             Pass {
                 view: view,
-                pipeline: pipeline,
+                shader: shader,
                 mesh: vbo,
             }
         };
@@ -124,29 +124,17 @@ impl Application for Window {
         let video = ctx.shared::<GraphicsSystem>();
 
         {
-            video
-                .submit(0,
-                        self.pass.view,
-                        self.pass.pipeline,
-                        &[],
-                        self.pass.mesh,
-                        None,
-                        graphics::Primitive::Triangles,
-                        0,
-                        3)?;
+            let mut dc = DrawCall::new(self.pass.view, self.pass.shader);
+            dc.set_mesh(self.pass.mesh, None);
+            dc.submit(&video, graphics::Primitive::Triangles, 0, 3)?;
         }
 
         {
-            video
-                .submit(0,
-                        self.post_effect.view,
-                        self.post_effect.pipeline,
-                        &[Some(self.texture.into()), Some(self.time.into())],
-                        self.post_effect.mesh,
-                        None,
-                        graphics::Primitive::Triangles,
-                        0,
-                        6)?;
+            let mut dc = DrawCall::new(self.post_effect.view, self.post_effect.shader);
+            dc.set_mesh(self.post_effect.mesh, None);
+            dc.set_uniform_variable("renderedTexture", self.texture);
+            dc.set_uniform_variable("time", self.time);
+            dc.submit(&video, graphics::Primitive::Triangles, 0, 6)?;
         }
 
         self.time += 0.05;

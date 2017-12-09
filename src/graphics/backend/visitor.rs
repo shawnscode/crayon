@@ -34,7 +34,7 @@ pub(crate) struct OpenGLVisitor {
     active_bufs: RefCell<HashMap<GLenum, GLuint>>,
     active_program: Cell<Option<GLuint>>,
     active_vao: Cell<Option<GLuint>>,
-    active_textures: RefCell<[GLuint; MAX_TEXTURE_SLOTS]>,
+    active_textures: RefCell<[GLuint; MAX_UNIFORM_TEXTURE_SLOTS]>,
     active_framebuffer: Cell<GLuint>,
     active_renderbuffer: Cell<Option<GLuint>>,
     program_attribute_locations: RefCell<HashMap<GLuint, HashMap<String, GLint>>>,
@@ -67,7 +67,7 @@ impl OpenGLVisitor {
             active_bufs: RefCell::new(HashMap::new()),
             active_program: Cell::new(None),
             active_vao: Cell::new(None),
-            active_textures: RefCell::new([0; MAX_TEXTURE_SLOTS]),
+            active_textures: RefCell::new([0; MAX_UNIFORM_TEXTURE_SLOTS]),
             active_framebuffer: Cell::new(0), /* 0 makes sense here, for window's default frame buffer. */
             active_renderbuffer: Cell::new(None),
             program_attribute_locations: RefCell::new(HashMap::new()),
@@ -487,7 +487,7 @@ impl OpenGLVisitor {
             bail!("failed to bind texture with 0.");
         }
 
-        if slot as usize >= MAX_TEXTURE_SLOTS {
+        if slot as usize >= MAX_UNIFORM_TEXTURE_SLOTS {
             bail!("out of max texture slots.");
         }
 
@@ -597,7 +597,7 @@ impl OpenGLVisitor {
 
     pub unsafe fn delete_texture(&self, id: GLuint) -> Result<()> {
         let cache = &mut self.active_textures.borrow_mut();
-        for i in 0..MAX_TEXTURE_SLOTS {
+        for i in 0..MAX_UNIFORM_TEXTURE_SLOTS {
             if cache[i] == id {
                 cache[i] = 0;
             }

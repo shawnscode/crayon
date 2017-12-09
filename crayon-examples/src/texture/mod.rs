@@ -11,7 +11,7 @@ struct Window {
     _label: graphics::RAIIGuard,
 
     vso: graphics::ViewStateHandle,
-    pso: graphics::PipelineStateHandle,
+    shader: graphics::ShaderHandle,
     vbo: graphics::VertexBufferHandle,
     texture: graphics::TextureHandle,
 }
@@ -49,13 +49,13 @@ impl Window {
         let setup = graphics::ViewStateSetup::default();
         let vso = label.create_view(setup)?;
 
-        // Create pipeline state.
-        let mut setup = graphics::PipelineStateSetup::default();
+        // Create shader state.
+        let mut setup = graphics::ShaderSetup::default();
         setup.layout = attributes;
         setup.vs = include_str!("../../resources/texture.vs").to_owned();
         setup.fs = include_str!("../../resources/texture.fs").to_owned();
         setup.uniform_variables.push("renderedTexture".into());
-        let pso = label.create_pipeline(setup)?;
+        let shader = label.create_shader(setup)?;
 
         let setup = graphics::TextureSetup::default();
         let location = Location::unique("/std/texture.png");
@@ -65,7 +65,7 @@ impl Window {
 
         Ok(Window {
                vso: vso,
-               pso: pso,
+               shader: shader,
                vbo: vbo,
                texture: texture,
                _label: label,
@@ -75,16 +75,13 @@ impl Window {
 
 impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
-        ctx.shared::<GraphicsSystem>()
-            .submit(0,
-                    self.vso,
-                    self.pso,
-                    &[Some(self.texture.into())],
-                    self.vbo,
-                    None,
-                    graphics::Primitive::Triangles,
-                    0,
-                    6)?;
+        let video = ctx.shared::<GraphicsSystem>();
+
+        let mut dc = DrawCall::new(self.vso, self.shader);
+        dc.set_mesh(self.vbo, None);
+        dc.set_uniform_variable("renderedTexture", self.texture);
+        dc.submit(&video, graphics::Primitive::Triangles, 0, 6)?;
+
         Ok(())
     }
 }

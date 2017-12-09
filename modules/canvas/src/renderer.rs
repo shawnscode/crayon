@@ -20,7 +20,7 @@ pub struct CanvasRenderer {
     video: Arc<graphics::GraphicsSystemShared>,
 
     vso: graphics::ViewStateHandle,
-    pso: graphics::PipelineStateHandle,
+    shader: graphics::ShaderHandle,
     vbo: graphics::VertexBufferHandle,
     ibo: graphics::IndexBufferHandle,
 
@@ -49,7 +49,7 @@ impl CanvasRenderer {
             .with(graphics::VertexAttribute::Color0, 4)
             .finish();
 
-        let mut setup = graphics::PipelineStateSetup::default();
+        let mut setup = graphics::ShaderSetup::default();
         setup.layout = layout;
         setup.render_state.color_blend =
             Some((graphics::Equation::Add,
@@ -60,7 +60,7 @@ impl CanvasRenderer {
         setup.fs = include_str!("../resources/canvas.fs").to_owned();
 
         setup.uniform_variables.push("mainTexture".into());
-        let pso = label.create_pipeline(setup)?;
+        let shader = label.create_shader(setup)?;
 
         let mut setup = graphics::VertexBufferSetup::default();
         setup.layout = CanvasVertex::layout();
@@ -81,7 +81,7 @@ impl CanvasRenderer {
                video: video.clone(),
 
                vso: vso,
-               pso: pso,
+               shader: shader,
                vbo: vbo,
                ibo: ibo,
 
@@ -148,13 +148,14 @@ impl CanvasRenderer {
             self.video.update_index_buffer(self.ibo, 0, slice)?;
         }
 
-        self.video
-            .submit(0,
-                    self.vso,
-                    self.pso,
-                    &[self.current_texture.map(|v| v.into())],
-                    self.vbo,
-                    Some(self.ibo),
+        let mut dc = graphics::DrawCall::new(self.vso, self.shader);
+        dc.set_mesh(self.vbo, self.ibo);
+
+        if let Some(texture) = self.current_texture {
+            dc.set_uniform_variable("mainTexture", texture);
+        }
+
+        dc.submit(&self.video,
                     graphics::Primitive::Triangles,
                     0,
                     self.idxes.len() as u32)?;

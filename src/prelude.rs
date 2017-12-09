@@ -12,7 +12,7 @@ pub use application::{Application, Context, FrameInfo, Engine, Settings};
 pub use application::errors;
 
 pub use graphics;
-pub use graphics::GraphicsSystem;
+pub use graphics::{GraphicsSystem, DrawCall};
 
 pub use utils;
 pub use utils::{Color, Rect};

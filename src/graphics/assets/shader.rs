@@ -4,10 +4,10 @@ use math;
 use graphics::{MAX_VERTEX_ATTRIBUTES, TextureHandle};
 use super::mesh::{VertexAttribute, VertexLayout};
 
-/// A `PipelineStateObject` encapusulate all the informations we need to configurate
+/// A `ShaderObject` encapusulate all the informations we need to configurate
 /// OpenGL before real drawing, like shaders, render states, etc.
 #[derive(Debug, Default, Clone)]
-pub struct PipelineStateSetup {
+pub struct ShaderSetup {
     pub layout: AttributeLayout,
     pub render_state: RenderState,
     pub vs: String,
@@ -15,7 +15,7 @@ pub struct PipelineStateSetup {
     pub uniform_variables: Vec<String>,
 }
 
-impl_handle!(PipelineStateHandle);
+impl_handle!(ShaderHandle);
 
 // AttributeLayout defines an layout of attributes into program.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]

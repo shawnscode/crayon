@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::path::Path;
 use std::collections::HashMap;
 
-use utils::hash::HashValue;
+use utils::HashValue;
 
 /// A slim proxy trait that adds a standardized interface of meansurable resources.
 pub trait Meansurable: Send + Sync + 'static {

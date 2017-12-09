@@ -9,7 +9,7 @@ use utils::{Rect, DataBuffer, DataBufferPtr};
 #[derive(Debug, Clone)]
 pub(crate) enum PreFrameTask {
     CreateView(ViewStateHandle, ViewStateSetup),
-    CreatePipeline(PipelineStateHandle, PipelineStateSetup),
+    CreatePipeline(ShaderHandle, ShaderSetup),
     CreateFrameBuffer(FrameBufferHandle, FrameBufferSetup),
     CreateTexture(TextureHandle, TextureSetup, Option<DataBufferPtr<[u8]>>),
     UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),
@@ -22,11 +22,11 @@ pub(crate) enum PreFrameTask {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct DrawCall {
+pub(crate) struct FrameDrawCall {
     pub order: u64,
     pub view: ViewStateHandle,
-    pub pipeline: PipelineStateHandle,
-    pub uniforms: DataBufferPtr<[Option<UniformVariable>]>,
+    pub shader: ShaderHandle,
+    pub uniforms: DataBufferPtr<[Option<DataBufferPtr<UniformVariable>>]>,
     pub vb: VertexBufferHandle,
     pub ib: Option<IndexBufferHandle>,
     pub primitive: Primitive,
@@ -37,7 +37,7 @@ pub(crate) struct DrawCall {
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum PostFrameTask {
     DeleteView(ViewStateHandle),
-    DeletePipeline(PipelineStateHandle),
+    DeletePipeline(ShaderHandle),
     DeleteVertexBuffer(VertexBufferHandle),
     DeleteIndexBuffer(IndexBufferHandle),
     DeleteTexture(TextureHandle),
@@ -48,7 +48,7 @@ pub(crate) enum PostFrameTask {
 #[derive(Debug, Clone)]
 pub(crate) struct Frame {
     pub pre: Vec<PreFrameTask>,
-    pub drawcalls: Vec<DrawCall>,
+    pub drawcalls: Vec<FrameDrawCall>,
     pub post: Vec<PostFrameTask>,
     pub buf: DataBuffer,
 }
@@ -83,7 +83,7 @@ impl Frame {
                     device.create_view(handle, setup)?;
                 }
                 PreFrameTask::CreatePipeline(handle, setup) => {
-                    device.create_pipeline(handle, setup)?;
+                    device.create_shader(handle, setup)?;
                 }
                 PreFrameTask::CreateVertexBuffer(handle, setup, data) => {
                     let field = &self.buf;
@@ -151,7 +151,7 @@ impl Frame {
                     device.delete_view(handle)?;
                 }
                 PostFrameTask::DeletePipeline(handle) => {
-                    device.delete_pipeline(handle)?;
+                    device.delete_shader(handle)?;
                 }
                 PostFrameTask::DeleteVertexBuffer(handle) => {
                     device.delete_vertex_buffer(handle)?;
