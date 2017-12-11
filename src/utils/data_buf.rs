@@ -133,7 +133,7 @@ mod test {
     use super::*;
 
     #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
-    struct UpdateViewRect {
+    struct UpdateSurfaceRect {
         position: (u16, u16),
         size: (u16, u16),
     }
@@ -142,7 +142,7 @@ mod test {
     fn buf() {
         let mut buffer = DataBuffer::with_capacity(128);
 
-        let mut uvp = UpdateViewRect::default();
+        let mut uvp = UpdateSurfaceRect::default();
         uvp.position = (256, 128);
         let slice_uvp = buffer.extend(&uvp);
 

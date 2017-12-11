@@ -7,7 +7,7 @@ impl_vertex!{
 }
 
 struct Pass {
-    view: graphics::ViewStateHandle,
+    view: graphics::SurfaceHandle,
     shader: graphics::ShaderHandle,
     mesh: graphics::VertexBufferHandle,
 }
@@ -62,7 +62,7 @@ impl Window {
             let fbo = label.create_framebuffer(setup)?;
 
             // Create the view state for pass 1.
-            let mut setup = graphics::ViewStateSetup::default();
+            let mut setup = graphics::SurfaceSetup::default();
             setup.framebuffer = Some(fbo);
             setup.clear_color = Some(Color::gray());
             let view = label.create_view(setup)?;
@@ -89,7 +89,7 @@ impl Window {
             let vbo = label
                 .create_vertex_buffer(setup, Some(Vertex::as_bytes(&quad_vertices[..])))?;
 
-            let setup = graphics::ViewStateSetup::default();
+            let setup = graphics::SurfaceSetup::default();
             let view = label.create_view(setup)?;
 
             let mut setup = graphics::ShaderSetup::default();

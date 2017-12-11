@@ -19,7 +19,7 @@ use super::assets::texture_loader::{TextureLoader, TextureParser, TextureState};
 pub struct GraphicsFrameInfo {
     pub duration: Duration,
     pub drawcall: usize,
-    pub alive_views: usize,
+    pub alive_surfaces: usize,
     pub alive_shaders: usize,
     pub alive_frame_buffers: usize,
     pub alive_vertex_buffers: usize,
@@ -80,7 +80,17 @@ impl GraphicsSystem {
 
                 {
                     let mut frame = self.frames.back();
-                    info.drawcall = frame.drawcalls.len();
+
+                    info.drawcall = frame
+                        .tasks
+                        .iter()
+                        .filter(|v| if let FrameTask::DrawCall(_) = v.1 {
+                                    true
+                                } else {
+                                    false
+                                })
+                        .count();
+
                     frame.dispatch(&mut self.device, dimensions)?;
                     frame.clear();
                 }
@@ -89,8 +99,7 @@ impl GraphicsSystem {
             self.window.swap_buffers()?;
 
             info.duration = time::Instant::now() - ts;
-
-            info.alive_views = self.shared.views.read().unwrap().len();
+            info.alive_surfaces = self.shared.surfaces.read().unwrap().len();
             info.alive_shaders = self.shared.shaders.read().unwrap().len();
             info.alive_frame_buffers = self.shared.framebuffers.read().unwrap().len();
             info.alive_vertex_buffers = self.shared.vertex_buffers.read().unwrap().len();
@@ -110,7 +119,7 @@ pub struct GraphicsSystemShared {
     resource: Arc<ResourceSystemShared>,
     frames: Arc<DoubleFrame>,
 
-    views: RwLock<Registery<()>>,
+    surfaces: RwLock<Registery<()>>,
     shaders: RwLock<Registery<PipelineState>>,
     framebuffers: RwLock<Registery<()>>,
     render_buffers: RwLock<Registery<()>>,
@@ -127,7 +136,7 @@ impl GraphicsSystemShared {
             resource: resource,
             frames: frames,
 
-            views: RwLock::new(Registery::new()),
+            surfaces: RwLock::new(Registery::new()),
             shaders: RwLock::new(Registery::new()),
             framebuffers: RwLock::new(Registery::new()),
             render_buffers: RwLock::new(Registery::new()),
@@ -137,10 +146,9 @@ impl GraphicsSystemShared {
         }
     }
 
-    /// Make a new draw call.
+    /// Submit a drawcall into bucket `Surface`.
     pub fn submit(&self,
-                  order: u64,
-                  view: ViewStateHandle,
+                  surface: SurfaceHandle,
                   shader: ShaderHandle,
                   uniforms: &[(HashValue<str>, UniformVariable)],
                   vb: VertexBufferHandle,
@@ -149,8 +157,8 @@ impl GraphicsSystemShared {
                   from: u32,
                   len: u32)
                   -> Result<()> {
-        if !self.views.read().unwrap().is_alive(view.into()) {
-            bail!("Undefined view state handle.");
+        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+            bail!("Undefined surface handle.");
         }
 
         if !self.vertex_buffers.read().unwrap().is_alive(vb.into()) {
@@ -186,8 +194,6 @@ impl GraphicsSystemShared {
         };
 
         let dc = FrameDrawCall {
-            order: order,
-            view: view,
             shader: shader,
             uniforms: uniforms,
             vb: vb,
@@ -197,19 +203,100 @@ impl GraphicsSystemShared {
             len: len,
         };
 
-        frame.drawcalls.push(dc);
+        frame.tasks.push((surface, FrameTask::DrawCall(dc)));
         Ok(())
+    }
+
+    /// Submit surface updating task into bucket `Surface`.
+    pub fn submit_update_surface(&self, surface: SurfaceHandle, scissor: Scissor) -> Result<()> {
+        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+            bail!("Undefined surface handle.");
+        }
+
+        let mut frame = self.frames.front();
+        let task = FrameTask::UpdateSurface(scissor);
+        frame.tasks.push((surface, task));
+        Ok(())
+    }
+
+    /// Submit vertex buffer updating task into bucket `Surface`.
+    pub fn submit_update_vertex_buffer(&self,
+                                       surface: SurfaceHandle,
+                                       vbo: VertexBufferHandle,
+                                       offset: usize,
+                                       data: &[u8])
+                                       -> Result<()> {
+        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+            bail!("Undefined surface handle.");
+        }
+
+        if self.vertex_buffers.read().unwrap().is_alive(vbo.into()) {
+            let mut frame = self.frames.front();
+            let ptr = frame.buf.extend_from_slice(data);
+            let task = FrameTask::UpdateVertexBuffer(vbo, offset, ptr);
+            frame.tasks.push((surface, task));
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    /// Submit index buffer updating task into bucket `Surface`.
+    pub fn submit_update_index_buffer(&self,
+                                      surface: SurfaceHandle,
+                                      ibo: IndexBufferHandle,
+                                      offset: usize,
+                                      data: &[u8])
+                                      -> Result<()> {
+        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+            bail!("Undefined surface handle.");
+        }
+
+        if self.index_buffers.read().unwrap().is_alive(ibo.into()) {
+            let mut frame = self.frames.front();
+            let ptr = frame.buf.extend_from_slice(data);
+            let task = FrameTask::UpdateIndexBuffer(ibo, offset, ptr);
+            frame.tasks.push((surface, task));
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
+    }
+
+    /// Submit texture updating task into bucket `Surface`.
+    pub fn submit_update_texture(&self,
+                                 surface: SurfaceHandle,
+                                 texture: TextureHandle,
+                                 rect: Rect,
+                                 data: &[u8])
+                                 -> Result<()> {
+        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+            bail!("Undefined surface handle.");
+        }
+
+        if let Some(state) = self.textures.read().unwrap().get(texture.into()) {
+            if TextureState::Ready == *state.read().unwrap() {
+                let mut frame = self.frames.front();
+                let ptr = frame.buf.extend_from_slice(data);
+                let task = FrameTask::UpdateTexture(texture, rect, ptr);
+                frame.tasks.push((surface, task));
+            }
+
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
     }
 }
 
 impl GraphicsSystemShared {
-    /// Creates an view with `ViewStateSetup`.
-    pub fn create_view(&self, setup: ViewStateSetup) -> Result<ViewStateHandle> {
+    /// Creates an view with `SurfaceSetup`.
+    pub fn create_view(&self, setup: SurfaceSetup) -> Result<SurfaceHandle> {
         let location = resource::Location::unique("");
-        let handle = self.views.write().unwrap().create(location, ()).into();
+        let handle = self.surfaces.write().unwrap().create(location, ()).into();
 
         {
-            let task = PreFrameTask::CreateView(handle, setup);
+            let task = PreFrameTask::CreateSurface(handle, setup);
             self.frames.front().pre.push(task);
         }
 
@@ -217,9 +304,13 @@ impl GraphicsSystemShared {
     }
 
     /// Delete view state object.
-    pub fn delete_view(&self, handle: ViewStateHandle) {
-        if self.views.write().unwrap().dec_rc(handle.into()).is_some() {
-            let task = PostFrameTask::DeleteView(handle);
+    pub fn delete_view(&self, handle: SurfaceHandle) {
+        if self.surfaces
+               .write()
+               .unwrap()
+               .dec_rc(handle.into())
+               .is_some() {
+            let task = PostFrameTask::DeleteSurface(handle);
             self.frames.front().post.push(task);
         }
     }
@@ -356,14 +447,14 @@ impl GraphicsSystemShared {
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
     pub fn update_vertex_buffer(&self,
-                                handle: VertexBufferHandle,
+                                vbo: VertexBufferHandle,
                                 offset: usize,
                                 data: &[u8])
                                 -> Result<()> {
-        if self.vertex_buffers.read().unwrap().is_alive(handle.into()) {
+        if self.vertex_buffers.read().unwrap().is_alive(vbo.into()) {
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(data);
-            let task = PreFrameTask::UpdateVertexBuffer(handle, offset, ptr);
+            let task = PreFrameTask::UpdateVertexBuffer(vbo, offset, ptr);
             frame.pre.push(task);
             Ok(())
         } else {
@@ -415,14 +506,14 @@ impl GraphicsSystemShared {
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
     pub fn update_index_buffer(&self,
-                               handle: IndexBufferHandle,
+                               ibo: IndexBufferHandle,
                                offset: usize,
                                data: &[u8])
                                -> Result<()> {
-        if self.index_buffers.read().unwrap().is_alive(handle.into()) {
+        if self.index_buffers.read().unwrap().is_alive(ibo.into()) {
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(data);
-            let task = PreFrameTask::UpdateIndexBuffer(handle, offset, ptr);
+            let task = PreFrameTask::UpdateIndexBuffer(ibo, offset, ptr);
             frame.pre.push(task);
             Ok(())
         } else {
@@ -515,12 +606,12 @@ impl GraphicsSystemShared {
     ///
     /// Notes that this method might fails without any error when the texture is not
     /// ready for operating.
-    pub fn update_texture(&self, handle: TextureHandle, rect: Rect, data: &[u8]) -> Result<()> {
-        if let Some(state) = self.textures.read().unwrap().get(handle.into()) {
+    pub fn update_texture(&self, texture: TextureHandle, rect: Rect, data: &[u8]) -> Result<()> {
+        if let Some(state) = self.textures.read().unwrap().get(texture.into()) {
             if TextureState::Ready == *state.read().unwrap() {
                 let mut frame = self.frames.front();
                 let ptr = frame.buf.extend_from_slice(data);
-                let task = PreFrameTask::UpdateTexture(handle, rect, ptr);
+                let task = PreFrameTask::UpdateTexture(texture, rect, ptr);
                 frame.pre.push(task);
             }
 

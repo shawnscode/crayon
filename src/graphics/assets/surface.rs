@@ -12,7 +12,7 @@ use graphics::errors::*;
 /// order is less efficient, because it doesn't allow state change optimization, and
 /// should be avoided when possible.
 #[derive(Debug, Copy, Clone)]
-pub struct ViewStateSetup {
+pub struct SurfaceSetup {
     /// The render target of `View` bucket. If `framebuffer` is none, default
     /// framebuffer will be used as render target.
     pub framebuffer: Option<FrameBufferHandle>,
@@ -26,9 +26,6 @@ pub struct ViewStateSetup {
     /// For dynamic renderers where order might not be known until the last moment,
     /// view ids can be remaped to arbitrary order.
     pub order: u32,
-    /// Set view into sequential mode. Drawcalls will be sorted in the same order
-    /// in which submit calls were called.
-    pub sequence: bool,
     /// Set the viewport of view. This specifies the affine transformation of (x, y) from
     /// NDC(normalized device coordinates) to window coordinates.
     ///
@@ -36,21 +33,20 @@ pub struct ViewStateSetup {
     pub viewport: ((u16, u16), Option<(u16, u16)>),
 }
 
-impl Default for ViewStateSetup {
+impl Default for SurfaceSetup {
     fn default() -> Self {
-        ViewStateSetup {
+        SurfaceSetup {
             framebuffer: None,
             clear_color: Some(Color::black()),
             clear_depth: Some(1.0),
             clear_stencil: None,
             order: 0,
-            sequence: false,
             viewport: ((0, 0), None),
         }
     }
 }
 
-impl_handle!(ViewStateHandle);
+impl_handle!(SurfaceHandle);
 
 /// `FrameBuffer` is a collection of 2D arrays or storages, including
 /// color buffers, depth buffer, stencil buffer.
@@ -100,3 +96,12 @@ impl FrameBufferSetup {
 }
 
 impl_handle!(FrameBufferHandle);
+
+/// Defines a rectangle, called the scissor box, in window coordinates. The test is
+/// initially disabled. While the test is enabled, only pixels that lie within the
+/// scissor box can be modified by drawing commands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Scissor {
+    Enable((u16, u16), (u16, u16)),
+    Disable,
+}

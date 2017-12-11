@@ -30,6 +30,7 @@ pub(crate) struct OpenGLVisitor {
     color_blend: Cell<Option<(Equation, BlendFactor, BlendFactor)>>,
     color_write: Cell<(bool, bool, bool, bool)>,
     viewport: Cell<((u16, u16), (u16, u16))>,
+    scissor: Cell<Scissor>,
 
     active_bufs: RefCell<HashMap<GLenum, GLuint>>,
     active_program: Cell<Option<GLuint>>,
@@ -51,6 +52,7 @@ impl OpenGLVisitor {
         gl::DepthMask(gl::FALSE);
         gl::Disable(gl::POLYGON_OFFSET_FILL);
         gl::Disable(gl::BLEND);
+        gl::Disable(gl::SCISSOR_TEST);
         gl::ColorMask(1, 1, 1, 1);
         gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
@@ -63,6 +65,7 @@ impl OpenGLVisitor {
             color_blend: Cell::new(None),
             color_write: Cell::new((false, false, false, false)),
             viewport: Cell::new(((0, 0), (128, 128))),
+            scissor: Cell::new(Scissor::Disable),
 
             active_bufs: RefCell::new(HashMap::new()),
             active_program: Cell::new(None),
@@ -264,6 +267,30 @@ impl OpenGLVisitor {
         }
     }
 
+    /// Set the scissor box relative to the top-lef corner of th window, in pixels.
+    pub unsafe fn set_scissor(&self, scissor: Scissor) -> Result<()> {
+        match scissor {
+            Scissor::Disable => {
+                if self.scissor.get() != Scissor::Disable {
+                    gl::Disable(gl::SCISSOR_TEST);
+                }
+            }
+            Scissor::Enable(position, size) => {
+                if self.scissor.get() == Scissor::Disable {
+                    gl::Enable(gl::SCISSOR_TEST);
+                }
+
+                gl::Scissor(position.0 as GLint,
+                            position.1 as GLint,
+                            size.0 as GLsizei,
+                            size.1 as GLsizei);
+            }
+        }
+
+        self.scissor.set(scissor);
+        check()
+    }
+
     /// Specify whether front- or back-facing polygons can be culled.
     pub unsafe fn set_cull_face(&self, face: CullFace) -> Result<()> {
         if self.cull_face.get() != face {
@@ -380,7 +407,6 @@ impl OpenGLVisitor {
                                   -> Result<()> {
         let cw = self.color_write.get();
         if cw.0 != red || cw.1 != green || cw.2 != blue || cw.3 != alpha {
-
             self.color_write.set((red, green, blue, alpha));
             gl::ColorMask(red as u8, green as u8, blue as u8, alpha as u8);
             check()

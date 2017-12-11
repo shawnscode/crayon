@@ -19,7 +19,7 @@ pub struct CanvasRenderer {
     _video_label: graphics::RAIIGuard,
     video: Arc<graphics::GraphicsSystemShared>,
 
-    vso: graphics::ViewStateHandle,
+    vso: graphics::SurfaceHandle,
     shader: graphics::ShaderHandle,
     vbo: graphics::VertexBufferHandle,
     ibo: graphics::IndexBufferHandle,
@@ -38,8 +38,7 @@ impl CanvasRenderer {
         let video = ctx.shared::<graphics::GraphicsSystem>();
         let mut label = graphics::RAIIGuard::new(video.clone());
 
-        let mut setup = graphics::ViewStateSetup::default();
-        setup.sequence = true;
+        let mut setup = graphics::SurfaceSetup::default();
         setup.clear_color = Some(utils::Color::gray());
         let vso = label.create_view(setup)?;
 

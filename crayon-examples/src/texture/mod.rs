@@ -10,7 +10,7 @@ impl_vertex!{
 struct Window {
     _label: graphics::RAIIGuard,
 
-    vso: graphics::ViewStateHandle,
+    vso: graphics::SurfaceHandle,
     shader: graphics::ShaderHandle,
     vbo: graphics::VertexBufferHandle,
     texture: graphics::TextureHandle,
@@ -46,7 +46,7 @@ impl Window {
             .create_vertex_buffer(setup, Some(Vertex::as_bytes(&verts[..])))?;
 
         // Create the view state.
-        let setup = graphics::ViewStateSetup::default();
+        let setup = graphics::SurfaceSetup::default();
         let vso = label.create_view(setup)?;
 
         // Create shader state.

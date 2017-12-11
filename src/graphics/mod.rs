@@ -30,7 +30,7 @@
 //! things we need to configurate graphics shader. This would also enable us to easily
 //! change the order of draw calls and get rid of redundant state changes.
 //!
-//! ## View
+//! ## Surface
 //!
 //! All the real draw commands are executing delayed, every draw calls user submitted are
 //! stored in a named _bucket_ with a 64-bits _key_. The draw calls will be sorted based
@@ -40,7 +40,7 @@
 //! Usually, a key encodes certain data like distance, material, shader etc. in individual
 //! bits.
 //!
-//! We use `ViewStateObject` to represent a named _bucket_ mentioned above. You can also
+//! We use `SurfaceObject` to represent a named _bucket_ mentioned above. You can also
 //! configurate the targeting frame buffer and the clear flags on it.
 //!
 //! In case where order has to be preserved (for example in rendering GUIs), view can
@@ -64,7 +64,7 @@ pub mod guard;
 pub mod drawcall;
 pub mod material;
 
-pub use self::assets::view::*;
+pub use self::assets::surface::*;
 pub use self::assets::shader::*;
 
 pub use self::assets::mesh::*;

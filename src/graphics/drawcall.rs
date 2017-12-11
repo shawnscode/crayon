@@ -6,8 +6,7 @@ use utils::HashValue;
 /// A draw call.
 #[derive(Debug, Copy, Clone)]
 pub struct DrawCall {
-    order: u64,
-    vso: ViewStateHandle,
+    vso: SurfaceHandle,
     shader: ShaderHandle,
     uniforms: [(HashValue<str>, UniformVariable); MAX_UNIFORM_VARIABLES],
     uniforms_len: usize,
@@ -17,9 +16,8 @@ pub struct DrawCall {
 
 impl DrawCall {
     /// Create a new ane empty draw call.
-    pub fn new(vso: ViewStateHandle, shader: ShaderHandle) -> Self {
+    pub fn new(vso: SurfaceHandle, shader: ShaderHandle) -> Self {
         DrawCall {
-            order: 0,
             vso: vso,
             shader: shader,
             uniforms: [(HashValue::zero(), UniformVariable::I32(0)); MAX_UNIFORM_VARIABLES],
@@ -29,9 +27,8 @@ impl DrawCall {
         }
     }
 
-    pub fn from(vso: ViewStateHandle, mat: &Material) -> Self {
+    pub fn from(vso: SurfaceHandle, mat: &Material) -> Self {
         let mut dc = DrawCall {
-            order: 0,
             vso: vso,
             shader: mat.shader(),
             uniforms: [(HashValue::zero(), UniformVariable::I32(0)); MAX_UNIFORM_VARIABLES],
@@ -87,8 +84,7 @@ impl DrawCall {
                   -> Result<()> {
         let vbo = self.vbo.ok_or(ErrorKind::CanNotDrawWihtoutVertexBuffer)?;
 
-        video.submit(self.order,
-                     self.vso,
+        video.submit(self.vso,
                      self.shader,
                      &self.uniforms[0..self.uniforms_len],
                      vbo,

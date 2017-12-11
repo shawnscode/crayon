@@ -11,7 +11,7 @@ use graphics::*;
 
 use super::errors::*;
 use super::visitor::*;
-use super::frame::FrameDrawCall;
+use super::frame::{FrameDrawCall, FrameTask};
 
 type ResourceID = GLuint;
 type UniformID = GLint;
@@ -38,9 +38,9 @@ struct ShaderObject {
 }
 
 #[derive(Debug, Clone)]
-struct ViewStateObject {
+struct SurfaceObject {
     drawcalls: RefCell<Vec<FrameDrawCall>>,
-    setup: ViewStateSetup,
+    setup: SurfaceSetup,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -72,7 +72,7 @@ pub(crate) struct Device {
     vertex_buffers: DataVec<VertexBufferObject>,
     index_buffers: DataVec<IndexBufferObject>,
     shaders: DataVec<ShaderObject>,
-    views: DataVec<ViewStateObject>,
+    surfaces: DataVec<SurfaceObject>,
     textures: DataVec<TextureObject>,
     render_buffers: DataVec<RenderBufferObject>,
     framebuffers: DataVec<FrameBufferObject>,
@@ -90,7 +90,7 @@ impl Device {
             vertex_buffers: DataVec::new(),
             index_buffers: DataVec::new(),
             shaders: DataVec::new(),
-            views: DataVec::new(),
+            surfaces: DataVec::new(),
             textures: DataVec::new(),
             render_buffers: DataVec::new(),
             framebuffers: DataVec::new(),
@@ -101,7 +101,7 @@ impl Device {
 
 impl Device {
     pub unsafe fn run_one_frame(&self) -> Result<()> {
-        for v in self.views.buf.iter() {
+        for v in self.surfaces.buf.iter() {
             if let Some(vo) = v.as_ref() {
                 vo.drawcalls.borrow_mut().clear();
             }
@@ -112,118 +112,130 @@ impl Device {
         Ok(())
     }
 
-    pub fn submit(&self, dc: FrameDrawCall) -> Result<()> {
-        if let Some(vo) = self.views.get(dc.view) {
-            vo.drawcalls.borrow_mut().push(dc);
-            Ok(())
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
-    }
-
-    pub unsafe fn flush(&self, buf: &DataBuffer, dimensions: (u32, u32)) -> Result<()> {
-        // Collects avaiable views.
-        let (mut views, mut ordered_views) = (vec![], vec![]);
-        for (i, v) in self.views.buf.iter().enumerate() {
-            if let Some(vo) = v.as_ref() {
-                if vo.setup.order == 0 {
-                    views.push(i);
-                } else {
-                    ordered_views.push(i);
-                }
-            }
-        }
-
-        // Sort views by user defined priorities.
-        ordered_views.sort_by(|lhs, rhs| {
-                                  let lv = self.views.buf[*lhs].as_ref().unwrap();
-                                  let rv = self.views.buf[*rhs].as_ref().unwrap();
-                                  rv.setup.order.cmp(&lv.setup.order)
-                              });
-
-        ordered_views.append(&mut views);
+    pub fn flush(&mut self,
+                 tasks: &mut [(SurfaceHandle, FrameTask)],
+                 buf: &DataBuffer,
+                 dimensions: (u32, u32))
+                 -> Result<()> {
+        // Sort frame tasks by user defined priorities. Notes that Slice::sort_by
+        // is stable, which means it does not reorder equal elements, so it will
+        // not change the execution order in one specific surface.
+        tasks.sort_by(|lhs, rhs| {
+                          let lv = self.surfaces.get(lhs.0).unwrap();
+                          let rv = self.surfaces.get(rhs.0).unwrap();
+                          rv.setup.order.cmp(&lv.setup.order)
+                      });
 
         let dimensions = (dimensions.0 as u16, dimensions.1 as u16);
-        for i in ordered_views {
-            let vo = self.views.buf[i].as_ref().unwrap();
-
-            // Bind frame buffer and clear it.
-            if let Some(fbo) = vo.setup.framebuffer {
-                if let Some(fbo) = self.framebuffers.get(fbo) {
-                    self.visitor.bind_framebuffer(fbo.id, true)?;
-                } else {
-                    bail!(ErrorKind::InvalidHandle);
-                }
-            } else {
-                self.visitor.bind_framebuffer(0, false)?;
-            }
-
-            // Clear frame buffer.
-            self.visitor
-                .clear(vo.setup.clear_color,
-                       vo.setup.clear_depth,
-                       vo.setup.clear_stencil)?;
-
-            // Bind the viewport.
-            let vp = vo.setup.viewport;
-            self.visitor.set_viewport(vp.0, vp.1.unwrap_or(dimensions))?;
-
-            // Sort bucket drawcalls.
-            if !vo.setup.sequence {
-                vo.drawcalls
-                    .borrow_mut()
-                    .sort_by(|lhs, rhs| rhs.order.cmp(&lhs.order));
-            }
-
+        unsafe {
             // Submit real OpenGL drawcall in order.
-            for dc in vo.drawcalls.borrow().iter() {
-                // Bind program and associated uniforms and textures.
-                let shader = self.bind_shader(dc.shader)?;
-                let texture_idx = 0;
-                for (i, v) in buf.as_slice(dc.uniforms).iter().enumerate() {
-                    if let &Some(ptr) = v {
-                        let variable = buf.as_ref(ptr);
-                        let location = shader.uniform_locations[i];
-
-                        if let &UniformVariable::Texture(handle) = variable {
-                            if let Some(texture) = self.textures.get(handle) {
-                                let v = UniformVariable::I32(texture_idx);
-                                self.visitor.bind_uniform(location, &v)?;
-                                self.visitor.bind_texture(texture_idx as u32, texture.id)?;
-                            }
-                        } else {
-                            self.visitor.bind_uniform(location, &variable)?;
-                        }
-                    }
+            let mut surface = None;
+            for v in tasks {
+                if surface != Some(v.0) {
+                    surface = Some(v.0);
+                    self.rebind_surface(v.0, dimensions)?;
                 }
 
-                // Bind vertex buffer and vertex array object.
-                let vbo = self.vertex_buffers
-                    .get(dc.vb)
-                    .ok_or(ErrorKind::InvalidHandle)?;
+                match v.1 {
+                    FrameTask::DrawCall(dc) => self.draw(dc, buf)?,
 
-                self.visitor.bind_buffer(gl::ARRAY_BUFFER, vbo.id)?;
-                self.visitor
-                    .bind_attribute_layout(&shader.layout, &vbo.setup.layout)?;
+                    FrameTask::UpdateSurface(scissor) => self.visitor.set_scissor(scissor)?,
 
-                // Bind index buffer object if available.
-                if let Some(v) = dc.ib {
-                    if let Some(ibo) = self.index_buffers.get(v) {
-                        self.visitor.bind_buffer(gl::ELEMENT_ARRAY_BUFFER, ibo.id)?;
-                        gl::DrawElements(dc.primitive.into(),
-                                         dc.len as GLsizei,
-                                         ibo.setup.format.into(),
-                                         dc.from as *const u32 as *const ::std::os::raw::c_void);
-                    } else {
-                        bail!(ErrorKind::InvalidHandle);
+                    FrameTask::UpdateVertexBuffer(vbo, offset, ptr) => {
+                        let data = buf.as_slice(ptr);
+                        self.update_vertex_buffer(vbo, offset, data)?;
                     }
-                } else {
-                    gl::DrawArrays(dc.primitive.into(), dc.from as i32, dc.len as i32);
-                }
 
-                check()?;
+                    FrameTask::UpdateIndexBuffer(ibo, offset, ptr) => {
+                        let data = buf.as_slice(ptr);
+                        self.update_index_buffer(ibo, offset, data)?;
+                    }
+
+                    FrameTask::UpdateTexture(texture, rect, ptr) => {
+                        let data = buf.as_slice(ptr);
+                        self.update_texture(texture, rect, data)?;
+                    }
+
+                    // FrameTask::UpdateSurface(setup) => self.update_surface()
+                }
             }
         }
+
+        Ok(())
+    }
+
+    unsafe fn draw(&self, dc: FrameDrawCall, buf: &DataBuffer) -> Result<()> {
+        // Bind program and associated uniforms and textures.
+        let shader = self.bind_shader(dc.shader)?;
+        let texture_idx = 0;
+        for (i, v) in buf.as_slice(dc.uniforms).iter().enumerate() {
+            if let &Some(ptr) = v {
+                let variable = buf.as_ref(ptr);
+                let location = shader.uniform_locations[i];
+
+                if let &UniformVariable::Texture(handle) = variable {
+                    if let Some(texture) = self.textures.get(handle) {
+                        let v = UniformVariable::I32(texture_idx);
+                        self.visitor.bind_uniform(location, &v)?;
+                        self.visitor.bind_texture(texture_idx as u32, texture.id)?;
+                    }
+                } else {
+                    self.visitor.bind_uniform(location, &variable)?;
+                }
+            }
+        }
+
+        // Bind vertex buffer and vertex array object.
+        let vbo = self.vertex_buffers
+            .get(dc.vb)
+            .ok_or(ErrorKind::InvalidHandle)?;
+
+        self.visitor.bind_buffer(gl::ARRAY_BUFFER, vbo.id)?;
+        self.visitor
+            .bind_attribute_layout(&shader.layout, &vbo.setup.layout)?;
+
+        // Bind index buffer object if available.
+        if let Some(v) = dc.ib {
+            if let Some(ibo) = self.index_buffers.get(v) {
+                self.visitor.bind_buffer(gl::ELEMENT_ARRAY_BUFFER, ibo.id)?;
+                gl::DrawElements(dc.primitive.into(),
+                                 dc.len as GLsizei,
+                                 ibo.setup.format.into(),
+                                 dc.from as *const u32 as *const ::std::os::raw::c_void);
+            } else {
+                bail!(ErrorKind::InvalidHandle);
+            }
+        } else {
+            gl::DrawArrays(dc.primitive.into(), dc.from as i32, dc.len as i32);
+        }
+
+        check()
+    }
+
+    unsafe fn rebind_surface(&self, handle: SurfaceHandle, dimensions: (u16, u16)) -> Result<()> {
+        let surface = self.surfaces.get(handle).ok_or(ErrorKind::InvalidHandle)?;
+
+        // Bind frame buffer and clear it.
+        if let Some(fbo) = surface.setup.framebuffer {
+            if let Some(fbo) = self.framebuffers.get(fbo) {
+                self.visitor.bind_framebuffer(fbo.id, true)?;
+            } else {
+                bail!(ErrorKind::InvalidHandle);
+            }
+        } else {
+            self.visitor.bind_framebuffer(0, false)?;
+        }
+
+        // Clear frame buffer.
+        self.visitor
+            .clear(surface.setup.clear_color,
+                   surface.setup.clear_depth,
+                   surface.setup.clear_stencil)?;
+
+        // Bind the viewport and scissor box.
+        let vp = surface.setup.viewport;
+        self.visitor.set_viewport(vp.0, vp.1.unwrap_or(dimensions))?;
+        self.visitor.set_scissor(Scissor::Disable)?;
 
         Ok(())
     }
@@ -559,18 +571,18 @@ impl Device {
         }
     }
 
-    pub fn create_view(&mut self, handle: ViewStateHandle, setup: ViewStateSetup) -> Result<()> {
-        let view = ViewStateObject {
+    pub fn create_view(&mut self, handle: SurfaceHandle, setup: SurfaceSetup) -> Result<()> {
+        let view = SurfaceObject {
             drawcalls: RefCell::new(Vec::new()),
             setup: setup,
         };
 
-        self.views.set(handle, view);
+        self.surfaces.set(handle, view);
         Ok(())
     }
 
-    pub fn delete_view(&mut self, handle: ViewStateHandle) -> Result<()> {
-        if let Some(_) = self.views.remove(handle) {
+    pub fn delete_view(&mut self, handle: SurfaceHandle) -> Result<()> {
+        if let Some(_) = self.surfaces.remove(handle) {
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -657,14 +669,6 @@ impl<T> DataVec<T>
             .get(handle.borrow().index() as usize)
             .and_then(|v| v.as_ref())
     }
-
-    // pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
-    //     where H: Borrow<Handle>
-    // {
-    //     self.buf
-    //         .get_mut(handle.borrow().index() as usize)
-    //         .and_then(|v| v.as_mut())
-    // }
 
     pub fn set<H>(&mut self, handle: H, value: T)
         where H: Borrow<Handle>
