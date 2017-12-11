@@ -14,6 +14,9 @@ pub use application::errors;
 pub use graphics;
 pub use graphics::{GraphicsSystem, DrawCall};
 
+pub use input;
+pub use input::InputSystem;
+
 pub use utils;
 pub use utils::{Color, Rect};
 

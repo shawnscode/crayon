@@ -1,12 +1,12 @@
 use std::str;
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
 use gl;
 use gl::types::*;
 
-use utils::{Handle, Rect, DataBuffer};
+use utils::{Handle, Rect, DataBuffer, Color};
 use graphics::*;
 
 use super::errors::*;
@@ -39,7 +39,6 @@ struct ShaderObject {
 
 #[derive(Debug, Clone)]
 struct SurfaceObject {
-    drawcalls: RefCell<Vec<FrameDrawCall>>,
     setup: SurfaceSetup,
 }
 
@@ -101,14 +100,9 @@ impl Device {
 
 impl Device {
     pub unsafe fn run_one_frame(&self) -> Result<()> {
-        for v in self.surfaces.buf.iter() {
-            if let Some(vo) = v.as_ref() {
-                vo.drawcalls.borrow_mut().clear();
-            }
-        }
-
         self.active_shader.set(None);
         self.visitor.bind_framebuffer(0, false)?;
+        self.visitor.clear(Color::black(), None, None)?;
         Ok(())
     }
 
@@ -117,6 +111,7 @@ impl Device {
                  buf: &DataBuffer,
                  dimensions: (u32, u32))
                  -> Result<()> {
+
         // Sort frame tasks by user defined priorities. Notes that Slice::sort_by
         // is stable, which means it does not reorder equal elements, so it will
         // not change the execution order in one specific surface.
@@ -155,10 +150,10 @@ impl Device {
                         let data = buf.as_slice(ptr);
                         self.update_texture(texture, rect, data)?;
                     }
-
-                    // FrameTask::UpdateSurface(setup) => self.update_surface()
                 }
             }
+
+            self.visitor.flush()?;
         }
 
         Ok(())
@@ -572,11 +567,7 @@ impl Device {
     }
 
     pub fn create_view(&mut self, handle: SurfaceHandle, setup: SurfaceSetup) -> Result<()> {
-        let view = SurfaceObject {
-            drawcalls: RefCell::new(Vec::new()),
-            setup: setup,
-        };
-
+        let view = SurfaceObject { setup: setup };
         self.surfaces.set(handle, view);
         Ok(())
     }

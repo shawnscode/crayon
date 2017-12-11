@@ -2,38 +2,29 @@
 //! input state and internal events.
 
 use std::collections::HashSet;
+use std::sync::{Arc, RwLock};
+
 use glutin;
 
 use super::event;
 
-/// The `Input` struct are used to manage all the events and corresponding internal
-/// states.
-pub struct Input {
-    events: glutin::EventsLoop,
-
-    key_downs: HashSet<event::KeyboardButton>,
-    key_presses: HashSet<event::KeyboardButton>,
-    mouse_downs: HashSet<event::MouseButton>,
-    mouse_presses: HashSet<event::MouseButton>,
-
-    mouse_position: (i32, i32),
-    last_mouse_position: (i32, i32),
+/// The `InputSystem` struct are used to manage all the events and corresponding
+/// internal states.
+pub struct InputSystem {
     touch_emulation: bool,
-    focused: bool,
+    events: glutin::EventsLoop,
+    shared: Arc<InputSystemShared>,
 }
 
-impl Input {
+impl InputSystem {
     pub fn new() -> Self {
-        Input {
+        let data = Arc::new(RwLock::new(InputSystemData::new()));
+        let shared = Arc::new(InputSystemShared::new(data));
+
+        InputSystem {
             events: glutin::EventsLoop::new(),
-            key_downs: HashSet::new(),
-            key_presses: HashSet::new(),
-            mouse_downs: HashSet::new(),
-            mouse_presses: HashSet::new(),
-            mouse_position: (0, 0),
-            last_mouse_position: (0, 0),
+            shared: shared,
             touch_emulation: false,
-            focused: false,
         }
     }
 
@@ -42,12 +33,14 @@ impl Input {
         &self.events
     }
 
+    /// Returns the multi-thread friendly parts of `InputSystem`.
+    pub fn shared(&self) -> Arc<InputSystemShared> {
+        self.shared.clone()
+    }
+
     /// Reset input to initial states.
     pub fn reset(&mut self) {
-        self.key_downs.clear();
-        self.key_presses.clear();
-        self.mouse_downs.clear();
-        self.mouse_presses.clear();
+        self.shared.data.write().unwrap().reset();
     }
 
     /// Set touch emulation by mouse.
@@ -56,13 +49,13 @@ impl Input {
         self
     }
 
-
     /// Perform one frame. This will make preparations for some internal
     /// states.
     pub fn run_one_frame(&mut self, collects: &mut Vec<event::Event>) {
-        self.key_presses.clear();
-        self.mouse_presses.clear();
-        self.last_mouse_position = self.mouse_position;
+        let mut data = self.shared.data.write().unwrap();
+
+        data.key_presses.clear();
+        data.mouse_presses.clear();
 
         self.events
             .poll_events(|event| {
@@ -72,7 +65,7 @@ impl Input {
                         window_id: _,
                         event: v,
                     } => {
-                        if let Some(parse_event) = Input::parse_window_event(v) {
+                        if let Some(parse_event) = Self::parse_window_event(v, &mut data) {
                             collects.push(parse_event);
                         }
                     }
@@ -96,16 +89,18 @@ impl Input {
 
     /// Converts `glutin::WindowEvent` into custom `Event`.
     #[doc(hidden)]
-    fn parse_window_event(event: glutin::WindowEvent) -> Option<event::Event> {
+    fn parse_window_event(event: glutin::WindowEvent,
+                          data: &mut InputSystemData)
+                          -> Option<event::Event> {
         match event {
             glutin::WindowEvent::Closed => {
                 Some(event::Event::Application(event::ApplicationEvent::Closed))
             }
             glutin::WindowEvent::Focused(v) => {
-                Some(event::Event::InputDevice(if v {
-                                                   event::InputDeviceEvent::GainFocus
+                Some(event::Event::Application(if v {
+                                                   event::ApplicationEvent::GainFocus
                                                } else {
-                                                   event::InputDeviceEvent::LostFocus
+                                                   event::ApplicationEvent::LostFocus
                                                }))
             }
 
@@ -113,21 +108,30 @@ impl Input {
                 device_id: _,
                 position: (x, y),
             } => {
-                Some(event::Event::InputDevice(event::InputDeviceEvent::MouseMoved(x as i32,
-                                                                                   y as i32)))
+                data.mouse_position = (x as i32, y as i32);
+                None
             }
 
             glutin::WindowEvent::MouseInput {
                 device_id: _,
                 state: glutin::ElementState::Pressed,
                 button,
-            } => Some(event::Event::InputDevice(event::InputDeviceEvent::MousePressed(button))),
+            } => {
+                if !data.mouse_downs.contains(&button) {
+                    data.mouse_downs.insert(button);
+                    data.mouse_presses.insert(button);
+                }
+                None
+            }
 
             glutin::WindowEvent::MouseInput {
                 device_id: _,
                 state: glutin::ElementState::Released,
                 button,
-            } => Some(event::Event::InputDevice(event::InputDeviceEvent::MouseReleased(button))),
+            } => {
+                data.mouse_downs.remove(&button);
+                None
+            }
 
             glutin::WindowEvent::KeyboardInput {
                 device_id: _,
@@ -137,7 +141,13 @@ impl Input {
                     virtual_keycode: Some(vkey),
                     modifiers: _,
                 },
-            } => Some(event::Event::InputDevice(event::InputDeviceEvent::KeyboardPressed(vkey))),
+            } => {
+                if !data.key_downs.contains(&vkey) {
+                    data.key_downs.insert(vkey);
+                    data.key_presses.insert(vkey);
+                }
+                None
+            }
 
             glutin::WindowEvent::KeyboardInput {
                 device_id: _,
@@ -147,68 +157,80 @@ impl Input {
                     virtual_keycode: Some(vkey),
                     modifiers: _,
                 },
-            } => Some(event::Event::InputDevice(event::InputDeviceEvent::KeyboardReleased(vkey))),
+            } => {
+                data.key_downs.remove(&vkey);
+                None
+            }
 
             _ => None,
         }
     }
+}
 
-    /// Handle window messages, called from application. Returns true
-    /// if received closed event.
-    #[doc(hidden)]
-    pub fn process(&mut self, event: event::InputDeviceEvent) {
-        match event {
-            event::InputDeviceEvent::GainFocus => self.focused = true,
-            event::InputDeviceEvent::LostFocus => self.focused = false,
-            event::InputDeviceEvent::MouseMoved(x, y) => self.mouse_position = (x, y),
-            event::InputDeviceEvent::MousePressed(button) => {
-                if !self.mouse_downs.contains(&button) {
-                    self.mouse_downs.insert(button);
-                    self.mouse_presses.insert(button);
-                }
-            }
-            event::InputDeviceEvent::MouseReleased(button) => {
-                self.mouse_downs.remove(&button);
-            }
-            event::InputDeviceEvent::KeyboardPressed(button) => {
-                if !self.key_downs.contains(&button) {
-                    self.key_downs.insert(button);
-                    self.key_presses.insert(button);
-                }
-            }
-            event::InputDeviceEvent::KeyboardReleased(button) => {
-                self.key_downs.remove(&button);
-            }
-        }
-    }
+pub struct InputSystemShared {
+    data: Arc<RwLock<InputSystemData>>,
+}
 
-    /// Returns true if we have input focus, other vice.
-    pub fn is_focused(&self) -> bool {
-        self.focused
+impl InputSystemShared {
+    fn new(data: Arc<RwLock<InputSystemData>>) -> Self {
+        InputSystemShared { data: data }
     }
 
     /// Checks if a key is held down.
+    #[inline(always)]
     pub fn is_key_down(&self, button: event::KeyboardButton) -> bool {
-        self.key_downs.contains(&button)
+        self.data.read().unwrap().key_downs.contains(&button)
     }
 
     /// Checks if a key has been pressed on this frame.
+    #[inline(always)]
     pub fn is_key_press(&self, button: event::KeyboardButton) -> bool {
-        self.key_presses.contains(&button)
+        self.data.read().unwrap().key_presses.contains(&button)
     }
 
     /// Checks if a mouse button is held down.
+    #[inline(always)]
     pub fn is_mouse_down(&self, button: event::MouseButton) -> bool {
-        self.mouse_downs.contains(&button)
+        self.data.read().unwrap().mouse_downs.contains(&button)
     }
 
     /// Checks if a mouse button has been pressed on this frame.
+    #[inline(always)]
     pub fn is_mouse_press(&self, button: event::MouseButton) -> bool {
-        self.mouse_presses.contains(&button)
+        self.data.read().unwrap().mouse_presses.contains(&button)
     }
 
     /// Returns the mouse position relative to the top-left hand corner of the window.
-    pub fn get_mouse_position(&self) -> (i32, i32) {
-        self.mouse_position
+    #[inline(always)]
+    pub fn mouse_position(&self) -> (i32, i32) {
+        self.data.read().unwrap().mouse_position
+    }
+}
+
+
+struct InputSystemData {
+    key_downs: HashSet<event::KeyboardButton>,
+    key_presses: HashSet<event::KeyboardButton>,
+    mouse_downs: HashSet<event::MouseButton>,
+    mouse_presses: HashSet<event::MouseButton>,
+    mouse_position: (i32, i32),
+}
+
+impl InputSystemData {
+    fn new() -> Self {
+        InputSystemData {
+            key_downs: HashSet::new(),
+            key_presses: HashSet::new(),
+            mouse_downs: HashSet::new(),
+            mouse_presses: HashSet::new(),
+            mouse_position: (0, 0),
+        }
+    }
+
+    fn reset(&mut self) {
+        self.key_downs.clear();
+        self.key_presses.clear();
+        self.mouse_downs.clear();
+        self.mouse_presses.clear();
     }
 }

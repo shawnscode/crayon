@@ -8,6 +8,8 @@ use rayon;
 use super::*;
 use graphics;
 use resource;
+use input;
+use input::event;
 use super::context::{Context, ContextSystem};
 
 impl ContextSystem for resource::ResourceSystem {
@@ -16,6 +18,10 @@ impl ContextSystem for resource::ResourceSystem {
 
 impl ContextSystem for graphics::GraphicsSystem {
     type Shared = graphics::GraphicsSystemShared;
+}
+
+impl ContextSystem for input::InputSystem {
+    type Shared = input::InputSystemShared;
 }
 
 /// `Engine` is the root object of the game application. It binds various sub-systems in
@@ -32,7 +38,7 @@ pub struct Engine {
     alive: bool,
     scheduler: rayon::ThreadPool,
 
-    pub input: input::Input,
+    pub input: input::InputSystem,
     pub window: Arc<graphics::Window>,
     pub graphics: graphics::GraphicsSystem,
     pub resource: resource::ResourceSystem,
@@ -52,7 +58,8 @@ impl Engine {
         wb.with_title(settings.window.title.clone())
             .with_dimensions(settings.window.width, settings.window.height);
 
-        let input = input::Input::new();
+        let input = input::InputSystem::new();
+        let input_shared = input.shared();
         let window = Arc::new(wb.build(&input)?);
 
         let resource = resource::ResourceSystem::new()?;
@@ -67,6 +74,7 @@ impl Engine {
         let mut context = Context::new();
         context.insert::<resource::ResourceSystem>(resource_shared);
         context.insert::<graphics::GraphicsSystem>(graphics_shared);
+        context.insert::<input::InputSystem>(input_shared);
 
         Ok(Engine {
                min_fps: settings.engine.min_fps,
@@ -118,13 +126,17 @@ impl Engine {
                             other => println!("Drop {:?}.", other),
                         };
                     }
-                    event::Event::InputDevice(value) => self.input.process(value),
                     other => println!("Drop {:?}.", other),
                 }
             }
 
             self.advance();
             self.graphics.swap_frames();
+
+            {
+                let mut ctx = self.context.write().unwrap();
+                ctx.set_frame_delta(self.timestep);
+            }
 
             let (video_info, duration) = {
                 let application = application.clone();
@@ -133,7 +145,7 @@ impl Engine {
                 let ctx = self.context.clone();
                 let closure = move || {
                     let ctx = ctx.read().unwrap();
-                    let v = Engine::execute_frame(application, &ctx);
+                    let v = Engine::execute_frame(&ctx, application);
                     rx.send(v).unwrap();
                 };
 
@@ -177,8 +189,8 @@ impl Engine {
         Ok(self)
     }
 
-    fn execute_frame(application: Arc<RwLock<Application>>,
-                     ctx: &Context)
+    fn execute_frame(ctx: &Context,
+                     application: Arc<RwLock<Application>>)
                      -> Result<time::Duration> {
         let ts = time::Instant::now();
         let mut application = application.write().unwrap();

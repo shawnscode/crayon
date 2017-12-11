@@ -55,6 +55,7 @@ impl OpenGLVisitor {
         gl::Disable(gl::SCISSOR_TEST);
         gl::ColorMask(1, 1, 1, 1);
         gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+        gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
 
         OpenGLVisitor {
             cull_face: Cell::new(CullFace::Nothing),
@@ -77,6 +78,14 @@ impl OpenGLVisitor {
             program_uniform_locations: RefCell::new(HashMap::new()),
             vertex_array_objects: RefCell::new(HashMap::new()),
         }
+    }
+
+    /// `flush` does not return until the effects of all previously called GL commands are
+    /// complete. Such effects include all changes to GL state, all changes to connection
+    /// state, and all changes to the frame buffer contents.
+    pub unsafe fn flush(&self) -> Result<()> {
+        gl::Finish();
+        check()
     }
 
     pub unsafe fn bind_buffer(&self, tp: GLenum, id: GLuint) -> Result<()> {
@@ -227,11 +236,14 @@ impl OpenGLVisitor {
         }
     }
 
-    pub unsafe fn clear(&self,
-                        color: Option<Color>,
-                        depth: Option<f32>,
-                        stencil: Option<i32>)
-                        -> Result<()> {
+    pub unsafe fn clear<C, D, S>(&self, color: C, depth: D, stencil: S) -> Result<()>
+        where C: Into<Option<Color>>,
+              D: Into<Option<f32>>,
+              S: Into<Option<i32>>
+    {
+        let color = color.into();
+        let depth = depth.into();
+        let stencil = stencil.into();
 
         let mut bits = 0;
         if let Some(v) = color {

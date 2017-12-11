@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::any::{Any, TypeId};
+use std::time::Duration;
 
 pub trait ContextSystem {
     type Shared: Send + Sync + 'static;
@@ -8,11 +9,15 @@ pub trait ContextSystem {
 
 pub struct Context {
     shareds: HashMap<TypeId, Box<Any + Send + Sync>>,
+    delta: Duration,
 }
 
 impl Context {
     pub fn new() -> Self {
-        Context { shareds: HashMap::new() }
+        Context {
+            shareds: HashMap::new(),
+            delta: Duration::from_secs(0),
+        }
     }
 
     pub fn insert<T>(&mut self, v: Arc<T::Shared>)
@@ -34,5 +39,13 @@ impl Context {
         where T: ContextSystem + 'static
     {
         any.downcast_ref::<Arc<T::Shared>>().unwrap()
+    }
+
+    pub(crate) fn set_frame_delta(&mut self, duration: Duration) {
+        self.delta = duration;
+    }
+
+    pub fn frame_delta(&self) -> Duration {
+        self.delta
     }
 }

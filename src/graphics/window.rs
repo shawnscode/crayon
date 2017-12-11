@@ -8,7 +8,7 @@ use gl;
 use glutin;
 use glutin::GlContext;
 
-use application::input;
+use input;
 use super::backend::capabilities::{Capabilities, Version};
 use super::errors::*;
 
@@ -81,6 +81,14 @@ impl Window {
         self.window.get_inner_size_pixels()
     }
 
+    /// Returns the size in points of the client area of the window.
+    ///
+    /// The client area is the content of the window, excluding the title bar and borders.
+    #[inline]
+    pub fn point_dimensions(&self) -> Option<(u32, u32)> {
+        self.window.get_inner_size_points()
+    }
+
     /// Set the context as the active context in this thread.
     #[inline]
     pub fn make_current(&self) -> Result<()> {
@@ -144,7 +152,7 @@ impl WindowBuilder {
         Default::default()
     }
 
-    pub fn build(self, events: &input::Input) -> Result<Window> {
+    pub fn build(self, events: &input::InputSystem) -> Result<Window> {
         let profile = match self.profile {
             OpenGLProfile::Core => glutin::GlProfile::Core,
             OpenGLProfile::Compatibility => glutin::GlProfile::Compatibility,

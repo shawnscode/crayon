@@ -19,6 +19,7 @@ use super::assets::texture_loader::{TextureLoader, TextureParser, TextureState};
 pub struct GraphicsFrameInfo {
     pub duration: Duration,
     pub drawcall: usize,
+    pub vertices: usize,
     pub alive_surfaces: usize,
     pub alive_shaders: usize,
     pub alive_frame_buffers: usize,
@@ -42,7 +43,14 @@ impl GraphicsSystem {
         let device = unsafe { Device::new() };
         let frames = Arc::new(DoubleFrame::with_capacity(64 * 1024));
 
-        let shared = GraphicsSystemShared::new(resource, frames.clone());
+        let err = ErrorKind::WindowNotExist;
+        let dimensions = window.dimensions().ok_or(err)?;
+
+        let err = ErrorKind::WindowNotExist;
+        let point_dimensions = window.point_dimensions().ok_or(err)?;
+
+        let shared =
+            GraphicsSystemShared::new(resource, frames.clone(), dimensions, point_dimensions);
 
         Ok(GraphicsSystem {
                window: window,
@@ -73,7 +81,14 @@ impl GraphicsSystem {
 
         unsafe {
             let ts = time::Instant::now();
-            let dimensions = self.window.dimensions().ok_or(ErrorKind::WindowNotExist)?;
+
+            let err = ErrorKind::WindowNotExist;
+            let dimensions = self.window.dimensions().ok_or(err)?;
+
+            let err = ErrorKind::WindowNotExist;
+            let point_dimensions = self.window.point_dimensions().ok_or(err)?;
+
+            *self.shared.dimensions.write().unwrap() = (dimensions, point_dimensions);
 
             {
                 self.device.run_one_frame()?;
@@ -81,15 +96,14 @@ impl GraphicsSystem {
                 {
                     let mut frame = self.frames.back();
 
-                    info.drawcall = frame
-                        .tasks
-                        .iter()
-                        .filter(|v| if let FrameTask::DrawCall(_) = v.1 {
-                                    true
-                                } else {
-                                    false
-                                })
-                        .count();
+                    info.drawcall = 0;
+                    info.vertices = 0;
+                    for v in &frame.tasks {
+                        if let FrameTask::DrawCall(ref dc) = v.1 {
+                            info.drawcall += 1;
+                            info.vertices += dc.len as usize;
+                        }
+                    }
 
                     frame.dispatch(&mut self.device, dimensions)?;
                     frame.clear();
@@ -118,6 +132,7 @@ type PipelineState = HashMap<HashValue<str>, usize>;
 pub struct GraphicsSystemShared {
     resource: Arc<ResourceSystemShared>,
     frames: Arc<DoubleFrame>,
+    dimensions: RwLock<((u32, u32), (u32, u32))>,
 
     surfaces: RwLock<Registery<()>>,
     shaders: RwLock<Registery<PipelineState>>,
@@ -125,16 +140,20 @@ pub struct GraphicsSystemShared {
     render_buffers: RwLock<Registery<()>>,
     vertex_buffers: RwLock<Registery<()>>,
     index_buffers: RwLock<Registery<()>>,
-
     textures: RwLock<Registery<Arc<RwLock<TextureState>>>>,
 }
 
 impl GraphicsSystemShared {
     /// Create a new `GraphicsSystem` with one `Window` context.
-    fn new(resource: Arc<ResourceSystemShared>, frames: Arc<DoubleFrame>) -> Self {
+    fn new(resource: Arc<ResourceSystemShared>,
+           frames: Arc<DoubleFrame>,
+           dimensions: (u32, u32),
+           point_dimensions: (u32, u32))
+           -> Self {
         GraphicsSystemShared {
             resource: resource,
             frames: frames,
+            dimensions: RwLock::new((dimensions, point_dimensions)),
 
             surfaces: RwLock::new(Registery::new()),
             shaders: RwLock::new(Registery::new()),
@@ -144,6 +163,23 @@ impl GraphicsSystemShared {
             index_buffers: RwLock::new(Registery::new()),
             textures: RwLock::new(Registery::new()),
         }
+    }
+
+    /// Returns the size in pixels of the client area of the window.
+    ///
+    /// The client area is the content of the window, excluding the title bar and borders.
+    /// These are the dimensions of the frame buffer.
+    #[inline]
+    pub fn dimensions(&self) -> (u32, u32) {
+        self.dimensions.read().unwrap().0
+    }
+
+    /// Returns the size in points of the client area of the window.
+    ///
+    /// The client area is the content of the window, excluding the title bar and borders.
+    #[inline]
+    pub fn point_dimensions(&self) -> (u32, u32) {
+        self.dimensions.read().unwrap().1
     }
 
     /// Submit a drawcall into bucket `Surface`.

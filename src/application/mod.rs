@@ -14,12 +14,9 @@
 
 pub mod errors;
 pub mod settings;
-pub mod event;
-pub mod input;
 pub mod context;
 
 pub use self::settings::Settings;
-pub use self::event::{KeyboardButton, MouseButton};
 pub use self::context::Context;
 
 mod engine;
