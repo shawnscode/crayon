@@ -54,4 +54,9 @@ pub trait Application {
     fn on_post_update(&mut self, _: &Context, _: &FrameInfo) -> Result<()> {
         Ok(())
     }
+
+    /// `Application::on_exit` is called when exiting.
+    fn on_exit(&mut self, _: &Context) -> Result<()> {
+        Ok(())
+    }
 }

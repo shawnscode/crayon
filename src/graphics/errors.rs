@@ -6,7 +6,7 @@ error_chain!{
     }
 
     links {
-        Backend(super::backend::Error, super::backend::ErrorKind);
+        Backend(super::backend::errors::Error, super::backend::errors::ErrorKind);
     }
 
     foreign_links {

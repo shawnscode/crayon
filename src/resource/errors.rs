@@ -15,13 +15,5 @@ error_chain!{
         DriveWithSameIdentFound
         DriveNotFound
         NotFound
-        FutureCanceled
-        ArenaNotFound
-        CircularReferenceFound
-        ShaderNotFound
-        UniformVariableNotFound
-        UniformDeclarationMismatch
-        ParseFailed
-        NotRegistered
     }
 }

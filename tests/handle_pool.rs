@@ -9,17 +9,17 @@ use crayon::utils::*;
 #[test]
 fn handle_set() {
     let mut set = HandlePool::new();
-    assert_eq!(set.size(), 0);
+    assert_eq!(set.len(), 0);
 
     // Spawn entities.
     let e1 = set.create();
     assert!(e1.is_valid());
     assert!(set.is_alive(e1));
-    assert_eq!(set.size(), 1);
+    assert_eq!(set.len(), 1);
 
     let mut e2 = e1;
     assert!(set.is_alive(e2));
-    assert_eq!(set.size(), 1);
+    assert_eq!(set.len(), 1);
 
     // Invalidate entities.
     e2.invalidate();
@@ -32,21 +32,21 @@ fn handle_set() {
     set.free(e2);
     assert!(!set.is_alive(e2));
     assert!(!set.is_alive(e1));
-    assert_eq!(set.size(), 0);
+    assert_eq!(set.len(), 0);
 }
 
 #[test]
 fn index_reuse() {
     let mut set = HandlePool::new();
 
-    assert_eq!(set.size(), 0);
+    assert_eq!(set.len(), 0);
 
     let mut v = vec![];
     for _ in 0..10 {
         v.push(set.create());
     }
 
-    assert_eq!(set.size(), 10);
+    assert_eq!(set.len(), 10);
     for e in v.iter() {
         set.free(*e);
     }

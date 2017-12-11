@@ -1,16 +1,18 @@
 pub mod text;
+pub mod image;
 
 use crayon::math;
 use crayon::ecs::VecArena;
 
 use renderer::CanvasRenderer;
-use assets::FontSystem;
+use assets::CanvasAssets;
 use errors::*;
 
 #[derive(Debug, Clone)]
 pub enum Element {
     Empty(Empty),
     Text(text::Text),
+    Image(image::Image),
 }
 
 declare_component!(Element, VecArena);
@@ -27,28 +29,51 @@ impl Default for Element {
 }
 
 impl Element {
-    pub fn draw(&self,
-                renderer: &mut CanvasRenderer,
-                fonts: &mut FontSystem,
-                size: math::Vector2<f32>)
-                -> Result<()> {
-        match *self {
-            Element::Empty(_) => Ok(()),
-            Element::Text(ref element) => element.draw(renderer, fonts, size),
-        }
-    }
-
     pub fn visible(&self) -> bool {
         match *self {
             Element::Empty(ref element) => element.visible,
             Element::Text(ref element) => element.visible,
+            Element::Image(ref element) => element.visible,
+        }
+    }
+}
+
+impl Element {
+    pub(crate) fn prefered_size(&self, assets: &mut CanvasAssets) -> Option<math::Vector2<f32>> {
+        match *self {
+            Element::Empty(_) => None,
+            Element::Text(ref element) => element.prefered_size(&mut assets.fonts),
+            Element::Image(ref element) => element.prefered_size(&mut assets.atlas),
         }
     }
 
-    pub fn prefered_size(&self, fonts: &mut FontSystem) -> Option<math::Vector2<f32>> {
+    pub(crate) fn draw(&self,
+                       renderer: &mut CanvasRenderer,
+                       assets: &mut CanvasAssets,
+                       size: math::Vector2<f32>)
+                       -> Result<()> {
         match *self {
-            Element::Empty(_) => None,
-            Element::Text(ref element) => element.prefered_size(fonts),
+            Element::Empty(_) => Ok(()),
+            Element::Text(ref element) => element.draw(renderer, &mut assets.fonts, size),
+            Element::Image(ref element) => element.draw(renderer, &mut assets.atlas, size),
         }
+    }
+}
+
+impl From<Empty> for Element {
+    fn from(v: Empty) -> Self {
+        Element::Empty(v)
+    }
+}
+
+impl From<text::Text> for Element {
+    fn from(v: text::Text) -> Self {
+        Element::Text(v)
+    }
+}
+
+impl From<image::Image> for Element {
+    fn from(v: image::Image) -> Self {
+        Element::Image(v)
     }
 }

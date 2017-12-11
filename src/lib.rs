@@ -21,7 +21,6 @@ extern crate bit_set;
 pub extern crate lazy_static;
 pub extern crate rayon;
 pub extern crate cgmath as math;
-pub extern crate futures;
 
 #[macro_use]
 pub mod utils;
@@ -31,5 +30,4 @@ pub mod ecs;
 #[macro_use]
 pub mod graphics;
 pub mod resource;
-pub mod assets;
 pub mod prelude;

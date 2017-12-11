@@ -1,7 +1,6 @@
 //! The virtual file-system module that allows user to load data asynchronously.
 
 use std::path::{Path, PathBuf, Component, Components};
-use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
@@ -39,7 +38,7 @@ impl FilesystemDriver {
 
     /// Mount a file-system drive with identifier.
     pub fn mount<S, F>(&mut self, ident: S, fs: F) -> Result<()>
-        where S: Borrow<str>,
+        where S: AsRef<str>,
               F: Filesystem + 'static
     {
         let hash = HashValue::from(ident);
@@ -54,7 +53,7 @@ impl FilesystemDriver {
 
     /// Unmount a file-system from this collection.
     pub fn unmount<S>(&mut self, ident: S)
-        where S: Borrow<str>
+        where S: AsRef<str>
     {
         let hash = HashValue::from(ident);
         self.filesystems.remove(&hash);

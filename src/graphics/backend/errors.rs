@@ -13,8 +13,8 @@ error_chain!{
         DuplicatedHandle
         OutOfBounds
         FailedCompilePipeline(t: String) {
-            description("failed compile pipeline")
-            display("Failed compile pipeline: '{}'", t)
+            description("failed compile shader")
+            display("Failed compile shader: '{}'", t)
         }
         Unknown
     }

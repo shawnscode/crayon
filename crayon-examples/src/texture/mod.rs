@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use crayon::prelude::*;
 use utils::*;
 
@@ -9,10 +8,12 @@ impl_vertex!{
 }
 
 struct Window {
+    _label: graphics::RAIIGuard,
+
     vso: graphics::ViewStateHandle,
-    pso: graphics::PipelineStateHandle,
+    shader: graphics::ShaderHandle,
     vbo: graphics::VertexBufferHandle,
-    texture: Arc<graphics::TextureHandle>,
+    texture: graphics::TextureHandle,
 }
 
 impl Window {
@@ -23,8 +24,8 @@ impl Window {
 
         let ctx = engine.context();
         let ctx = ctx.read().unwrap();
-        let video = ctx.shared::<GraphicsSystem>();
-        let texture = ctx.shared::<TextureSystem>();
+        let video = ctx.shared::<GraphicsSystem>().clone();
+        let mut label = graphics::RAIIGuard::new(video);
 
         let verts: [Vertex; 6] = [Vertex::new([-1.0, -1.0]),
                                   Vertex::new([1.0, -1.0]),
@@ -41,44 +42,45 @@ impl Window {
         let mut setup = graphics::VertexBufferSetup::default();
         setup.num = verts.len();
         setup.layout = Vertex::layout();
-        let vbo = video
+        let vbo = label
             .create_vertex_buffer(setup, Some(Vertex::as_bytes(&verts[..])))?;
 
         // Create the view state.
         let setup = graphics::ViewStateSetup::default();
-        let vso = video.create_view(setup)?;
+        let vso = label.create_view(setup)?;
 
-        // Create pipeline state.
-        let mut setup = graphics::PipelineStateSetup::default();
+        // Create shader state.
+        let mut setup = graphics::ShaderSetup::default();
         setup.layout = attributes;
-        let vs = include_str!("../../resources/texture.vs").to_owned();
-        let fs = include_str!("../../resources/texture.fs").to_owned();
-        let pso = video.create_pipeline(setup, vs, fs)?;
+        setup.vs = include_str!("../../resources/texture.vs").to_owned();
+        setup.fs = include_str!("../../resources/texture.fs").to_owned();
+        setup.uniform_variables.push("renderedTexture".into());
+        let shader = label.create_shader(setup)?;
 
         let setup = graphics::TextureSetup::default();
-        let texture_handle = texture
-            .load_into_video::<TextureParser, &str>("/std/texture.png", setup)
-            .wait()
+        let location = Location::unique("/std/texture.png");
+        let texture = label
+            .create_texture_from::<TextureParser>(location, setup)
             .unwrap();
 
         Ok(Window {
                vso: vso,
-               pso: pso,
+               shader: shader,
                vbo: vbo,
-               texture: texture_handle,
+               texture: texture,
+               _label: label,
            })
     }
 }
 
 impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
-        ctx.shared::<GraphicsSystem>()
-            .make()
-            .with_view(self.vso)
-            .with_pipeline(self.pso)
-            .with_data(self.vbo, None)
-            .with_texture("renderedTexture", *self.texture)
-            .submit(graphics::Primitive::Triangles, 0, 6)?;
+        let video = ctx.shared::<GraphicsSystem>();
+
+        let mut dc = DrawCall::new(self.vso, self.shader);
+        dc.set_mesh(self.vbo, None);
+        dc.set_uniform_variable("renderedTexture", self.texture);
+        dc.submit(&video, graphics::Primitive::Triangles, 0, 6)?;
 
         Ok(())
     }

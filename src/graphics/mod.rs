@@ -26,8 +26,8 @@
 //! any state in the API for subsequent draw calls, this state change also affects draw
 //! calls submitted at a later point in time.
 //!
-//! As a result of that, `PipelineStateObject` is introduced to encapsulate all stateful
-//! things we need to configurate graphics pipeline. This would also enable us to easily
+//! As a result of that, `ShaderObject` is introduced to encapsulate all stateful
+//! things we need to configurate graphics shader. This would also enable us to easily
 //! change the order of draw calls and get rid of redundant state changes.
 //!
 //! ## View
@@ -50,36 +50,40 @@
 //! ## Multi-thread
 //!
 //! In most cases, dividing OpenGL rendering across multiple threads will not result in
-//! any performance improvement due the pipeline nature of OpenGL. What we are about
+//! any performance improvement due the shader nature of OpenGL. What we are about
 //! to do is actually exploiting parallelism in resource preparation, and provides a set of
 //! multi-thread friendly APIs.
 
 mod backend;
-mod uniform_variable;
-mod color;
-mod rect;
-
-pub mod view;
-pub mod pipeline;
-pub mod mesh;
-pub mod texture;
+pub mod assets;
 
 pub mod errors;
-#[macro_use]
-pub mod macros;
-pub mod frame;
 pub mod graphics;
 pub mod window;
+pub mod guard;
+pub mod drawcall;
+pub mod material;
 
-pub use self::view::*;
-pub use self::pipeline::*;
-pub use self::mesh::*;
-pub use self::texture::*;
+pub use self::assets::view::*;
+pub use self::assets::shader::*;
 
-pub use self::rect::*;
-pub use self::color::*;
-pub use self::uniform_variable::*;
-pub use self::frame::DrawCallBuilder;
+pub use self::assets::mesh::*;
+
+pub use self::assets::texture::*;
+pub use self::assets::texture_loader::{TextureData, TextureParser};
 
 pub use self::graphics::{GraphicsSystem, GraphicsSystemShared, GraphicsFrameInfo};
 pub use self::window::{Window, WindowBuilder};
+
+pub use self::guard::RAIIGuard;
+pub use self::drawcall::DrawCall;
+pub use self::material::Material;
+
+/// Maximum number of attributes in vertex layout.
+pub const MAX_VERTEX_ATTRIBUTES: usize = 12;
+/// Maximum number of attachments in framebuffer.
+pub const MAX_FRAMEBUFFER_ATTACHMENTS: usize = 8;
+/// Maximum number of uniform variables in shader.
+pub const MAX_UNIFORM_VARIABLES: usize = 32;
+/// Maximum number of textures in shader.
+pub const MAX_UNIFORM_TEXTURE_SLOTS: usize = 8;
