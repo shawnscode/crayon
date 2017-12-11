@@ -29,6 +29,24 @@ impl DrawCall {
         }
     }
 
+    pub fn from(vso: ViewStateHandle, mat: &Material) -> Self {
+        let mut dc = DrawCall {
+            order: 0,
+            vso: vso,
+            shader: mat.shader(),
+            uniforms: [(HashValue::zero(), UniformVariable::I32(0)); MAX_UNIFORM_VARIABLES],
+            uniforms_len: 0,
+            vbo: None,
+            ibo: None,
+        };
+
+        for &(field, variable) in mat.iter() {
+            dc.set_uniform_variable(field, variable);
+        }
+
+        dc
+    }
+
     /// Bind vertex buffer and optional index buffer.
     pub fn set_mesh<T>(&mut self, vbo: VertexBufferHandle, ibo: T)
         where T: Into<Option<IndexBufferHandle>>
@@ -38,8 +56,9 @@ impl DrawCall {
     }
 
     /// Bind the named field with `UniformVariable`.
-    pub fn set_uniform_variable<T>(&mut self, field: &str, variable: T)
-        where T: Into<UniformVariable>
+    pub fn set_uniform_variable<F, T>(&mut self, field: F, variable: T)
+        where F: Into<HashValue<str>>,
+              T: Into<UniformVariable>
     {
         assert!(self.uniforms_len < MAX_UNIFORM_VARIABLES);
 
