@@ -3,7 +3,7 @@ use std::str;
 use std::ops::Deref;
 use std::borrow::Borrow;
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq)]
 enum _VariantStr {
     Size8(u8, [u8; 6]),
     Size16(u8, [u8; 14]),
@@ -13,7 +13,7 @@ enum _VariantStr {
 
 /// UTF-8 encoded owned str with varient length. It will store short string in place
 /// instead of another heap space.
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct VariantStr(_VariantStr);
 
 impl<T> From<T> for VariantStr

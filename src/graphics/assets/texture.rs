@@ -48,7 +48,7 @@ pub struct RenderBufferSetup {
 impl_handle!(RenderBufferHandle);
 
 /// Specify how the texture is used whenever the pixel being sampled.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TextureFilter {
     /// Returns the value of the texture element that is nearest (in Manhattan distance)
     /// to the center of the pixel being textured.
@@ -59,7 +59,7 @@ pub enum TextureFilter {
 }
 
 /// Sets the wrap parameter for texture.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TextureAddress {
     /// Samples at coord x + 1 map to coord x.
     Repeat,

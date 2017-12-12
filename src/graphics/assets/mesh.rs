@@ -18,7 +18,7 @@ pub enum BufferHint {
 }
 
 /// Defines how the input vertex data is used to assemble primitives.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy)]
 pub enum Primitive {
     /// Separate points.
     Points,
@@ -124,7 +124,7 @@ pub enum VertexFormat {
 
 /// The possible pre-defined and named attributes in the vertex component, describing
 /// what the vertex component is used for.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum VertexAttribute {
     Position = 0,
     Normal = 1,

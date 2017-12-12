@@ -7,10 +7,6 @@ extern crate glutin;
 extern crate gl;
 
 #[macro_use]
-extern crate serde_derive;
-extern crate serde;
-
-#[macro_use]
 extern crate error_chain;
 
 extern crate zip;

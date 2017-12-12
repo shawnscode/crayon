@@ -27,8 +27,6 @@ lazy_static = "1.0.0"
 error-chain = "0.11.0"
 
 rayon = "0.9.0"
-serde = "1.0.22"
-serde_derive = "1.0.22"
 
 cgmath = "0.15.0"
 bit-set = "0.4.0"
