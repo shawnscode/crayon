@@ -26,7 +26,7 @@ use self::errors::*;
 use graphics;
 use std::time;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct FrameInfo {
     pub video: graphics::GraphicsFrameInfo,
     pub duration: time::Duration,

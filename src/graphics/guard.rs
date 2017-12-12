@@ -19,8 +19,8 @@ impl RAIIGuard {
     }
 
     #[inline(always)]
-    pub fn create_view(&mut self, setup: SurfaceSetup) -> Result<SurfaceHandle> {
-        let v = self.video.create_view(setup)?;
+    pub fn create_surface(&mut self, setup: SurfaceSetup) -> Result<SurfaceHandle> {
+        let v = self.video.create_surface(setup)?;
         Ok(self.push(v))
     }
 
@@ -92,7 +92,7 @@ impl RAIIGuard {
                 Resource::Texture(handle) => self.video.delete_texture(handle),
                 Resource::VertexBuffer(handle) => self.video.delete_vertex_buffer(handle),
                 Resource::IndexBuffer(handle) => self.video.delete_index_buffer(handle),
-                Resource::Surface(handle) => self.video.delete_view(handle),
+                Resource::Surface(handle) => self.video.delete_surface(handle),
                 Resource::PipelineState(handle) => self.video.delete_shader(handle),
                 Resource::FrameBuffer(handle) => self.video.delete_framebuffer(handle),
                 Resource::RenderBuffer(handle) => self.video.delete_render_buffer(handle),

@@ -608,7 +608,6 @@ impl OpenGLVisitor {
                                             filter: TextureFilter,
                                             mipmap: bool)
                                             -> Result<()> {
-
         let address: GLenum = address.into();
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, address as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, address as GLint);

@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::any::{Any, TypeId};
 use std::time::Duration;
 
@@ -10,6 +10,7 @@ pub trait ContextSystem {
 pub struct Context {
     shareds: HashMap<TypeId, Box<Any + Send + Sync>>,
     delta: Duration,
+    shutdown: RwLock<bool>,
 }
 
 impl Context {
@@ -17,6 +18,7 @@ impl Context {
         Context {
             shareds: HashMap::new(),
             delta: Duration::from_secs(0),
+            shutdown: RwLock::new(false),
         }
     }
 
@@ -47,5 +49,13 @@ impl Context {
 
     pub fn frame_delta(&self) -> Duration {
         self.delta
+    }
+
+    pub fn shutdown(&self) {
+        *self.shutdown.write().unwrap() = true;
+    }
+
+    pub fn is_shutdown(&self) -> bool {
+        *self.shutdown.read().unwrap()
     }
 }

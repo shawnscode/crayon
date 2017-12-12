@@ -35,7 +35,6 @@ pub struct Engine {
     previous_timesteps: VecDeque<Duration>,
     timestep: Duration,
     last_frame_timepoint: Instant,
-    alive: bool,
     scheduler: rayon::ThreadPool,
 
     pub input: input::InputSystem,
@@ -84,7 +83,6 @@ impl Engine {
                previous_timesteps: VecDeque::new(),
                timestep: Duration::new(0, 0),
                last_frame_timepoint: Instant::now(),
-               alive: true,
                scheduler: scheduler,
 
                input: input,
@@ -110,7 +108,8 @@ impl Engine {
         println!("Run crayon-runtim with working directory {:?}.", dir);
 
         let mut events = Vec::new();
-        'main: while self.alive {
+        let mut alive = true;
+        'main: while alive {
             // Poll any possible events first.
             events.clear();
 
@@ -120,8 +119,7 @@ impl Engine {
                     event::Event::Application(value) => {
                         match value {
                             event::ApplicationEvent::Closed => {
-                                self.stop();
-                                break 'main;
+                                alive = false;
                             }
                             other => println!("Drop {:?}.", other),
                         };
@@ -178,6 +176,8 @@ impl Engine {
 
                 self.scheduler.install(closure)?;
             }
+
+            alive = alive || !self.context.read().unwrap().is_shutdown();
         }
 
         {
@@ -198,11 +198,6 @@ impl Engine {
         application.on_render(&ctx)?;
 
         Ok(time::Instant::now() - ts)
-    }
-
-    /// Stop the whole application.
-    pub fn stop(&mut self) {
-        self.alive = false;
     }
 
     /// Advance one frame.

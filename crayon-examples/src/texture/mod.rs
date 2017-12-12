@@ -40,14 +40,14 @@ impl Window {
 
         // Create vertex buffer object.
         let mut setup = graphics::VertexBufferSetup::default();
-        setup.num = verts.len();
+        setup.num = verts.len() as u32;
         setup.layout = Vertex::layout();
         let vbo = label
             .create_vertex_buffer(setup, Some(Vertex::as_bytes(&verts[..])))?;
 
         // Create the view state.
         let setup = graphics::SurfaceSetup::default();
-        let surface = label.create_view(setup)?;
+        let surface = label.create_surface(setup)?;
 
         // Create shader state.
         let mut setup = graphics::ShaderSetup::default();

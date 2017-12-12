@@ -111,7 +111,6 @@ impl Device {
                  buf: &DataBuffer,
                  dimensions: (u32, u32))
                  -> Result<()> {
-
         // Sort frame tasks by user defined priorities. Notes that Slice::sort_by
         // is stable, which means it does not reorder equal elements, so it will
         // not change the execution order in one specific surface.
@@ -162,6 +161,7 @@ impl Device {
     unsafe fn draw(&self, dc: FrameDrawCall, buf: &DataBuffer) -> Result<()> {
         // Bind program and associated uniforms and textures.
         let shader = self.bind_shader(dc.shader)?;
+
         let texture_idx = 0;
         for (i, v) in buf.as_slice(dc.uniforms).iter().enumerate() {
             if let &Some(ptr) = v {
@@ -193,10 +193,12 @@ impl Device {
         if let Some(v) = dc.ib {
             if let Some(ibo) = self.index_buffers.get(v) {
                 self.visitor.bind_buffer(gl::ELEMENT_ARRAY_BUFFER, ibo.id)?;
+
+                let from = dc.from * ibo.setup.format.len() as u32;
                 gl::DrawElements(dc.primitive.into(),
                                  dc.len as GLsizei,
                                  ibo.setup.format.into(),
-                                 dc.from as *const u32 as *const ::std::os::raw::c_void);
+                                 from as *const u32 as *const ::std::os::raw::c_void);
             } else {
                 bail!(ErrorKind::InvalidHandle);
             }
@@ -568,13 +570,13 @@ impl Device {
         }
     }
 
-    pub fn create_view(&mut self, handle: SurfaceHandle, setup: SurfaceSetup) -> Result<()> {
+    pub fn create_surface(&mut self, handle: SurfaceHandle, setup: SurfaceSetup) -> Result<()> {
         let view = SurfaceObject { setup: setup };
         self.surfaces.set(handle, view);
         Ok(())
     }
 
-    pub fn delete_view(&mut self, handle: SurfaceHandle) -> Result<()> {
+    pub fn delete_surface(&mut self, handle: SurfaceHandle) -> Result<()> {
         if let Some(_) = self.surfaces.remove(handle) {
             Ok(())
         } else {

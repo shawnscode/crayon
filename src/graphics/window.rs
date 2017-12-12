@@ -117,9 +117,15 @@ impl Window {
     /// override your vsync settings, which means that you can't know in advance
     /// whether swap_buffers will block or not.
     #[inline]
-    pub fn swap_buffers(&self) -> Result<()> {
+    pub(crate) fn swap_buffers(&self) -> Result<()> {
         self.window.swap_buffers()?;
         Ok(())
+    }
+
+    /// Resize the GL context.
+    #[inline]
+    pub(crate) fn resize(&self, dimensions: (u32, u32)) {
+        self.window.resize(dimensions.0, dimensions.1)
     }
 }
 

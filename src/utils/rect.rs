@@ -38,4 +38,12 @@ impl Rect {
                                    cmp::min(self.max.y, rhs.max.y)),
         }
     }
+
+    #[inline]
+    pub fn contains<P>(&self, p: P) -> bool
+        where P: Into<math::Point2<i32>>
+    {
+        let p = p.into();
+        p.x >= self.min.x && p.x < self.max.x && p.y >= self.min.y && p.y < self.max.y
+    }
 }

@@ -45,7 +45,7 @@ impl Window {
         let (pass, rendered_texture) = {
             // Create vertex buffer object.
             let mut setup = graphics::VertexBufferSetup::default();
-            setup.num = vertices.len();
+            setup.num = vertices.len() as u32;
             setup.layout = Vertex::layout();
             let vbo = label
                 .create_vertex_buffer(setup, Some(Vertex::as_bytes(&vertices[..])))?;
@@ -65,7 +65,7 @@ impl Window {
             let mut setup = graphics::SurfaceSetup::default();
             setup.framebuffer = Some(fbo);
             setup.clear_color = Some(Color::gray());
-            let view = label.create_view(setup)?;
+            let view = label.create_surface(setup)?;
 
             // Create shader state.
             let mut setup = graphics::ShaderSetup::default();
@@ -84,13 +84,13 @@ impl Window {
 
         let post_effect = {
             let mut setup = graphics::VertexBufferSetup::default();
-            setup.num = quad_vertices.len();
+            setup.num = quad_vertices.len() as u32;
             setup.layout = Vertex::layout();
             let vbo = label
                 .create_vertex_buffer(setup, Some(Vertex::as_bytes(&quad_vertices[..])))?;
 
             let setup = graphics::SurfaceSetup::default();
-            let view = label.create_view(setup)?;
+            let view = label.create_surface(setup)?;
 
             let mut setup = graphics::ShaderSetup::default();
             setup.layout = attributes;

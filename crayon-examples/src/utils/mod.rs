@@ -3,6 +3,8 @@ use crayon::prelude::*;
 use image;
 use image::GenericImage;
 
+use std::time::Duration;
+
 pub struct TextureParser {}
 
 impl graphics::TextureParser for TextureParser {
@@ -16,4 +18,8 @@ impl graphics::TextureParser for TextureParser {
                data: dynamic.to_rgba().into_raw(),
            })
     }
+}
+
+pub fn to_ms(duration: Duration) -> f32 {
+    duration.as_secs() as f32 * 1000.0 + duration.subsec_nanos() as f32 / 1_000_000.0
 }

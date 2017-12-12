@@ -87,7 +87,7 @@ impl Frame {
         for v in self.pre.drain(..) {
             match v {
                 PreFrameTask::CreateSurface(handle, setup) => {
-                    device.create_view(handle, setup)?;
+                    device.create_surface(handle, setup)?;
                 }
                 PreFrameTask::CreatePipeline(handle, setup) => {
                     device.create_shader(handle, setup)?;
@@ -151,7 +151,7 @@ impl Frame {
         for v in self.post.drain(..) {
             match v {
                 PostFrameTask::DeleteSurface(handle) => {
-                    device.delete_view(handle)?;
+                    device.delete_surface(handle)?;
                 }
                 PostFrameTask::DeletePipeline(handle) => {
                     device.delete_shader(handle)?;

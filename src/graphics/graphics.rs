@@ -36,6 +36,7 @@ pub struct GraphicsSystem {
     device: Device,
     frames: Arc<DoubleFrame>,
     shared: Arc<GraphicsSystemShared>,
+    last_framebuffer_dimensions: (u32, u32),
 }
 
 impl GraphicsSystem {
@@ -58,6 +59,7 @@ impl GraphicsSystem {
                device: device,
                frames: frames,
                shared: Arc::new(shared),
+               last_framebuffer_dimensions: dimensions,
            })
     }
 
@@ -89,6 +91,11 @@ impl GraphicsSystem {
             let err = ErrorKind::WindowNotExist;
             let point_dimensions = self.window.point_dimensions().ok_or(err)?;
 
+            if dimensions != self.last_framebuffer_dimensions {
+                self.last_framebuffer_dimensions = dimensions;
+                self.window.resize(dimensions);
+            }
+
             *self.shared.dimensions.write().unwrap() = (dimensions, point_dimensions);
 
             {
@@ -114,16 +121,28 @@ impl GraphicsSystem {
             self.window.swap_buffers()?;
 
             info.duration = time::Instant::now() - ts;
-            info.alive_surfaces = self.shared.surfaces.read().unwrap().len();
-            info.alive_shaders = self.shared.shaders.read().unwrap().len();
-            info.alive_frame_buffers = self.shared.framebuffers.read().unwrap().len();
-            info.alive_vertex_buffers = self.shared.vertex_buffers.read().unwrap().len();
-            info.alive_index_buffers = self.shared.index_buffers.read().unwrap().len();
-            info.alive_textures = self.shared.textures.read().unwrap().len();
-            info.alive_render_buffers = self.shared.render_buffers.read().unwrap().len();
+
+            {
+                let s = &self.shared;
+                info.alive_surfaces = Self::clear(&mut s.surfaces.write().unwrap());
+                info.alive_shaders = Self::clear(&mut s.shaders.write().unwrap());
+                info.alive_frame_buffers = Self::clear(&mut s.framebuffers.write().unwrap());
+                info.alive_vertex_buffers = Self::clear(&mut s.vertex_buffers.write().unwrap());
+
+                info.alive_index_buffers = Self::clear(&mut s.index_buffers.write().unwrap());
+                info.alive_textures = Self::clear(&mut s.textures.write().unwrap());
+                info.alive_render_buffers = Self::clear(&mut s.render_buffers.write().unwrap());
+            }
 
             Ok(info)
         }
+    }
+
+    fn clear<T>(v: &mut Registery<T>) -> usize
+        where T: Sized
+    {
+        v.clear();
+        v.len()
     }
 }
 
@@ -329,7 +348,7 @@ impl GraphicsSystemShared {
 
 impl GraphicsSystemShared {
     /// Creates an view with `SurfaceSetup`.
-    pub fn create_view(&self, setup: SurfaceSetup) -> Result<SurfaceHandle> {
+    pub fn create_surface(&self, setup: SurfaceSetup) -> Result<SurfaceHandle> {
         let location = resource::Location::unique("");
         let handle = self.surfaces.write().unwrap().create(location, ()).into();
 
@@ -342,11 +361,11 @@ impl GraphicsSystemShared {
     }
 
     /// Delete view state object.
-    pub fn delete_view(&self, handle: SurfaceHandle) {
+    pub fn delete_surface(&self, handle: SurfaceHandle) {
         if self.surfaces
                .write()
                .unwrap()
-               .dec_rc(handle.into())
+               .dec_rc(handle.into(), true)
                .is_some() {
             let task = PostFrameTask::DeleteSurface(handle);
             self.frames.front().post.push(task);
@@ -383,7 +402,7 @@ impl GraphicsSystemShared {
         if self.shaders
                .write()
                .unwrap()
-               .dec_rc(handle.into())
+               .dec_rc(handle.into(), true)
                .is_some() {
             let task = PostFrameTask::DeletePipeline(handle);
             self.frames.front().post.push(task);
@@ -415,7 +434,7 @@ impl GraphicsSystemShared {
         if self.framebuffers
                .write()
                .unwrap()
-               .dec_rc(handle.into())
+               .dec_rc(handle.into(), true)
                .is_some() {
             let task = PostFrameTask::DeleteFrameBuffer(handle);
             self.frames.front().post.push(task);
@@ -444,7 +463,7 @@ impl GraphicsSystemShared {
         if self.render_buffers
                .write()
                .unwrap()
-               .dec_rc(handle.into())
+               .dec_rc(handle.into(), true)
                .is_some() {
             let task = PostFrameTask::DeleteRenderBuffer(handle);
             self.frames.front().post.push(task);
@@ -505,7 +524,7 @@ impl GraphicsSystemShared {
         if self.vertex_buffers
                .write()
                .unwrap()
-               .dec_rc(handle.into())
+               .dec_rc(handle.into(), true)
                .is_some() {
             let task = PostFrameTask::DeleteVertexBuffer(handle);
             self.frames.front().post.push(task);
@@ -564,7 +583,7 @@ impl GraphicsSystemShared {
         if self.index_buffers
                .write()
                .unwrap()
-               .dec_rc(handle.into())
+               .dec_rc(handle.into(), true)
                .is_some() {
             let task = PostFrameTask::DeleteIndexBuffer(handle);
             self.frames.front().post.push(task);
@@ -664,7 +683,7 @@ impl GraphicsSystemShared {
         if self.textures
                .write()
                .unwrap()
-               .dec_rc(handle.into())
+               .dec_rc(handle.into(), true)
                .is_some() {
             let task = PostFrameTask::DeleteTexture(handle);
             self.frames.front().post.push(task);

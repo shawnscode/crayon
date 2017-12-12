@@ -38,7 +38,7 @@ pub struct IndexBufferSetup {
     /// Usage hints.
     pub hint: BufferHint,
     /// The number of indices in this buffer.
-    pub num: usize,
+    pub num: u32,
     /// The format.
     pub format: IndexFormat,
 }
@@ -57,7 +57,7 @@ impl_handle!(IndexBufferHandle);
 
 impl IndexBufferSetup {
     pub fn len(&self) -> usize {
-        self.num * self.format.size()
+        self.num as usize * self.format.len()
     }
 }
 
@@ -65,13 +65,13 @@ impl IndexBufferSetup {
 pub struct VertexBufferSetup {
     pub hint: BufferHint,
     pub layout: VertexLayout,
-    pub num: usize,
+    pub num: u32,
 }
 
 impl VertexBufferSetup {
     #[inline]
     pub fn len(&self) -> usize {
-        self.num * self.layout.stride() as usize
+        self.num as usize * self.layout.stride() as usize
     }
 }
 
@@ -97,7 +97,7 @@ pub enum IndexFormat {
 }
 
 impl IndexFormat {
-    pub fn size(&self) -> usize {
+    pub fn len(&self) -> usize {
         match self {
             &IndexFormat::U16 => 2,
             &IndexFormat::U32 => 4,
