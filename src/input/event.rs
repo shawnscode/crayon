@@ -11,6 +11,10 @@ pub enum ApplicationEvent {
     Suspended,
     /// The window has been closed.
     Closed,
+    /// The window gained focus of user input.
+    GainFocus,
+    /// The window lost focus of user input.
+    LostFocus,
 }
 
 /// Window related events.
@@ -28,11 +32,6 @@ pub use glutin::MouseButton;
 /// Input device event, supports mouse and keyboard only.
 #[derive(Debug)]
 pub enum InputDeviceEvent {
-    /// The window gained focus of user input.
-    GainFocus,
-    /// The window lost focus of user input.
-    LostFocus,
-
     /// The cursor has moved on the window.
     /// The parameter are the (x, y) coords in pixels relative to the top-left
     /// corner of th window.
@@ -52,5 +51,4 @@ pub enum InputDeviceEvent {
 pub enum Event {
     Application(ApplicationEvent),
     Window(WindowEvent),
-    InputDevice(InputDeviceEvent),
 }

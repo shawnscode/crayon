@@ -30,6 +30,7 @@ pub(crate) struct OpenGLVisitor {
     color_blend: Cell<Option<(Equation, BlendFactor, BlendFactor)>>,
     color_write: Cell<(bool, bool, bool, bool)>,
     viewport: Cell<((u16, u16), (u16, u16))>,
+    scissor: Cell<Scissor>,
 
     active_bufs: RefCell<HashMap<GLenum, GLuint>>,
     active_program: Cell<Option<GLuint>>,
@@ -51,8 +52,10 @@ impl OpenGLVisitor {
         gl::DepthMask(gl::FALSE);
         gl::Disable(gl::POLYGON_OFFSET_FILL);
         gl::Disable(gl::BLEND);
+        gl::Disable(gl::SCISSOR_TEST);
         gl::ColorMask(1, 1, 1, 1);
         gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+        gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
 
         OpenGLVisitor {
             cull_face: Cell::new(CullFace::Nothing),
@@ -63,6 +66,7 @@ impl OpenGLVisitor {
             color_blend: Cell::new(None),
             color_write: Cell::new((false, false, false, false)),
             viewport: Cell::new(((0, 0), (128, 128))),
+            scissor: Cell::new(Scissor::Disable),
 
             active_bufs: RefCell::new(HashMap::new()),
             active_program: Cell::new(None),
@@ -74,6 +78,14 @@ impl OpenGLVisitor {
             program_uniform_locations: RefCell::new(HashMap::new()),
             vertex_array_objects: RefCell::new(HashMap::new()),
         }
+    }
+
+    /// `flush` does not return until the effects of all previously called GL commands are
+    /// complete. Such effects include all changes to GL state, all changes to connection
+    /// state, and all changes to the frame buffer contents.
+    pub unsafe fn flush(&self) -> Result<()> {
+        gl::Finish();
+        check()
     }
 
     pub unsafe fn bind_buffer(&self, tp: GLenum, id: GLuint) -> Result<()> {
@@ -224,11 +236,14 @@ impl OpenGLVisitor {
         }
     }
 
-    pub unsafe fn clear(&self,
-                        color: Option<Color>,
-                        depth: Option<f32>,
-                        stencil: Option<i32>)
-                        -> Result<()> {
+    pub unsafe fn clear<C, D, S>(&self, color: C, depth: D, stencil: S) -> Result<()>
+        where C: Into<Option<Color>>,
+              D: Into<Option<f32>>,
+              S: Into<Option<i32>>
+    {
+        let color = color.into();
+        let depth = depth.into();
+        let stencil = stencil.into();
 
         let mut bits = 0;
         if let Some(v) = color {
@@ -262,6 +277,30 @@ impl OpenGLVisitor {
         } else {
             Ok(())
         }
+    }
+
+    /// Set the scissor box relative to the top-lef corner of th window, in pixels.
+    pub unsafe fn set_scissor(&self, scissor: Scissor) -> Result<()> {
+        match scissor {
+            Scissor::Disable => {
+                if self.scissor.get() != Scissor::Disable {
+                    gl::Disable(gl::SCISSOR_TEST);
+                }
+            }
+            Scissor::Enable(position, size) => {
+                if self.scissor.get() == Scissor::Disable {
+                    gl::Enable(gl::SCISSOR_TEST);
+                }
+
+                gl::Scissor(position.0 as GLint,
+                            position.1 as GLint,
+                            size.0 as GLsizei,
+                            size.1 as GLsizei);
+            }
+        }
+
+        self.scissor.set(scissor);
+        check()
     }
 
     /// Specify whether front- or back-facing polygons can be culled.
@@ -380,7 +419,6 @@ impl OpenGLVisitor {
                                   -> Result<()> {
         let cw = self.color_write.get();
         if cw.0 != red || cw.1 != green || cw.2 != blue || cw.3 != alpha {
-
             self.color_write.set((red, green, blue, alpha));
             gl::ColorMask(red as u8, green as u8, blue as u8, alpha as u8);
             check()
@@ -570,7 +608,6 @@ impl OpenGLVisitor {
                                             filter: TextureFilter,
                                             mipmap: bool)
                                             -> Result<()> {
-
         let address: GLenum = address.into();
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, address as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, address as GLint);

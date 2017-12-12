@@ -10,4 +10,4 @@ travis-ci = { repository = "shawnscode/crayon", branch = "master" }
 rand = "0.3.18"
 image = "0.17.0"
 crayon = { path = "..", version = "0.0.6" }
-crayon-canvas = { path = "../modules/canvas", version = "0.0.6" }
+crayon-imgui = { path = "../modules/imgui", version = "0.0.6" }

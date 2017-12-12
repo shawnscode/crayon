@@ -48,6 +48,22 @@ impl Into<[f32; 4]> for Color {
 }
 
 impl Color {
+    /// Creates `Color` from a u32 encoded `ARGB`.
+    pub fn from_argb_u32(encoded: u32) -> Self {
+        Color(((encoded >> 16) & 0xFF) as f32 / 255.0,
+              ((encoded >> 8) & 0xFF) as f32 / 255.0,
+              ((encoded >> 0) & 0xFF) as f32 / 255.0,
+              ((encoded >> 24) & 0xFF) as f32 / 255.0)
+    }
+
+    /// Creates `Color` from a u32 encoded `ABGR`.
+    pub fn from_abgr_u32(encoded: u32) -> Self {
+        Color(((encoded >> 0) & 0xFF) as f32 / 255.0,
+              ((encoded >> 8) & 0xFF) as f32 / 255.0,
+              ((encoded >> 16) & 0xFF) as f32 / 255.0,
+              ((encoded >> 24) & 0xFF) as f32 / 255.0)
+    }
+
     /// Returns the `grayscale` representation of RGB values.
     pub fn grayscale(&self) -> f32 {
         self.0 * 0.299 + self.1 * 0.587 + self.2 * 0.114

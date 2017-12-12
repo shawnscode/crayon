@@ -24,6 +24,7 @@ pub struct Registery<T>
     where T: Sized + 'static
 {
     handles: HandlePool,
+    delay_free: Vec<Handle>,
     entries: Vec<Option<Entry<T>>>,
     locations: HashMap<LocationAtom, Handle>,
 }
@@ -35,6 +36,7 @@ impl<T> Registery<T>
     pub fn new() -> Self {
         Registery {
             handles: HandlePool::new(),
+            delay_free: Vec::new(),
             entries: Vec::new(),
             locations: HashMap::new(),
         }
@@ -44,6 +46,7 @@ impl<T> Registery<T>
     pub fn with_capacity(capacity: usize) -> Self {
         Registery {
             handles: HandlePool::with_capacity(capacity),
+            delay_free: Vec::new(),
             entries: Vec::with_capacity(capacity),
             locations: HashMap::with_capacity(capacity),
         }
@@ -89,7 +92,7 @@ impl<T> Registery<T>
 
     /// Decrease the reference count of resource matched `handle`. If reference count is zero
     /// after decreasing, it will be deleted from this `Registery`.
-    pub fn dec_rc(&mut self, handle: Handle) -> Option<T> {
+    pub fn dec_rc(&mut self, handle: Handle, delay: bool) -> Option<T> {
         if !self.handles.is_alive(handle) {
             return None;
         }
@@ -110,12 +113,25 @@ impl<T> Registery<T>
                 ::std::mem::swap(&mut v, block);
 
                 let v = v.unwrap();
-                self.handles.free(handle);
                 self.locations.remove(&v.location);
+
+                if delay {
+                    self.delay_free.push(handle);
+                } else {
+                    self.handles.free(handle);
+                }
+
                 return Some(v.value);
             }
 
             None
+        }
+    }
+
+    /// Recycles freed handles.
+    pub fn clear(&mut self) {
+        for v in self.delay_free.drain(..) {
+            self.handles.free(v);
         }
     }
 

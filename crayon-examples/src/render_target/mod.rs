@@ -7,7 +7,7 @@ impl_vertex!{
 }
 
 struct Pass {
-    view: graphics::ViewStateHandle,
+    view: graphics::SurfaceHandle,
     shader: graphics::ShaderHandle,
     mesh: graphics::VertexBufferHandle,
 }
@@ -45,7 +45,7 @@ impl Window {
         let (pass, rendered_texture) = {
             // Create vertex buffer object.
             let mut setup = graphics::VertexBufferSetup::default();
-            setup.num = vertices.len();
+            setup.num = vertices.len() as u32;
             setup.layout = Vertex::layout();
             let vbo = label
                 .create_vertex_buffer(setup, Some(Vertex::as_bytes(&vertices[..])))?;
@@ -62,10 +62,10 @@ impl Window {
             let fbo = label.create_framebuffer(setup)?;
 
             // Create the view state for pass 1.
-            let mut setup = graphics::ViewStateSetup::default();
+            let mut setup = graphics::SurfaceSetup::default();
             setup.framebuffer = Some(fbo);
             setup.clear_color = Some(Color::gray());
-            let view = label.create_view(setup)?;
+            let view = label.create_surface(setup)?;
 
             // Create shader state.
             let mut setup = graphics::ShaderSetup::default();
@@ -84,13 +84,13 @@ impl Window {
 
         let post_effect = {
             let mut setup = graphics::VertexBufferSetup::default();
-            setup.num = quad_vertices.len();
+            setup.num = quad_vertices.len() as u32;
             setup.layout = Vertex::layout();
             let vbo = label
                 .create_vertex_buffer(setup, Some(Vertex::as_bytes(&quad_vertices[..])))?;
 
-            let setup = graphics::ViewStateSetup::default();
-            let view = label.create_view(setup)?;
+            let setup = graphics::SurfaceSetup::default();
+            let view = label.create_surface(setup)?;
 
             let mut setup = graphics::ShaderSetup::default();
             setup.layout = attributes;
@@ -124,17 +124,19 @@ impl Application for Window {
         let video = ctx.shared::<GraphicsSystem>();
 
         {
-            let mut dc = DrawCall::new(self.pass.view, self.pass.shader);
+            let mut dc = DrawCall::new(self.pass.shader);
             dc.set_mesh(self.pass.mesh, None);
-            dc.submit(&video, graphics::Primitive::Triangles, 0, 3)?;
+            let task = dc.draw(graphics::Primitive::Triangles, 0, 3)?;
+            video.submit(self.pass.view, task)?;
         }
 
         {
-            let mut dc = DrawCall::new(self.post_effect.view, self.post_effect.shader);
+            let mut dc = DrawCall::new(self.post_effect.shader);
             dc.set_mesh(self.post_effect.mesh, None);
             dc.set_uniform_variable("renderedTexture", self.texture);
             dc.set_uniform_variable("time", self.time);
-            dc.submit(&video, graphics::Primitive::Triangles, 0, 6)?;
+            let task = dc.draw(graphics::Primitive::Triangles, 0, 6)?;
+            video.submit(self.post_effect.view, task)?;
         }
 
         self.time += 0.05;

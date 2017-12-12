@@ -8,7 +8,7 @@ use utils::{Rect, DataBuffer, DataBufferPtr};
 
 #[derive(Debug, Clone)]
 pub(crate) enum PreFrameTask {
-    CreateView(ViewStateHandle, ViewStateSetup),
+    CreateSurface(SurfaceHandle, SurfaceSetup),
     CreatePipeline(ShaderHandle, ShaderSetup),
     CreateFrameBuffer(FrameBufferHandle, FrameBufferSetup),
     CreateTexture(TextureHandle, TextureSetup, Option<DataBufferPtr<[u8]>>),
@@ -22,9 +22,16 @@ pub(crate) enum PreFrameTask {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub(crate) enum FrameTask {
+    DrawCall(FrameDrawCall),
+    UpdateSurface(Scissor),
+    UpdateVertexBuffer(VertexBufferHandle, usize, DataBufferPtr<[u8]>),
+    UpdateIndexBuffer(IndexBufferHandle, usize, DataBufferPtr<[u8]>),
+    UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),
+}
+
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct FrameDrawCall {
-    pub order: u64,
-    pub view: ViewStateHandle,
     pub shader: ShaderHandle,
     pub uniforms: DataBufferPtr<[Option<DataBufferPtr<UniformVariable>>]>,
     pub vb: VertexBufferHandle,
@@ -36,7 +43,7 @@ pub(crate) struct FrameDrawCall {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum PostFrameTask {
-    DeleteView(ViewStateHandle),
+    DeleteSurface(SurfaceHandle),
     DeletePipeline(ShaderHandle),
     DeleteVertexBuffer(VertexBufferHandle),
     DeleteIndexBuffer(IndexBufferHandle),
@@ -48,7 +55,7 @@ pub(crate) enum PostFrameTask {
 #[derive(Debug, Clone)]
 pub(crate) struct Frame {
     pub pre: Vec<PreFrameTask>,
-    pub drawcalls: Vec<FrameDrawCall>,
+    pub tasks: Vec<(SurfaceHandle, FrameTask)>,
     pub post: Vec<PostFrameTask>,
     pub buf: DataBuffer,
 }
@@ -62,7 +69,7 @@ impl Frame {
         Frame {
             pre: Vec::new(),
             post: Vec::new(),
-            drawcalls: Vec::new(),
+            tasks: Vec::new(),
             buf: DataBuffer::with_capacity(capacity),
         }
     }
@@ -70,7 +77,7 @@ impl Frame {
     /// Clear the frame, removing all data.
     pub unsafe fn clear(&mut self) {
         self.pre.clear();
-        self.drawcalls.clear();
+        self.tasks.clear();
         self.post.clear();
         self.buf.clear();
     }
@@ -79,8 +86,8 @@ impl Frame {
     pub unsafe fn dispatch(&mut self, device: &mut Device, dimensions: (u32, u32)) -> Result<()> {
         for v in self.pre.drain(..) {
             match v {
-                PreFrameTask::CreateView(handle, setup) => {
-                    device.create_view(handle, setup)?;
+                PreFrameTask::CreateSurface(handle, setup) => {
+                    device.create_surface(handle, setup)?;
                 }
                 PreFrameTask::CreatePipeline(handle, setup) => {
                     device.create_shader(handle, setup)?;
@@ -91,8 +98,8 @@ impl Frame {
                     device.create_vertex_buffer(handle, setup, buf)?;
                 }
                 PreFrameTask::UpdateVertexBuffer(handle, offset, data) => {
-                    let data = &self.buf.as_bytes(data);
-                    device.update_vertex_buffer(handle, offset, &data)?;
+                    let data = self.buf.as_slice(data);
+                    device.update_vertex_buffer(handle, offset, data)?;
                 }
                 PreFrameTask::CreateIndexBuffer(handle, setup, data) => {
                     let field = &self.buf;
@@ -100,8 +107,8 @@ impl Frame {
                     device.create_index_buffer(handle, setup, buf)?;
                 }
                 PreFrameTask::UpdateIndexBuffer(handle, offset, data) => {
-                    let buf = &self.buf.as_bytes(data);
-                    device.update_index_buffer(handle, offset, &buf)?;
+                    let data = self.buf.as_slice(data);
+                    device.update_index_buffer(handle, offset, data)?;
                 }
                 PreFrameTask::CreateTexture(handle, setup, data) => {
                     let field = &self.buf;
@@ -109,8 +116,8 @@ impl Frame {
                     device.create_texture(handle, setup, buf)?;
                 }
                 PreFrameTask::UpdateTexture(handle, rect, data) => {
-                    let buf = &self.buf.as_bytes(data);
-                    device.update_texture(handle, rect, &buf)?;
+                    let data = self.buf.as_slice(data);
+                    device.update_texture(handle, rect, data)?;
                 }
                 PreFrameTask::CreateRenderTexture(handle, setup) => {
                     device.create_render_texture(handle, setup)?;
@@ -139,16 +146,12 @@ impl Frame {
             }
         }
 
-        for dc in self.drawcalls.drain(..) {
-            device.submit(dc)?;
-        }
-
-        device.flush(&self.buf, dimensions)?;
+        device.flush(&mut self.tasks, &self.buf, dimensions)?;
 
         for v in self.post.drain(..) {
             match v {
-                PostFrameTask::DeleteView(handle) => {
-                    device.delete_view(handle)?;
+                PostFrameTask::DeleteSurface(handle) => {
+                    device.delete_surface(handle)?;
                 }
                 PostFrameTask::DeletePipeline(handle) => {
                     device.delete_shader(handle)?;

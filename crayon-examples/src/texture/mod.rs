@@ -10,7 +10,7 @@ impl_vertex!{
 struct Window {
     _label: graphics::RAIIGuard,
 
-    vso: graphics::ViewStateHandle,
+    surface: graphics::SurfaceHandle,
     shader: graphics::ShaderHandle,
     vbo: graphics::VertexBufferHandle,
     texture: graphics::TextureHandle,
@@ -40,14 +40,14 @@ impl Window {
 
         // Create vertex buffer object.
         let mut setup = graphics::VertexBufferSetup::default();
-        setup.num = verts.len();
+        setup.num = verts.len() as u32;
         setup.layout = Vertex::layout();
         let vbo = label
             .create_vertex_buffer(setup, Some(Vertex::as_bytes(&verts[..])))?;
 
         // Create the view state.
-        let setup = graphics::ViewStateSetup::default();
-        let vso = label.create_view(setup)?;
+        let setup = graphics::SurfaceSetup::default();
+        let surface = label.create_surface(setup)?;
 
         // Create shader state.
         let mut setup = graphics::ShaderSetup::default();
@@ -64,7 +64,7 @@ impl Window {
             .unwrap();
 
         Ok(Window {
-               vso: vso,
+               surface: surface,
                shader: shader,
                vbo: vbo,
                texture: texture,
@@ -77,10 +77,11 @@ impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
         let video = ctx.shared::<GraphicsSystem>();
 
-        let mut dc = DrawCall::new(self.vso, self.shader);
+        let mut dc = DrawCall::new(self.shader);
         dc.set_mesh(self.vbo, None);
         dc.set_uniform_variable("renderedTexture", self.texture);
-        dc.submit(&video, graphics::Primitive::Triangles, 0, 6)?;
+        let task = dc.draw(graphics::Primitive::Triangles, 0, 6)?;
+        video.submit(self.surface, task)?;
 
         Ok(())
     }
