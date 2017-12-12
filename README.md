@@ -22,9 +22,11 @@ For the sake of brevity, you can also run a simple and quick example with comman
 
 ``` sh
 git clone git@github.com:shawnscode/crayon.git && cd crayon/crayon-examples
-cargo run canvas
+cargo run imgui
 ```
 
 ### Examples and Screenshots
 
-[Here](./crayon-examples).
+Check out [here](./crayon-examples) for details.
+
+![ImGui](./crayon-examples/screenshots/imgui.png)
