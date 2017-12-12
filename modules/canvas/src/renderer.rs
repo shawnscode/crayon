@@ -19,7 +19,7 @@ pub struct CanvasRenderer {
     _video_label: graphics::RAIIGuard,
     video: Arc<graphics::GraphicsSystemShared>,
 
-    vso: graphics::SurfaceHandle,
+    surface: graphics::SurfaceHandle,
     shader: graphics::ShaderHandle,
     vbo: graphics::VertexBufferHandle,
     ibo: graphics::IndexBufferHandle,
@@ -40,7 +40,7 @@ impl CanvasRenderer {
 
         let mut setup = graphics::SurfaceSetup::default();
         setup.clear_color = Some(utils::Color::gray());
-        let vso = label.create_view(setup)?;
+        let surface = label.create_view(setup)?;
 
         let layout = graphics::AttributeLayoutBuilder::new()
             .with(graphics::VertexAttribute::Position, 2)
@@ -79,7 +79,7 @@ impl CanvasRenderer {
                _video_label: label,
                video: video.clone(),
 
-               vso: vso,
+               surface: surface,
                shader: shader,
                vbo: vbo,
                ibo: ibo,
@@ -141,23 +141,26 @@ impl CanvasRenderer {
 
         {
             let slice = CanvasVertex::as_bytes(&self.verts);
-            self.video.update_vertex_buffer(self.vbo, 0, slice)?;
+            let task = graphics::BucketTask::update_vertex_buffer(self.vbo, 0, slice);
+            self.video.submit(self.surface, task)?;
 
             let slice = graphics::IndexFormat::as_bytes(&self.idxes);
-            self.video.update_index_buffer(self.ibo, 0, slice)?;
+            let task = graphics::BucketTask::update_index_buffer(self.ibo, 0, slice);
+            self.video.submit(self.surface, task)?;
         }
 
-        let mut dc = graphics::DrawCall::new(self.vso, self.shader);
-        dc.set_mesh(self.vbo, self.ibo);
+        {
+            let mut dc = graphics::DrawCall::new(self.shader);
 
-        if let Some(texture) = self.current_texture {
-            dc.set_uniform_variable("mainTexture", texture);
+            if let Some(texture) = self.current_texture {
+                dc.set_uniform_variable("mainTexture", texture);
+            }
+
+            dc.set_mesh(self.vbo, self.ibo);
+
+            let task = dc.draw(graphics::Primitive::Triangles, 0, self.idxes.len() as u32)?;
+            self.video.submit(self.surface, task)?;
         }
-
-        dc.submit(&self.video,
-                    graphics::Primitive::Triangles,
-                    0,
-                    self.idxes.len() as u32)?;
 
         self.verts.clear();
         self.idxes.clear();

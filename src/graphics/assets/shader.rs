@@ -106,21 +106,6 @@ impl AttributeLayoutBuilder {
     }
 }
 
-/// Defines how the input vertex data is used to assemble primitives.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum Primitive {
-    /// Separate points.
-    Points,
-    /// Separate lines.
-    Lines,
-    /// Line strips.
-    LineStrip,
-    /// Separate triangles.
-    Triangles,
-    /// Triangle strips.
-    TriangleStrip,
-}
-
 /// Specify whether front- or back-facing polygons can be culled.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum CullFace {

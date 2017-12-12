@@ -61,7 +61,7 @@ pub mod errors;
 pub mod graphics;
 pub mod window;
 pub mod guard;
-pub mod drawcall;
+pub mod bucket;
 pub mod material;
 
 pub use self::assets::surface::*;
@@ -76,7 +76,7 @@ pub use self::graphics::{GraphicsSystem, GraphicsSystemShared, GraphicsFrameInfo
 pub use self::window::{Window, WindowBuilder};
 
 pub use self::guard::RAIIGuard;
-pub use self::drawcall::DrawCall;
+pub use self::bucket::{BucketTask, DrawCall};
 pub use self::material::Material;
 
 /// Maximum number of attributes in vertex layout.

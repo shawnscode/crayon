@@ -210,7 +210,7 @@ impl Device {
     unsafe fn rebind_surface(&self, handle: SurfaceHandle, dimensions: (u16, u16)) -> Result<()> {
         let surface = self.surfaces.get(handle).ok_or(ErrorKind::InvalidHandle)?;
 
-        // Bind frame buffer and clear it.
+        // Bind frame buffer.
         if let Some(fbo) = surface.setup.framebuffer {
             if let Some(fbo) = self.framebuffers.get(fbo) {
                 self.visitor.bind_framebuffer(fbo.id, true)?;
@@ -221,16 +221,18 @@ impl Device {
             self.visitor.bind_framebuffer(0, false)?;
         }
 
+        // Bind the viewport and scissor box.
+        let vp = surface.setup.viewport;
+        self.visitor.set_viewport(vp.0, vp.1.unwrap_or(dimensions))?;
+
+        // Disable scissor.
+        self.visitor.set_scissor(Scissor::Disable)?;
+
         // Clear frame buffer.
         self.visitor
             .clear(surface.setup.clear_color,
                    surface.setup.clear_depth,
                    surface.setup.clear_stencil)?;
-
-        // Bind the viewport and scissor box.
-        let vp = surface.setup.viewport;
-        self.visitor.set_viewport(vp.0, vp.1.unwrap_or(dimensions))?;
-        self.visitor.set_scissor(Scissor::Disable)?;
 
         Ok(())
     }

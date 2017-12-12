@@ -12,6 +12,7 @@ use super::*;
 use super::errors::*;
 use super::backend::frame::*;
 use super::backend::device::Device;
+use super::bucket::BucketTask;
 use super::window::Window;
 use super::assets::texture_loader::{TextureLoader, TextureParser, TextureState};
 
@@ -182,26 +183,34 @@ impl GraphicsSystemShared {
         self.dimensions.read().unwrap().1
     }
 
-    /// Submit a drawcall into bucket `Surface`.
-    pub fn submit(&self,
-                  surface: SurfaceHandle,
-                  shader: ShaderHandle,
-                  uniforms: &[(HashValue<str>, UniformVariable)],
-                  vb: VertexBufferHandle,
-                  ib: Option<IndexBufferHandle>,
-                  primitive: Primitive,
-                  from: u32,
-                  len: u32)
-                  -> Result<()> {
+    /// Submit a task into named bucket.
+    ///
+    /// Tasks inside bucket will be executed in sequential order.
+    pub fn submit<'a, T>(&self, surface: SurfaceHandle, task: T) -> Result<()>
+        where T: Into<BucketTask<'a>>
+    {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
         }
 
-        if !self.vertex_buffers.read().unwrap().is_alive(vb.into()) {
+        match task.into() {
+            BucketTask::DrawCall(dc) => self.submit_drawcall(surface, dc),
+            BucketTask::VertexBufferUpdate(vbu) => self.submit_update_vertex_buffer(surface, vbu),
+            BucketTask::IndexBufferUpdate(ibu) => self.submit_update_index_buffer(surface, ibu),
+            BucketTask::TextureUpdate(tu) => self.submit_update_texture(surface, tu),
+            BucketTask::SetScissor(sc) => self.submit_set_scissor(surface, sc),
+        }
+    }
+
+    fn submit_drawcall<'a>(&self,
+                           surface: SurfaceHandle,
+                           dc: bucket::BucketDrawCall<'a>)
+                           -> Result<()> {
+        if !self.vertex_buffers.read().unwrap().is_alive(dc.vbo.into()) {
             bail!("Undefined vertex buffer handle.");
         }
 
-        if let Some(ib) = ib {
+        if let Some(ib) = dc.ibo {
             if !self.index_buffers.read().unwrap().is_alive(ib.into()) {
                 bail!("Undefined index buffer handle.");
             }
@@ -213,8 +222,8 @@ impl GraphicsSystemShared {
             let mut pack = [None; MAX_UNIFORM_VARIABLES];
             let mut len = 0;
 
-            if let Some(shader) = self.shaders.read().unwrap().get(shader.into()) {
-                for &(n, v) in uniforms {
+            if let Some(shader) = self.shaders.read().unwrap().get(dc.shader.into()) {
+                for &(n, v) in dc.uniforms {
                     if let Some(location) = shader.get(&n) {
                         pack[*location] = Some(frame.buf.extend(&v));
                         len = len.max((*location + 1));
@@ -230,46 +239,45 @@ impl GraphicsSystemShared {
         };
 
         let dc = FrameDrawCall {
-            shader: shader,
+            shader: dc.shader,
             uniforms: uniforms,
-            vb: vb,
-            ib: ib,
-            primitive: primitive,
-            from: from,
-            len: len,
+            vb: dc.vbo,
+            ib: dc.ibo,
+            primitive: dc.primitive,
+            from: dc.from,
+            len: dc.len,
         };
 
         frame.tasks.push((surface, FrameTask::DrawCall(dc)));
         Ok(())
     }
 
-    /// Submit surface updating task into bucket `Surface`.
-    pub fn submit_update_surface(&self, surface: SurfaceHandle, scissor: Scissor) -> Result<()> {
+    fn submit_set_scissor(&self,
+                          surface: SurfaceHandle,
+                          su: bucket::BucketScissorUpdate)
+                          -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
         }
 
         let mut frame = self.frames.front();
-        let task = FrameTask::UpdateSurface(scissor);
+        let task = FrameTask::UpdateSurface(su.scissor);
         frame.tasks.push((surface, task));
         Ok(())
     }
 
-    /// Submit vertex buffer updating task into bucket `Surface`.
-    pub fn submit_update_vertex_buffer(&self,
-                                       surface: SurfaceHandle,
-                                       vbo: VertexBufferHandle,
-                                       offset: usize,
-                                       data: &[u8])
-                                       -> Result<()> {
+    fn submit_update_vertex_buffer(&self,
+                                   surface: SurfaceHandle,
+                                   vbu: bucket::BucketVertexBufferUpdate)
+                                   -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
         }
 
-        if self.vertex_buffers.read().unwrap().is_alive(vbo.into()) {
+        if self.vertex_buffers.read().unwrap().is_alive(vbu.vbo.into()) {
             let mut frame = self.frames.front();
-            let ptr = frame.buf.extend_from_slice(data);
-            let task = FrameTask::UpdateVertexBuffer(vbo, offset, ptr);
+            let ptr = frame.buf.extend_from_slice(vbu.data);
+            let task = FrameTask::UpdateVertexBuffer(vbu.vbo, vbu.offset, ptr);
             frame.tasks.push((surface, task));
             Ok(())
         } else {
@@ -277,21 +285,18 @@ impl GraphicsSystemShared {
         }
     }
 
-    /// Submit index buffer updating task into bucket `Surface`.
-    pub fn submit_update_index_buffer(&self,
-                                      surface: SurfaceHandle,
-                                      ibo: IndexBufferHandle,
-                                      offset: usize,
-                                      data: &[u8])
-                                      -> Result<()> {
+    fn submit_update_index_buffer(&self,
+                                  surface: SurfaceHandle,
+                                  ibu: bucket::BucketIndexBufferUpdate)
+                                  -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
         }
 
-        if self.index_buffers.read().unwrap().is_alive(ibo.into()) {
+        if self.index_buffers.read().unwrap().is_alive(ibu.ibo.into()) {
             let mut frame = self.frames.front();
-            let ptr = frame.buf.extend_from_slice(data);
-            let task = FrameTask::UpdateIndexBuffer(ibo, offset, ptr);
+            let ptr = frame.buf.extend_from_slice(ibu.data);
+            let task = FrameTask::UpdateIndexBuffer(ibu.ibo, ibu.offset, ptr);
             frame.tasks.push((surface, task));
             Ok(())
         } else {
@@ -299,22 +304,19 @@ impl GraphicsSystemShared {
         }
     }
 
-    /// Submit texture updating task into bucket `Surface`.
-    pub fn submit_update_texture(&self,
-                                 surface: SurfaceHandle,
-                                 texture: TextureHandle,
-                                 rect: Rect,
-                                 data: &[u8])
-                                 -> Result<()> {
+    fn submit_update_texture(&self,
+                             surface: SurfaceHandle,
+                             tu: bucket::BucketTextureUpdate)
+                             -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
         }
 
-        if let Some(state) = self.textures.read().unwrap().get(texture.into()) {
+        if let Some(state) = self.textures.read().unwrap().get(tu.texture.into()) {
             if TextureState::Ready == *state.read().unwrap() {
                 let mut frame = self.frames.front();
-                let ptr = frame.buf.extend_from_slice(data);
-                let task = FrameTask::UpdateTexture(texture, rect, ptr);
+                let ptr = frame.buf.extend_from_slice(tu.data);
+                let task = FrameTask::UpdateTexture(tu.texture, tu.rect, ptr);
                 frame.tasks.push((surface, task));
             }
 

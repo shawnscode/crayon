@@ -17,6 +17,22 @@ pub enum BufferHint {
     Dynamic,
 }
 
+/// Defines how the input vertex data is used to assemble primitives.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum Primitive {
+    /// Separate points.
+    Points,
+    /// Separate lines.
+    Lines,
+    /// Line strips.
+    LineStrip,
+    /// Separate triangles.
+    Triangles,
+    /// Triangle strips.
+    TriangleStrip,
+}
+
+
 #[derive(Debug, Copy, Clone)]
 pub struct IndexBufferSetup {
     /// Usage hints.
