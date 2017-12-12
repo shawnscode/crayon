@@ -8,6 +8,6 @@ travis-ci = { repository = "shawnscode/crayon", branch = "master" }
 
 [dependencies]
 rand = "0.3.18"
-image = "0.17.0"
+image = "0.18.0"
 crayon = { path = "..", version = "0.0.6" }
 crayon-imgui = { path = "../modules/imgui", version = "0.0.6" }

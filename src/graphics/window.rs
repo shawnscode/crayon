@@ -78,7 +78,7 @@ impl Window {
     /// These are the dimensions of the frame buffer.
     #[inline]
     pub fn dimensions(&self) -> Option<(u32, u32)> {
-        self.window.get_inner_size_pixels()
+        self.window.get_inner_size()
     }
 
     /// Returns the size in points of the client area of the window.
@@ -86,7 +86,10 @@ impl Window {
     /// The client area is the content of the window, excluding the title bar and borders.
     #[inline]
     pub fn point_dimensions(&self) -> Option<(u32, u32)> {
-        self.window.get_inner_size_points()
+        let hdpi_factor = self.window.hidpi_factor();
+        self.window
+            .get_inner_size()
+            .map(|v| ((v.0 as f32 / hdpi_factor) as u32, (v.1 as f32 / hdpi_factor) as u32))
     }
 
     /// Set the context as the active context in this thread.

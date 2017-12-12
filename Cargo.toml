@@ -19,9 +19,9 @@ travis-ci = { repository = "shawnscode/crayon", branch = "master" }
 members = [ "crayon-examples", "modules/imgui" ]
 
 [dependencies]
-libc = "0.2.33"
-gl = "0.6.5"
-glutin = "0.10.1"
+libc = "0.2.34"
+gl = "0.7.0"
+glutin = "0.11.0"
 
 lazy_static = "1.0.0"
 error-chain = "0.11.0"

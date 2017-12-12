@@ -10,5 +10,5 @@ categories = ["multimedia", "gui"]
 
 [dependencies]
 crayon = { path = "../../", version = "0.0.6" }
-imgui = { git = "https://github.com/Gekkio/imgui-rs" }
+imgui = "0.0.17"
 error-chain = "0.11.0"
