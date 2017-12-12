@@ -3,13 +3,13 @@
 /// A structure containing configuration data for the game engine, which are
 /// used to specify hardware setup stuff to create the window and other
 /// context information.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default)]
 pub struct Settings {
     pub engine: EngineSettings,
     pub window: WindowSettings,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct EngineSettings {
     pub min_fps: u32,
     pub max_fps: u32,
@@ -28,7 +28,7 @@ impl Default for EngineSettings {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct WindowSettings {
     pub title: String,
     pub width: u32,

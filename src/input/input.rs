@@ -104,7 +104,7 @@ impl InputSystem {
                                                }))
             }
 
-            glutin::WindowEvent::MouseMoved {
+            glutin::WindowEvent::CursorMoved {
                 device_id: _,
                 position: (x, y),
             } => {

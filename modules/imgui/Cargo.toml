@@ -1,6 +1,6 @@
 [package]
 name = "crayon-imgui"
-version = "0.0.6"
+version = "0.0.7"
 authors = ["Jingkai Mao <oammix@gmail.com>"]
 description = "Crayon's ImGui."
 repository = "https://github.com/shawnscode/crayon"
@@ -9,6 +9,6 @@ keywords = ["crayon", "game-dev", "ui", "gui"]
 categories = ["multimedia", "gui"]
 
 [dependencies]
-crayon = { path = "../../", version = "0.0.6" }
-imgui = { git = "https://github.com/Gekkio/imgui-rs" }
+crayon = { path = "../../", version = "0.0.7" }
+imgui = "0.0.17"
 error-chain = "0.11.0"
