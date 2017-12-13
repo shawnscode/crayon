@@ -28,3 +28,5 @@ pub mod graphics;
 pub mod resource;
 pub mod input;
 pub mod prelude;
+
+pub use application::event;

@@ -13,6 +13,7 @@ mod utils;
 mod texture;
 mod render_target;
 mod imgui;
+mod input;
 
 const USAGE: &'static str = "";
 
@@ -28,11 +29,12 @@ fn main() {
         usage();
     }
 
-    let name = &args[1];
-    match &name[..] {
-        "texture" => texture::main(&args[1..]),
-        "render_target" => render_target::main(&args[1..]),
-        "imgui" => imgui::main(&args[1..]),
+    let name = args[1].clone();
+    match args[1].as_str() {
+        "texture" => texture::main(name, &args[1..]),
+        "render_target" => render_target::main(name, &args[1..]),
+        "imgui" => imgui::main(name, &args[1..]),
+        "input" => input::main(name, &args[1..]),
         _ => usage(),
     }
 }

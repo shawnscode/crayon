@@ -8,7 +8,6 @@ use gl;
 use glutin;
 use glutin::GlContext;
 
-use input;
 use super::backend::capabilities::{Capabilities, Version};
 use super::errors::*;
 
@@ -168,7 +167,7 @@ impl WindowBuilder {
         Default::default()
     }
 
-    pub fn build(self, events: &input::InputSystem) -> Result<Window> {
+    pub fn build(self, events: &glutin::EventsLoop) -> Result<Window> {
         let profile = match self.profile {
             OpenGLProfile::Core => glutin::GlProfile::Core,
             OpenGLProfile::Compatibility => glutin::GlProfile::Compatibility,
@@ -195,7 +194,7 @@ impl WindowBuilder {
             .with_gl(api)
             .with_vsync(self.vsync);
 
-        let window = glutin::GlWindow::new(window, context, &events.underlaying())?;
+        let window = glutin::GlWindow::new(window, context, events)?;
 
         let capabilities = unsafe {
             window.make_current()?;

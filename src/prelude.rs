@@ -10,6 +10,7 @@ pub use resource::{ResourceSystem, Location};
 
 pub use application::{Application, Context, FrameInfo, Engine, Settings};
 pub use application::errors;
+pub use application::event;
 
 pub use graphics;
 pub use graphics::{GraphicsSystem, DrawCall};

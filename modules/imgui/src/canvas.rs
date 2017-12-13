@@ -1,5 +1,5 @@
 use imgui;
-use crayon::{application, graphics, input};
+use crayon::{application, graphics, input, event};
 use errors::*;
 
 pub struct Canvas {
@@ -53,39 +53,55 @@ impl Canvas {
     }
 
     fn update_keycode_state(imgui: &mut imgui::ImGui, input: &input::InputSystemShared) {
-        use self::input::KeyboardButton;
+        use self::event::KeyboardButton;
 
-        imgui.set_key(0, input.is_key_press(KeyboardButton::Tab));
-        imgui.set_key(1, input.is_key_press(KeyboardButton::Left));
-        imgui.set_key(2, input.is_key_press(KeyboardButton::Right));
-        imgui.set_key(3, input.is_key_press(KeyboardButton::Up));
-        imgui.set_key(4, input.is_key_press(KeyboardButton::Down));
-        imgui.set_key(5, input.is_key_press(KeyboardButton::PageUp));
-        imgui.set_key(6, input.is_key_press(KeyboardButton::PageDown));
-        imgui.set_key(7, input.is_key_press(KeyboardButton::Home));
-        imgui.set_key(8, input.is_key_press(KeyboardButton::End));
-        imgui.set_key(9, input.is_key_press(KeyboardButton::Delete));
-        imgui.set_key(10, input.is_key_press(KeyboardButton::Back));
-        imgui.set_key(11, input.is_key_press(KeyboardButton::Return));
-        imgui.set_key(12, input.is_key_press(KeyboardButton::Escape));
-        imgui.set_key(13, input.is_key_press(KeyboardButton::A));
-        imgui.set_key(14, input.is_key_press(KeyboardButton::C));
-        imgui.set_key(15, input.is_key_press(KeyboardButton::V));
-        imgui.set_key(16, input.is_key_press(KeyboardButton::X));
-        imgui.set_key(17, input.is_key_press(KeyboardButton::Y));
-        imgui.set_key(18, input.is_key_press(KeyboardButton::Z));
+        imgui.set_key(0, input.is_key_down(KeyboardButton::Tab));
+        imgui.set_key(1, input.is_key_down(KeyboardButton::Left));
+        imgui.set_key(2, input.is_key_down(KeyboardButton::Right));
+        imgui.set_key(3, input.is_key_down(KeyboardButton::Up));
+        imgui.set_key(4, input.is_key_down(KeyboardButton::Down));
+        imgui.set_key(5, input.is_key_down(KeyboardButton::PageUp));
+        imgui.set_key(6, input.is_key_down(KeyboardButton::PageDown));
+        imgui.set_key(7, input.is_key_down(KeyboardButton::Home));
+        imgui.set_key(8, input.is_key_down(KeyboardButton::End));
+        imgui.set_key(9, input.is_key_down(KeyboardButton::Delete));
+        imgui.set_key(10, input.is_key_down(KeyboardButton::Back));
+        imgui.set_key(11, input.is_key_down(KeyboardButton::Return));
+        imgui.set_key(12, input.is_key_down(KeyboardButton::Escape));
+        imgui.set_key(13, input.is_key_down(KeyboardButton::A));
+        imgui.set_key(14, input.is_key_down(KeyboardButton::C));
+        imgui.set_key(15, input.is_key_down(KeyboardButton::V));
+        imgui.set_key(16, input.is_key_down(KeyboardButton::X));
+        imgui.set_key(17, input.is_key_down(KeyboardButton::Y));
+        imgui.set_key(18, input.is_key_down(KeyboardButton::Z));
+
+        imgui.set_key_ctrl(input.is_key_down(KeyboardButton::LControl) ||
+                           input.is_key_down(KeyboardButton::RControl));
+
+        imgui.set_key_shift(input.is_key_down(KeyboardButton::LShift) ||
+                            input.is_key_down(KeyboardButton::RShift));
+
+        imgui.set_key_alt(input.is_key_down(KeyboardButton::LAlt) ||
+                          input.is_key_down(KeyboardButton::RAlt));
+
+        imgui.set_key_super(input.is_key_down(KeyboardButton::LWin) ||
+                            input.is_key_down(KeyboardButton::RWin));
     }
 
     fn update_mouse_state(imgui: &mut imgui::ImGui, input: &input::InputSystemShared) {
+        use self::event::MouseButton;
+
         let scale = imgui.display_framebuffer_scale();
 
         let pos = input.mouse_position();
         let pos = (pos.0 as f32 / scale.0, pos.1 as f32 / scale.1);
         imgui.set_mouse_pos(pos.0, pos.1);
 
-        let l = input.is_mouse_down(input::MouseButton::Left);
-        let r = input.is_mouse_down(input::MouseButton::Right);
-        let m = input.is_mouse_down(input::MouseButton::Middle);
+        let l = input.is_mouse_down(MouseButton::Left);
+        let r = input.is_mouse_down(MouseButton::Right);
+        let m = input.is_mouse_down(MouseButton::Middle);
         imgui.set_mouse_down(&[l, r, m, false, false]);
+
+        imgui.set_mouse_wheel(input.mouse_scroll().1 as f32);
     }
 }

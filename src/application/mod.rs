@@ -15,6 +15,7 @@
 pub mod errors;
 pub mod settings;
 pub mod context;
+pub mod event;
 
 pub use self::settings::Settings;
 pub use self::context::Context;
@@ -49,6 +50,11 @@ pub trait Application {
 
     /// `Application::on_post_update` is called after camera has rendered the scene.
     fn on_post_update(&mut self, _: &Context, _: &FrameInfo) -> Result<()> {
+        Ok(())
+    }
+
+    /// `Application::on_update` is called when receiving application event.
+    fn on_receive_event(&mut self, _: &Context, _: event::ApplicationEvent) -> Result<()> {
         Ok(())
     }
 
