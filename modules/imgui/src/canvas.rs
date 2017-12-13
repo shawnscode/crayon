@@ -23,7 +23,9 @@ impl Canvas {
         let duration = ctx.frame_delta();
         let ts = duration.as_secs() as f32 + duration.subsec_nanos() as f32 / 1_000_000_000.0;
 
-        self.canvas.frame(v.dimensions(), v.point_dimensions(), ts)
+        //
+        let (dp, d) = (v.dimensions_in_pixels(), v.dimensions());
+        self.canvas.frame(d, dp, ts)
     }
 
     fn bind_keycode(imgui: &mut imgui::ImGui) {

@@ -109,7 +109,8 @@ impl Device {
     pub fn flush(&mut self,
                  tasks: &mut [(SurfaceHandle, FrameTask)],
                  buf: &DataBuffer,
-                 dimensions: (u32, u32))
+                 dimensions: (u32, u32),
+                 hidpi: f32)
                  -> Result<()> {
         // Sort frame tasks by user defined priorities. Notes that Slice::sort_by
         // is stable, which means it does not reorder equal elements, so it will
@@ -127,7 +128,7 @@ impl Device {
             for v in tasks {
                 if surface != Some(v.0) {
                     surface = Some(v.0);
-                    self.rebind_surface(v.0, dimensions)?;
+                    self.rebind_surface(v.0, dimensions, hidpi)?;
                 }
 
                 match v.1 {
@@ -209,7 +210,11 @@ impl Device {
         check()
     }
 
-    unsafe fn rebind_surface(&self, handle: SurfaceHandle, dimensions: (u16, u16)) -> Result<()> {
+    unsafe fn rebind_surface(&self,
+                             handle: SurfaceHandle,
+                             dimensions: (u16, u16),
+                             hidpi: f32)
+                             -> Result<()> {
         let surface = self.surfaces.get(handle).ok_or(ErrorKind::InvalidHandle)?;
 
         // Bind frame buffer.
@@ -225,6 +230,8 @@ impl Device {
 
         // Bind the viewport and scissor box.
         let vp = surface.setup.viewport;
+        let dimensions = ((dimensions.0 as f32 * hidpi) as u16,
+                          (dimensions.1 as f32 * hidpi) as u16);
         self.visitor.set_viewport(vp.0, vp.1.unwrap_or(dimensions))?;
 
         // Disable scissor.

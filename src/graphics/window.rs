@@ -72,7 +72,7 @@ impl Window {
         self.window.set_position(x, y);
     }
 
-    /// Returns the size in pixels of the client area of the window.
+    /// Returns the size in points of the client area of the window.
     ///
     /// The client area is the content of the window, excluding the title bar and borders.
     /// These are the dimensions of the frame buffer.
@@ -85,11 +85,18 @@ impl Window {
     ///
     /// The client area is the content of the window, excluding the title bar and borders.
     #[inline]
-    pub fn point_dimensions(&self) -> Option<(u32, u32)> {
+    pub fn dimensions_in_pixels(&self) -> Option<(u32, u32)> {
         let hdpi_factor = self.window.hidpi_factor();
         self.window
             .get_inner_size()
-            .map(|v| ((v.0 as f32 / hdpi_factor) as u32, (v.1 as f32 / hdpi_factor) as u32))
+            .map(|v| ((v.0 as f32 * hdpi_factor) as u32, (v.1 as f32 * hdpi_factor) as u32))
+    }
+
+    /// Returns the ratio between the backing framebuffer resolution and the window size in
+    /// screen pixels. This is typically one for a normal display and two for a retina display.
+    #[inline(always)]
+    pub fn hidpi_factor(&self) -> f32 {
+        self.window.hidpi_factor()
     }
 
     /// Set the context as the active context in this thread.

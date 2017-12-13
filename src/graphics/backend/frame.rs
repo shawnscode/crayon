@@ -83,7 +83,11 @@ impl Frame {
     }
 
     /// Dispatch frame tasks and draw calls to the backend context.
-    pub unsafe fn dispatch(&mut self, device: &mut Device, dimensions: (u32, u32)) -> Result<()> {
+    pub unsafe fn dispatch(&mut self,
+                           device: &mut Device,
+                           dimensions: (u32, u32),
+                           hidpi: f32)
+                           -> Result<()> {
         for v in self.pre.drain(..) {
             match v {
                 PreFrameTask::CreateSurface(handle, setup) => {
@@ -146,7 +150,7 @@ impl Frame {
             }
         }
 
-        device.flush(&mut self.tasks, &self.buf, dimensions)?;
+        device.flush(&mut self.tasks, &self.buf, dimensions, hidpi)?;
 
         for v in self.post.drain(..) {
             match v {

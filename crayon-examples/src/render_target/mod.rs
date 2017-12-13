@@ -65,6 +65,7 @@ impl Window {
             let mut setup = graphics::SurfaceSetup::default();
             setup.framebuffer = Some(fbo);
             setup.clear_color = Some(Color::gray());
+            setup.viewport = ((0, 0), Some((568, 320)));
             let view = label.create_surface(setup)?;
 
             // Create shader state.

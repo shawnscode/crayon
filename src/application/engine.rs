@@ -153,7 +153,7 @@ impl Engine {
 
                 // This will block the main-thread until all the graphics commands
                 // is finished by GPU.
-                let video_info = self.graphics.advance().unwrap();
+                let video_info = self.graphics.advance()?;
                 let duration = tx.recv().unwrap()?;
                 (video_info, duration)
             };
