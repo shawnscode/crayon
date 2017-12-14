@@ -1,13 +1,14 @@
 use std::collections::HashSet;
+use math;
 use event;
 
 pub struct Mouse {
     downs: HashSet<event::MouseButton>,
     presses: HashSet<event::MouseButton>,
     releases: HashSet<event::MouseButton>,
-    last_position: (i32, i32),
-    position: (i32, i32),
-    scrol: (i32, i32),
+    last_position: math::Vector2<f32>,
+    position: math::Vector2<f32>,
+    scrol: math::Vector2<f32>,
 }
 
 impl Mouse {
@@ -16,9 +17,9 @@ impl Mouse {
             downs: HashSet::new(),
             presses: HashSet::new(),
             releases: HashSet::new(),
-            last_position: (0, 0),
-            position: (0, 0),
-            scrol: (0, 0),
+            last_position: math::Vector2::new(0.0, 0.0),
+            position: math::Vector2::new(0.0, 0.0),
+            scrol: math::Vector2::new(0.0, 0.0),
         }
     }
 
@@ -27,22 +28,22 @@ impl Mouse {
         self.downs.clear();
         self.presses.clear();
         self.releases.clear();
-        self.last_position = (0, 0);
-        self.position = (0, 0);
-        self.scrol = (0, 0);
+        self.last_position = math::Vector2::new(0.0, 0.0);
+        self.position = math::Vector2::new(0.0, 0.0);
+        self.scrol = math::Vector2::new(0.0, 0.0);
     }
 
     #[inline(always)]
     pub fn advance(&mut self) {
         self.presses.clear();
         self.releases.clear();
-        self.scrol = (0, 0);
+        self.scrol = math::Vector2::new(0.0, 0.0);
         self.last_position = self.position;
     }
 
     #[inline(always)]
-    pub fn on_move(&mut self, position: (i32, i32)) {
-        self.position = position;
+    pub fn on_move(&mut self, position: (f32, f32)) {
+        self.position = position.into();
     }
 
     #[inline(always)]
@@ -60,8 +61,8 @@ impl Mouse {
     }
 
     #[inline(always)]
-    pub fn on_wheel_scroll(&mut self, delta: (i32, i32)) {
-        self.scrol = delta;
+    pub fn on_wheel_scroll(&mut self, delta: (f32, f32)) {
+        self.scrol = delta.into();
     }
 
     #[inline(always)]
@@ -80,17 +81,17 @@ impl Mouse {
     }
 
     #[inline(always)]
-    pub fn position(&self) -> (i32, i32) {
+    pub fn position(&self) -> math::Vector2<f32> {
         self.position
     }
 
     #[inline(always)]
-    pub fn movement(&self) -> (i32, i32) {
-        (self.position.0 - self.last_position.0, self.position.1 - self.last_position.1)
+    pub fn movement(&self) -> math::Vector2<f32> {
+        self.position - self.last_position
     }
 
     #[inline(always)]
-    pub fn scroll(&self) -> (i32, i32) {
+    pub fn scroll(&self) -> math::Vector2<f32> {
         self.scrol
     }
 }

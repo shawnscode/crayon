@@ -94,7 +94,7 @@ impl Canvas {
         let scale = imgui.display_framebuffer_scale();
 
         let pos = input.mouse_position();
-        let pos = (pos.0 as f32 / scale.0, pos.1 as f32 / scale.1);
+        let pos = (pos.x / scale.0, pos.y / scale.1);
         imgui.set_mouse_pos(pos.0, pos.1);
 
         let l = input.is_mouse_down(MouseButton::Left);
@@ -102,6 +102,6 @@ impl Canvas {
         let m = input.is_mouse_down(MouseButton::Middle);
         imgui.set_mouse_down(&[l, r, m, false, false]);
 
-        imgui.set_mouse_wheel(input.mouse_scroll().1 as f32);
+        imgui.set_mouse_wheel(input.mouse_scroll().y);
     }
 }

@@ -183,19 +183,19 @@ impl InputSystemShared {
 
     /// Returns the mouse position relative to the top-left hand corner of the window.
     #[inline(always)]
-    pub fn mouse_position(&self) -> (i32, i32) {
+    pub fn mouse_position(&self) -> math::Vector2<f32> {
         self.mouse.read().unwrap().position()
     }
 
     /// Returns mouse movement in pixels since last frame.
     #[inline(always)]
-    pub fn mouse_movement(&self) -> (i32, i32) {
+    pub fn mouse_movement(&self) -> math::Vector2<f32> {
         self.mouse.read().unwrap().movement()
     }
 
     /// Returns the scroll movement of mouse in pixels, usually provided by mouse wheel.
     #[inline(always)]
-    pub fn mouse_scroll(&self) -> (i32, i32) {
+    pub fn mouse_scroll(&self) -> math::Vector2<f32> {
         self.mouse.read().unwrap().scroll()
     }
 }

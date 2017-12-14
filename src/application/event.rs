@@ -32,13 +32,13 @@ pub enum InputDeviceEvent {
     /// The cursor has moved on the window.
     /// The parameter are the (x, y) coords in pixels relative to the top-left
     /// corner of th window.
-    MouseMoved { position: (i32, i32) },
+    MouseMoved { position: (f32, f32) },
     /// Pressed event on mouse has been received.
     MousePressed { button: MouseButton },
     /// Released event from mouse has been received.
     MouseReleased { button: MouseButton },
     /// A mouse wheel movement or touchpad scroll occurred.
-    MouseWheel { delta: (i32, i32) },
+    MouseWheel { delta: (f32, f32) },
 
     /// Pressed event on keyboard has been received.
     KeyboardPressed { key: KeyboardButton },
@@ -140,10 +140,10 @@ fn from_window_event(source: glutin::WindowEvent) -> Option<Event> {
 
         glutin::WindowEvent::CursorMoved {
             device_id: _,
-            position: (x, y),
+            position,
         } => {
             Some(Event::InputDevice(InputDeviceEvent::MouseMoved {
-                                        position: (x as i32, y as i32),
+                                        position: (position.0 as f32, position.1 as f32),
                                     }))
         }
 
@@ -155,12 +155,12 @@ fn from_window_event(source: glutin::WindowEvent) -> Option<Event> {
             match delta {
                 glutin::MouseScrollDelta::LineDelta(x, y) => {
                     Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
-                                                delta: (x as i32, y as i32),
+                                                delta: (x as f32, y as f32),
                                             }))
                 }
                 glutin::MouseScrollDelta::PixelDelta(x, y) => {
                     Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
-                                                delta: (x as i32, y as i32),
+                                                delta: (x as f32, y as f32),
                                             }))
                 }
             }

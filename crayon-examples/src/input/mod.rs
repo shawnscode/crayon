@@ -56,9 +56,9 @@ impl Application for Window {
                     let pos = input.mouse_position();
                     let movement = input.mouse_movement();
                     let scroll = input.mouse_scroll();
-                    ui.text(im_str!("Position: ({:.1},{:.1})", pos.0, pos.1));
-                    ui.text(im_str!("Movement: ({:.1}, {:.1})", movement.0, movement.1));
-                    ui.text(im_str!("Scroll: ({:.1}, {:.1})", scroll.0, scroll.1));
+                    ui.text(im_str!("Position: ({:.1},{:.1})", pos.x, pos.y));
+                    ui.text(im_str!("Movement: ({:.1}, {:.1})", movement.x, movement.y));
+                    ui.text(im_str!("Scroll: ({:.1}, {:.1})", scroll.x, scroll.y));
 
                     let is_down = input.is_mouse_down(event::MouseButton::Left);
                     let is_press = input.is_mouse_press(event::MouseButton::Left);
