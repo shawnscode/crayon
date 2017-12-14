@@ -9,7 +9,6 @@ use super::*;
 use graphics;
 use resource;
 use input;
-use input::event;
 use super::context::{Context, ContextSystem};
 
 impl ContextSystem for resource::ResourceSystem {
@@ -37,6 +36,7 @@ pub struct Engine {
     last_frame_timepoint: Instant,
     scheduler: rayon::ThreadPool,
 
+    pub events_loop: event::EventsLoop,
     pub input: input::InputSystem,
     pub window: Arc<graphics::Window>,
     pub graphics: graphics::GraphicsSystem,
@@ -59,7 +59,9 @@ impl Engine {
 
         let input = input::InputSystem::new();
         let input_shared = input.shared();
-        let window = Arc::new(wb.build(&input)?);
+
+        let events_loop = event::EventsLoop::new();
+        let window = Arc::new(wb.build(&events_loop.underlaying())?);
 
         let resource = resource::ResourceSystem::new()?;
         let resource_shared = resource.shared();
@@ -85,6 +87,7 @@ impl Engine {
                last_frame_timepoint: Instant::now(),
                scheduler: scheduler,
 
+               events_loop: events_loop,
                input: input,
                window: window,
                graphics: graphics,
@@ -107,24 +110,29 @@ impl Engine {
         let dir = ::std::env::current_dir()?;
         println!("Run crayon-runtim with working directory {:?}.", dir);
 
-        let mut events = Vec::new();
         let mut alive = true;
         'main: while alive {
-            // Poll any possible events first.
-            events.clear();
+            self.input.advance(self.window.hidpi_factor());
 
-            self.input.run_one_frame(&mut events);
-            for v in events.drain(..) {
-                match v {
+            // Poll any possible events first.
+            for v in self.events_loop.advance() {
+                match *v {
                     event::Event::Application(value) => {
+                        {
+                            let mut application = application.write().unwrap();
+                            let ctx = self.context.read().unwrap();
+                            application.on_receive_event(&ctx, value)?;
+                        }
+
                         match value {
                             event::ApplicationEvent::Closed => {
                                 alive = false;
                             }
-                            other => println!("Drop {:?}.", other),
+                            _ => {}
                         };
                     }
-                    other => println!("Drop {:?}.", other),
+
+                    event::Event::InputDevice(value) => self.input.update_with(value),
                 }
             }
 
@@ -153,7 +161,7 @@ impl Engine {
 
                 // This will block the main-thread until all the graphics commands
                 // is finished by GPU.
-                let video_info = self.graphics.advance().unwrap();
+                let video_info = self.graphics.advance()?;
                 let duration = tx.recv().unwrap()?;
                 (video_info, duration)
             };
@@ -183,7 +191,7 @@ impl Engine {
         {
             let mut application = application.write().unwrap();
             let ctx = self.context.read().unwrap();
-            application.on_exit(&ctx).unwrap();
+            application.on_exit(&ctx)?;
         }
 
         Ok(self)

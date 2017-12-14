@@ -36,7 +36,9 @@ pub struct GraphicsSystem {
     device: Device,
     frames: Arc<DoubleFrame>,
     shared: Arc<GraphicsSystemShared>,
-    last_framebuffer_dimensions: (u32, u32),
+
+    last_dimensions: (u32, u32),
+    last_hidpi: f32,
 }
 
 impl GraphicsSystem {
@@ -49,17 +51,19 @@ impl GraphicsSystem {
         let dimensions = window.dimensions().ok_or(err)?;
 
         let err = ErrorKind::WindowNotExist;
-        let point_dimensions = window.point_dimensions().ok_or(err)?;
+        let dimensions_in_pixels = window.dimensions_in_pixels().ok_or(err)?;
 
         let shared =
-            GraphicsSystemShared::new(resource, frames.clone(), dimensions, point_dimensions);
+            GraphicsSystemShared::new(resource, frames.clone(), dimensions, dimensions_in_pixels);
 
         Ok(GraphicsSystem {
+               last_dimensions: dimensions,
+               last_hidpi: window.hidpi_factor(),
+
                window: window,
                device: device,
                frames: frames,
                shared: Arc::new(shared),
-               last_framebuffer_dimensions: dimensions,
            })
     }
 
@@ -89,14 +93,18 @@ impl GraphicsSystem {
             let dimensions = self.window.dimensions().ok_or(err)?;
 
             let err = ErrorKind::WindowNotExist;
-            let point_dimensions = self.window.point_dimensions().ok_or(err)?;
+            let dimensions_in_pixels = self.window.dimensions_in_pixels().ok_or(err)?;
 
-            if dimensions != self.last_framebuffer_dimensions {
-                self.last_framebuffer_dimensions = dimensions;
+            let hidpi = self.window.hidpi_factor();
+
+            // Resize the window, which would recreate the underlying framebuffer.
+            if dimensions != self.last_dimensions || self.last_hidpi != hidpi {
+                self.last_dimensions = dimensions;
+                self.last_hidpi = hidpi;
                 self.window.resize(dimensions);
             }
 
-            *self.shared.dimensions.write().unwrap() = (dimensions, point_dimensions);
+            *self.shared.dimensions.write().unwrap() = (dimensions, dimensions_in_pixels);
 
             {
                 self.device.run_one_frame()?;
@@ -113,7 +121,7 @@ impl GraphicsSystem {
                         }
                     }
 
-                    frame.dispatch(&mut self.device, dimensions)?;
+                    frame.dispatch(&mut self.device, dimensions, hidpi)?;
                     frame.clear();
                 }
             }
@@ -168,12 +176,12 @@ impl GraphicsSystemShared {
     fn new(resource: Arc<ResourceSystemShared>,
            frames: Arc<DoubleFrame>,
            dimensions: (u32, u32),
-           point_dimensions: (u32, u32))
+           dimensions_in_pixels: (u32, u32))
            -> Self {
         GraphicsSystemShared {
             resource: resource,
             frames: frames,
-            dimensions: RwLock::new((dimensions, point_dimensions)),
+            dimensions: RwLock::new((dimensions, dimensions_in_pixels)),
 
             surfaces: RwLock::new(Registery::new()),
             shaders: RwLock::new(Registery::new()),
@@ -185,20 +193,20 @@ impl GraphicsSystemShared {
         }
     }
 
-    /// Returns the size in pixels of the client area of the window.
+    /// Returns the size in points of the client area of the window.
     ///
     /// The client area is the content of the window, excluding the title bar and borders.
-    /// These are the dimensions of the frame buffer.
     #[inline]
     pub fn dimensions(&self) -> (u32, u32) {
         self.dimensions.read().unwrap().0
     }
 
-    /// Returns the size in points of the client area of the window.
+    /// Returns the size in pixels of the client area of the window.
     ///
     /// The client area is the content of the window, excluding the title bar and borders.
+    /// These are the dimensions of the frame buffer.
     #[inline]
-    pub fn point_dimensions(&self) -> (u32, u32) {
+    pub fn dimensions_in_pixels(&self) -> (u32, u32) {
         self.dimensions.read().unwrap().1
     }
 

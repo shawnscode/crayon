@@ -1,6 +1,10 @@
-pub mod event;
-pub mod input;
+//! Provides unified access to input devices across platforms.
 
-pub use self::event::{Event, ApplicationEvent, WindowEvent, InputDeviceEvent};
-pub use self::event::{KeyboardButton, MouseButton};
+mod keyboard;
+mod mouse;
+mod touchpad;
+
+pub mod input;
 pub use self::input::{InputSystem, InputSystemShared};
+
+pub const MAX_TOUCHES: usize = 4;

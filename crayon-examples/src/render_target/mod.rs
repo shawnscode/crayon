@@ -65,6 +65,7 @@ impl Window {
             let mut setup = graphics::SurfaceSetup::default();
             setup.framebuffer = Some(fbo);
             setup.clear_color = Some(Color::gray());
+            setup.viewport = ((0, 0), Some((568, 320)));
             let view = label.create_surface(setup)?;
 
             // Create shader state.
@@ -144,10 +145,11 @@ impl Application for Window {
     }
 }
 
-pub fn main(_: &[String]) {
+pub fn main(title: String, _: &[String]) {
     let mut settings = Settings::default();
-    settings.window.width = 568;
-    settings.window.height = 320;
+    settings.window.width = 1024;
+    settings.window.height = 768;
+    settings.window.title = title;
 
     let mut engine = Engine::new_with(settings).unwrap();
     let window = Window::new(&mut engine).unwrap();
