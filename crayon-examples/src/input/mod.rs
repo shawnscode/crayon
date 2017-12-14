@@ -10,6 +10,10 @@ struct Window {
     renderer: Renderer,
     info: FrameInfo,
     text: String,
+    repeat_count: u32,
+
+    click_count: u32,
+    double_click_count: u32,
 }
 
 impl Window {
@@ -22,6 +26,9 @@ impl Window {
                renderer: renderer,
                info: Default::default(),
                text: String::new(),
+               repeat_count: 0,
+               click_count: 0,
+               double_click_count: 0,
            })
     }
 }
@@ -29,11 +36,28 @@ impl Window {
 impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
         let input = ctx.shared::<InputSystem>().clone();
+
         self.text += &input.text();
+
+        if input.is_key_repeat(event::KeyboardButton::A) {
+            self.repeat_count += 1;
+        }
+
+        if input.is_mouse_click(event::MouseButton::Left) {
+            self.click_count += 1;
+        }
+
+        if input.is_mouse_double_click(event::MouseButton::Left) {
+            self.double_click_count += 1;
+        }
 
         let ui = self.canvas.paint(&ctx);
         let info = self.info;
         let text = &self.text;
+        let rc = self.repeat_count;
+        let clicks = self.click_count;
+        let double_clicks = self.double_click_count;
+
         ui.window(im_str!("ImGui & Crayon"))
             .movable(false)
             .resizable(false)
@@ -67,16 +91,22 @@ impl Application for Window {
                                     is_down,
                                     is_press,
                                     is_release));
+
+                    ui.text(im_str!("Clicks: ({:.1}, Double Clicks: {:.1})",
+                                    clicks,
+                                    double_clicks));
                 };
 
                 if ui.collapsing_header(im_str!("Keyboard")).build() {
                     let is_down = input.is_key_down(event::KeyboardButton::A);
                     let is_press = input.is_key_press(event::KeyboardButton::A);
                     let is_release = input.is_key_release(event::KeyboardButton::A);
-                    ui.text(im_str!("[A] Down({:?}) Pressed({:?}) Released({:?})",
+
+                    ui.text(im_str!("[A] Pressed({:?}) Down({:?}) Released({:?})",
                                     is_down,
                                     is_press,
                                     is_release));
+                    ui.text(im_str!("[A] Repeat({:?})", rc));
 
                     let is_down = input.is_key_down(event::KeyboardButton::Z);
                     let is_press = input.is_key_press(event::KeyboardButton::Z);

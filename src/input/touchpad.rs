@@ -7,6 +7,31 @@ use math::MetricSpace;
 
 use super::MAX_TOUCHES;
 
+#[derive(Debug, Clone, Copy)]
+pub struct TouchPadSetup {
+    pub min_pan_distance: f32,
+
+    pub tap_timeout: Duration,
+    pub max_tap_distance: f32,
+
+    pub touch_timeout: Duration,
+    pub max_touch_distance: f32,
+}
+
+impl Default for TouchPadSetup {
+    fn default() -> Self {
+        TouchPadSetup {
+            min_pan_distance: 10.0,
+
+            tap_timeout: Duration::from_millis(750),
+            max_tap_distance: 30.0,
+
+            touch_timeout: Duration::from_millis(250),
+            max_touch_distance: 20.0,
+        }
+    }
+}
+
 pub struct TouchPad {
     record: TouchesRecord,
 
@@ -18,17 +43,6 @@ pub struct TouchPad {
 
     double_tap_detector: GestureTapDetector,
     double_tap: GestureTap,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct TouchPadSetup {
-    pub min_pan_distance: f32,
-
-    pub tap_timeout: Duration,
-    pub max_tap_distance: f32,
-
-    pub touch_timeout: Duration,
-    pub max_touch_distance: f32,
 }
 
 impl TouchPad {

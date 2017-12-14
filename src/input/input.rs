@@ -2,7 +2,6 @@
 //! input state and internal events.
 
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
 
 use math;
 use application::event;
@@ -44,7 +43,7 @@ impl InputSystem {
     }
 
     pub(crate) fn advance(&mut self, hidpi: f32) {
-        self.shared.mouse.write().unwrap().advance();
+        self.shared.mouse.write().unwrap().advance(hidpi);
         self.shared.keyboard.write().unwrap().advance();
         self.shared.touchpad.write().unwrap().advance(hidpi);
     }
@@ -98,19 +97,9 @@ pub struct InputSystemShared {
 
 impl InputSystemShared {
     fn new() -> Self {
-        let setup = touchpad::TouchPadSetup {
-            min_pan_distance: 10.0,
-
-            tap_timeout: Duration::from_millis(750),
-            max_tap_distance: 30.0,
-
-            touch_timeout: Duration::from_millis(250),
-            max_touch_distance: 20.0,
-        };
-
-        let kb = keyboard::Keyboard::new(128);
-        let mice = mouse::Mouse::new();
-        let tp = touchpad::TouchPad::new(setup);
+        let kb = keyboard::Keyboard::new(keyboard::KeyboardSetup::default());
+        let mice = mouse::Mouse::new(mouse::MouseSetup::default());
+        let tp = touchpad::TouchPad::new(touchpad::TouchPadSetup::default());
 
         InputSystemShared {
             mouse: RwLock::new(mice),
@@ -146,6 +135,12 @@ impl InputSystemShared {
         self.keyboard.read().unwrap().is_key_release(key)
     }
 
+    /// Checks if a key has been repeated during the last frame.
+    #[inline(always)]
+    pub fn is_key_repeat(&self, key: event::KeyboardButton) -> bool {
+        self.keyboard.read().unwrap().is_key_repeat(key)
+    }
+
     /// Gets captured text during the last frame.
     #[inline(always)]
     pub fn text(&self) -> String {
@@ -179,6 +174,18 @@ impl InputSystemShared {
     #[inline(always)]
     pub fn is_mouse_release(&self, button: event::MouseButton) -> bool {
         self.mouse.read().unwrap().is_button_release(button)
+    }
+
+    /// Checks if a mouse button has been clicked during last frame.
+    #[inline(always)]
+    pub fn is_mouse_click(&self, button: event::MouseButton) -> bool {
+        self.mouse.read().unwrap().is_button_click(button)
+    }
+
+    /// Checks if a mouse button has been double clicked during last frame.
+    #[inline(always)]
+    pub fn is_mouse_double_click(&self, button: event::MouseButton) -> bool {
+        self.mouse.read().unwrap().is_button_double_click(button)
     }
 
     /// Returns the mouse position relative to the top-left hand corner of the window.

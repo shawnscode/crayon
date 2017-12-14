@@ -1,22 +1,48 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
+use std::time::{Instant, Duration};
+
 use event;
 
+#[derive(Debug, Clone, Copy)]
+pub struct KeyboardSetup {
+    pub max_chars: usize,
+    pub repeat_timeout: Duration,
+    pub repeat_interval_timeout: Duration,
+}
+
+impl Default for KeyboardSetup {
+    fn default() -> Self {
+        KeyboardSetup {
+            max_chars: 128,
+            repeat_timeout: Duration::from_millis(500),
+            repeat_interval_timeout: Duration::from_millis(250),
+        }
+    }
+}
+
+enum KeyDownState {
+    Start(Instant),
+    Press(Instant),
+}
+
 pub struct Keyboard {
-    downs: HashSet<event::KeyboardButton>,
+    downs: HashMap<event::KeyboardButton, KeyDownState>,
     presses: HashSet<event::KeyboardButton>,
     releases: HashSet<event::KeyboardButton>,
     chars: Vec<char>,
-    max_chars: usize,
+    setup: KeyboardSetup,
+    now: Instant,
 }
 
 impl Keyboard {
-    pub fn new(max_chars: usize) -> Self {
+    pub fn new(setup: KeyboardSetup) -> Self {
         Keyboard {
-            downs: HashSet::new(),
+            downs: HashMap::new(),
             presses: HashSet::new(),
             releases: HashSet::new(),
-            chars: Vec::with_capacity(max_chars),
-            max_chars: max_chars,
+            chars: Vec::with_capacity(setup.max_chars),
+            setup: setup,
+            now: Instant::now(),
         }
     }
 
@@ -33,12 +59,30 @@ impl Keyboard {
         self.presses.clear();
         self.releases.clear();
         self.chars.clear();
+
+        let last_frame_ts = self.now;
+        for (_, v) in &mut self.downs {
+            match v {
+                &mut KeyDownState::Start(ts) => {
+                    if (last_frame_ts - ts) > self.setup.repeat_timeout {
+                        *v = KeyDownState::Press(ts);
+                    }
+                }
+                &mut KeyDownState::Press(ts) => {
+                    if (last_frame_ts - ts) > self.setup.repeat_interval_timeout {
+                        *v = KeyDownState::Press(last_frame_ts);
+                    }
+                }
+            }
+        }
+
+        self.now = Instant::now();
     }
 
     #[inline(always)]
     pub fn on_key_pressed(&mut self, key: event::KeyboardButton) {
-        if !self.downs.contains(&key) {
-            self.downs.insert(key);
+        if !self.downs.contains_key(&key) {
+            self.downs.insert(key, KeyDownState::Start(self.now));
             self.presses.insert(key);
         }
     }
@@ -51,14 +95,14 @@ impl Keyboard {
 
     #[inline(always)]
     pub fn on_char(&mut self, c: char) {
-        if self.chars.len() < self.max_chars {
+        if self.chars.len() < self.setup.max_chars {
             self.chars.push(c);
         }
     }
 
     #[inline(always)]
     pub fn is_key_down(&self, key: event::KeyboardButton) -> bool {
-        self.downs.contains(&key)
+        self.downs.contains_key(&key)
     }
 
     #[inline(always)]
@@ -69,6 +113,17 @@ impl Keyboard {
     #[inline(always)]
     pub fn is_key_release(&self, key: event::KeyboardButton) -> bool {
         self.releases.contains(&key)
+    }
+
+    pub fn is_key_repeat(&self, key: event::KeyboardButton) -> bool {
+        if let Some(v) = self.downs.get(&key) {
+            match *v {
+                KeyDownState::Start(ts) => (self.now - ts) > self.setup.repeat_timeout,
+                KeyDownState::Press(ts) => (self.now - ts) > self.setup.repeat_interval_timeout,
+            }
+        } else {
+            false
+        }
     }
 
     #[inline(always)]
