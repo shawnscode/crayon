@@ -8,7 +8,7 @@
 //!
 //! The most intuitive and simple setup function could be something like:
 //!
-//! ``` no_run
+//! ```rust,ignore
 //! struct Window { ... }
 //! impl Application for Window { ... }
 //!
@@ -23,6 +23,7 @@
 //!
 //! `Engine` mentioned above is the most fundamental module in crayon. It binds various
 //! essential systems in a central place, and responsible for running the main loop.
+//!
 
 pub mod errors;
 pub mod settings;

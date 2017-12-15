@@ -1,7 +1,7 @@
 use std::collections::{HashSet, HashMap};
 use std::time::{Instant, Duration};
 
-use event;
+use application::event;
 
 /// The setup parameters of keyboard device.
 #[derive(Debug, Clone, Copy)]

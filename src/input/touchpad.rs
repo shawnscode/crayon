@@ -1,7 +1,7 @@
 use std::time::{Instant, Duration};
 use std::cmp::Ordering;
 
-use event::{TouchState, TouchEvent};
+use application::event::{TouchState, TouchEvent};
 use math;
 use math::MetricSpace;
 

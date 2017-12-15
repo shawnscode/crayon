@@ -4,7 +4,7 @@
 //!
 //! To check whether the current platform provides keyboard input, call:
 //!
-//! ```no_run
+//! ```rust,ignore
 //! // Returns true if a keyboard is attached
 //! input.has_keyboard_attached();
 //! ```
@@ -12,7 +12,7 @@
 //! Nothing bad will happen if you call the keyboard functions even if `has_keyboard_
 //! attached` returns false. To check the current state of specific keys:
 //!
-//! ```no_run
+//! ```rust,ignore
 //! // Checks if a key is currently held down.
 //! input.is_key_down(KeyboardButton::A);
 //!
@@ -30,7 +30,7 @@
 //! It's useful to get converted character input instead of raw key codes, to capture
 //! entered text in last frame, you can call:
 //!
-//! ```no_run
+//! ```rust,ignore
 //! // Gets captured text during the last frame.
 //! input.text();
 //! ```
@@ -42,7 +42,7 @@
 //!
 //! To check the state of the mouse buttons, use the following functions:
 //!
-//! ```no_run
+//! ```rust,ignore
 //! // Checks if a mouse button is held down.
 //! input.is_mouse_down(MouseButton::Left);
 //!
@@ -56,7 +56,7 @@
 //! A list of all mouse buttons can be found in the KeyboardButton enumeration. To get
 //! the current mouse position and the last frame's mouse movement in pixels:
 //!
-//! ```no_run
+//! ```rust,ignore
 //! // Gets the mouse position relative to the top-left hand corner of the window.
 //! input.mouse_position();
 //!
@@ -66,7 +66,7 @@
 //!
 //! To get mouse wheel information:
 //!
-//! ```no_run
+//! ```rust,ignore
 //! // Gets the scroll movement of mouse in pixels, usually provided by mouse wheel.
 //! input.mouse_scroll();
 //! ```
@@ -78,7 +78,7 @@
 //!
 //! We also recognize some simple input patterns, like:
 //!
-//! ```no_run
+//! ```rust,ignore
 //! // Checks if a mouse button has been clicked during last frame.
 //! input.mouse_position();
 //!
@@ -93,7 +93,7 @@
 //! touchpads. You can get the touch informations by the finger index, which is
 //! ordered by the first touch time.
 //!
-//! ```no_run
+//! ```rust,ignore
 //! // Checks if the `n`th finger is touched during last frame.
 //! input.is_finger_touched(n);
 //!
@@ -104,7 +104,7 @@
 //! The touch support also addresses a few platform-agnostic gesture recognizers
 //! based on low-level touch inputs.
 //!
-//! ```no_run
+//! ```rust,ignore
 //! // Gets the tap gesture.
 //! match input.finger_tap() {
 //!     // A tap geture is detected during last frame.

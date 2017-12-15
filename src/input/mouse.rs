@@ -3,7 +3,7 @@ use std::time::{Instant, Duration};
 
 use math;
 use math::MetricSpace;
-use event;
+use application::event;
 
 /// The setup parameters of mouse device.
 ///

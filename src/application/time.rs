@@ -1,3 +1,5 @@
+//! Timing and stepping system.
+
 use std;
 use std::time::{Instant, Duration};
 use std::collections::VecDeque;

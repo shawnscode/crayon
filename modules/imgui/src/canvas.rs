@@ -1,5 +1,5 @@
 use imgui;
-use crayon::{application, graphics, input, event, time};
+use crayon::{application, graphics, input};
 use errors::*;
 
 pub struct Canvas {
@@ -20,7 +20,7 @@ impl Canvas {
 
         // Generates frame builder.
         let v = ctx.shared::<graphics::GraphicsSystem>();
-        let duration = ctx.shared::<time::TimeSystem>().frame_delta();
+        let duration = ctx.shared::<application::TimeSystem>().frame_delta();
         let ts = duration.as_secs() as f32 + duration.subsec_nanos() as f32 / 1_000_000_000.0;
 
         //
@@ -53,7 +53,7 @@ impl Canvas {
     }
 
     fn update_keycode_state(imgui: &mut imgui::ImGui, input: &input::InputSystemShared) {
-        use self::event::KeyboardButton;
+        use self::application::event::KeyboardButton;
 
         imgui.set_key(0, input.is_key_down(KeyboardButton::Tab));
         imgui.set_key(1, input.is_key_down(KeyboardButton::Left));
@@ -89,7 +89,7 @@ impl Canvas {
     }
 
     fn update_mouse_state(imgui: &mut imgui::ImGui, input: &input::InputSystemShared) {
-        use self::event::MouseButton;
+        use self::application::event::MouseButton;
 
         let scale = imgui.display_framebuffer_scale();
 

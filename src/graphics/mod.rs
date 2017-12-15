@@ -83,7 +83,7 @@
 //! Surface object also holds references to render target, and wraps rendering operations to
 //! it. Likes clearing, offscreen-rendering, MSAA resolve etc..
 //!
-//! ```no_run
+//! ```rust,ignore
 //! // Creates a `SurfaceSetup` object.
 //! let setup = SurfaceSetup::default();
 //! // Sets he render target of this `Surface` layer. If `framebuffer` is none,
@@ -107,7 +107,7 @@
 //! graphics pipeline. This would also enable us to easily change the order of draw calls
 //! and get rid of redundant state changes.
 //!
-//! ``` no_run
+//! ```rust,ignore
 //! // Creates a `ShaderSetup` object.
 //! let mut setup = ShaderSetup::from(vs, fs, layout, render_state);
 //! setup.layout = /* Layout of shader attributes. */
@@ -146,7 +146,7 @@
 //! can apply different sorting criteria for the same array of draw calls, as long as
 //! u know how the keys were built.
 //!
-//! ```no_run
+//! ```rust,ignore
 //! // Updates the vertex buffer object.
 //! let slice = Vertex::as_bytes(vertices);
 //! let cmd = Command::update_vertex_buffer(vbo, 0, slice);
@@ -170,7 +170,7 @@
 //! Draw call command is a little bit complex than resource manipulations above, so we
 //! provide a helper builder `DrawCall`, it is used as follows:
 //!
-//! ```no_run
+//! ```rust,ignore
 //! // Creates a DrawCall buidler from shader.
 //! let mut dc = graphics::DrawCall::new(self.shader);
 //! // Sets the specified uniform variable.
@@ -179,7 +179,7 @@
 //! // Sets the mesh which is used to assemble primitives.
 //! dc.set_mesh(vbo, ibo);
 //! // Builds a command and submits it.
-//! let cmd = dc.build(graphics::Primitive::Triangles, idx_start, cmd.elem_count)?;
+//! let cmd = dc.build(graphics::Primitive::Triangles, from, len)?;
 //! self.video.submit(self.surface, 0, cmd).unwrap();
 //! ```
 

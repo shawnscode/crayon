@@ -1,3 +1,4 @@
+//! The context of systems that could be accessed from multi-thread environments.
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::any::{Any, TypeId};
@@ -6,7 +7,7 @@ pub trait ContextSystem {
     type Shared: Send + Sync + 'static;
 }
 
-/// The context of systems that could be accessed from multi-thread environments.
+/// The context of sub-systems that could be accessed from multi-thread environments.
 pub struct Context {
     shareds: HashMap<TypeId, Box<Any + Send + Sync>>,
     shutdown: RwLock<bool>,
