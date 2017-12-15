@@ -22,7 +22,7 @@ struct Window {
 
 impl Window {
     pub fn new(engine: &mut Engine) -> errors::Result<Self> {
-        let ctx = engine.context().read().unwrap();
+        let ctx = engine.context();
         let video = ctx.shared::<GraphicsSystem>().clone();
         let mut label = graphics::RAIIGuard::new(video);
 
@@ -58,14 +58,14 @@ impl Window {
 
             // Create custom frame buffer.
             let mut setup = graphics::FrameBufferSetup::default();
-            setup.set_texture_attachment(rendered_texture, Some(0))?;
+            setup.set_attachment(rendered_texture, 0)?;
             let fbo = label.create_framebuffer(setup)?;
 
             // Create the view state for pass 1.
             let mut setup = graphics::SurfaceSetup::default();
-            setup.framebuffer = Some(fbo);
-            setup.clear_color = Some(Color::gray());
-            setup.viewport = ((0, 0), Some((568, 320)));
+            setup.set_order(0);
+            setup.set_framebuffer(fbo);
+            setup.set_clear(Color::gray(), None, None);
             let view = label.create_surface(setup)?;
 
             // Create shader state.
@@ -90,7 +90,8 @@ impl Window {
             let vbo = label
                 .create_vertex_buffer(setup, Some(Vertex::as_bytes(&quad_vertices[..])))?;
 
-            let setup = graphics::SurfaceSetup::default();
+            let mut setup = graphics::SurfaceSetup::default();
+            setup.set_order(1);
             let view = label.create_surface(setup)?;
 
             let mut setup = graphics::ShaderSetup::default();
@@ -125,19 +126,19 @@ impl Application for Window {
         let video = ctx.shared::<GraphicsSystem>();
 
         {
-            let mut dc = DrawCall::new(self.pass.shader);
+            let mut dc = graphics::DrawCall::new(self.pass.shader);
             dc.set_mesh(self.pass.mesh, None);
-            let task = dc.draw(graphics::Primitive::Triangles, 0, 3)?;
-            video.submit(self.pass.view, task)?;
+            let cmd = dc.build(graphics::Primitive::Triangles, 0, 3)?;
+            video.submit(self.pass.view, 0, cmd)?;
         }
 
         {
-            let mut dc = DrawCall::new(self.post_effect.shader);
+            let mut dc = graphics::DrawCall::new(self.post_effect.shader);
             dc.set_mesh(self.post_effect.mesh, None);
             dc.set_uniform_variable("renderedTexture", self.texture);
             dc.set_uniform_variable("time", self.time);
-            let task = dc.draw(graphics::Primitive::Triangles, 0, 6)?;
-            video.submit(self.post_effect.view, task)?;
+            let cmd = dc.build(graphics::Primitive::Triangles, 0, 6)?;
+            video.submit(self.post_effect.view, 1, cmd)?;
         }
 
         self.time += 0.05;
@@ -147,8 +148,8 @@ impl Application for Window {
 
 pub fn main(title: String, _: &[String]) {
     let mut settings = Settings::default();
-    settings.window.width = 1024;
-    settings.window.height = 768;
+    settings.window.width = 568;
+    settings.window.height = 320;
     settings.window.title = title;
 
     let mut engine = Engine::new_with(settings).unwrap();

@@ -31,7 +31,8 @@ impl Renderer {
         let video = ctx.shared::<graphics::GraphicsSystem>();
 
         let mut setup = graphics::SurfaceSetup::default();
-        setup.clear_color = utils::Color::white().into();
+        setup.set_clear(utils::Color::white(), None, None);
+        setup.set_sequence(true);
         let surface = video.create_surface(setup)?;
 
         let layout = graphics::AttributeLayoutBuilder::new()
@@ -115,17 +116,21 @@ impl Renderer {
             let scissor_size = (((cmd.clip_rect.z - cmd.clip_rect.x) * scale_width) as u16,
                                 ((cmd.clip_rect.w - cmd.clip_rect.y) * scale_height) as u16);
 
-            let scissor = graphics::Scissor::Enable(scissor_pos, scissor_size);
-            let task = graphics::BucketTask::set_scissor(scissor);
-            self.video.submit(self.surface, task)?;
+            {
+                let scissor = graphics::Scissor::Enable(scissor_pos, scissor_size);
+                let cmd = graphics::Command::set_scissor(scissor);
+                self.video.submit(self.surface, 0, cmd)?;
+            }
 
-            let mut dc = graphics::DrawCall::new(self.shader);
-            dc.set_uniform_variable("matrix", matrix);
-            dc.set_uniform_variable("texture", self.texture);
-            dc.set_mesh(vbo, ibo);
+            {
+                let mut dc = graphics::DrawCall::new(self.shader);
+                dc.set_uniform_variable("matrix", matrix);
+                dc.set_uniform_variable("texture", self.texture);
+                dc.set_mesh(vbo, ibo);
+                let cmd = dc.build(graphics::Primitive::Triangles, idx_start, cmd.elem_count)?;
 
-            let task = dc.draw(graphics::Primitive::Triangles, idx_start, cmd.elem_count)?;
-            self.video.submit(self.surface, task)?;
+                self.video.submit(self.surface, 0, cmd)?;
+            }
 
             idx_start += cmd.elem_count;
         }
@@ -139,8 +144,8 @@ impl Renderer {
         if let Some((num, handle)) = self.vbo {
             if num >= vertices.len() as u32 {
                 let slice = CanvasVertex::as_bytes(vertices);
-                let task = graphics::BucketTask::update_vertex_buffer(handle, 0, slice);
-                self.video.submit(self.surface, task)?;
+                let cmd = graphics::Command::update_vertex_buffer(handle, 0, slice);
+                self.video.submit(self.surface, 0, cmd)?;
                 return Ok(handle);
             }
 
@@ -168,8 +173,8 @@ impl Renderer {
         if let Some((num, handle)) = self.ibo {
             if num >= indices.len() as u32 {
                 let slice = graphics::IndexFormat::as_bytes(indices);
-                let task = graphics::BucketTask::update_index_buffer(handle, 0, slice);
-                self.video.submit(self.surface, task)?;
+                let cmd = graphics::Command::update_index_buffer(handle, 0, slice);
+                self.video.submit(self.surface, 0, cmd)?;
                 return Ok(handle);
             }
 

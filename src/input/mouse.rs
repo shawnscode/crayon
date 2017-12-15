@@ -3,8 +3,12 @@ use std::time::{Instant, Duration};
 
 use math;
 use math::MetricSpace;
-use event;
+use application::event;
 
+/// The setup parameters of mouse device.
+///
+/// Notes that the `distance` series paramters will be multiplied by HiDPI
+/// factor before recognizing processes.
 #[derive(Debug, Clone, Copy)]
 pub struct MouseSetup {
     pub press_timeout: Duration,

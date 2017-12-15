@@ -23,7 +23,6 @@ impl Window {
             .mount("std", resource::filesystem::DirectoryFS::new("resources")?)?;
 
         let ctx = engine.context();
-        let ctx = ctx.read().unwrap();
         let video = ctx.shared::<GraphicsSystem>().clone();
         let mut label = graphics::RAIIGuard::new(video);
 
@@ -77,11 +76,11 @@ impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
         let video = ctx.shared::<GraphicsSystem>();
 
-        let mut dc = DrawCall::new(self.shader);
+        let mut dc = graphics::DrawCall::new(self.shader);
         dc.set_mesh(self.vbo, None);
         dc.set_uniform_variable("renderedTexture", self.texture);
-        let task = dc.draw(graphics::Primitive::Triangles, 0, 6)?;
-        video.submit(self.surface, task)?;
+        let cmd = dc.build(graphics::Primitive::Triangles, 0, 6)?;
+        video.submit(self.surface, 0, cmd)?;
 
         Ok(())
     }

@@ -1,5 +1,7 @@
 //! Functions for loading game settings.
 
+use input;
+
 /// A structure containing configuration data for the game engine, which are
 /// used to specify hardware setup stuff to create the window and other
 /// context information.
@@ -7,9 +9,10 @@
 pub struct Settings {
     pub engine: EngineSettings,
     pub window: WindowSettings,
+    pub input: InputSettings,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct EngineSettings {
     pub min_fps: u32,
     pub max_fps: u32,
@@ -44,3 +47,5 @@ impl Default for WindowSettings {
         }
     }
 }
+
+pub type InputSettings = input::InputSetup;

@@ -1,20 +1,27 @@
 use std::time::{Instant, Duration};
 use std::cmp::Ordering;
 
-use event::{TouchState, TouchEvent};
+use application::event::{TouchState, TouchEvent};
 use math;
 use math::MetricSpace;
 
 use super::MAX_TOUCHES;
 
+/// The setup parameters of touch pad device.
+///
+/// Notes that the `distance` series paramters will be multiplied by HiDPI
+/// factor before recognizing processes.
 #[derive(Debug, Clone, Copy)]
 pub struct TouchPadSetup {
+    /// The minimum distance before a touch is recognized as panning.
     pub min_pan_distance: f32,
-
+    /// The maximum time duration between two taps.
     pub tap_timeout: Duration,
+    /// The maximum distance between two taps.
     pub max_tap_distance: f32,
-
+    /// The maximum time duration between the touch pressing and releasing.
     pub touch_timeout: Duration,
+    /// The minimum distance before a touch the touch pressing and releasing.
     pub max_touch_distance: f32,
 }
 
