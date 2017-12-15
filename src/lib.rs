@@ -39,7 +39,6 @@ extern crate bit_set;
 
 #[macro_use]
 pub extern crate lazy_static;
-pub extern crate rayon;
 pub extern crate cgmath as math;
 
 #[macro_use]

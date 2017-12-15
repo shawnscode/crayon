@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 use std::time::{Instant, Duration};
 use std::sync::mpsc;
-use rayon;
+use std::thread;
 
 use super::*;
 use graphics;
@@ -29,8 +29,6 @@ impl ContextSystem for time::TimeSystem {
 /// a central place and takes take of trivial tasks like the execution order or life-time
 /// management.
 pub struct Engine {
-    scheduler: rayon::ThreadPool,
-
     pub events_loop: event::EventsLoop,
     pub input: input::InputSystem,
     pub window: Arc<graphics::Window>,
@@ -68,9 +66,6 @@ impl Engine {
         let time = time::TimeSystem::new(settings.engine)?;
         let time_shared = time.shared();
 
-        let confs = rayon::Configuration::new();
-        let scheduler = rayon::ThreadPool::new(confs).unwrap();
-
         let mut context = Context::new();
         context.insert::<resource::ResourceSystem>(resource_shared);
         context.insert::<graphics::GraphicsSystem>(graphics_shared);
@@ -78,8 +73,6 @@ impl Engine {
         context.insert::<time::TimeSystem>(time_shared);
 
         Ok(Engine {
-               scheduler: scheduler,
-
                events_loop: events_loop,
                input: input,
                window: window,
@@ -104,6 +97,13 @@ impl Engine {
 
         let dir = ::std::env::current_dir()?;
         println!("Run crayon-runtim with working directory {:?}.", dir);
+
+        let (task_sender, task_receiver) = mpsc::channel();
+        let (join_sender, join_receiver) = mpsc::channel();
+        Self::main_thread(task_receiver,
+                          join_sender,
+                          self.context.clone(),
+                          application.clone());
 
         let mut alive = true;
         'main: while alive {
@@ -134,23 +134,15 @@ impl Engine {
             self.graphics.swap_frames();
 
             let (video_info, duration) = {
-                let application = application.clone();
-                let (rx, tx) = mpsc::channel();
-
-                let ctx = self.context.clone();
-                let closure = move || {
-                    let v = Engine::execute_frame(&ctx, application);
-                    rx.send(v).unwrap();
-                };
 
                 // Perform update and render submitting for frame [x], and drawing
                 // frame [x-1] at the same time.
-                self.scheduler.spawn(closure);
+                task_sender.send(true).unwrap();
 
                 // This will block the main-thread until all the graphics commands
                 // is finished by GPU.
                 let video_info = self.graphics.advance()?;
-                let duration = tx.recv().unwrap()?;
+                let duration = join_receiver.recv().unwrap()?;
                 (video_info, duration)
             };
 
@@ -161,15 +153,8 @@ impl Engine {
                     fps: self.time.shared().get_fps(),
                 };
 
-                let ctx = self.context.clone();
-                let application = application.clone();
-
-                let closure = || {
-                    let mut application = application.write().unwrap();
-                    application.on_post_update(&ctx, &info)
-                };
-
-                self.scheduler.install(closure)?;
+                let mut application = application.write().unwrap();
+                application.on_post_update(&self.context, &info)?;
             }
 
             alive = alive || !self.context.is_shutdown();
@@ -183,7 +168,25 @@ impl Engine {
         Ok(self)
     }
 
-    fn execute_frame(ctx: &Context, application: Arc<RwLock<Application>>) -> Result<Duration> {
+    fn main_thread<T>(receiver: mpsc::Receiver<bool>,
+                      sender: mpsc::Sender<Result<Duration>>,
+                      context: Arc<Context>,
+                      application: Arc<RwLock<T>>)
+        where T: Application + Send + Sync + 'static
+    {
+        thread::spawn(move || {
+                          //
+                          while receiver.recv().unwrap() {
+                              sender
+                                  .send(Self::execute_frame(&context, &application))
+                                  .unwrap();
+                          }
+                      });
+    }
+
+    fn execute_frame<T>(ctx: &Context, application: &RwLock<T>) -> Result<Duration>
+        where T: Application + Send + Sync + 'static
+    {
         let ts = Instant::now();
 
         let mut application = application.write().unwrap();

@@ -19,5 +19,3 @@ pub use input::InputSystem;
 
 pub use utils;
 pub use utils::{Color, Rect};
-
-pub use rayon;
