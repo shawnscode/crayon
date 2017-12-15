@@ -1,5 +1,5 @@
 use imgui;
-use crayon::{application, graphics, input, event};
+use crayon::{application, graphics, input, event, time};
 use errors::*;
 
 pub struct Canvas {
@@ -20,7 +20,7 @@ impl Canvas {
 
         // Generates frame builder.
         let v = ctx.shared::<graphics::GraphicsSystem>();
-        let duration = ctx.frame_delta();
+        let duration = ctx.shared::<time::TimeSystem>().frame_delta();
         let ts = duration.as_secs() as f32 + duration.subsec_nanos() as f32 / 1_000_000_000.0;
 
         //

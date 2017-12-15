@@ -23,7 +23,6 @@ impl Window {
             .mount("std", resource::filesystem::DirectoryFS::new("resources")?)?;
 
         let ctx = engine.context();
-        let ctx = ctx.read().unwrap();
         let video = ctx.shared::<GraphicsSystem>().clone();
         let mut label = graphics::RAIIGuard::new(video);
 

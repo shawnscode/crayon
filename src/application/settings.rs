@@ -13,7 +13,7 @@ pub struct Settings {
     pub input: InputSettings,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct EngineSettings {
     pub min_fps: u32,
     pub max_fps: u32,

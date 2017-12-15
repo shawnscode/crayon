@@ -18,7 +18,7 @@ struct Window {
 
 impl Window {
     fn new(engine: &mut Engine) -> errors::Result<Self> {
-        let ctx = engine.context().read().unwrap();
+        let ctx = engine.context();
         let (canvas, renderer) = crayon_imgui::new(&ctx).unwrap();
 
         Ok(Window {

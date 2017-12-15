@@ -22,7 +22,7 @@ struct Window {
 
 impl Window {
     pub fn new(engine: &mut Engine) -> errors::Result<Self> {
-        let ctx = engine.context().read().unwrap();
+        let ctx = engine.context();
         let video = ctx.shared::<GraphicsSystem>().clone();
         let mut label = graphics::RAIIGuard::new(video);
 
