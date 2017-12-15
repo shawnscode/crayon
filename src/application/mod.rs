@@ -23,6 +23,7 @@
 //!
 //! `Engine` mentioned above is the most fundamental module in crayon. It binds various
 //! essential systems in a central place, and responsible for running the main loop.
+//!
 
 pub mod errors;
 pub mod settings;

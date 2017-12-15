@@ -1,0 +1,10 @@
+[package]
+name = "shaderc"
+version = "0.0.5"
+authors = ["Jingkai Mao <oammix@gmail.com>"]
+build = "build.rs"
+
+[dependencies]
+
+[build-dependencies]
+cmake = "0.1.19"

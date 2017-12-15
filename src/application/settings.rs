@@ -2,7 +2,6 @@
 
 use input;
 
-
 /// A structure containing configuration data for the game engine, which are
 /// used to specify hardware setup stuff to create the window and other
 /// context information.
