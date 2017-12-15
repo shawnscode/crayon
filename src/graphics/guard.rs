@@ -93,7 +93,7 @@ impl RAIIGuard {
                 Resource::VertexBuffer(handle) => self.video.delete_vertex_buffer(handle),
                 Resource::IndexBuffer(handle) => self.video.delete_index_buffer(handle),
                 Resource::Surface(handle) => self.video.delete_surface(handle),
-                Resource::PipelineState(handle) => self.video.delete_shader(handle),
+                Resource::ShaderState(handle) => self.video.delete_shader(handle),
                 Resource::FrameBuffer(handle) => self.video.delete_framebuffer(handle),
                 Resource::RenderBuffer(handle) => self.video.delete_render_buffer(handle),
             }
@@ -119,7 +119,7 @@ enum Resource {
     VertexBuffer(VertexBufferHandle),
     IndexBuffer(IndexBufferHandle),
     Surface(SurfaceHandle),
-    PipelineState(ShaderHandle),
+    ShaderState(ShaderHandle),
     FrameBuffer(FrameBufferHandle),
     RenderBuffer(RenderBufferHandle),
 }
@@ -150,7 +150,7 @@ impl From<SurfaceHandle> for Resource {
 
 impl From<ShaderHandle> for Resource {
     fn from(handle: ShaderHandle) -> Resource {
-        Resource::PipelineState(handle)
+        Resource::ShaderState(handle)
     }
 }
 

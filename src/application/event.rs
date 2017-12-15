@@ -1,3 +1,5 @@
+//! Responsible for converting window messages to input state and internal events.
+
 use std::slice::Iter;
 use glutin;
 use math;

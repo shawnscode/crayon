@@ -4,18 +4,18 @@ use math;
 use graphics::{MAX_VERTEX_ATTRIBUTES, TextureHandle};
 use super::mesh::{VertexAttribute, VertexLayout};
 
+impl_handle!(ShaderHandle);
+
 /// A `ShaderObject` encapusulate all the informations we need to configurate
 /// OpenGL before real drawing, like shaders, render states, etc.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ShaderSetup {
-    pub layout: AttributeLayout,
     pub render_state: RenderState,
     pub vs: String,
     pub fs: String,
     pub uniform_variables: Vec<String>,
+    pub layout: AttributeLayout,
 }
-
-impl_handle!(ShaderHandle);
 
 // AttributeLayout defines an layout of attributes into program.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

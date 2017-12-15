@@ -1,6 +1,7 @@
 use std::str;
 use std::cell::Cell;
 use std::borrow::Borrow;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use gl;
@@ -107,7 +108,7 @@ impl Device {
     }
 
     pub fn flush(&mut self,
-                 tasks: &mut [(SurfaceHandle, FrameTask)],
+                 tasks: &mut [(SurfaceHandle, u64, FrameTask)],
                  buf: &DataBuffer,
                  dimensions: (u32, u32),
                  hidpi: f32)
@@ -116,10 +117,16 @@ impl Device {
         // is stable, which means it does not reorder equal elements, so it will
         // not change the execution order in one specific surface.
         tasks.sort_by(|lhs, rhs| {
-                          let lv = self.surfaces.get(lhs.0).unwrap();
-                          let rv = self.surfaces.get(rhs.0).unwrap();
-                          rv.setup.order.cmp(&lv.setup.order)
-                      });
+            let lv = self.surfaces.get(lhs.0).unwrap();
+            let rv = self.surfaces.get(rhs.0).unwrap();
+            let mut ord = lv.setup.order.cmp(&rv.setup.order);
+
+            if ord == Ordering::Equal && !lv.setup.sequence {
+                ord = lhs.1.cmp(&rhs.1);
+            }
+
+            ord
+        });
 
         let dimensions = (dimensions.0 as u16, dimensions.1 as u16);
         unsafe {
@@ -131,7 +138,7 @@ impl Device {
                     self.rebind_surface(v.0, dimensions, hidpi)?;
                 }
 
-                match v.1 {
+                match v.2 {
                     FrameTask::DrawCall(dc) => self.draw(dc, buf)?,
 
                     FrameTask::UpdateSurface(scissor) => self.visitor.set_scissor(scissor)?,

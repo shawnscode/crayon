@@ -57,7 +57,7 @@ impl Engine {
         wb.with_title(settings.window.title.clone())
             .with_dimensions(settings.window.width, settings.window.height);
 
-        let input = input::InputSystem::new();
+        let input = input::InputSystem::new(settings.input);
         let input_shared = input.shared();
 
         let events_loop = event::EventsLoop::new();
@@ -208,8 +208,7 @@ impl Engine {
         Ok(time::Instant::now() - ts)
     }
 
-    /// Advance one frame.
-    pub fn advance(&mut self) -> Duration {
+    fn advance(&mut self) -> Duration {
         // Perform waiting loop if maximum fps set, cooperatively gives up
         // a timeslice to the OS scheduler.
         if self.max_fps > 0 {
@@ -288,13 +287,5 @@ impl Engine {
         } else {
             (1000000000.0 / self.timestep.subsec_nanos() as f64) as u32
         }
-    }
-
-    /// Returns timestep of last frame.
-    #[inline]
-    pub fn timestep_in_seconds(&self) -> f32 {
-        let sec = self.timestep.as_secs();
-        let nansec = self.timestep.subsec_nanos() as u64;
-        sec as f32 + (nansec as f32 * 1e-9)
     }
 }

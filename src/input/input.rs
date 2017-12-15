@@ -1,11 +1,16 @@
-//! The input subsystem, which is responsible for converting window messages to
-//! input state and internal events.
-
 use std::sync::{Arc, RwLock};
 
 use math;
 use application::event;
 use super::{keyboard, mouse, touchpad};
+
+/// The setup parameters of all supported input devices.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct InputSetup {
+    pub keyboard: keyboard::KeyboardSetup,
+    pub mouse: mouse::MouseSetup,
+    pub touchpad: touchpad::TouchPadSetup,
+}
 
 /// The `InputSystem` struct are used to manage all the events and corresponding
 /// internal states.
@@ -15,8 +20,8 @@ pub struct InputSystem {
 }
 
 impl InputSystem {
-    pub fn new() -> Self {
-        let shared = Arc::new(InputSystemShared::new());
+    pub fn new(setup: InputSetup) -> Self {
+        let shared = Arc::new(InputSystemShared::new(setup));
 
         InputSystem {
             shared: shared,
@@ -89,6 +94,7 @@ impl InputSystem {
     }
 }
 
+/// The multi-thread friendly APIs of `InputSystem`.
 pub struct InputSystemShared {
     mouse: RwLock<mouse::Mouse>,
     keyboard: RwLock<keyboard::Keyboard>,
@@ -96,10 +102,10 @@ pub struct InputSystemShared {
 }
 
 impl InputSystemShared {
-    fn new() -> Self {
-        let kb = keyboard::Keyboard::new(keyboard::KeyboardSetup::default());
-        let mice = mouse::Mouse::new(mouse::MouseSetup::default());
-        let tp = touchpad::TouchPad::new(touchpad::TouchPadSetup::default());
+    fn new(setup: InputSetup) -> Self {
+        let kb = keyboard::Keyboard::new(setup.keyboard);
+        let mice = mouse::Mouse::new(setup.mouse);
+        let tp = touchpad::TouchPad::new(setup.touchpad);
 
         InputSystemShared {
             mouse: RwLock::new(mice),
@@ -188,19 +194,19 @@ impl InputSystemShared {
         self.mouse.read().unwrap().is_button_double_click(button)
     }
 
-    /// Returns the mouse position relative to the top-left hand corner of the window.
+    /// Gets the mouse position relative to the top-left hand corner of the window.
     #[inline(always)]
     pub fn mouse_position(&self) -> math::Vector2<f32> {
         self.mouse.read().unwrap().position()
     }
 
-    /// Returns mouse movement in pixels since last frame.
+    /// Gets mouse movement in pixels since last frame.
     #[inline(always)]
     pub fn mouse_movement(&self) -> math::Vector2<f32> {
         self.mouse.read().unwrap().movement()
     }
 
-    /// Returns the scroll movement of mouse in pixels, usually provided by mouse wheel.
+    /// Gets the scroll movement of mouse in pixels, usually provided by mouse wheel.
     #[inline(always)]
     pub fn mouse_scroll(&self) -> math::Vector2<f32> {
         self.mouse.read().unwrap().scroll()
@@ -215,13 +221,13 @@ impl InputSystemShared {
         true
     }
 
-    /// Returns true if the `n`th finger is touched.
+    /// Checks if the `n`th finger is touched during last frame.
     #[inline(always)]
     pub fn is_finger_touched(&self, n: usize) -> bool {
         self.touchpad.read().unwrap().is_touched(n)
     }
 
-    /// Returns the position of the `n`th finger.
+    /// Gets the position of the `n`th touched finger.
     #[inline(always)]
     pub fn finger_position(&self, n: usize) -> Option<math::Vector2<f32>> {
         self.touchpad.read().unwrap().position(n)

@@ -13,7 +13,7 @@ pub use application::errors;
 pub use application::event;
 
 pub use graphics;
-pub use graphics::{GraphicsSystem, DrawCall};
+pub use graphics::GraphicsSystem;
 
 pub use input;
 pub use input::InputSystem;

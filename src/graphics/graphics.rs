@@ -12,7 +12,7 @@ use super::*;
 use super::errors::*;
 use super::backend::frame::*;
 use super::backend::device::Device;
-use super::bucket::BucketTask;
+use super::command::Command;
 use super::window::Window;
 use super::assets::texture_loader::{TextureLoader, TextureParser, TextureState};
 
@@ -115,7 +115,7 @@ impl GraphicsSystem {
                     info.drawcall = 0;
                     info.vertices = 0;
                     for v in &frame.tasks {
-                        if let FrameTask::DrawCall(ref dc) = v.1 {
+                        if let FrameTask::DrawCall(ref dc) = v.2 {
                             info.drawcall += 1;
                             info.vertices += dc.len as usize;
                         }
@@ -154,7 +154,7 @@ impl GraphicsSystem {
     }
 }
 
-type PipelineState = HashMap<HashValue<str>, usize>;
+type ShaderState = HashMap<HashValue<str>, usize>;
 
 /// The multi-thread friendly parts of `GraphicsSystem`.
 pub struct GraphicsSystemShared {
@@ -163,7 +163,7 @@ pub struct GraphicsSystemShared {
     dimensions: RwLock<((u32, u32), (u32, u32))>,
 
     surfaces: RwLock<Registery<()>>,
-    shaders: RwLock<Registery<PipelineState>>,
+    shaders: RwLock<Registery<ShaderState>>,
     framebuffers: RwLock<Registery<()>>,
     render_buffers: RwLock<Registery<()>>,
     vertex_buffers: RwLock<Registery<()>>,
@@ -213,25 +213,26 @@ impl GraphicsSystemShared {
     /// Submit a task into named bucket.
     ///
     /// Tasks inside bucket will be executed in sequential order.
-    pub fn submit<'a, T>(&self, surface: SurfaceHandle, task: T) -> Result<()>
-        where T: Into<BucketTask<'a>>
+    pub fn submit<'a, T>(&self, s: SurfaceHandle, o: u64, task: T) -> Result<()>
+        where T: Into<Command<'a>>
     {
-        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+        if !self.surfaces.read().unwrap().is_alive(s.into()) {
             bail!("Undefined surface handle.");
         }
 
         match task.into() {
-            BucketTask::DrawCall(dc) => self.submit_drawcall(surface, dc),
-            BucketTask::VertexBufferUpdate(vbu) => self.submit_update_vertex_buffer(surface, vbu),
-            BucketTask::IndexBufferUpdate(ibu) => self.submit_update_index_buffer(surface, ibu),
-            BucketTask::TextureUpdate(tu) => self.submit_update_texture(surface, tu),
-            BucketTask::SetScissor(sc) => self.submit_set_scissor(surface, sc),
+            Command::DrawCall(dc) => self.submit_drawcall(s, o, dc),
+            Command::VertexBufferUpdate(vbu) => self.submit_update_vertex_buffer(s, o, vbu),
+            Command::IndexBufferUpdate(ibu) => self.submit_update_index_buffer(s, o, ibu),
+            Command::TextureUpdate(tu) => self.submit_update_texture(s, o, tu),
+            Command::SetScissor(sc) => self.submit_set_scissor(s, o, sc),
         }
     }
 
     fn submit_drawcall<'a>(&self,
                            surface: SurfaceHandle,
-                           dc: bucket::BucketDrawCall<'a>)
+                           order: u64,
+                           dc: command::SliceDrawCall<'a>)
                            -> Result<()> {
         if !self.vertex_buffers.read().unwrap().is_alive(dc.vbo.into()) {
             bail!("Undefined vertex buffer handle.");
@@ -275,13 +276,14 @@ impl GraphicsSystemShared {
             len: dc.len,
         };
 
-        frame.tasks.push((surface, FrameTask::DrawCall(dc)));
+        frame.tasks.push((surface, order, FrameTask::DrawCall(dc)));
         Ok(())
     }
 
     fn submit_set_scissor(&self,
                           surface: SurfaceHandle,
-                          su: bucket::BucketScissorUpdate)
+                          order: u64,
+                          su: command::ScissorUpdate)
                           -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
@@ -289,13 +291,14 @@ impl GraphicsSystemShared {
 
         let mut frame = self.frames.front();
         let task = FrameTask::UpdateSurface(su.scissor);
-        frame.tasks.push((surface, task));
+        frame.tasks.push((surface, order, task));
         Ok(())
     }
 
     fn submit_update_vertex_buffer(&self,
                                    surface: SurfaceHandle,
-                                   vbu: bucket::BucketVertexBufferUpdate)
+                                   order: u64,
+                                   vbu: command::VertexBufferUpdate)
                                    -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
@@ -305,7 +308,7 @@ impl GraphicsSystemShared {
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(vbu.data);
             let task = FrameTask::UpdateVertexBuffer(vbu.vbo, vbu.offset, ptr);
-            frame.tasks.push((surface, task));
+            frame.tasks.push((surface, order, task));
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -314,7 +317,8 @@ impl GraphicsSystemShared {
 
     fn submit_update_index_buffer(&self,
                                   surface: SurfaceHandle,
-                                  ibu: bucket::BucketIndexBufferUpdate)
+                                  order: u64,
+                                  ibu: command::IndexBufferUpdate)
                                   -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
@@ -324,7 +328,7 @@ impl GraphicsSystemShared {
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(ibu.data);
             let task = FrameTask::UpdateIndexBuffer(ibu.ibo, ibu.offset, ptr);
-            frame.tasks.push((surface, task));
+            frame.tasks.push((surface, order, task));
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -333,7 +337,8 @@ impl GraphicsSystemShared {
 
     fn submit_update_texture(&self,
                              surface: SurfaceHandle,
-                             tu: bucket::BucketTextureUpdate)
+                             order: u64,
+                             tu: command::TextureUpdate)
                              -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
@@ -344,7 +349,7 @@ impl GraphicsSystemShared {
                 let mut frame = self.frames.front();
                 let ptr = frame.buf.extend_from_slice(tu.data);
                 let task = FrameTask::UpdateTexture(tu.texture, tu.rect, ptr);
-                frame.tasks.push((surface, task));
+                frame.tasks.push((surface, order, task));
             }
 
             Ok(())
@@ -368,7 +373,7 @@ impl GraphicsSystemShared {
         Ok(handle)
     }
 
-    /// Delete view state object.
+    /// Delete surface object.
     pub fn delete_surface(&self, handle: SurfaceHandle) {
         if self.surfaces
                .write()
@@ -388,7 +393,15 @@ impl GraphicsSystemShared {
                   MAX_UNIFORM_VARIABLES);
         }
 
-        let mut shader = PipelineState::new();
+        if setup.vs.len() == 0 {
+            bail!("Vertex shader is required to describe a proper render pipeline.");
+        }
+
+        if setup.fs.len() == 0 {
+            bail!("Fragment shader is required to describe a proper render pipeline.");
+        }
+
+        let mut shader = ShaderState::new();
         for (i, v) in setup.uniform_variables.iter().enumerate() {
             let v: HashValue<str> = v.into();
             shader.insert(v, i);

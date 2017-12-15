@@ -3,10 +3,14 @@ use std::time::{Instant, Duration};
 
 use event;
 
+/// The setup parameters of keyboard device.
 #[derive(Debug, Clone, Copy)]
 pub struct KeyboardSetup {
+    /// The maximum characters that could be captured in one frame.
     pub max_chars: usize,
+    /// The time duration before a pressing is recognized as repeat operation.
     pub repeat_timeout: Duration,
+    /// The interval time duration between triggering repeat events.
     pub repeat_interval_timeout: Duration,
 }
 

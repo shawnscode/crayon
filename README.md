@@ -9,10 +9,12 @@ Crayon is an experimental purpose game engine, written with a minimalistic modul
 
 It is loosely inspired by some amazing blogs on [bitsquid](https://bitsquid.blogspot.de) and [molecular](https://blog.molecular-matters.com). Some goals include:
 
-- Stateless, layered, multithread render system with OpenGL(ES) 2.0+ backends.
-- Entity component system with a data-driven designs.
-- Flexible workflow with default supports for some common resources.
-- Ease scripts integration with Lua.
+- Extensible through external code modules;
+- Run on [x]macOS, [x]Windows, iOS, Android, WebAssembly from the same source;
+- Stateless, layered, multithread render system with OpenGL(ES) 2.0+ backends;
+- Entity component system with a data-driven designs;
+- Unified access to input devices across platforms;
+- Asynchronous data loading from various filesystem;
 - etc.
 
 *Warning*: This project is a work in progress and far from a stable version right now.
