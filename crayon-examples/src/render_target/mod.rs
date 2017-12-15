@@ -63,9 +63,9 @@ impl Window {
 
             // Create the view state for pass 1.
             let mut setup = graphics::SurfaceSetup::default();
+            setup.set_order(0);
             setup.set_framebuffer(fbo);
             setup.set_clear(Color::gray(), None, None);
-            setup.set_viewport((0, 0), (568, 320));
             let view = label.create_surface(setup)?;
 
             // Create shader state.
@@ -90,7 +90,8 @@ impl Window {
             let vbo = label
                 .create_vertex_buffer(setup, Some(Vertex::as_bytes(&quad_vertices[..])))?;
 
-            let setup = graphics::SurfaceSetup::default();
+            let mut setup = graphics::SurfaceSetup::default();
+            setup.set_order(1);
             let view = label.create_surface(setup)?;
 
             let mut setup = graphics::ShaderSetup::default();
@@ -147,8 +148,8 @@ impl Application for Window {
 
 pub fn main(title: String, _: &[String]) {
     let mut settings = Settings::default();
-    settings.window.width = 1024;
-    settings.window.height = 768;
+    settings.window.width = 568;
+    settings.window.height = 320;
     settings.window.title = title;
 
     let mut engine = Engine::new_with(settings).unwrap();

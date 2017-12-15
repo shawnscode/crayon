@@ -92,10 +92,8 @@
 //! // Sets the clear flags for this surface and its underlying framebuffer.
 //! setup.set_clear(Color::white(), 1.0, None);
 //! // Sets the viewport of view. This specifies the affine transformation of (x, y) from
-//! // NDC(normalized device coordinates) to window coordinates.
-//! //
-//! // If `size` is none, the dimensions of framebuffer will be used as size.
-//! setup.set_viewport((x, y), None);
+//! // NDC(normalized device coordinates) to normalized window coordinates.
+//! setup.set_viewport((0.0, 0.0), (1.0, 1.0));
 //! // Creats a `SurfaceObject` by handing the setup parameters.
 //! let surface = graphics.create_surface(setup).unwrap();
 //!
@@ -204,7 +202,7 @@ pub use self::assets::mesh::*;
 pub use self::assets::texture::*;
 pub use self::assets::texture_loader::{TextureData, TextureParser};
 
-pub use self::graphics::{GraphicsSystem, GraphicsSystemShared, GraphicsFrameInfo};
+pub use self::graphics::{GraphicsSystem, GraphicsSystemShared};
 pub use self::window::{Window, WindowBuilder};
 
 pub use self::guard::RAIIGuard;
@@ -219,3 +217,20 @@ pub const MAX_FRAMEBUFFER_ATTACHMENTS: usize = 8;
 pub const MAX_UNIFORM_VARIABLES: usize = 32;
 /// Maximum number of textures in shader.
 pub const MAX_UNIFORM_TEXTURE_SLOTS: usize = 8;
+
+use std::time::Duration;
+
+/// The information of graphics module during last frame.
+#[derive(Debug, Copy, Clone, Default)]
+pub struct GraphicsFrameInfo {
+    pub duration: Duration,
+    pub drawcall: usize,
+    pub triangles: usize,
+    pub alive_surfaces: usize,
+    pub alive_shaders: usize,
+    pub alive_frame_buffers: usize,
+    pub alive_vertex_buffers: usize,
+    pub alive_index_buffers: usize,
+    pub alive_textures: usize,
+    pub alive_render_buffers: usize,
+}

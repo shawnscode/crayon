@@ -22,7 +22,7 @@ pub struct SurfaceSetup {
     pub(crate) clear_stencil: Option<i32>,
     pub(crate) order: u64,
     pub(crate) sequence: bool,
-    pub(crate) viewport: ((u16, u16), Option<(u16, u16)>),
+    pub(crate) viewport: ((f32, f32), (f32, f32)),
 }
 
 impl Default for SurfaceSetup {
@@ -34,7 +34,7 @@ impl Default for SurfaceSetup {
             clear_stencil: None,
             sequence: false,
             order: 0,
-            viewport: ((0, 0), None),
+            viewport: ((0.0, 0.0), (1.0, 1.0)),
         }
     }
 }
@@ -72,14 +72,10 @@ impl SurfaceSetup {
     }
 
     /// Sets the viewport of view. This specifies the affine transformation of (x, y) from
-    /// NDC(normalized device coordinates) to window coordinates.
-    ///
-    /// If `size` is none, the dimensions of framebuffer will be used as size.
+    /// NDC(normalized device coordinates) to normalized window coordinates.
     #[inline(always)]
-    pub fn set_viewport<T>(&mut self, position: (u16, u16), size: T)
-        where T: Into<Option<(u16, u16)>>
-    {
-        self.viewport = (position, size.into());
+    pub fn set_viewport<T>(&mut self, position: (f32, f32), size: (f32, f32)) {
+        self.viewport = (position, size);
     }
 
     /// Sets the sequence mode enable.

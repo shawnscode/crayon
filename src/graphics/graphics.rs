@@ -1,7 +1,6 @@
 //! The centralized management of video sub-system.
 
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
 use std::collections::HashMap;
 
 use utils::{Rect, HashValue};
@@ -15,20 +14,6 @@ use super::backend::device::Device;
 use super::command::Command;
 use super::window::Window;
 use super::assets::texture_loader::{TextureLoader, TextureParser, TextureState};
-
-#[derive(Debug, Copy, Clone, Default)]
-pub struct GraphicsFrameInfo {
-    pub duration: Duration,
-    pub drawcall: usize,
-    pub vertices: usize,
-    pub alive_surfaces: usize,
-    pub alive_shaders: usize,
-    pub alive_frame_buffers: usize,
-    pub alive_vertex_buffers: usize,
-    pub alive_index_buffers: usize,
-    pub alive_textures: usize,
-    pub alive_render_buffers: usize,
-}
 
 /// The centralized management of video sub-system.
 pub struct GraphicsSystem {
@@ -113,11 +98,11 @@ impl GraphicsSystem {
                     let mut frame = self.frames.back();
 
                     info.drawcall = 0;
-                    info.vertices = 0;
+                    info.triangles = 0;
                     for v in &frame.tasks {
                         if let FrameTask::DrawCall(ref dc) = v.2 {
                             info.drawcall += 1;
-                            info.vertices += dc.len as usize;
+                            info.triangles += dc.primitive.assemble_triangles(dc.len) as usize;
                         }
                     }
 
