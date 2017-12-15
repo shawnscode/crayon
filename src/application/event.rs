@@ -1,3 +1,5 @@
+//! Responsible for converting window messages to input state and internal events.
+
 use std::slice::Iter;
 use glutin;
 use math;
@@ -66,12 +68,15 @@ pub enum Event {
     InputDevice(InputDeviceEvent),
 }
 
+/// A `EventsLoop` is responsible for converting window messages to input state
+/// and internal events.
 pub struct EventsLoop {
     ctx: glutin::EventsLoop,
     frame_events: Vec<Event>,
 }
 
 impl EventsLoop {
+    /// Creates a new `EventsLoop`.
     pub fn new() -> Self {
         EventsLoop {
             ctx: glutin::EventsLoop::new(),
@@ -79,7 +84,12 @@ impl EventsLoop {
         }
     }
 
-    pub fn advance(&mut self) -> Iter<Event> {
+    /// Gets the iterator over the events collected during last frame.
+    pub fn iter(&self) -> Iter<Event> {
+        self.frame_events.iter()
+    }
+
+    pub(crate) fn advance(&mut self) -> Iter<Event> {
         self.frame_events.clear();
 
         {
@@ -93,9 +103,6 @@ impl EventsLoop {
         self.frame_events.iter()
     }
 
-    pub fn iter(&self) -> Iter<Event> {
-        self.frame_events.iter()
-    }
 
     pub(crate) fn underlaying(&self) -> &glutin::EventsLoop {
         &self.ctx

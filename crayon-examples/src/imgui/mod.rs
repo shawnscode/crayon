@@ -13,7 +13,7 @@ struct Window {
 
 impl Window {
     fn new(engine: &mut Engine) -> errors::Result<Self> {
-        let ctx = engine.context().read().unwrap();
+        let ctx = engine.context();
         let (canvas, renderer) = crayon_imgui::new(&ctx).unwrap();
 
         Ok(Window {
@@ -36,9 +36,9 @@ impl Application for Window {
             .size((224.0, 65.0), ImGuiCond::FirstUseEver)
             .build(|| {
                 ui.text(im_str!("FPS: {:?}", info.fps));
-                ui.text(im_str!("DrawCalls: {:?}, Vertices: {:?}",
+                ui.text(im_str!("DrawCalls: {:?}, Triangles: {:?}",
                                 info.video.drawcall,
-                                info.video.vertices));
+                                info.video.triangles));
 
                 ui.text(im_str!("CPU: {:.2?}ms, GPU: {:.2?}ms",
                                 utils::to_ms(info.duration),

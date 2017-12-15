@@ -1,6 +1,6 @@
 [package]
 name = "crayon"
-version = "0.0.7"
+version = "0.1.0"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 
 description = "An experimental entity-component-based multithread game engine."
@@ -25,8 +25,6 @@ glutin = "0.11.0"
 
 lazy_static = "1.0.0"
 error-chain = "0.11.0"
-
-rayon = "0.9.0"
 
 cgmath = "0.15.0"
 bit-set = "0.4.0"

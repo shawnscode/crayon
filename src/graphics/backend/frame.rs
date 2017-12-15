@@ -55,7 +55,7 @@ pub(crate) enum PostFrameTask {
 #[derive(Debug, Clone)]
 pub(crate) struct Frame {
     pub pre: Vec<PreFrameTask>,
-    pub tasks: Vec<(SurfaceHandle, FrameTask)>,
+    pub tasks: Vec<(SurfaceHandle, u64, FrameTask)>,
     pub post: Vec<PostFrameTask>,
     pub buf: DataBuffer,
 }

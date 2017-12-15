@@ -32,6 +32,29 @@ pub enum Primitive {
     TriangleStrip,
 }
 
+impl Primitive {
+    pub fn assemble(&self, indices: u32) -> u32 {
+        match *self {
+            Primitive::Points => indices,
+            Primitive::Lines => indices / 2,
+            Primitive::LineStrip => indices - 1,
+            Primitive::Triangles => indices / 3,
+            Primitive::TriangleStrip => indices - 2,
+        }
+    }
+
+    pub fn assemble_triangles(&self, indices: u32) -> u32 {
+        match *self {
+            Primitive::Points => 0,
+            Primitive::Lines => 0,
+            Primitive::LineStrip => 0,
+            Primitive::Triangles => indices / 3,
+            Primitive::TriangleStrip => indices - 2,
+        }
+
+    }
+}
+
 
 #[derive(Debug, Copy, Clone)]
 pub struct IndexBufferSetup {

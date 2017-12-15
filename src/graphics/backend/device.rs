@@ -1,6 +1,7 @@
 use std::str;
 use std::cell::Cell;
 use std::borrow::Borrow;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use gl;
@@ -63,6 +64,7 @@ struct RenderBufferObject {
 #[derive(Debug, Copy, Clone)]
 struct FrameBufferObject {
     id: ResourceID,
+    dimensions: Option<(u16, u16)>,
 }
 
 pub(crate) struct Device {
@@ -107,7 +109,7 @@ impl Device {
     }
 
     pub fn flush(&mut self,
-                 tasks: &mut [(SurfaceHandle, FrameTask)],
+                 tasks: &mut [(SurfaceHandle, u64, FrameTask)],
                  buf: &DataBuffer,
                  dimensions: (u32, u32),
                  hidpi: f32)
@@ -116,10 +118,16 @@ impl Device {
         // is stable, which means it does not reorder equal elements, so it will
         // not change the execution order in one specific surface.
         tasks.sort_by(|lhs, rhs| {
-                          let lv = self.surfaces.get(lhs.0).unwrap();
-                          let rv = self.surfaces.get(rhs.0).unwrap();
-                          rv.setup.order.cmp(&lv.setup.order)
-                      });
+            let lv = self.surfaces.get(lhs.0).unwrap();
+            let rv = self.surfaces.get(rhs.0).unwrap();
+            let mut ord = lv.setup.order.cmp(&rv.setup.order);
+
+            if ord == Ordering::Equal && !lv.setup.sequence {
+                ord = lhs.1.cmp(&rhs.1);
+            }
+
+            ord
+        });
 
         let dimensions = (dimensions.0 as u16, dimensions.1 as u16);
         unsafe {
@@ -131,7 +139,7 @@ impl Device {
                     self.rebind_surface(v.0, dimensions, hidpi)?;
                 }
 
-                match v.1 {
+                match v.2 {
                     FrameTask::DrawCall(dc) => self.draw(dc, buf)?,
 
                     FrameTask::UpdateSurface(scissor) => self.visitor.set_scissor(scissor)?,
@@ -216,23 +224,30 @@ impl Device {
                              hidpi: f32)
                              -> Result<()> {
         let surface = self.surfaces.get(handle).ok_or(ErrorKind::InvalidHandle)?;
+        let dimensions = ((dimensions.0 as f32 * hidpi) as u16,
+                          (dimensions.1 as f32 * hidpi) as u16);
 
         // Bind frame buffer.
-        if let Some(fbo) = surface.setup.framebuffer {
+        let dimensions = if let Some(fbo) = surface.setup.framebuffer {
             if let Some(fbo) = self.framebuffers.get(fbo) {
                 self.visitor.bind_framebuffer(fbo.id, true)?;
+                fbo.dimensions.unwrap_or(dimensions)
             } else {
                 bail!(ErrorKind::InvalidHandle);
             }
         } else {
             self.visitor.bind_framebuffer(0, false)?;
-        }
+            dimensions
+        };
+
+        let vp = surface.setup.viewport;
+        let position = (((vp.0).0 * dimensions.0 as f32) as u16,
+                        ((vp.0).1 * dimensions.1 as f32) as u16);
+        let dimensions = (((vp.1).0 * dimensions.0 as f32) as u16,
+                          ((vp.1).1 * dimensions.1 as f32) as u16);
 
         // Bind the viewport and scissor box.
-        let vp = surface.setup.viewport;
-        let dimensions = ((dimensions.0 as f32 * hidpi) as u16,
-                          (dimensions.1 as f32 * hidpi) as u16);
-        self.visitor.set_viewport(vp.0, vp.1.unwrap_or(dimensions))?;
+        self.visitor.set_viewport(position, dimensions)?;
 
         // Disable scissor.
         self.visitor.set_scissor(Scissor::Disable)?;
@@ -408,7 +423,10 @@ impl Device {
             bail!(ErrorKind::DuplicatedHandle)
         }
 
-        let fbo = FrameBufferObject { id: self.visitor.create_framebuffer()? };
+        let fbo = FrameBufferObject {
+            id: self.visitor.create_framebuffer()?,
+            dimensions: None,
+        };
 
         self.framebuffers.set(handle, fbo);
         Ok(())
@@ -420,12 +438,23 @@ impl Device {
                                                   slot: u32)
                                                   -> Result<()> {
         let fbo = self.framebuffers
-            .get(handle)
+            .get_mut(handle)
             .ok_or(ErrorKind::InvalidHandle)?;
 
         let texture = self.textures.get(texture).ok_or(ErrorKind::InvalidHandle)?;
         if let GenericTextureSetup::Render(setup) = texture.setup {
             self.visitor.bind_framebuffer(fbo.id, false)?;
+
+            let attached_dimensions = (setup.dimensions.0 as u16, setup.dimensions.1 as u16);
+            if let Some(dimensions) = fbo.dimensions {
+                if attached_dimensions != dimensions {
+                    bail!("Incompitable(mismatch dimensions) attachment of frame-buffer {:?}",
+                          handle);
+                }
+            } else {
+                fbo.dimensions = Some(attached_dimensions);
+            }
+
             match setup.format {
                 RenderTextureFormat::RGB8 |
                 RenderTextureFormat::RGBA4 |
@@ -670,6 +699,14 @@ impl<T> DataVec<T>
         self.buf
             .get(handle.borrow().index() as usize)
             .and_then(|v| v.as_ref())
+    }
+
+    pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
+        where H: Borrow<Handle>
+    {
+        self.buf
+            .get_mut(handle.borrow().index() as usize)
+            .and_then(|v| v.as_mut())
     }
 
     pub fn set<H>(&mut self, handle: H, value: T)

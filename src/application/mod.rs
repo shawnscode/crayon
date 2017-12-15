@@ -1,21 +1,37 @@
 //! A unified application model across all target platforms.
 //!
-//! ## Application
+//! # Application
 //!
 //! An application needs to run on all types of esoteric host platforms. To hide trivial
-//! platform-specific details, we offers a convenient trait `Application` which defines
-//! a simple application-state-model. While a state is active, the associated per-frame
-//! methods are called in a pre-determined order.
+//! platform-specific details, we offers a convenient trait `Application` facade which
+//! defined methods, that will be called in a pre-determined order every frame.
+//!
+//! The most intuitive and simple setup function could be something like:
+//!
+//! ```rust,ignore
+//! struct Window { ... }
+//! impl Application for Window { ... }
+//!
+//! fn main() {
+//!     let mut engine = Engine::new();
+//!     let window = Window::new(&mut engine).unwrap();
+//!     engine.run(window).unrwap();
+//! }
+//! ```
 //!
 //! # Engine
 //!
-//! `Engine` is where we actully running the main loop and fire `Application` instance. It
-//! also binds various essential systems in a central place.
+//! `Engine` mentioned above is the most fundamental module in crayon. It binds various
+//! essential systems in a central place, and responsible for running the main loop.
+//!
 
 pub mod errors;
 pub mod settings;
 pub mod context;
 pub mod event;
+
+pub mod time;
+pub use self::time::TimeSystem;
 
 pub use self::settings::Settings;
 pub use self::context::Context;
@@ -24,13 +40,14 @@ mod engine;
 pub use self::engine::Engine;
 
 use self::errors::*;
-use graphics;
-use std::time;
+use graphics::GraphicsFrameInfo;
+use std::time::Duration;
 
+/// The collected information during last frame.
 #[derive(Debug, Copy, Clone, Default)]
 pub struct FrameInfo {
-    pub video: graphics::GraphicsFrameInfo,
-    pub duration: time::Duration,
+    pub video: GraphicsFrameInfo,
+    pub duration: Duration,
     pub fps: u32,
 }
 

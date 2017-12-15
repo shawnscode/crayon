@@ -3,53 +3,53 @@ use super::errors::*;
 
 use utils::{HashValue, Rect};
 
-/// `BucketTask` will be executed in sequential order.
-pub enum BucketTask<'a> {
-    DrawCall(BucketDrawCall<'a>),
-    VertexBufferUpdate(BucketVertexBufferUpdate<'a>),
-    IndexBufferUpdate(BucketIndexBufferUpdate<'a>),
-    TextureUpdate(BucketTextureUpdate<'a>),
-    SetScissor(BucketScissorUpdate),
+/// `Command` will be executed in sequential order.
+pub enum Command<'a> {
+    DrawCall(SliceDrawCall<'a>),
+    VertexBufferUpdate(VertexBufferUpdate<'a>),
+    IndexBufferUpdate(IndexBufferUpdate<'a>),
+    TextureUpdate(TextureUpdate<'a>),
+    SetScissor(ScissorUpdate),
 }
 
-impl<'a> BucketTask<'a> {
-    pub fn update_vertex_buffer(vbo: VertexBufferHandle, offset: usize, data: &[u8]) -> BucketTask {
-        let task = BucketVertexBufferUpdate {
+impl<'a> Command<'a> {
+    pub fn update_vertex_buffer(vbo: VertexBufferHandle, offset: usize, data: &[u8]) -> Command {
+        let task = VertexBufferUpdate {
             vbo: vbo,
             offset: offset,
             data: data,
         };
 
-        BucketTask::VertexBufferUpdate(task)
+        Command::VertexBufferUpdate(task)
     }
 
-    pub fn update_index_buffer(ibo: IndexBufferHandle, offset: usize, data: &[u8]) -> BucketTask {
-        let task = BucketIndexBufferUpdate {
+    pub fn update_index_buffer(ibo: IndexBufferHandle, offset: usize, data: &[u8]) -> Command {
+        let task = IndexBufferUpdate {
             ibo: ibo,
             offset: offset,
             data: data,
         };
 
-        BucketTask::IndexBufferUpdate(task)
+        Command::IndexBufferUpdate(task)
     }
 
-    pub fn update_texture(texture: TextureHandle, rect: Rect, data: &[u8]) -> BucketTask {
-        let task = BucketTextureUpdate {
+    pub fn update_texture(texture: TextureHandle, rect: Rect, data: &[u8]) -> Command {
+        let task = TextureUpdate {
             texture: texture,
             rect: rect,
             data: data,
         };
 
-        BucketTask::TextureUpdate(task)
+        Command::TextureUpdate(task)
     }
 
-    pub fn set_scissor(scissor: Scissor) -> BucketTask<'a> {
-        BucketTask::SetScissor(BucketScissorUpdate { scissor: scissor })
+    pub fn set_scissor(scissor: Scissor) -> Command<'a> {
+        Command::SetScissor(ScissorUpdate { scissor: scissor })
     }
 }
 
 /// Draw.
-pub struct BucketDrawCall<'a> {
+pub struct SliceDrawCall<'a> {
     pub(crate) shader: ShaderHandle,
     pub(crate) uniforms: &'a [(HashValue<str>, UniformVariable)],
     pub(crate) vbo: VertexBufferHandle,
@@ -59,35 +59,35 @@ pub struct BucketDrawCall<'a> {
     pub(crate) len: u32,
 }
 
-impl<'a> Into<BucketTask<'a>> for BucketDrawCall<'a> {
-    fn into(self) -> BucketTask<'a> {
-        BucketTask::DrawCall(self)
+impl<'a> Into<Command<'a>> for SliceDrawCall<'a> {
+    fn into(self) -> Command<'a> {
+        Command::DrawCall(self)
     }
 }
 
 /// Vertex buffer object update.
-pub struct BucketVertexBufferUpdate<'a> {
+pub struct VertexBufferUpdate<'a> {
     pub(crate) vbo: VertexBufferHandle,
     pub(crate) offset: usize,
     pub(crate) data: &'a [u8],
 }
 
 /// Index buffer object update.
-pub struct BucketIndexBufferUpdate<'a> {
+pub struct IndexBufferUpdate<'a> {
     pub(crate) ibo: IndexBufferHandle,
     pub(crate) offset: usize,
     pub(crate) data: &'a [u8],
 }
 
 /// Texture object update.
-pub struct BucketTextureUpdate<'a> {
+pub struct TextureUpdate<'a> {
     pub(crate) texture: TextureHandle,
     pub(crate) rect: Rect,
     pub(crate) data: &'a [u8],
 }
 
 /// Scissor update.
-pub struct BucketScissorUpdate {
+pub struct ScissorUpdate {
     pub(crate) scissor: Scissor,
 }
 
@@ -159,10 +159,10 @@ impl DrawCall {
         self.ibo = ibo.into();
     }
 
-    pub fn draw(&mut self, primitive: Primitive, from: u32, len: u32) -> Result<BucketDrawCall> {
+    pub fn build(&mut self, primitive: Primitive, from: u32, len: u32) -> Result<SliceDrawCall> {
         let vbo = self.vbo.ok_or(ErrorKind::CanNotDrawWihtoutVertexBuffer)?;
 
-        let task = BucketDrawCall {
+        let task = SliceDrawCall {
             shader: self.shader,
             uniforms: &self.uniforms[0..self.uniforms_len],
             vbo: vbo,

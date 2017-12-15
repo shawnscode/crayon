@@ -35,10 +35,30 @@
 //! only identical if both the path and signature match. This can be used to suppress resource
 //! sharing even if the path (e.g. the filename) of two `Location`s matches.
 //!
+//! ```rust,ignore
+//! let l1 = Location::shared(0, "/path/to/res");
+//! let l2 = Location::shared(0, "/path/to/res");
+//! assert!(l1 == l2);
+//!
+//! let l3 = Location::shared(1, "/path/to/res");
+//! assert!(l1 != l3);
+//! ```
+//!
 //! There is one special `Unique` signature which disables sharing of a resource completely,
 //! and always makes the resource object unique, no matter how many other shared or non-shared
 //! resources with the same name exist, this is most useful to enforce private ownership of
 //! a resource without having to care about name collisions.
+//!
+//! ```rust,ignore
+//! let l1 = Location::shared(0, "/path/to/res");
+//! let l2 = Location::shared(0, "/path/to/res");
+//! assert!(l1 == l2);
+//!
+//! let l3 = Location::unique("/path/to/res");
+//! let l4 = Location::unique("/path/to/res");
+//! assert!(l1 != l3);
+//! assert!(l3 != l4);
+//! ```
 //!
 //! ## Lifetime (TODO)
 //!
