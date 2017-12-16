@@ -1,11 +1,24 @@
+# Set up the Rust toolchain.
 language: rust
 rust:
   - nightly
   - stable
+
+# Test on Linux and macOS.
+os:
+  - osx
+  - linux
+
+# Allow for occasional compiler breakage on nightly Rust.
 matrix:
   allow_failures:
     - rust: nightly
 
+# Force third-party crates to persist from previous builds and update only when
+# needed.
+cache: cargo
+
+# Generate documentation, compile the engine, run tests.
 script:
     - cargo build --all --verbose
     - cargo test --all --verbose
