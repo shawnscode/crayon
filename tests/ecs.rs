@@ -219,15 +219,14 @@ fn iter_with() {
     }
 }
 
-#[test]
-#[should_panic]
-fn invalid_view() {
-    let mut world = World::new();
-    world.register::<Position>();
-
-    let _i1 = world.view_with::<Position>();
-    world.view_with::<Position>();
-}
+// #[test]
+// #[should_panic]
+// fn invalid_view() {
+//     let mut world = World::new();
+//     world.register::<Position>();
+//     let _i1 = world.view_with::<Position>();
+//     world.view_with::<Position>();
+// }
 
 #[test]
 fn builder() {
