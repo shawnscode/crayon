@@ -1,5 +1,6 @@
 # What is This?
 [![Build](https://travis-ci.org/shawnscode/crayon.svg?branch=master)](https://travis-ci.org/shawnscode/crayon)
+[![Build status](https://ci.appveyor.com/api/projects/status/ced1ds3ud2h8u4ut?svg=true)](https://ci.appveyor.com/project/shawnscode/crayon)
 [![Documentation](https://docs.rs/crayon/badge.svg)](https://docs.rs/crayon)
 [![Crate](https://img.shields.io/crates/v/crayon.svg)](https://crates.io/crates/crayon)
 [![Downloads](https://img.shields.io/crates/d/crayon.svg)](https://crates.io/crates/crayon)
@@ -10,7 +11,7 @@ Crayon is an experimental purpose game engine, written with a minimalistic modul
 It is loosely inspired by some amazing blogs on [bitsquid](https://bitsquid.blogspot.de) and [molecular](https://blog.molecular-matters.com). Some goals include:
 
 - Extensible through external code modules;
-- Run on [x]macOS, [x]Windows, iOS, Android, WebAssembly from the same source;
+- Run on macOS, Linux, Windows, iOS, Android, WebAssembly from the same source;
 - Stateless, layered, multithread render system with OpenGL(ES) 2.0+ backends;
 - Entity component system with a data-driven designs;
 - Unified access to input devices across platforms;
