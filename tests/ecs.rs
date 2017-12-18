@@ -1,7 +1,5 @@
 #[macro_use]
 extern crate crayon;
-#[macro_use]
-extern crate lazy_static;
 extern crate rand;
 
 use crayon::prelude::*;

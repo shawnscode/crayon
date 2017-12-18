@@ -22,12 +22,9 @@ members = [ "crayon-examples", "modules/imgui" ]
 libc = "0.2.34"
 gl = "0.7.0"
 glutin = "0.11.0"
-
-lazy_static = "1.0.0"
+cgmath = "0.15.0"
 error-chain = "0.11.0"
 
-cgmath = "0.15.0"
-bit-set = "0.4.0"
 two-lock-queue = "0.1.1"
 zip = "0.2.6"
 

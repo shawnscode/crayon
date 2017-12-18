@@ -3,24 +3,16 @@
 use std::ptr;
 use std::any::Any;
 use std::collections::HashMap;
-use std::sync::atomic::AtomicUsize;
 
-use bit_set::BitSet;
-use super::super::utils::handle::HandleIndex;
+use utils::handle::HandleIndex;
 
-lazy_static! {
-    /// Lazy initialized id of component. Which produces a continuous index address.
-    #[doc(hidden)]
-    pub static ref _INDEX: AtomicUsize = AtomicUsize::new(0);
-}
+use super::bitset::DynamicBitSet;
 
 /// Abstract component trait with associated storage type.
 pub trait Component: Any + 'static
     where Self: Sized
 {
     type Storage: ComponentArena<Self> + Any + Send + Sync;
-
-    fn type_index() -> usize;
 }
 
 /// Declare a struct as component, and specify the storage strategy. Internally, this
@@ -30,13 +22,6 @@ macro_rules! declare_component {
     ( $CMP:ident, $STORAGE:ident ) => {
         impl $crate::ecs::Component for $CMP {
             type Storage = $STORAGE<$CMP>;
-
-            fn type_index() -> usize {
-                use std::sync::atomic::Ordering;
-                use $crate::ecs::component::_INDEX;
-                lazy_static!{static ref ID: usize = _INDEX.fetch_add(1, Ordering::SeqCst);};
-                *ID
-            }
         }
     };
 }
@@ -116,7 +101,7 @@ impl<T> ComponentArena<T> for HashMapArena<T>
 pub struct VecArena<T>
     where T: Component + ::std::fmt::Debug
 {
-    mask: BitSet,
+    mask: DynamicBitSet,
     values: Vec<T>,
 }
 
@@ -125,7 +110,7 @@ impl<T> ComponentArena<T> for VecArena<T>
 {
     fn new() -> Self {
         VecArena {
-            mask: BitSet::new(),
+            mask: DynamicBitSet::new(),
             values: Vec::new(),
         }
     }
@@ -189,6 +174,7 @@ impl<T> Drop for VecArena<T>
             for i in self.mask.iter() {
                 ptr::read(self.values.get_unchecked(i));
             }
+
             self.values.set_len(0);
             self.mask.clear();
         }
@@ -196,22 +182,4 @@ impl<T> Drop for VecArena<T>
 }
 
 #[cfg(test)]
-mod test {
-    use super::*;
-    use std::sync::atomic::Ordering;
-
-    struct Position {}
-    struct Direction {}
-
-    declare_component!(Position, HashMapArena);
-    declare_component!(Direction, HashMapArena);
-
-    #[test]
-    fn component_index() {
-        assert!(Position::type_index() != Direction::type_index());
-
-        let max = _INDEX.load(Ordering::SeqCst);
-        assert!(Position::type_index() < max);
-        assert!(Direction::type_index() < max);
-    }
-}
+mod test {}

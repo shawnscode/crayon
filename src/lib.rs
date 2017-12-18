@@ -29,17 +29,13 @@
 extern crate libc;
 extern crate glutin;
 extern crate gl;
+pub extern crate cgmath as math;
 
 #[macro_use]
 extern crate error_chain;
 
 extern crate zip;
 extern crate two_lock_queue;
-extern crate bit_set;
-
-#[macro_use]
-pub extern crate lazy_static;
-pub extern crate cgmath as math;
 
 #[macro_use]
 pub mod utils;
