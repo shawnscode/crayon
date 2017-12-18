@@ -35,7 +35,6 @@ extern crate error_chain;
 
 extern crate zip;
 extern crate two_lock_queue;
-extern crate bit_set;
 
 #[macro_use]
 pub extern crate lazy_static;

@@ -5,8 +5,9 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 
-use bit_set::BitSet;
-use super::super::utils::handle::HandleIndex;
+use utils::handle::HandleIndex;
+
+use super::bitset::DynamicBitSet;
 
 lazy_static! {
     /// Lazy initialized id of component. Which produces a continuous index address.
@@ -116,7 +117,7 @@ impl<T> ComponentArena<T> for HashMapArena<T>
 pub struct VecArena<T>
     where T: Component + ::std::fmt::Debug
 {
-    mask: BitSet,
+    mask: DynamicBitSet,
     values: Vec<T>,
 }
 
@@ -125,7 +126,7 @@ impl<T> ComponentArena<T> for VecArena<T>
 {
     fn new() -> Self {
         VecArena {
-            mask: BitSet::new(),
+            mask: DynamicBitSet::new(),
             values: Vec::new(),
         }
     }
@@ -189,6 +190,7 @@ impl<T> Drop for VecArena<T>
             for i in self.mask.iter() {
                 ptr::read(self.values.get_unchecked(i));
             }
+
             self.values.set_len(0);
             self.mask.clear();
         }

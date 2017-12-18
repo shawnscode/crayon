@@ -2,10 +2,10 @@ macro_rules! build_view_with {
     ($name: ident[$($cps: ident), *]) => (
 
         mod $name {
-            use bit_set::BitSet;
-            use super::*;
-            use super::super::{Component, Entity};
-            use super::super::super::utils::HandleIter;
+            use $crate::ecs::bitset::BitSet;
+            use $crate::ecs::*;
+            use $crate::ecs::world::ArenaWriteGuard;
+            use $crate::utils::HandleIter;
 
             pub struct View<'a> {
                 world: &'a World,
@@ -33,10 +33,11 @@ macro_rules! build_view_with {
                 loop {
                     match iterator.next() {
                         Some(ent) => {
-                            let mut mask =
-                                unsafe { view.world.masks.get_unchecked(ent.index() as usize).clone() };
-                            mask.intersect_with(&view.mask);
-                            if mask == view.mask {
+                            let mask = unsafe {
+                                view.world.masks.get_unchecked(ent.index() as usize).clone()
+                            };
+
+                            if mask.intersect_with(&view.mask) == view.mask {
                                 return Some(ent);
                             }
                         }

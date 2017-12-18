@@ -30,6 +30,7 @@
 
 use super::utils::handle::Handle;
 
+mod bitset;
 #[macro_use]
 mod iterator;
 #[macro_use]

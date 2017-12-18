@@ -2,10 +2,10 @@
 
 use std::any::Any;
 use std::sync::{RwLock, RwLockWriteGuard, RwLockReadGuard};
-use bit_set::BitSet;
+use utils::{HandleIndex, HandlePool, HandleIter};
 
 use super::*;
-use super::super::utils::{HandleIndex, HandlePool, HandleIter};
+use super::bitset::BitSet;
 
 /// The `World` struct are used to manage the whole entity-component system, It keeps
 /// tracks of the state of every created `Entity`s. All memthods are supposed to be
