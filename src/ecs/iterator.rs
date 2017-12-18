@@ -108,7 +108,7 @@ macro_rules! build_view_with {
                     where $($cps:Component, )*
                 {
                     let mut mask = BitSet::new();
-                    $( mask.insert($cps::type_index()); ) *
+                    $( mask.insert(self.arena_index::<$cps>()); ) *
 
                     (
                         View {
