@@ -1,7 +1,8 @@
 //! The `World` struct contains entities and its the component arenas.
 
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::sync::{RwLock, RwLockWriteGuard, RwLockReadGuard};
+use std::collections::HashMap;
 use utils::{HandleIndex, HandlePool, HandleIter};
 
 use super::*;
@@ -13,6 +14,8 @@ use super::bitset::BitSet;
 pub struct World {
     entities: HandlePool,
     masks: Vec<BitSet>,
+
+    indices: HashMap<TypeId, usize>,
     erasers: Vec<Box<FnMut(&Any, HandleIndex) -> () + Send + Sync>>,
     arenas: Vec<Option<Box<Any + Send + Sync>>>,
 }
@@ -27,6 +30,7 @@ impl World {
         World {
             entities: HandlePool::new(),
             masks: Vec::new(),
+            indices: HashMap::new(),
             erasers: Vec::new(),
             arenas: Vec::new(),
         }
@@ -84,39 +88,39 @@ impl World {
     pub fn register<T>(&mut self)
         where T: Component
     {
-        if T::type_index() >= self.arenas.len() {
-            for _ in self.arenas.len()..(T::type_index() + 1) {
-                // Keeps downcast type info in closure.
-                let eraser = Box::new(|any: &Any, id: HandleIndex| {
-                                          any.downcast_ref::<RwLock<T::Storage>>()
-                                              .unwrap()
-                                              .write()
-                                              .unwrap()
-                                              .remove(id);
-                                      });
-
-                self.erasers.push(eraser);
-                self.arenas.push(None);
-            }
-        }
+        let id = TypeId::of::<T>();
 
         // Returns if we are going to register this component duplicatedly.
-        if let Some(_) = self.arenas[T::type_index()] {
+        if self.indices.contains_key(&id) {
             return;
         }
 
-        self.arenas[T::type_index()] = Some(Box::new(RwLock::new(T::Storage::new())));
+        self.indices.insert(id, self.arenas.len());
+        self.arenas
+            .push(Some(Box::new(RwLock::new(T::Storage::new()))));
+
+        // Keeps downcast type info in closure.
+        let eraser = Box::new(|any: &Any, id: HandleIndex| {
+                                  any.downcast_ref::<RwLock<T::Storage>>()
+                                      .unwrap()
+                                      .write()
+                                      .unwrap()
+                                      .remove(id);
+                              });
+        self.erasers.push(eraser);
     }
 
     /// Add components to entity, returns the old value if exists.
     pub fn add<T>(&mut self, ent: Entity, value: T) -> Option<T>
         where T: Component
     {
+        let index = self.arena_index::<T>();
+
         if self.is_alive(ent) {
-            let result = if self.masks[ent.index() as usize].contains(T::type_index()) {
+            let result = if self.masks[ent.index() as usize].contains(index) {
                 self.raw_arena::<T>().write().unwrap().remove(ent.index())
             } else {
-                self.masks[ent.index() as usize].insert(T::type_index());
+                self.masks[ent.index() as usize].insert(index);
                 None
             };
 
@@ -140,8 +144,10 @@ impl World {
     pub fn remove<T>(&mut self, ent: Entity) -> Option<T>
         where T: Component
     {
-        if self.masks[ent.index() as usize].contains(T::type_index()) {
-            self.masks[ent.index() as usize].remove(T::type_index());
+        let index = self.arena_index::<T>();
+
+        if self.masks[ent.index() as usize].contains(index) {
+            self.masks[ent.index() as usize].remove(index);
             self.raw_arena::<T>().write().unwrap().remove(ent.index())
         } else {
             None
@@ -153,7 +159,8 @@ impl World {
     pub fn has<T>(&self, ent: Entity) -> bool
         where T: Component
     {
-        self.entities.is_alive(ent) && self.masks[ent.index() as usize].contains(T::type_index())
+        let index = self.arena_index::<T>();
+        self.entities.is_alive(ent) && self.masks[ent.index() as usize].contains(index)
     }
 
     /// Returns a reference to the component corresponding to the `Entity`.
@@ -201,12 +208,20 @@ impl World {
         where T: Component
     {
         Self::any::<T>(
-            self.arenas.get(T::type_index())
+            self.arenas.get(self.arena_index::<T>())
                 .expect("Tried to perform an operation on component type that not registered.")
                 .as_ref()
                 .expect("Tried to perform an operation on component type that not registered.")
                 .as_ref()
         )
+    }
+
+    fn arena_index<T>(&self) -> usize
+        where T: Component
+    {
+        *self.indices
+             .get(&TypeId::of::<T>())
+             .expect("Component has NOT been registered.")
     }
 
     #[inline]
