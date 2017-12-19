@@ -9,6 +9,11 @@ The format is based on [Keep a Changelog][kc], and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+* Rewrite entity component system in a more flexible way. ([#39])
+
+[#39]: https://github.com/shawnscode/crayon/pull/39
+
 ## 0.1.0 - 2017-12-16
 * Initial release
 

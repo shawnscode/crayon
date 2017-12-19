@@ -4,7 +4,7 @@ macro_rules! build_view_with {
         mod $name {
             use $crate::ecs::bitset::BitSet;
             use $crate::ecs::*;
-            use $crate::ecs::world::ArenaWriteGuard;
+            use $crate::ecs::world::FetchMut;
             use $crate::utils::HandleIter;
 
             pub struct View<'a> {
@@ -104,11 +104,11 @@ macro_rules! build_view_with {
             }
 
             impl World {
-                pub fn $name<$($cps), *>(&self) -> (View, ($(ArenaWriteGuard<$cps>), *))
+                pub fn $name<$($cps), *>(&self) -> (View, ($(FetchMut<$cps>), *))
                     where $($cps:Component, )*
                 {
                     let mut mask = BitSet::new();
-                    $( mask.insert(self.arena_index::<$cps>()); ) *
+                    $( mask.insert(self.index::<$cps>()); ) *
 
                     (
                         View {

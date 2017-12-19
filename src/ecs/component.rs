@@ -6,13 +6,16 @@ use std::collections::HashMap;
 
 use utils::handle::HandleIndex;
 
+use super::Entity;
 use super::bitset::DynamicBitSet;
 
 /// Abstract component trait with associated storage type.
 pub trait Component: Any + 'static
     where Self: Sized
 {
-    type Storage: ComponentArena<Self> + Any + Send + Sync;
+    type Arena: ComponentArena<Self> + Any + Send + Sync;
+
+    fn drop(&mut Self::Arena, _: Entity) {}
 }
 
 /// Declare a struct as component, and specify the storage strategy. Internally, this
@@ -21,7 +24,7 @@ pub trait Component: Any + 'static
 macro_rules! declare_component {
     ( $CMP:ident, $STORAGE:ident ) => {
         impl $crate::ecs::Component for $CMP {
-            type Storage = $STORAGE<$CMP>;
+            type Arena = $STORAGE<$CMP>;
         }
     };
 }
@@ -51,7 +54,7 @@ pub trait ComponentArena<T>
     unsafe fn get_unchecked_mut(&mut self, HandleIndex) -> &mut T;
 
     /// Inserts new data for a given `HandleIndex`,
-    fn insert(&mut self, HandleIndex, T);
+    fn insert(&mut self, HandleIndex, T) -> Option<T>;
 
     /// Removes and returns the data associated with an `HandleIndex`.
     fn remove(&mut self, HandleIndex) -> Option<T>;
@@ -87,8 +90,8 @@ impl<T> ComponentArena<T> for HashMapArena<T>
         self.values.get_mut(&id).unwrap()
     }
 
-    fn insert(&mut self, id: HandleIndex, v: T) {
-        self.values.insert(id, v);
+    fn insert(&mut self, id: HandleIndex, v: T) -> Option<T> {
+        self.values.insert(id, v)
     }
 
     fn remove(&mut self, id: HandleIndex) -> Option<T> {
@@ -139,7 +142,7 @@ impl<T> ComponentArena<T> for VecArena<T>
         self.values.get_unchecked_mut(id as usize)
     }
 
-    fn insert(&mut self, id: HandleIndex, v: T) {
+    fn insert(&mut self, id: HandleIndex, v: T) -> Option<T> {
         unsafe {
             let len = self.values.len();
             if id as usize >= len {
@@ -149,8 +152,16 @@ impl<T> ComponentArena<T> for VecArena<T>
 
             // Write the value without reading or dropping
             // the (currently uninitialized) memory.
-            self.mask.insert(id as usize);
+            let value = if self.mask.contains(id as usize) {
+                Some(ptr::read(self.get_unchecked(id)))
+
+            } else {
+                self.mask.insert(id as usize);
+                None
+            };
+
             ptr::write(self.values.get_unchecked_mut(id as usize), v);
+            value
         }
     }
 

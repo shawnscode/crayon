@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate crayon;
+extern crate rayon;
 extern crate rand;
 
 use crayon::prelude::*;
@@ -217,14 +218,25 @@ fn iter_with() {
     }
 }
 
-// #[test]
-// #[should_panic]
-// fn invalid_view() {
-//     let mut world = World::new();
-//     world.register::<Position>();
-//     let _i1 = world.view_with::<Position>();
-//     world.view_with::<Position>();
-// }
+#[test]
+#[should_panic]
+fn invalid_view() {
+    let mut world = World::new();
+    world.register::<Position>();
+
+    let _arena = world.arena_mut::<Position>();
+    world.arena_mut::<Position>();
+}
+
+#[test]
+#[should_panic]
+fn invalid_view_2() {
+    let mut world = World::new();
+    world.register::<Position>();
+
+    let _arena = world.arena::<Position>();
+    world.arena_mut::<Position>();
+}
 
 #[test]
 fn builder() {
