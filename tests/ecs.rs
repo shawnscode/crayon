@@ -1,7 +1,4 @@
-#[macro_use]
 extern crate crayon;
-#[macro_use]
-extern crate lazy_static;
 extern crate rand;
 
 use crayon::prelude::*;
@@ -25,8 +22,40 @@ impl Drop for Reference {
     }
 }
 
-declare_component!(Position, VecArena);
-declare_component!(Reference, HashMapArena);
+impl Component for Position {
+    type Arena = ecs::VecArena<Position>;
+}
+
+impl Component for Reference {
+    type Arena = ecs::HashMapArena<Reference>;
+}
+
+struct IncXSystem {}
+struct DecXSystem {}
+
+impl<'a> System<'a> for IncXSystem {
+    type ViewWith = FetchMut<'a, Position>;
+
+    fn run(&mut self, view: View, mut arena: Self::ViewWith) {
+        unsafe {
+            for v in view {
+                arena.get_unchecked_mut(v).x += 1;
+            }
+        }
+    }
+}
+
+impl<'a> System<'a> for DecXSystem {
+    type ViewWith = FetchMut<'a, Position>;
+
+    fn run(&mut self, view: View, mut arena: Self::ViewWith) {
+        unsafe {
+            for v in view {
+                arena.get_unchecked_mut(v).x -= 1;
+            }
+        }
+    }
+}
 
 #[test]
 fn basic() {
@@ -219,14 +248,25 @@ fn iter_with() {
     }
 }
 
-// #[test]
-// #[should_panic]
-// fn invalid_view() {
-//     let mut world = World::new();
-//     world.register::<Position>();
-//     let _i1 = world.view_with::<Position>();
-//     world.view_with::<Position>();
-// }
+#[test]
+#[should_panic]
+fn invalid_view() {
+    let mut world = World::new();
+    world.register::<Position>();
+
+    let _arena = world.arena_mut::<Position>();
+    world.arena_mut::<Position>();
+}
+
+#[test]
+#[should_panic]
+fn invalid_view_2() {
+    let mut world = World::new();
+    world.register::<Position>();
+
+    let _arena = world.arena::<Position>();
+    world.arena_mut::<Position>();
+}
 
 #[test]
 fn builder() {
@@ -237,4 +277,21 @@ fn builder() {
     let e1 = world.build().with_default::<Position>().finish();
     assert!(world.has::<Position>(e1));
     assert!(!world.has::<Reference>(e1));
+}
+
+#[test]
+fn system() {
+    let mut world = World::new();
+    world.register::<Position>();
+    let e1 = world.build().with_default::<Position>().finish();
+
+    let mut inc = IncXSystem {};
+    inc.run_at(&world);
+    assert!(world.get::<Position>(e1).unwrap().x == 1);
+
+    let mut dec = DecXSystem {};
+    dec.run_at(&world);
+    assert!(world.get::<Position>(e1).unwrap().x == 0);
+
+    assert!(!ecs::system::validate(&world, &[&inc, &dec]));
 }

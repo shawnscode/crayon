@@ -107,9 +107,9 @@ fn iter() {
 
     v.sort_by(|lhs, rhs| lhs.index().cmp(&rhs.index()));
     let mut iter = set.iter();
-    let test_split_with = |stride| {
+    let test_split_at = |stride| {
         let iter = set.iter();
-        let (mut s1, mut s2) = iter.split_with(stride);
+        let (mut s1, mut s2) = iter.split_at(stride);
         assert_eq!(s1.len(), min(stride, iter.len()));
         assert_eq!(s2.len(), iter.len() - min(stride, iter.len()));
 
@@ -122,12 +122,12 @@ fn iter() {
         }
     };
 
-    test_split_with(0);
-    test_split_with(1);
-    test_split_with(iter.len() - 1);
-    test_split_with(iter.len());
-    test_split_with(iter.len() + 1);
-    test_split_with(iter.len() * 2);
+    test_split_at(0);
+    test_split_at(1);
+    test_split_at(iter.len() - 1);
+    test_split_at(iter.len());
+    test_split_at(iter.len() + 1);
+    test_split_at(iter.len() * 2);
 
     for handle in &v {
         assert_eq!(*handle, iter.next().unwrap());

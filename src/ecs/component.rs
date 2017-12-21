@@ -3,24 +3,19 @@
 use std::ptr;
 use std::any::Any;
 use std::collections::HashMap;
-use std::sync::atomic::AtomicUsize;
 
-use bit_set::BitSet;
-use super::super::utils::handle::HandleIndex;
+use utils::handle::HandleIndex;
 
-lazy_static! {
-    /// Lazy initialized id of component. Which produces a continuous index address.
-    #[doc(hidden)]
-    pub static ref _INDEX: AtomicUsize = AtomicUsize::new(0);
-}
+use super::Entity;
+use super::bitset::DynamicBitSet;
 
 /// Abstract component trait with associated storage type.
 pub trait Component: Any + 'static
     where Self: Sized
 {
-    type Storage: ComponentArena<Self> + Any + Send + Sync;
+    type Arena: ComponentArena<Self> + Any + Send + Sync;
 
-    fn type_index() -> usize;
+    fn drop(&mut Self::Arena, _: Entity) {}
 }
 
 /// Declare a struct as component, and specify the storage strategy. Internally, this
@@ -29,14 +24,7 @@ pub trait Component: Any + 'static
 macro_rules! declare_component {
     ( $CMP:ident, $STORAGE:ident ) => {
         impl $crate::ecs::Component for $CMP {
-            type Storage = $STORAGE<$CMP>;
-
-            fn type_index() -> usize {
-                use std::sync::atomic::Ordering;
-                use $crate::ecs::component::_INDEX;
-                lazy_static!{static ref ID: usize = _INDEX.fetch_add(1, Ordering::SeqCst);};
-                *ID
-            }
+            type Arena = $STORAGE<$CMP>;
         }
     };
 }
@@ -66,7 +54,7 @@ pub trait ComponentArena<T>
     unsafe fn get_unchecked_mut(&mut self, HandleIndex) -> &mut T;
 
     /// Inserts new data for a given `HandleIndex`,
-    fn insert(&mut self, HandleIndex, T);
+    fn insert(&mut self, HandleIndex, T) -> Option<T>;
 
     /// Removes and returns the data associated with an `HandleIndex`.
     fn remove(&mut self, HandleIndex) -> Option<T>;
@@ -102,8 +90,8 @@ impl<T> ComponentArena<T> for HashMapArena<T>
         self.values.get_mut(&id).unwrap()
     }
 
-    fn insert(&mut self, id: HandleIndex, v: T) {
-        self.values.insert(id, v);
+    fn insert(&mut self, id: HandleIndex, v: T) -> Option<T> {
+        self.values.insert(id, v)
     }
 
     fn remove(&mut self, id: HandleIndex) -> Option<T> {
@@ -116,7 +104,7 @@ impl<T> ComponentArena<T> for HashMapArena<T>
 pub struct VecArena<T>
     where T: Component + ::std::fmt::Debug
 {
-    mask: BitSet,
+    mask: DynamicBitSet,
     values: Vec<T>,
 }
 
@@ -125,7 +113,7 @@ impl<T> ComponentArena<T> for VecArena<T>
 {
     fn new() -> Self {
         VecArena {
-            mask: BitSet::new(),
+            mask: DynamicBitSet::new(),
             values: Vec::new(),
         }
     }
@@ -154,7 +142,7 @@ impl<T> ComponentArena<T> for VecArena<T>
         self.values.get_unchecked_mut(id as usize)
     }
 
-    fn insert(&mut self, id: HandleIndex, v: T) {
+    fn insert(&mut self, id: HandleIndex, v: T) -> Option<T> {
         unsafe {
             let len = self.values.len();
             if id as usize >= len {
@@ -164,8 +152,16 @@ impl<T> ComponentArena<T> for VecArena<T>
 
             // Write the value without reading or dropping
             // the (currently uninitialized) memory.
-            self.mask.insert(id as usize);
+            let value = if self.mask.contains(id as usize) {
+                Some(ptr::read(self.get_unchecked(id)))
+
+            } else {
+                self.mask.insert(id as usize);
+                None
+            };
+
             ptr::write(self.values.get_unchecked_mut(id as usize), v);
+            value
         }
     }
 
@@ -189,6 +185,7 @@ impl<T> Drop for VecArena<T>
             for i in self.mask.iter() {
                 ptr::read(self.values.get_unchecked(i));
             }
+
             self.values.set_len(0);
             self.mask.clear();
         }
@@ -196,22 +193,4 @@ impl<T> Drop for VecArena<T>
 }
 
 #[cfg(test)]
-mod test {
-    use super::*;
-    use std::sync::atomic::Ordering;
-
-    struct Position {}
-    struct Direction {}
-
-    declare_component!(Position, HashMapArena);
-    declare_component!(Direction, HashMapArena);
-
-    #[test]
-    fn component_index() {
-        assert!(Position::type_index() != Direction::type_index());
-
-        let max = _INDEX.load(Ordering::SeqCst);
-        assert!(Position::type_index() < max);
-        assert!(Direction::type_index() < max);
-    }
-}
+mod test {}

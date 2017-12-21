@@ -17,7 +17,11 @@
 //! without considering the data-ownerships. The real data storage can be shuffled around
 //! in memory as needed.
 //!
-//! ## Data Orinted Design
+//! ## Component
+//!
+//! __TODO__
+//!
+//! ### Data Orinted Design
 //!
 //! Data-oriented design is a program optimization approach motivated by cache coherency.
 //! The approach is to focus on the data layout, separating and sorting fields according
@@ -26,18 +30,39 @@
 //! Due to the composition nature of ECS, its highly compatible with DOD. But benefits
 //! doesn't comes for free, there are some memory/performance tradeoff generally. We
 //! addressed some data storage approaches in `ecs::component`, users could make their
-//! own decision based on different purposes.
+//! own decision based on different purposes:
+//!
+//! ```rust,ignore
+//! struct Position(f32, f32, f32);
+//! struct Label(String);
+//!
+//! // Vec based storage, supposed to have maximum performance for the components
+//! // mostly present in entities.
+//! impl Component for Position {
+//!     type Storage = VecArena<Position>;
+//! }
+//!
+//! // HashMap based storage which are best suited for rare components.
+//! impl Component for Label {
+//!     type Storage = HashMapArena<Label>;
+//! }
+//! ```
+//!
+//! ## System and Dispatcher
+//!
+//! __TODO__
 
-use super::utils::handle::Handle;
+pub mod bitset;
+pub mod cell;
 
-#[macro_use]
-mod iterator;
 #[macro_use]
 pub mod component;
 pub mod world;
+pub mod system;
 
 pub use self::component::{Component, ComponentArena, HashMapArena, VecArena};
-pub use self::world::{World, Arena, ArenaMut};
+pub use self::world::{World, Arena, ArenaMut, Fetch, FetchMut, View};
+pub use self::system::System;
 
 /// `Entity` type, as seen by the user, its a alias to `Handle` internally.
-pub type Entity = Handle;
+pub type Entity = ::utils::handle::Handle;
