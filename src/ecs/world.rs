@@ -12,8 +12,8 @@ use super::cell::{RefCell, Ref, RefMut};
 /// tracks of the state of every created `Entity`s. All memthods are supposed to be
 /// valid for any context they are available in.
 pub struct World {
-    entities: HandlePool,
     masks: Vec<BitSet>,
+    entities: HandlePool,
 
     registry: HashMap<TypeId, usize>,
     arenas: Vec<Entry>,
@@ -185,12 +185,25 @@ impl World {
         Fetch { arena: self.cell::<T>().borrow() }
     }
 
-    fn index<T>(&self) -> usize
+    /// Gets immutable `World` iterator into all of the `Entity`s.
+    #[inline]
+    pub fn iter(&self) -> HandleIter {
+        self.entities.iter()
+    }
+
+    pub(crate) fn index<T>(&self) -> usize
         where T: Component
     {
         *self.registry
              .get(&TypeId::of::<T>())
              .expect("Component has NOT been registered.")
+    }
+
+    pub(crate) fn view(&self, mask: BitSet) -> View {
+        View {
+            world: self,
+            mask: mask,
+        }
     }
 
     fn cell<T>(&self) -> &RefCell<T::Arena>
@@ -324,13 +337,149 @@ impl<'a> EntityBuilder<'a> {
     }
 }
 
-/// All the implementations of various iterators.
-impl World {
-    /// Returns immutable `World` iterator into `Entity`s.
-    #[inline]
-    pub fn iter(&self) -> HandleIter {
-        self.entities.iter()
+/// A `View` of the underlying `Entities` in `World` with specified components.
+pub struct View<'a> {
+    world: &'a World,
+    mask: BitSet,
+}
+
+impl<'a> IntoIterator for View<'a> {
+    type Item = Entity;
+    type IntoIter = ViewIter<'a>;
+
+    fn into_iter(self) -> ViewIter<'a> {
+        let iter = self.world.iter();
+        ViewIter {
+            view: self,
+            iterator: iter,
+        }
     }
+}
+
+/// A iterator of all the entities in the `View`.
+pub struct ViewIter<'a> {
+    view: View<'a>,
+    iterator: HandleIter<'a>,
+}
+
+fn next_item<'a>(view: &View<'a>, iterator: &mut HandleIter<'a>) -> Option<Entity> {
+    loop {
+        match iterator.next() {
+            Some(ent) => {
+                let mask = unsafe { view.world.masks.get_unchecked(ent.index() as usize).clone() };
+
+                if mask.intersect_with(&view.mask) == view.mask {
+                    return Some(ent);
+                }
+            }
+            None => {
+                return None;
+            }
+        }
+    }
+}
+
+impl<'a> Iterator for ViewIter<'a> {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            let iter = &mut self.iterator as *mut HandleIter;
+            next_item(&self.view, &mut *iter)
+        }
+    }
+}
+
+impl<'a> View<'a> {
+    /// View the underlying `Entities` in some range.
+    ///
+    /// This has the same lifetime as the original `View`, and so the iterator can continue
+    /// to be used while this exists.
+    pub fn as_slice(&mut self) -> ViewSlice {
+        let iter = self.world.iter();
+        ViewSlice {
+            view: self as *mut View as *mut (),
+            iterator: iter,
+        }
+    }
+}
+
+/// A dynamically-ranged iterator into a `View`
+pub struct ViewSlice<'a> {
+    view: *mut (),
+    iterator: HandleIter<'a>,
+}
+
+impl<'a> Iterator for ViewSlice<'a> {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            let iter = &mut self.iterator as *mut HandleIter;
+            let view = &mut *(self.view as *mut View);
+            next_item(view, &mut *iter)
+        }
+    }
+}
+
+unsafe impl<'a> Send for ViewSlice<'a> {}
+unsafe impl<'a> Sync for ViewSlice<'a> {}
+
+impl<'a> ViewSlice<'a> {
+    /// Divides one slice into two at an index.
+    ///
+    /// The first will contain all indices from [0, mid) (excluding the index mid itself) and
+    /// the second will contain all indices from [mid, len) (excluding the index len itself).
+    pub fn split_at(&mut self, len: usize) -> (ViewSlice, ViewSlice) {
+        let (lhs, rhs) = self.iterator.split_at(len);
+        (ViewSlice {
+             view: self.view,
+             iterator: lhs,
+         },
+         ViewSlice {
+             view: self.view,
+             iterator: rhs,
+         })
+    }
+
+    /// Divides one slice into two at mid.
+    pub fn split(&mut self) -> (ViewSlice, ViewSlice) {
+        let (lhs, rhs) = self.iterator.split();
+        (ViewSlice {
+             view: self.view,
+             iterator: lhs,
+         },
+         ViewSlice {
+             view: self.view,
+             iterator: rhs,
+         })
+    }
+}
+
+macro_rules! build_view_with {
+    ($name: ident[$($cps: ident), *]) => (
+
+        mod $name {
+            use $crate::ecs::*;
+
+            impl World {
+                pub fn $name<$($cps), *>(&self) -> (View, ($(FetchMut<$cps>), *))
+                    where $($cps:Component, )*
+                {
+                    let mut mask = $crate::ecs::bitset::BitSet::new();
+                    $( mask.insert(self.index::<$cps>()); ) *
+
+                    (
+                        View {
+                            world: self,
+                            mask: mask,
+                        },
+                        ( $(self.arena_mut::<$cps>()), * )
+                    )
+                }
+            }
+        }
+    )
 }
 
 build_view_with!(view_with[T1]);
@@ -341,6 +490,7 @@ build_view_with!(view_with_5[T1, T2, T3, T4, T5]);
 build_view_with!(view_with_6[T1, T2, T3, T4, T5, T6]);
 build_view_with!(view_with_7[T1, T2, T3, T4, T5, T6, T7]);
 build_view_with!(view_with_8[T1, T2, T3, T4, T5, T6, T7, T8]);
+build_view_with!(view_with_9[T1, T2, T3, T4, T5, T6, T7, T8, T9]);
 
 #[cfg(test)]
 mod test {

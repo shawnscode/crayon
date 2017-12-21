@@ -131,7 +131,7 @@ pub struct HandleIter<'a> {
 
 impl<'a> HandleIter<'a> {
     /// Divides iterator into two with specified stripe in the first `HandleIter`.
-    pub fn split_with(&self, len: usize) -> (HandleIter<'a>, HandleIter<'a>) {
+    pub fn split_at(&self, len: usize) -> (HandleIter<'a>, HandleIter<'a>) {
         let len = len as HandleIndex;
         let mid = if self.start + len >= self.end {
             self.end
@@ -159,7 +159,7 @@ impl<'a> HandleIter<'a> {
     /// and the second will contain all indices from [mid, end) (excluding the index end itself).
     pub fn split(&self) -> (HandleIter<'a>, HandleIter<'a>) {
         let mid = (self.end - self.start) / 2;
-        self.split_with(mid as usize)
+        self.split_at(mid as usize)
     }
 
     /// Returns the size of indices this iterator could reachs.

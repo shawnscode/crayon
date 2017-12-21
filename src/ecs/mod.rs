@@ -52,18 +52,17 @@
 //!
 //! __TODO__
 
-mod bitset;
-#[macro_use]
-mod iterator;
-#[macro_use]
-
-pub mod component;
-pub mod world;
+pub mod bitset;
 pub mod cell;
 
-pub use self::component::{Component, ComponentArena, HashMapArena, VecArena};
-pub use self::world::{World, Arena, ArenaMut, Fetch, FetchMut};
+#[macro_use]
+pub mod component;
+pub mod world;
+pub mod system;
 
-use utils::handle::Handle;
+pub use self::component::{Component, ComponentArena, HashMapArena, VecArena};
+pub use self::world::{World, Arena, ArenaMut, Fetch, FetchMut, View};
+pub use self::system::System;
+
 /// `Entity` type, as seen by the user, its a alias to `Handle` internally.
-pub type Entity = Handle;
+pub type Entity = ::utils::handle::Handle;
