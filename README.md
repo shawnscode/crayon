@@ -18,7 +18,7 @@ It is loosely inspired by some amazing blogs on [bitsquid](https://bitsquid.blog
 - Asynchronous data loading from various filesystem;
 - etc.
 
-This project adheres to [Semantic Versioning](http://semver.org/), all notable changes to this project will be documented in this [file](./CHANGELOG.md).
+This project adheres to [Semantic Versioning](http://semver.org/), all notable changes will be documented in this [file](./CHANGELOG.md).
 
 ### Quick Example
 For the sake of brevity, you can also run a simple and quick example with commands:
