@@ -43,20 +43,15 @@ impl RAIIGuard {
     }
 
     #[inline(always)]
-    pub fn create_vertex_buffer(&mut self,
-                                setup: VertexBufferSetup,
-                                data: Option<&[u8]>)
-                                -> Result<VertexBufferHandle> {
-        let v = self.video.create_vertex_buffer(setup, data)?;
-        Ok(self.push(v))
-    }
-
-    #[inline(always)]
-    pub fn create_index_buffer(&mut self,
-                               setup: IndexBufferSetup,
-                               data: Option<&[u8]>)
-                               -> Result<IndexBufferHandle> {
-        let v = self.video.create_index_buffer(setup, data)?;
+    pub fn create_mesh<'a, 'b, T1, T2>(&mut self,
+                                       setup: MeshSetup,
+                                       verts: T1,
+                                       idxes: T2)
+                                       -> Result<MeshHandle>
+        where T1: Into<Option<&'a [u8]>>,
+              T2: Into<Option<&'b [u8]>>
+    {
+        let v = self.video.create_mesh(setup, verts, idxes)?;
         Ok(self.push(v))
     }
 
@@ -78,10 +73,9 @@ impl RAIIGuard {
     }
 
     #[inline(always)]
-    pub fn create_texture(&mut self,
-                          setup: TextureSetup,
-                          data: Option<&[u8]>)
-                          -> Result<TextureHandle> {
+    pub fn create_texture<'a, T>(&mut self, setup: TextureSetup, data: T) -> Result<TextureHandle>
+        where T: Into<Option<&'a [u8]>>
+    {
         let v = self.video.create_texture(setup, data)?;
         Ok(self.push(v))
     }
@@ -90,8 +84,7 @@ impl RAIIGuard {
         for v in self.stack.drain(..) {
             match v {
                 Resource::Texture(handle) => self.video.delete_texture(handle),
-                Resource::VertexBuffer(handle) => self.video.delete_vertex_buffer(handle),
-                Resource::IndexBuffer(handle) => self.video.delete_index_buffer(handle),
+                Resource::Mesh(handle) => self.video.delete_mesh(handle),
                 Resource::Surface(handle) => self.video.delete_surface(handle),
                 Resource::ShaderState(handle) => self.video.delete_shader(handle),
                 Resource::FrameBuffer(handle) => self.video.delete_framebuffer(handle),
@@ -116,8 +109,7 @@ impl Drop for RAIIGuard {
 
 enum Resource {
     Texture(TextureHandle),
-    VertexBuffer(VertexBufferHandle),
-    IndexBuffer(IndexBufferHandle),
+    Mesh(MeshHandle),
     Surface(SurfaceHandle),
     ShaderState(ShaderHandle),
     FrameBuffer(FrameBufferHandle),
@@ -130,15 +122,9 @@ impl From<TextureHandle> for Resource {
     }
 }
 
-impl From<VertexBufferHandle> for Resource {
-    fn from(handle: VertexBufferHandle) -> Resource {
-        Resource::VertexBuffer(handle)
-    }
-}
-
-impl From<IndexBufferHandle> for Resource {
-    fn from(handle: IndexBufferHandle) -> Resource {
-        Resource::IndexBuffer(handle)
+impl From<MeshHandle> for Resource {
+    fn from(handle: MeshHandle) -> Resource {
+        Resource::Mesh(handle)
     }
 }
 

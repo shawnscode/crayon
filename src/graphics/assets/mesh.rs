@@ -2,6 +2,50 @@
 
 use graphics::MAX_VERTEX_ATTRIBUTES;
 
+impl_handle!(MeshHandle);
+
+/// The setup parameters of mesh object.
+#[derive(Debug, Copy, Clone)]
+pub struct MeshSetup {
+    /// Usage hints.
+    pub hint: BufferHint,
+    /// How a single vertex structure looks like.
+    pub layout: VertexLayout,
+    /// Index format
+    pub index_format: IndexFormat,
+    /// How the input vertex data is used to assemble primitives.
+    pub primitive: Primitive,
+    /// The number of vertices in this mesh.
+    pub num_vertices: u32,
+    /// The number of indices in this mesh.
+    pub num_indices: u32,
+}
+
+impl Default for MeshSetup {
+    fn default() -> Self {
+        MeshSetup {
+            hint: BufferHint::Immutable,
+            layout: VertexLayout::default(),
+            index_format: IndexFormat::U16,
+            primitive: Primitive::Triangles,
+            num_vertices: 0,
+            num_indices: 0,
+        }
+    }
+}
+
+impl MeshSetup {
+    #[inline(always)]
+    pub fn vertex_buffer_len(&self) -> usize {
+        self.num_vertices as usize * self.layout.stride() as usize
+    }
+
+    #[inline(always)]
+    pub fn index_buffer_len(&self) -> usize {
+        self.num_indices as usize * self.index_format.len() as usize
+    }
+}
+
 /// Hint abouts the intended update strategy of the data.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BufferHint {
@@ -54,61 +98,6 @@ impl Primitive {
 
     }
 }
-
-
-#[derive(Debug, Copy, Clone)]
-pub struct IndexBufferSetup {
-    /// Usage hints.
-    pub hint: BufferHint,
-    /// The number of indices in this buffer.
-    pub num: u32,
-    /// The format.
-    pub format: IndexFormat,
-}
-
-impl Default for IndexBufferSetup {
-    fn default() -> Self {
-        IndexBufferSetup {
-            hint: BufferHint::Immutable,
-            num: 0,
-            format: IndexFormat::U16,
-        }
-    }
-}
-
-impl_handle!(IndexBufferHandle);
-
-impl IndexBufferSetup {
-    pub fn len(&self) -> usize {
-        self.num as usize * self.format.len()
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct VertexBufferSetup {
-    pub hint: BufferHint,
-    pub layout: VertexLayout,
-    pub num: u32,
-}
-
-impl VertexBufferSetup {
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.num as usize * self.layout.stride() as usize
-    }
-}
-
-impl Default for VertexBufferSetup {
-    fn default() -> Self {
-        VertexBufferSetup {
-            hint: BufferHint::Immutable,
-            layout: VertexLayout::default(),
-            num: 0,
-        }
-    }
-}
-
-impl_handle!(VertexBufferHandle);
 
 /// Vertex indices can be either 16- or 32-bit. You should always prefer
 /// 16-bit indices over 32-bit indices, since the latter may have performance

@@ -224,13 +224,12 @@ use std::time::Duration;
 #[derive(Debug, Copy, Clone, Default)]
 pub struct GraphicsFrameInfo {
     pub duration: Duration,
-    pub drawcall: usize,
-    pub triangles: usize,
-    pub alive_surfaces: usize,
-    pub alive_shaders: usize,
-    pub alive_frame_buffers: usize,
-    pub alive_vertex_buffers: usize,
-    pub alive_index_buffers: usize,
-    pub alive_textures: usize,
-    pub alive_render_buffers: usize,
+    pub drawcall: u32,
+    pub triangles: u32,
+    pub alive_surfaces: u32,
+    pub alive_shaders: u32,
+    pub alive_frame_buffers: u32,
+    pub alive_meshes: u32,
+    pub alive_textures: u32,
+    pub alive_render_buffers: u32,
 }
