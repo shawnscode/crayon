@@ -1,6 +1,7 @@
 //! Immutable or dynamic vertex and index data.
 
 use graphics::MAX_VERTEX_ATTRIBUTES;
+use graphics::assets::shader::Attribute;
 
 impl_handle!(MeshHandle);
 
@@ -134,73 +135,11 @@ pub enum VertexFormat {
     Float,
 }
 
-/// The possible pre-defined and named attributes in the vertex component, describing
-/// what the vertex component is used for.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum VertexAttribute {
-    Position = 0,
-    Normal = 1,
-    Tangent = 2,
-    Bitangent = 3,
-    Color0 = 4,
-    Color1 = 5,
-    Indices = 6,
-    Weight = 7,
-    Texcoord0 = 8,
-    Texcoord1 = 9,
-    Texcoord2 = 10,
-    Texcoord3 = 11,
-}
-
-impl Into<&'static str> for VertexAttribute {
-    fn into(self) -> &'static str {
-        match self {
-            VertexAttribute::Position => "Position",
-            VertexAttribute::Normal => "Normal",
-            VertexAttribute::Tangent => "Tangent",
-            VertexAttribute::Bitangent => "Bitangent",
-            VertexAttribute::Color0 => "Color0",
-            VertexAttribute::Color1 => "Color1",
-            VertexAttribute::Indices => "Indices",
-            VertexAttribute::Weight => "Weight",
-            VertexAttribute::Texcoord0 => "Texcoord0",
-            VertexAttribute::Texcoord1 => "Texcoord1",
-            VertexAttribute::Texcoord2 => "Texcoord2",
-            VertexAttribute::Texcoord3 => "Texcoord3",
-        }
-    }
-}
-
-impl VertexAttribute {
-    pub fn from_str(v: &str) -> Option<VertexAttribute> {
-        let attributes = [VertexAttribute::Position,
-                          VertexAttribute::Normal,
-                          VertexAttribute::Tangent,
-                          VertexAttribute::Bitangent,
-                          VertexAttribute::Color0,
-                          VertexAttribute::Color1,
-                          VertexAttribute::Indices,
-                          VertexAttribute::Weight,
-                          VertexAttribute::Texcoord0,
-                          VertexAttribute::Texcoord1,
-                          VertexAttribute::Texcoord2,
-                          VertexAttribute::Texcoord3];
-        for at in &attributes {
-            let w: &'static str = (*at).into();
-            if v == w {
-                return Some(*at);
-            }
-        }
-
-        None
-    }
-}
-
 /// The details of a vertex attribute.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct VertexAttributeDesc {
+pub struct VertexAttribute {
     /// The name of this description.
-    pub name: VertexAttribute,
+    pub name: Attribute,
     /// The data type of each component of this element.
     pub format: VertexFormat,
     /// The number of components per generic vertex element.
@@ -209,10 +148,10 @@ pub struct VertexAttributeDesc {
     pub normalized: bool,
 }
 
-impl Default for VertexAttributeDesc {
+impl Default for VertexAttribute {
     fn default() -> Self {
-        VertexAttributeDesc {
-            name: VertexAttribute::Position,
+        VertexAttribute {
+            name: Attribute::Position,
             format: VertexFormat::Byte,
             size: 0,
             normalized: false,
@@ -228,7 +167,7 @@ pub struct VertexLayout {
     stride: u8,
     len: u8,
     offset: [u8; MAX_VERTEX_ATTRIBUTES],
-    elements: [VertexAttributeDesc; MAX_VERTEX_ATTRIBUTES],
+    elements: [VertexAttribute; MAX_VERTEX_ATTRIBUTES],
 }
 
 impl VertexLayout {
@@ -251,7 +190,7 @@ impl VertexLayout {
     }
 
     /// Relative element offset from the layout.
-    pub fn offset(&self, name: VertexAttribute) -> Option<u8> {
+    pub fn offset(&self, name: Attribute) -> Option<u8> {
         for i in 0..self.elements.len() {
             match self.elements[i].name {
                 v if v == name => return Some(self.offset[i]),
@@ -262,8 +201,8 @@ impl VertexLayout {
         None
     }
 
-    /// Returns named `VertexAttribute` from the layout.
-    pub fn element(&self, name: VertexAttribute) -> Option<VertexAttributeDesc> {
+    /// Returns named `Attribute` from the layout.
+    pub fn element(&self, name: Attribute) -> Option<VertexAttribute> {
         for i in 0..self.elements.len() {
             match self.elements[i].name {
                 v if v == name => return Some(self.elements[i]),
@@ -286,14 +225,14 @@ impl VertexLayoutBuilder {
     }
 
     pub fn with(&mut self,
-                attribute: VertexAttribute,
+                attribute: Attribute,
                 format: VertexFormat,
                 size: u8,
                 normalized: bool)
                 -> &mut Self {
         assert!(size > 0 && size <= 4);
 
-        let desc = VertexAttributeDesc {
+        let desc = VertexAttribute {
             name: attribute,
             format: format,
             size: size,
@@ -343,40 +282,40 @@ mod test {
     #[test]
     fn basic() {
         let layout = VertexLayout::build()
-            .with(VertexAttribute::Position, VertexFormat::Float, 3, true)
-            .with(VertexAttribute::Texcoord0, VertexFormat::Float, 2, true)
+            .with(Attribute::Position, VertexFormat::Float, 3, true)
+            .with(Attribute::Texcoord0, VertexFormat::Float, 2, true)
             .finish();
 
         assert_eq!(layout.stride(), 20);
-        assert_eq!(layout.offset(VertexAttribute::Position), Some(0));
-        assert_eq!(layout.offset(VertexAttribute::Texcoord0), Some(12));
-        assert_eq!(layout.offset(VertexAttribute::Normal), None);
+        assert_eq!(layout.offset(Attribute::Position), Some(0));
+        assert_eq!(layout.offset(Attribute::Texcoord0), Some(12));
+        assert_eq!(layout.offset(Attribute::Normal), None);
 
-        let element = layout.element(VertexAttribute::Position).unwrap();
+        let element = layout.element(Attribute::Position).unwrap();
         assert_eq!(element.format, VertexFormat::Float);
         assert_eq!(element.size, 3);
         assert_eq!(element.normalized, true);
-        assert_eq!(layout.element(VertexAttribute::Normal), None);
+        assert_eq!(layout.element(Attribute::Normal), None);
     }
 
     #[test]
     fn rewrite() {
         let layout = VertexLayout::build()
-            .with(VertexAttribute::Position, VertexFormat::Byte, 1, false)
-            .with(VertexAttribute::Texcoord0, VertexFormat::Float, 2, true)
-            .with(VertexAttribute::Position, VertexFormat::Float, 3, true)
+            .with(Attribute::Position, VertexFormat::Byte, 1, false)
+            .with(Attribute::Texcoord0, VertexFormat::Float, 2, true)
+            .with(Attribute::Position, VertexFormat::Float, 3, true)
             .finish();
 
         assert_eq!(layout.stride(), 20);
-        assert_eq!(layout.offset(VertexAttribute::Position), Some(0));
-        assert_eq!(layout.offset(VertexAttribute::Texcoord0), Some(12));
-        assert_eq!(layout.offset(VertexAttribute::Normal), None);
+        assert_eq!(layout.offset(Attribute::Position), Some(0));
+        assert_eq!(layout.offset(Attribute::Texcoord0), Some(12));
+        assert_eq!(layout.offset(Attribute::Normal), None);
 
-        let element = layout.element(VertexAttribute::Position).unwrap();
+        let element = layout.element(Attribute::Position).unwrap();
         assert_eq!(element.format, VertexFormat::Float);
         assert_eq!(element.size, 3);
         assert_eq!(element.normalized, true);
-        assert_eq!(layout.element(VertexAttribute::Normal), None);
+        assert_eq!(layout.element(Attribute::Normal), None);
     }
 }
 
@@ -395,7 +334,7 @@ pub mod macros {
         }
 
         pub fn with(&mut self,
-                    attribute: VertexAttribute,
+                    attribute: Attribute,
                     format: VertexFormat,
                     size: u8,
                     normalized: bool,
@@ -403,7 +342,7 @@ pub mod macros {
                     -> &mut Self {
             assert!(size > 0 && size <= 4);
 
-            let desc = VertexAttributeDesc {
+            let desc = VertexAttribute {
                 name: attribute,
                 format: format,
                 size: size,
@@ -460,7 +399,7 @@ pub mod macros {
                     let mut builder = $crate::graphics::assets::mesh::macros::CustomVertexLayoutBuilder::new();
 
                     $( builder.with(
-                        $crate::graphics::assets::mesh::VertexAttribute::$attribute,
+                        $crate::graphics::assets::shader::Attribute::$attribute,
                         $crate::graphics::assets::mesh::VertexFormat::$format,
                         $size,
                         $normalized,
@@ -526,9 +465,9 @@ pub mod macros {
         fn basic() {
             let layout = Vertex::layout();
             assert_eq!(layout.stride(), 20);
-            assert_eq!(layout.offset(VertexAttribute::Position), Some(0));
-            assert_eq!(layout.offset(VertexAttribute::Texcoord0), Some(12));
-            assert_eq!(layout.offset(VertexAttribute::Normal), None);
+            assert_eq!(layout.offset(Attribute::Position), Some(0));
+            assert_eq!(layout.offset(Attribute::Texcoord0), Some(12));
+            assert_eq!(layout.offset(Attribute::Normal), None);
 
             let bytes: [f32; 5] = [1.0, 1.0, 1.0, 0.0, 0.0];
             let bytes = as_bytes(&bytes);

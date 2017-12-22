@@ -33,7 +33,7 @@ impl Window {
         let idxes: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
         let attributes = graphics::AttributeLayoutBuilder::new()
-            .with(graphics::VertexAttribute::Position, 2)
+            .with(graphics::Attribute::Position, 2)
             .finish();
 
         // Create vertex buffer object.

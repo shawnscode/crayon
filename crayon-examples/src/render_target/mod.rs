@@ -27,7 +27,7 @@ impl Window {
         let mut label = graphics::RAIIGuard::new(video);
 
         let attributes = graphics::AttributeLayoutBuilder::new()
-            .with(graphics::VertexAttribute::Position, 2)
+            .with(graphics::Attribute::Position, 2)
             .finish();
 
         //

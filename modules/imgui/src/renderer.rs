@@ -35,9 +35,9 @@ impl Renderer {
         let surface = video.create_surface(setup)?;
 
         let layout = graphics::AttributeLayoutBuilder::new()
-            .with(graphics::VertexAttribute::Position, 2)
-            .with(graphics::VertexAttribute::Texcoord0, 2)
-            .with(graphics::VertexAttribute::Color0, 4)
+            .with(graphics::Attribute::Position, 2)
+            .with(graphics::Attribute::Texcoord0, 2)
+            .with(graphics::Attribute::Color0, 4)
             .finish();
 
         let mut setup = graphics::ShaderSetup::default();
