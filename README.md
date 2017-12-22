@@ -18,7 +18,7 @@ It is loosely inspired by some amazing blogs on [bitsquid](https://bitsquid.blog
 - Asynchronous data loading from various filesystem;
 - etc.
 
-*Warning*: This project is a work in progress and far from a stable version right now.
+This project adheres to [Semantic Versioning](http://semver.org/), all notable changes to this project will be documented in this [file](./CHANGELOG.md).
 
 ### Quick Example
 For the sake of brevity, you can also run a simple and quick example with commands:
