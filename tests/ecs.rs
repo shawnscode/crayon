@@ -36,7 +36,7 @@ struct DecXSystem {}
 impl<'a> System<'a> for IncXSystem {
     type ViewWith = FetchMut<'a, Position>;
 
-    fn run(&mut self, view: View, mut arena: Self::ViewWith) {
+    fn run(&self, view: View, mut arena: Self::ViewWith) {
         unsafe {
             for v in view {
                 arena.get_unchecked_mut(v).x += 1;
@@ -48,7 +48,7 @@ impl<'a> System<'a> for IncXSystem {
 impl<'a> System<'a> for DecXSystem {
     type ViewWith = FetchMut<'a, Position>;
 
-    fn run(&mut self, view: View, mut arena: Self::ViewWith) {
+    fn run(&self, view: View, mut arena: Self::ViewWith) {
         unsafe {
             for v in view {
                 arena.get_unchecked_mut(v).x -= 1;

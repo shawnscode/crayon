@@ -7,9 +7,9 @@ impl_vertex!{
 }
 
 struct Pass {
-    view: graphics::SurfaceHandle,
+    surface: graphics::SurfaceHandle,
     shader: graphics::ShaderHandle,
-    mesh: graphics::VertexBufferHandle,
+    mesh: graphics::MeshHandle,
 }
 
 struct Window {
@@ -26,29 +26,27 @@ impl Window {
         let video = ctx.shared::<GraphicsSystem>().clone();
         let mut label = graphics::RAIIGuard::new(video);
 
-        let vertices: [Vertex; 3] = [Vertex::new([0.0, 0.5]),
-                                     Vertex::new([0.5, -0.5]),
-                                     Vertex::new([-0.5, -0.5])];
-
-        let quad_vertices: [Vertex; 6] = [Vertex::new([-1.0, -1.0]),
-                                          Vertex::new([1.0, -1.0]),
-                                          Vertex::new([-1.0, 1.0]),
-                                          Vertex::new([-1.0, 1.0]),
-                                          Vertex::new([1.0, -1.0]),
-                                          Vertex::new([1.0, 1.0])];
-
         let attributes = graphics::AttributeLayoutBuilder::new()
             .with(graphics::VertexAttribute::Position, 2)
             .finish();
 
         //
         let (pass, rendered_texture) = {
+            let verts: [Vertex; 3] = [Vertex::new([0.0, 0.5]),
+                                      Vertex::new([0.5, -0.5]),
+                                      Vertex::new([-0.5, -0.5])];
+            let idxes: [u16; 3] = [0, 1, 2];
+
             // Create vertex buffer object.
-            let mut setup = graphics::VertexBufferSetup::default();
-            setup.num = vertices.len() as u32;
+            let mut setup = graphics::MeshSetup::default();
+            setup.num_vertices = 3;
+            setup.num_indices = 3;
             setup.layout = Vertex::layout();
-            let vbo = label
-                .create_vertex_buffer(setup, Some(Vertex::as_bytes(&vertices[..])))?;
+
+            let mesh = label
+                .create_mesh(setup,
+                             Vertex::as_bytes(&verts[..]),
+                             graphics::IndexFormat::as_bytes(&idxes))?;
 
             // Create render texture for post effect.
             let mut setup = graphics::RenderTextureSetup::default();
@@ -61,12 +59,12 @@ impl Window {
             setup.set_attachment(rendered_texture, 0)?;
             let fbo = label.create_framebuffer(setup)?;
 
-            // Create the view state for pass 1.
+            // Create the surface state for pass 1.
             let mut setup = graphics::SurfaceSetup::default();
             setup.set_order(0);
             setup.set_framebuffer(fbo);
             setup.set_clear(Color::gray(), None, None);
-            let view = label.create_surface(setup)?;
+            let surface = label.create_surface(setup)?;
 
             // Create shader state.
             let mut setup = graphics::ShaderSetup::default();
@@ -76,23 +74,33 @@ impl Window {
             let shader = label.create_shader(setup)?;
 
             (Pass {
-                 view: view,
+                 surface: surface,
                  shader: shader,
-                 mesh: vbo,
+                 mesh: mesh,
              },
              rendered_texture)
         };
 
         let post_effect = {
-            let mut setup = graphics::VertexBufferSetup::default();
-            setup.num = quad_vertices.len() as u32;
+            let verts: [Vertex; 4] = [Vertex::new([-1.0, -1.0]),
+                                      Vertex::new([1.0, -1.0]),
+                                      Vertex::new([1.0, 1.0]),
+                                      Vertex::new([-1.0, 1.0])];
+            let idxes: [u16; 6] = [0, 1, 2, 0, 2, 3];
+
+            let mut setup = graphics::MeshSetup::default();
+            setup.num_vertices = 4;
+            setup.num_indices = 6;
             setup.layout = Vertex::layout();
-            let vbo = label
-                .create_vertex_buffer(setup, Some(Vertex::as_bytes(&quad_vertices[..])))?;
+
+            let mesh = label
+                .create_mesh(setup,
+                             Vertex::as_bytes(&verts[..]),
+                             graphics::IndexFormat::as_bytes(&idxes))?;
 
             let mut setup = graphics::SurfaceSetup::default();
             setup.set_order(1);
-            let view = label.create_surface(setup)?;
+            let surface = label.create_surface(setup)?;
 
             let mut setup = graphics::ShaderSetup::default();
             setup.layout = attributes;
@@ -103,9 +111,9 @@ impl Window {
             let shader = label.create_shader(setup)?;
 
             Pass {
-                view: view,
+                surface: surface,
                 shader: shader,
-                mesh: vbo,
+                mesh: mesh,
             }
         };
 
@@ -126,19 +134,17 @@ impl Application for Window {
         let video = ctx.shared::<GraphicsSystem>();
 
         {
-            let mut dc = graphics::DrawCall::new(self.pass.shader);
-            dc.set_mesh(self.pass.mesh, None);
-            let cmd = dc.build(graphics::Primitive::Triangles, 0, 3)?;
-            video.submit(self.pass.view, 0, cmd)?;
+            let mut dc = graphics::DrawCall::new(self.pass.shader, self.pass.mesh);
+            let cmd = dc.build(0, 3)?;
+            video.submit(self.pass.surface, 0, cmd)?;
         }
 
         {
-            let mut dc = graphics::DrawCall::new(self.post_effect.shader);
-            dc.set_mesh(self.post_effect.mesh, None);
+            let mut dc = graphics::DrawCall::new(self.post_effect.shader, self.post_effect.mesh);
             dc.set_uniform_variable("renderedTexture", self.texture);
             dc.set_uniform_variable("time", self.time);
-            let cmd = dc.build(graphics::Primitive::Triangles, 0, 6)?;
-            video.submit(self.post_effect.view, 1, cmd)?;
+            let cmd = dc.build(0, 6)?;
+            video.submit(self.post_effect.surface, 1, cmd)?;
         }
 
         self.time += 0.05;

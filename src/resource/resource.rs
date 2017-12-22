@@ -30,7 +30,10 @@ impl ResourceSystem {
 
         {
             let driver = driver.clone();
-            thread::spawn(|| { ResourceSystem::run(rx, driver); });
+            thread::Builder::new()
+                .name("RESOURCE".into())
+                .spawn(|| { ResourceSystem::run(rx, driver); })
+                .unwrap();
         }
 
         let shared = ResourceSystemShared::new(driver.clone(), tx);
