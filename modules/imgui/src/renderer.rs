@@ -49,8 +49,8 @@ impl Renderer {
                   graphics::BlendFactor::Value(graphics::BlendValue::SourceAlpha),
                   graphics::BlendFactor::OneMinusValue(graphics::BlendValue::SourceAlpha)));
 
-        setup.vs = include_str!("../resources/imgui.vs").to_owned();
-        setup.fs = include_str!("../resources/imgui.fs").to_owned();
+        setup.vs = include_str!("../assets/imgui.vs").to_owned();
+        setup.fs = include_str!("../assets/imgui.fs").to_owned();
         setup.uniform_variables.push("matrix".into());
         setup.uniform_variables.push("texture".into());
         let shader = video.create_shader(setup)?;
