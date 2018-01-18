@@ -106,7 +106,7 @@ impl Engine {
                           application.clone());
 
         let mut alive = true;
-        'main: while alive {
+        while alive {
             self.input.advance(self.window.hidpi_factor());
 
             // Poll any possible events first.
@@ -130,11 +130,15 @@ impl Engine {
                 }
             }
 
+            alive = alive && !self.context.is_shutdown();
+            if !alive {
+                break;
+            }
+
             self.time.advance();
             self.graphics.swap_frames();
 
             let (video_info, duration) = {
-
                 // Perform update and render submitting for frame [x], and drawing
                 // frame [x-1] at the same time.
                 task_sender.send(true).unwrap();
@@ -157,7 +161,7 @@ impl Engine {
                 application.on_post_update(&self.context, &info)?;
             }
 
-            alive = alive || !self.context.is_shutdown();
+            alive = alive && !self.context.is_shutdown();
         }
 
         {
@@ -165,6 +169,7 @@ impl Engine {
             application.on_exit(&self.context)?;
         }
 
+        task_sender.send(false).unwrap();
         Ok(self)
     }
 
@@ -174,14 +179,17 @@ impl Engine {
                       application: Arc<RwLock<T>>)
         where T: Application + Send + Sync + 'static
     {
-        thread::spawn(move || {
-                          //
-                          while receiver.recv().unwrap() {
-                              sender
-                                  .send(Self::execute_frame(&context, &application))
-                                  .unwrap();
-                          }
-                      });
+        thread::Builder::new()
+            .name("LOGIC".into())
+            .spawn(move || {
+                       //
+                       while receiver.recv().unwrap() {
+                           sender
+                               .send(Self::execute_frame(&context, &application))
+                               .unwrap();
+                       }
+                   })
+            .unwrap();
     }
 
     fn execute_frame<T>(ctx: &Context, application: &RwLock<T>) -> Result<Duration>

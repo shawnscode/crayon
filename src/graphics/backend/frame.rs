@@ -15,18 +15,17 @@ pub(crate) enum PreFrameTask {
     UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),
     CreateRenderTexture(TextureHandle, RenderTextureSetup),
     CreateRenderBuffer(RenderBufferHandle, RenderBufferSetup),
-    CreateVertexBuffer(VertexBufferHandle, VertexBufferSetup, Option<DataBufferPtr<[u8]>>),
-    UpdateVertexBuffer(VertexBufferHandle, usize, DataBufferPtr<[u8]>),
-    CreateIndexBuffer(IndexBufferHandle, IndexBufferSetup, Option<DataBufferPtr<[u8]>>),
-    UpdateIndexBuffer(IndexBufferHandle, usize, DataBufferPtr<[u8]>),
+    CreateMesh(MeshHandle, MeshSetup, Option<DataBufferPtr<[u8]>>, Option<DataBufferPtr<[u8]>>),
+    UpdateVertexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
+    UpdateIndexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
 }
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum FrameTask {
     DrawCall(FrameDrawCall),
     UpdateSurface(Scissor),
-    UpdateVertexBuffer(VertexBufferHandle, usize, DataBufferPtr<[u8]>),
-    UpdateIndexBuffer(IndexBufferHandle, usize, DataBufferPtr<[u8]>),
+    UpdateVertexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
+    UpdateIndexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
     UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),
 }
 
@@ -34,19 +33,15 @@ pub(crate) enum FrameTask {
 pub(crate) struct FrameDrawCall {
     pub shader: ShaderHandle,
     pub uniforms: DataBufferPtr<[Option<DataBufferPtr<UniformVariable>>]>,
-    pub vb: VertexBufferHandle,
-    pub ib: Option<IndexBufferHandle>,
-    pub primitive: Primitive,
-    pub from: u32,
-    pub len: u32,
+    pub mesh: MeshHandle,
+    pub index: MeshIndex,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum PostFrameTask {
     DeleteSurface(SurfaceHandle),
     DeletePipeline(ShaderHandle),
-    DeleteVertexBuffer(VertexBufferHandle),
-    DeleteIndexBuffer(IndexBufferHandle),
+    DeleteMesh(MeshHandle),
     DeleteTexture(TextureHandle),
     DeleteRenderBuffer(RenderBufferHandle),
     DeleteFrameBuffer(FrameBufferHandle),
@@ -96,19 +91,15 @@ impl Frame {
                 PreFrameTask::CreatePipeline(handle, setup) => {
                     device.create_shader(handle, setup)?;
                 }
-                PreFrameTask::CreateVertexBuffer(handle, setup, data) => {
+                PreFrameTask::CreateMesh(handle, setup, verts, idxes) => {
                     let field = &self.buf;
-                    let buf = data.map(|v| field.as_slice(v));
-                    device.create_vertex_buffer(handle, setup, buf)?;
+                    let verts = verts.map(|v| field.as_slice(v));
+                    let idxes = idxes.map(|v| field.as_slice(v));
+                    device.create_mesh(handle, setup, verts, idxes)?;
                 }
                 PreFrameTask::UpdateVertexBuffer(handle, offset, data) => {
                     let data = self.buf.as_slice(data);
                     device.update_vertex_buffer(handle, offset, data)?;
-                }
-                PreFrameTask::CreateIndexBuffer(handle, setup, data) => {
-                    let field = &self.buf;
-                    let buf = data.map(|v| field.as_slice(v));
-                    device.create_index_buffer(handle, setup, buf)?;
                 }
                 PreFrameTask::UpdateIndexBuffer(handle, offset, data) => {
                     let data = self.buf.as_slice(data);
@@ -160,11 +151,8 @@ impl Frame {
                 PostFrameTask::DeletePipeline(handle) => {
                     device.delete_shader(handle)?;
                 }
-                PostFrameTask::DeleteVertexBuffer(handle) => {
-                    device.delete_vertex_buffer(handle)?;
-                }
-                PostFrameTask::DeleteIndexBuffer(handle) => {
-                    device.delete_index_buffer(handle)?;
+                PostFrameTask::DeleteMesh(handle) => {
+                    device.delete_mesh(handle)?;
                 }
                 PostFrameTask::DeleteTexture(handle) => {
                     device.delete_texture(handle)?;

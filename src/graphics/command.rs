@@ -13,9 +13,9 @@ pub enum Command<'a> {
 }
 
 impl<'a> Command<'a> {
-    pub fn update_vertex_buffer(vbo: VertexBufferHandle, offset: usize, data: &[u8]) -> Command {
+    pub fn update_vertex_buffer(mesh: MeshHandle, offset: usize, data: &[u8]) -> Command {
         let task = VertexBufferUpdate {
-            vbo: vbo,
+            mesh: mesh,
             offset: offset,
             data: data,
         };
@@ -23,9 +23,9 @@ impl<'a> Command<'a> {
         Command::VertexBufferUpdate(task)
     }
 
-    pub fn update_index_buffer(ibo: IndexBufferHandle, offset: usize, data: &[u8]) -> Command {
+    pub fn update_index_buffer(mesh: MeshHandle, offset: usize, data: &[u8]) -> Command {
         let task = IndexBufferUpdate {
-            ibo: ibo,
+            mesh: mesh,
             offset: offset,
             data: data,
         };
@@ -52,11 +52,8 @@ impl<'a> Command<'a> {
 pub struct SliceDrawCall<'a> {
     pub(crate) shader: ShaderHandle,
     pub(crate) uniforms: &'a [(HashValue<str>, UniformVariable)],
-    pub(crate) vbo: VertexBufferHandle,
-    pub(crate) ibo: Option<IndexBufferHandle>,
-    pub(crate) primitive: Primitive,
-    pub(crate) from: u32,
-    pub(crate) len: u32,
+    pub(crate) mesh: MeshHandle,
+    pub(crate) index: MeshIndex,
 }
 
 impl<'a> Into<Command<'a>> for SliceDrawCall<'a> {
@@ -67,14 +64,14 @@ impl<'a> Into<Command<'a>> for SliceDrawCall<'a> {
 
 /// Vertex buffer object update.
 pub struct VertexBufferUpdate<'a> {
-    pub(crate) vbo: VertexBufferHandle,
+    pub(crate) mesh: MeshHandle,
     pub(crate) offset: usize,
     pub(crate) data: &'a [u8],
 }
 
 /// Index buffer object update.
 pub struct IndexBufferUpdate<'a> {
-    pub(crate) ibo: IndexBufferHandle,
+    pub(crate) mesh: MeshHandle,
     pub(crate) offset: usize,
     pub(crate) data: &'a [u8],
 }
@@ -97,30 +94,27 @@ pub struct DrawCall {
     shader: ShaderHandle,
     uniforms: [(HashValue<str>, UniformVariable); MAX_UNIFORM_VARIABLES],
     uniforms_len: usize,
-    vbo: Option<VertexBufferHandle>,
-    ibo: Option<IndexBufferHandle>,
+    mesh: MeshHandle,
 }
 
 impl DrawCall {
     /// Create a new and empty draw call.
-    pub fn new(shader: ShaderHandle) -> Self {
+    pub fn new(shader: ShaderHandle, mesh: MeshHandle) -> Self {
         DrawCall {
             shader: shader,
             uniforms: [(HashValue::zero(), UniformVariable::I32(0)); MAX_UNIFORM_VARIABLES],
             uniforms_len: 0,
-            vbo: None,
-            ibo: None,
+            mesh: mesh,
         }
     }
 
     /// Creates a new `DrawCall` from material.
-    pub fn from(mat: &Material) -> Self {
+    pub fn from(mat: &Material, mesh: MeshHandle) -> Self {
         let mut dc = DrawCall {
             shader: mat.shader(),
             uniforms: [(HashValue::zero(), UniformVariable::I32(0)); MAX_UNIFORM_VARIABLES],
             uniforms_len: 0,
-            vbo: None,
-            ibo: None,
+            mesh: mesh,
         };
 
         for &(field, variable) in mat.iter() {
@@ -151,25 +145,23 @@ impl DrawCall {
         self.uniforms_len += 1;
     }
 
-    /// Bind vertex buffer and optional index buffer.
-    pub fn set_mesh<T>(&mut self, vbo: VertexBufferHandle, ibo: T)
-        where T: Into<Option<IndexBufferHandle>>
-    {
-        self.vbo = Some(vbo);
-        self.ibo = ibo.into();
-    }
-
-    pub fn build(&mut self, primitive: Primitive, from: u32, len: u32) -> Result<SliceDrawCall> {
-        let vbo = self.vbo.ok_or(ErrorKind::CanNotDrawWihtoutVertexBuffer)?;
-
+    pub fn build(&mut self, from: usize, len: usize) -> Result<SliceDrawCall> {
         let task = SliceDrawCall {
             shader: self.shader,
             uniforms: &self.uniforms[0..self.uniforms_len],
-            vbo: vbo,
-            ibo: self.ibo,
-            primitive: primitive,
-            from: from,
-            len: len,
+            mesh: self.mesh,
+            index: MeshIndex::Ptr(from, len),
+        };
+
+        Ok(task)
+    }
+
+    pub fn build_sub_mesh(&mut self, index: usize) -> Result<SliceDrawCall> {
+        let task = SliceDrawCall {
+            shader: self.shader,
+            uniforms: &self.uniforms[0..self.uniforms_len],
+            mesh: self.mesh,
+            index: MeshIndex::SubMesh(index),
         };
 
         Ok(task)

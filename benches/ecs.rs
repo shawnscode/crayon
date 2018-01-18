@@ -9,28 +9,8 @@ use crayon::prelude::*;
 use std::thread;
 use std::time;
 
-#[derive(Debug, Copy, Clone, Default)]
-struct PlaceHolderCMP {}
-
-impl Component for PlaceHolderCMP {
-    type Arena = ecs::VecArena<PlaceHolderCMP>;
-}
-
 fn execute() {
     thread::sleep(time::Duration::from_millis(1));
-}
-
-#[derive(Copy, Clone)]
-struct HeavyCPU {}
-
-impl<'a> System<'a> for HeavyCPU {
-    type ViewWith = Fetch<'a, PlaceHolderCMP>;
-
-    fn run(&mut self, view: View, _: Self::ViewWith) {
-        for _ in view {
-            execute();
-        }
-    }
 }
 
 fn setup() -> World {
@@ -44,34 +24,24 @@ fn setup() -> World {
     world
 }
 
-#[bench]
-fn bench_sequence_execution(b: &mut Bencher) {
-    b.iter(|| {
-        let world = setup();
-        let mut s1 = HeavyCPU {};
-        let mut s2 = HeavyCPU {};
-        let mut s3 = HeavyCPU {};
-        s1.run_at(&world);
-        s2.run_at(&world);
-        s3.run_at(&world);
-    });
+#[derive(Debug, Copy, Clone, Default)]
+struct PlaceHolderCMP {}
+
+impl Component for PlaceHolderCMP {
+    type Arena = ecs::VecArena<PlaceHolderCMP>;
 }
 
-#[bench]
-fn bench_parralle_execution(b: &mut Bencher) {
-    b.iter(|| {
-        let world = setup();
-        let mut s1 = HeavyCPU {};
-        let mut s2 = HeavyCPU {};
-        let mut s3 = HeavyCPU {};
+#[derive(Copy, Clone)]
+struct HeavyCPU {}
 
-        rayon::scope(|s| {
-                         //
-                         s.spawn(|_| s1.run_at(&world));
-                         s.spawn(|_| s2.run_at(&world));
-                         s.spawn(|_| s3.run_at(&world));
-                     });
-    });
+impl<'a> System<'a> for HeavyCPU {
+    type ViewWith = Fetch<'a, PlaceHolderCMP>;
+
+    fn run(&self, view: View, _: Self::ViewWith) {
+        for _ in view {
+            execute();
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -80,7 +50,7 @@ struct HeavyCPUWithRayon {}
 impl<'a> System<'a> for HeavyCPUWithRayon {
     type ViewWith = Fetch<'a, PlaceHolderCMP>;
 
-    fn run(&mut self, view: View, _: Self::ViewWith) {
+    fn run(&self, view: View, _: Self::ViewWith) {
         rayon::scope(|s| {
                          //
                          for _ in view {
@@ -91,12 +61,42 @@ impl<'a> System<'a> for HeavyCPUWithRayon {
 }
 
 #[bench]
+fn bench_sequence_execution(b: &mut Bencher) {
+    b.iter(|| {
+        let world = setup();
+        let s1 = HeavyCPU {};
+        let s2 = HeavyCPU {};
+        let s3 = HeavyCPU {};
+        s1.run_at(&world);
+        s2.run_at(&world);
+        s3.run_at(&world);
+    });
+}
+
+#[bench]
+fn bench_parralle_execution(b: &mut Bencher) {
+    b.iter(|| {
+        let world = setup();
+        let s1 = HeavyCPU {};
+        let s2 = HeavyCPU {};
+        let s3 = HeavyCPU {};
+
+        rayon::scope(|s| {
+                         //
+                         s.spawn(|_| s1.run_at(&world));
+                         s.spawn(|_| s2.run_at(&world));
+                         s.spawn(|_| s3.run_at(&world));
+                     });
+    });
+}
+
+#[bench]
 fn bench_parralle_execution_2(b: &mut Bencher) {
     b.iter(|| {
         let world = setup();
-        let mut s1 = HeavyCPUWithRayon {};
-        let mut s2 = HeavyCPUWithRayon {};
-        let mut s3 = HeavyCPUWithRayon {};
+        let s1 = HeavyCPUWithRayon {};
+        let s2 = HeavyCPUWithRayon {};
+        let s3 = HeavyCPUWithRayon {};
 
         rayon::scope(|s| {
                          //

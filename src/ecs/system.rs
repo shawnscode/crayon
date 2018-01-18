@@ -23,19 +23,48 @@ pub trait System<'a> {
     /// The component arenas required to execute system.
     type ViewWith: SystemData<'a>;
 
-    /// Run the system with the required arenas.
-    fn run(&mut self, view: View, arenas: Self::ViewWith);
+    /// Run the system with the required components.
+    fn run(&self, _: View, _: Self::ViewWith) {}
 
-    fn run_at(&mut self, world: &'a World) {
+    /// Mutably Run the system with the required components.
+    fn run_mut(&self, _: View, _: Self::ViewWith) {}
+
+    /// View the world with required components.
+    fn view(&self, _: View) {}
+
+    /// Mutably view the world with required components.
+    fn view_mut(&mut self, _: View) {}
+
+    fn run_at(&self, world: &'a World) {
+        let mask = Self::mask_at(world);
+        self.run(world.view(mask), Self::ViewWith::fetch(world));
+    }
+
+    fn run_mut_at(&mut self, world: &'a World) {
+        let mask = Self::mask_at(world);
+        self.run_mut(world.view(mask), Self::ViewWith::fetch(world));
+    }
+
+    fn view_at(&self, world: &'a World) {
+        let mask = Self::mask_at(world);
+        self.view(world.view(mask));
+    }
+
+    fn view_mut_at(&mut self, world: &'a World) {
+        let mask = Self::mask_at(world);
+        self.view_mut(world.view(mask));
+    }
+
+    fn mask_at(world: &'a World) -> BitSet {
         let r = Self::ViewWith::readables(world);
         let w = Self::ViewWith::writables(world);
-        let mask = r.union_with(w);
-
-        self.run(world.view(mask), Self::ViewWith::fetch(world));
+        r.union_with(w)
     }
 }
 
+
 /// Trait for validation system.
+#[doc(hidden)]
 pub trait SystemValidator {
     fn readables(&self, world: &World) -> BitSet;
     fn writables(&self, world: &World) -> BitSet;

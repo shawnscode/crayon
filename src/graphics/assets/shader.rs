@@ -2,7 +2,7 @@
 
 use math;
 use graphics::{MAX_VERTEX_ATTRIBUTES, TextureHandle};
-use super::mesh::{VertexAttribute, VertexLayout};
+use super::mesh::VertexLayout;
 
 impl_handle!(ShaderHandle);
 
@@ -17,23 +17,89 @@ pub struct ShaderSetup {
     pub layout: AttributeLayout,
 }
 
+/// The possible pre-defined and named attributes in the vertex component, describing
+/// what the vertex component is used for.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Attribute {
+    Position = 0,
+    Normal = 1,
+    Tangent = 2,
+    Bitangent = 3,
+    Color0 = 4,
+    Color1 = 5,
+    Indices = 6,
+    Weight = 7,
+    Texcoord0 = 8,
+    Texcoord1 = 9,
+    Texcoord2 = 10,
+    Texcoord3 = 11,
+}
+
+impl Into<&'static str> for Attribute {
+    fn into(self) -> &'static str {
+        match self {
+            Attribute::Position => "Position",
+            Attribute::Normal => "Normal",
+            Attribute::Tangent => "Tangent",
+            Attribute::Bitangent => "Bitangent",
+            Attribute::Color0 => "Color0",
+            Attribute::Color1 => "Color1",
+            Attribute::Indices => "Indices",
+            Attribute::Weight => "Weight",
+            Attribute::Texcoord0 => "Texcoord0",
+            Attribute::Texcoord1 => "Texcoord1",
+            Attribute::Texcoord2 => "Texcoord2",
+            Attribute::Texcoord3 => "Texcoord3",
+        }
+    }
+}
+
+impl Attribute {
+    pub fn from_str(v: &str) -> Option<Attribute> {
+        let attributes = [Attribute::Position,
+                          Attribute::Normal,
+                          Attribute::Tangent,
+                          Attribute::Bitangent,
+                          Attribute::Color0,
+                          Attribute::Color1,
+                          Attribute::Indices,
+                          Attribute::Weight,
+                          Attribute::Texcoord0,
+                          Attribute::Texcoord1,
+                          Attribute::Texcoord2,
+                          Attribute::Texcoord3];
+        for at in &attributes {
+            let w: &'static str = (*at).into();
+            if v == w {
+                return Some(*at);
+            }
+        }
+
+        None
+    }
+}
+
 // AttributeLayout defines an layout of attributes into program.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct AttributeLayout {
     len: u8,
-    elements: [(VertexAttribute, u8); MAX_VERTEX_ATTRIBUTES],
+    elements: [(Attribute, u8); MAX_VERTEX_ATTRIBUTES],
 }
 
 impl Default for AttributeLayout {
     fn default() -> Self {
         AttributeLayout {
             len: 0,
-            elements: [(VertexAttribute::Position, 0); MAX_VERTEX_ATTRIBUTES],
+            elements: [(Attribute::Position, 0); MAX_VERTEX_ATTRIBUTES],
         }
     }
 }
 
 impl AttributeLayout {
+    pub fn build() -> AttributeLayoutBuilder {
+        AttributeLayoutBuilder::new()
+    }
+
     pub fn iter(&self) -> AttributeLayoutIter {
         AttributeLayoutIter {
             pos: 0,
@@ -62,7 +128,7 @@ pub struct AttributeLayoutIter<'a> {
 }
 
 impl<'a> Iterator for AttributeLayoutIter<'a> {
-    type Item = (VertexAttribute, u8);
+    type Item = (Attribute, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos >= self.layout.len {
@@ -83,7 +149,7 @@ impl AttributeLayoutBuilder {
         Default::default()
     }
 
-    pub fn with(&mut self, attribute: VertexAttribute, size: u8) -> &mut Self {
+    pub fn with(&mut self, attribute: Attribute, size: u8) -> &mut Self {
         assert!(size > 0 && size <= 4);
 
         for i in 0..self.0.len {

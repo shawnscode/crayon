@@ -7,7 +7,8 @@ authors = ["Jingkai Mao <oammix@gmail.com>"]
 travis-ci = { repository = "shawnscode/crayon", branch = "master" }
 
 [dependencies]
-rand = "0.3.18"
-image = "0.18.0"
 crayon = { path = "..", version = "0.1.0" }
 crayon-imgui = { path = "../modules/imgui", version = "0.1.0" }
+image = "0.18.0"
+obj = "0.8.1"
+rand = "0.3.18"

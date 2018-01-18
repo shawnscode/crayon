@@ -2,6 +2,7 @@
 extern crate crayon;
 extern crate crayon_imgui;
 extern crate image;
+extern crate obj;
 extern crate rand;
 
 use std::env;

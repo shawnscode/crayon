@@ -61,7 +61,7 @@ impl<T> TextureLoader<T>
 impl<T> resource::ResourceAsyncLoader for TextureLoader<T>
     where T: TextureParser + Send + Sync + 'static
 {
-    fn on_finished(&mut self, path: &Path, result: resource::errors::Result<&[u8]>) {
+    fn on_finished(mut self, path: &Path, result: resource::errors::Result<&[u8]>) {
         let state = match result {
             Ok(bytes) => {
                 match T::parse(bytes) {

@@ -1,5 +1,5 @@
 use std::str;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -17,16 +17,11 @@ use super::frame::{FrameDrawCall, FrameTask};
 type ResourceID = GLuint;
 type UniformID = GLint;
 
-#[derive(Debug, Clone, Copy)]
-struct VertexBufferObject {
-    id: ResourceID,
-    setup: VertexBufferSetup,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct IndexBufferObject {
-    id: ResourceID,
-    setup: IndexBufferSetup,
+#[derive(Debug, Clone)]
+struct MeshObject {
+    vbo: ResourceID,
+    ibo: ResourceID,
+    setup: MeshSetup,
 }
 
 #[derive(Debug)]
@@ -67,11 +62,16 @@ struct FrameBufferObject {
     dimensions: Option<(u16, u16)>,
 }
 
+#[derive(Debug, Copy, Clone, Default)]
+pub struct FrameInfo {
+    pub drawcall: u32,
+    pub triangles: u32,
+}
+
 pub(crate) struct Device {
     visitor: OpenGLVisitor,
 
-    vertex_buffers: DataVec<VertexBufferObject>,
-    index_buffers: DataVec<IndexBufferObject>,
+    meshes: DataVec<MeshObject>,
     shaders: DataVec<ShaderObject>,
     surfaces: DataVec<SurfaceObject>,
     textures: DataVec<TextureObject>,
@@ -79,6 +79,7 @@ pub(crate) struct Device {
     framebuffers: DataVec<FrameBufferObject>,
 
     active_shader: Cell<Option<ShaderHandle>>,
+    frame_info: RefCell<FrameInfo>,
 }
 
 unsafe impl Send for Device {}
@@ -88,14 +89,14 @@ impl Device {
     pub unsafe fn new() -> Self {
         Device {
             visitor: OpenGLVisitor::new(),
-            vertex_buffers: DataVec::new(),
-            index_buffers: DataVec::new(),
+            meshes: DataVec::new(),
             shaders: DataVec::new(),
             surfaces: DataVec::new(),
             textures: DataVec::new(),
             render_buffers: DataVec::new(),
             framebuffers: DataVec::new(),
             active_shader: Cell::new(None),
+            frame_info: RefCell::new(FrameInfo::default()),
         }
     }
 }
@@ -105,7 +106,13 @@ impl Device {
         self.active_shader.set(None);
         self.visitor.bind_framebuffer(0, false)?;
         self.visitor.clear(Color::black(), None, None)?;
+
+        *self.frame_info.borrow_mut() = FrameInfo::default();
         Ok(())
+    }
+
+    pub fn frame_info(&self) -> FrameInfo {
+        *self.frame_info.borrow()
     }
 
     pub fn flush(&mut self,
@@ -190,29 +197,45 @@ impl Device {
         }
 
         // Bind vertex buffer and vertex array object.
-        let vbo = self.vertex_buffers
-            .get(dc.vb)
-            .ok_or(ErrorKind::InvalidHandle)?;
-
-        self.visitor.bind_buffer(gl::ARRAY_BUFFER, vbo.id)?;
+        let mesh = self.meshes.get(dc.mesh).ok_or(ErrorKind::InvalidHandle)?;
+        self.visitor.bind_buffer(gl::ARRAY_BUFFER, mesh.vbo)?;
         self.visitor
-            .bind_attribute_layout(&shader.layout, &vbo.setup.layout)?;
+            .bind_attribute_layout(&shader.layout, &mesh.setup.layout)?;
 
         // Bind index buffer object if available.
-        if let Some(v) = dc.ib {
-            if let Some(ibo) = self.index_buffers.get(v) {
-                self.visitor.bind_buffer(gl::ELEMENT_ARRAY_BUFFER, ibo.id)?;
+        self.visitor
+            .bind_buffer(gl::ELEMENT_ARRAY_BUFFER, mesh.ibo)?;
 
-                let from = dc.from * ibo.setup.format.len() as u32;
-                gl::DrawElements(dc.primitive.into(),
-                                 dc.len as GLsizei,
-                                 ibo.setup.format.into(),
-                                 from as *const u32 as *const ::std::os::raw::c_void);
-            } else {
-                bail!(ErrorKind::InvalidHandle);
+        let (from, len) = match dc.index {
+            MeshIndex::Ptr(from, len) => {
+                ((from * mesh.setup.index_format.len()) as u32, len as GLsizei)
             }
-        } else {
-            gl::DrawArrays(dc.primitive.into(), dc.from as i32, dc.len as i32);
+            MeshIndex::SubMesh(index) => {
+                let num = mesh.setup.sub_mesh_offsets.len();
+                if index >= num || num == 0 {
+                    bail!("Invalid index of sub-mesh!");
+                }
+
+                let from = mesh.setup.sub_mesh_offsets[index];
+                let len = if index == (num - 1) {
+                    mesh.setup.num_idxes
+                } else {
+                    mesh.setup.sub_mesh_offsets[index + 1]
+                };
+
+                (from as u32, len as GLsizei)
+            }
+        };
+
+        gl::DrawElements(mesh.setup.primitive.into(),
+                         len,
+                         mesh.setup.index_format.into(),
+                         from as *const u32 as *const ::std::os::raw::c_void);
+
+        {
+            let mut info = self.frame_info.borrow_mut();
+            info.drawcall += 1;
+            info.triangles += mesh.setup.primitive.assemble_triangles(len as u32);
         }
 
         check()
@@ -296,97 +319,85 @@ impl Device {
 }
 
 impl Device {
-    pub unsafe fn create_vertex_buffer(&mut self,
-                                       handle: VertexBufferHandle,
-                                       setup: VertexBufferSetup,
-                                       data: Option<&[u8]>)
-                                       -> Result<()> {
-        if self.vertex_buffers.get(handle).is_some() {
+    pub unsafe fn create_mesh(&mut self,
+                              handle: MeshHandle,
+                              setup: MeshSetup,
+                              verts: Option<&[u8]>,
+                              idxes: Option<&[u8]>)
+                              -> Result<()> {
+        if self.meshes.get(handle).is_some() {
             bail!(ErrorKind::DuplicatedHandle)
         }
 
-        let vbo = VertexBufferObject {
-            id: self.visitor
-                .create_buffer(OpenGLBuffer::Vertex, setup.hint, setup.len() as u32, data)?,
+        let vbo = self.visitor
+            .create_buffer(OpenGLBuffer::Vertex,
+                           setup.hint,
+                           setup.vertex_buffer_len() as u32,
+                           verts)?;
+
+        let ibo = self.visitor
+            .create_buffer(OpenGLBuffer::Index,
+                           setup.hint,
+                           setup.index_buffer_len() as u32,
+                           idxes)?;
+
+        let mesh = MeshObject {
+            vbo: vbo,
+            ibo: ibo,
             setup: setup,
         };
 
-        self.vertex_buffers.set(handle, vbo);
+        self.meshes.set(handle, mesh);
         check()
     }
 
     pub unsafe fn update_vertex_buffer(&mut self,
-                                       handle: VertexBufferHandle,
+                                       handle: MeshHandle,
                                        offset: usize,
                                        data: &[u8])
                                        -> Result<()> {
-        if let Some(vbo) = self.vertex_buffers.get(handle) {
-            if vbo.setup.hint == BufferHint::Immutable {
+        if let Some(mesh) = self.meshes.get(handle) {
+            if mesh.setup.hint == BufferHint::Immutable {
                 bail!(ErrorKind::InvalidUpdateStaticResource);
             }
 
-            if data.len() + offset > vbo.setup.len() {
+            if data.len() + offset > mesh.setup.vertex_buffer_len() {
                 bail!(ErrorKind::OutOfBounds);
             }
 
             self.visitor
-                .update_buffer(vbo.id, OpenGLBuffer::Vertex, offset as u32, data)
+                .update_buffer(mesh.vbo, OpenGLBuffer::Vertex, offset as u32, data)
         } else {
             bail!(ErrorKind::InvalidHandle);
         }
-    }
-
-    pub unsafe fn delete_vertex_buffer(&mut self, handle: VertexBufferHandle) -> Result<()> {
-        if let Some(vbo) = self.vertex_buffers.remove(handle) {
-            self.visitor.delete_buffer(vbo.id)
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
-    }
-
-    pub unsafe fn create_index_buffer(&mut self,
-                                      handle: IndexBufferHandle,
-                                      setup: IndexBufferSetup,
-                                      data: Option<&[u8]>)
-                                      -> Result<()> {
-        if self.index_buffers.get(handle).is_some() {
-            bail!(ErrorKind::DuplicatedHandle)
-        }
-
-        let ibo = IndexBufferObject {
-            id: self.visitor
-                .create_buffer(OpenGLBuffer::Index, setup.hint, setup.len() as u32, data)?,
-            setup: setup,
-        };
-
-        self.index_buffers.set(handle, ibo);
-        check()
     }
 
     pub unsafe fn update_index_buffer(&mut self,
-                                      handle: IndexBufferHandle,
+                                      handle: MeshHandle,
                                       offset: usize,
                                       data: &[u8])
                                       -> Result<()> {
-        if let Some(ibo) = self.index_buffers.get(handle) {
-            if ibo.setup.hint == BufferHint::Immutable {
+        if let Some(mesh) = self.meshes.get(handle) {
+            if mesh.setup.hint == BufferHint::Immutable {
                 bail!(ErrorKind::InvalidUpdateStaticResource);
             }
 
-            if data.len() + offset > ibo.setup.len() {
+            if data.len() + offset > mesh.setup.index_buffer_len() {
                 bail!(ErrorKind::OutOfBounds);
             }
 
             self.visitor
-                .update_buffer(ibo.id, OpenGLBuffer::Index, offset as u32, data)
+                .update_buffer(mesh.ibo, OpenGLBuffer::Index, offset as u32, data)
         } else {
             bail!(ErrorKind::InvalidHandle);
         }
     }
 
-    pub unsafe fn delete_index_buffer(&mut self, handle: IndexBufferHandle) -> Result<()> {
-        if let Some(ibo) = self.index_buffers.remove(handle) {
-            self.visitor.delete_buffer(ibo.id)
+    pub unsafe fn delete_mesh(&mut self, handle: MeshHandle) -> Result<()> {
+        if let Some(mesh) = self.meshes.remove(handle) {
+            self.visitor.delete_buffer(mesh.vbo)?;
+            self.visitor.delete_buffer(mesh.ibo)?;
+            Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
         }

@@ -13,7 +13,9 @@ use super::backend::frame::*;
 use super::backend::device::Device;
 use super::command::Command;
 use super::window::Window;
+
 use super::assets::texture_loader::{TextureLoader, TextureParser, TextureState};
+use super::assets::mesh_loader::{MeshLoader, MeshParser, MeshState};
 
 /// The centralized management of video sub-system.
 pub struct GraphicsSystem {
@@ -69,7 +71,6 @@ impl GraphicsSystem {
     /// until all commands is finished by GPU.
     pub fn advance(&mut self) -> Result<GraphicsFrameInfo> {
         use std::time;
-        let mut info = GraphicsFrameInfo::default();
 
         unsafe {
             let ts = time::Instant::now();
@@ -96,46 +97,39 @@ impl GraphicsSystem {
 
                 {
                     let mut frame = self.frames.back();
-
-                    info.drawcall = 0;
-                    info.triangles = 0;
-                    for v in &frame.tasks {
-                        if let FrameTask::DrawCall(ref dc) = v.2 {
-                            info.drawcall += 1;
-                            info.triangles += dc.primitive.assemble_triangles(dc.len) as usize;
-                        }
-                    }
-
                     frame.dispatch(&mut self.device, dimensions, hidpi)?;
                     frame.clear();
                 }
             }
 
             self.window.swap_buffers()?;
-
-            info.duration = time::Instant::now() - ts;
+            let mut info = GraphicsFrameInfo::default();
+            {
+                let v = self.device.frame_info();
+                info.drawcall = v.drawcall;
+                info.triangles = v.triangles;
+            }
 
             {
                 let s = &self.shared;
                 info.alive_surfaces = Self::clear(&mut s.surfaces.write().unwrap());
                 info.alive_shaders = Self::clear(&mut s.shaders.write().unwrap());
                 info.alive_frame_buffers = Self::clear(&mut s.framebuffers.write().unwrap());
-                info.alive_vertex_buffers = Self::clear(&mut s.vertex_buffers.write().unwrap());
-
-                info.alive_index_buffers = Self::clear(&mut s.index_buffers.write().unwrap());
+                info.alive_meshes = Self::clear(&mut s.meshes.write().unwrap());
                 info.alive_textures = Self::clear(&mut s.textures.write().unwrap());
                 info.alive_render_buffers = Self::clear(&mut s.render_buffers.write().unwrap());
             }
 
+            info.duration = time::Instant::now() - ts;
             Ok(info)
         }
     }
 
-    fn clear<T>(v: &mut Registery<T>) -> usize
+    fn clear<T>(v: &mut Registery<T>) -> u32
         where T: Sized
     {
         v.clear();
-        v.len()
+        v.len() as u32
     }
 }
 
@@ -151,8 +145,7 @@ pub struct GraphicsSystemShared {
     shaders: RwLock<Registery<ShaderState>>,
     framebuffers: RwLock<Registery<()>>,
     render_buffers: RwLock<Registery<()>>,
-    vertex_buffers: RwLock<Registery<()>>,
-    index_buffers: RwLock<Registery<()>>,
+    meshes: RwLock<Registery<Arc<RwLock<MeshState>>>>,
     textures: RwLock<Registery<Arc<RwLock<TextureState>>>>,
 }
 
@@ -172,8 +165,7 @@ impl GraphicsSystemShared {
             shaders: RwLock::new(Registery::new()),
             framebuffers: RwLock::new(Registery::new()),
             render_buffers: RwLock::new(Registery::new()),
-            vertex_buffers: RwLock::new(Registery::new()),
-            index_buffers: RwLock::new(Registery::new()),
+            meshes: RwLock::new(Registery::new()),
             textures: RwLock::new(Registery::new()),
         }
     }
@@ -219,14 +211,8 @@ impl GraphicsSystemShared {
                            order: u64,
                            dc: command::SliceDrawCall<'a>)
                            -> Result<()> {
-        if !self.vertex_buffers.read().unwrap().is_alive(dc.vbo.into()) {
-            bail!("Undefined vertex buffer handle.");
-        }
-
-        if let Some(ib) = dc.ibo {
-            if !self.index_buffers.read().unwrap().is_alive(ib.into()) {
-                bail!("Undefined index buffer handle.");
-            }
+        if !self.meshes.read().unwrap().is_alive(dc.mesh.into()) {
+            bail!("Undefined mesh handle.");
         }
 
         let mut frame = self.frames.front();
@@ -254,11 +240,8 @@ impl GraphicsSystemShared {
         let dc = FrameDrawCall {
             shader: dc.shader,
             uniforms: uniforms,
-            vb: dc.vbo,
-            ib: dc.ibo,
-            primitive: dc.primitive,
-            from: dc.from,
-            len: dc.len,
+            mesh: dc.mesh,
+            index: dc.index,
         };
 
         frame.tasks.push((surface, order, FrameTask::DrawCall(dc)));
@@ -289,10 +272,10 @@ impl GraphicsSystemShared {
             bail!("Undefined surface handle.");
         }
 
-        if self.vertex_buffers.read().unwrap().is_alive(vbu.vbo.into()) {
+        if self.meshes.read().unwrap().is_alive(vbu.mesh.into()) {
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(vbu.data);
-            let task = FrameTask::UpdateVertexBuffer(vbu.vbo, vbu.offset, ptr);
+            let task = FrameTask::UpdateVertexBuffer(vbu.mesh, vbu.offset, ptr);
             frame.tasks.push((surface, order, task));
             Ok(())
         } else {
@@ -309,10 +292,10 @@ impl GraphicsSystemShared {
             bail!("Undefined surface handle.");
         }
 
-        if self.index_buffers.read().unwrap().is_alive(ibu.ibo.into()) {
+        if self.meshes.read().unwrap().is_alive(ibu.mesh.into()) {
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(ibu.data);
-            let task = FrameTask::UpdateIndexBuffer(ibu.ibo, ibu.offset, ptr);
+            let task = FrameTask::UpdateIndexBuffer(ibu.mesh, ibu.offset, ptr);
             frame.tasks.push((surface, order, task));
             Ok(())
         } else {
@@ -478,28 +461,74 @@ impl GraphicsSystemShared {
 }
 
 impl GraphicsSystemShared {
-    /// Create vertex buffer object with vertex layout declaration and optional data.
-    pub fn create_vertex_buffer(&self,
-                                setup: VertexBufferSetup,
-                                data: Option<&[u8]>)
-                                -> Result<VertexBufferHandle> {
-        if let Some(buf) = data.as_ref() {
-            if buf.len() > setup.len() {
-                bail!("out of bounds");
+    /// Lookup mesh object from location.
+    pub fn lookup_mesh_from(&self, location: resource::Location) -> Option<MeshHandle> {
+        self.meshes
+            .read()
+            .unwrap()
+            .lookup(location)
+            .map(|v| v.into())
+    }
+
+    /// Create a new mesh object from location.
+    pub fn create_mesh_from<T>(&self,
+                               location: resource::Location,
+                               setup: MeshSetup)
+                               -> Result<MeshHandle>
+        where T: MeshParser + Send + Sync + 'static
+    {
+        if let Some(v) = self.lookup_mesh_from(location) {
+            self.meshes.write().unwrap().inc_rc(v.into());
+            return Ok(v);
+        }
+
+        let state = Arc::new(RwLock::new(MeshState::NotReady));
+        let handle = {
+            let mut meshes = self.meshes.write().unwrap();
+            meshes.create(location, state.clone()).into()
+        };
+
+        let loader = MeshLoader::<T>::new(handle, state, setup, self.frames.clone());
+        self.resource.load_async(loader, location.uri());
+
+        Ok(handle)
+    }
+
+    /// Create a new mesh object.
+    pub fn create_mesh<'a, 'b, T1, T2>(&self,
+                                       setup: MeshSetup,
+                                       verts: T1,
+                                       idxes: T2)
+                                       -> Result<MeshHandle>
+        where T1: Into<Option<&'a [u8]>>,
+              T2: Into<Option<&'b [u8]>>
+    {
+        let verts = verts.into();
+        let idxes = idxes.into();
+
+        if let Some(buf) = verts.as_ref() {
+            if buf.len() > setup.vertex_buffer_len() {
+                bail!("Out of bounds!");
             }
         }
 
+        if let Some(buf) = idxes.as_ref() {
+            if buf.len() > setup.index_buffer_len() {
+                bail!("Out of bounds!");
+            }
+        }
+
+        setup.validate()?;
+
         let location = resource::Location::unique("");
-        let handle = self.vertex_buffers
-            .write()
-            .unwrap()
-            .create(location, ())
-            .into();
+        let state = Arc::new(RwLock::new(MeshState::Ready));
+        let handle = self.meshes.write().unwrap().create(location, state).into();
 
         {
             let mut frame = self.frames.front();
-            let ptr = data.map(|v| frame.buf.extend_from_slice(v));
-            let task = PreFrameTask::CreateVertexBuffer(handle, setup, ptr);
+            let verts_ptr = verts.map(|v| frame.buf.extend_from_slice(v));
+            let idxes_ptr = idxes.map(|v| frame.buf.extend_from_slice(v));
+            let task = PreFrameTask::CreateMesh(handle, setup, verts_ptr, idxes_ptr);
             frame.pre.push(task);
         }
 
@@ -509,74 +538,26 @@ impl GraphicsSystemShared {
     /// Update a subset of dynamic vertex buffer. Use `offset` specifies the offset
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
-    pub fn update_vertex_buffer(&self,
-                                vbo: VertexBufferHandle,
-                                offset: usize,
-                                data: &[u8])
-                                -> Result<()> {
-        if self.vertex_buffers.read().unwrap().is_alive(vbo.into()) {
+    pub fn update_vertex_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
+        if self.meshes.read().unwrap().is_alive(mesh.into()) {
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(data);
-            let task = PreFrameTask::UpdateVertexBuffer(vbo, offset, ptr);
+            let task = PreFrameTask::UpdateVertexBuffer(mesh, offset, ptr);
             frame.pre.push(task);
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
         }
-    }
-
-    /// Delete vertex buffer object.
-    pub fn delete_vertex_buffer(&self, handle: VertexBufferHandle) {
-        if self.vertex_buffers
-               .write()
-               .unwrap()
-               .dec_rc(handle.into(), true)
-               .is_some() {
-            let task = PostFrameTask::DeleteVertexBuffer(handle);
-            self.frames.front().post.push(task);
-        }
-    }
-
-    /// Create index buffer object with optional data.
-    pub fn create_index_buffer(&self,
-                               setup: IndexBufferSetup,
-                               data: Option<&[u8]>)
-                               -> Result<IndexBufferHandle> {
-        if let Some(buf) = data.as_ref() {
-            if buf.len() > setup.len() {
-                bail!("out of bounds");
-            }
-        }
-
-        let location = resource::Location::unique("");
-        let handle = self.index_buffers
-            .write()
-            .unwrap()
-            .create(location, ())
-            .into();
-
-        {
-            let mut frame = self.frames.front();
-            let ptr = data.map(|v| frame.buf.extend_from_slice(v));
-            let task = PreFrameTask::CreateIndexBuffer(handle, setup, ptr);
-            frame.pre.push(task);
-        }
-
-        Ok(handle)
     }
 
     /// Update a subset of dynamic index buffer. Use `offset` specifies the offset
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
-    pub fn update_index_buffer(&self,
-                               ibo: IndexBufferHandle,
-                               offset: usize,
-                               data: &[u8])
-                               -> Result<()> {
-        if self.index_buffers.read().unwrap().is_alive(ibo.into()) {
+    pub fn update_index_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
+        if self.meshes.read().unwrap().is_alive(mesh.into()) {
             let mut frame = self.frames.front();
             let ptr = frame.buf.extend_from_slice(data);
-            let task = PreFrameTask::UpdateIndexBuffer(ibo, offset, ptr);
+            let task = PreFrameTask::UpdateIndexBuffer(mesh, offset, ptr);
             frame.pre.push(task);
             Ok(())
         } else {
@@ -584,14 +565,14 @@ impl GraphicsSystemShared {
         }
     }
 
-    /// Delete index buffer object.
-    pub fn delete_index_buffer(&self, handle: IndexBufferHandle) {
-        if self.index_buffers
+    /// Delete mesh object.
+    pub fn delete_mesh(&self, mesh: MeshHandle) {
+        if self.meshes
                .write()
                .unwrap()
-               .dec_rc(handle.into(), true)
+               .dec_rc(mesh.into(), true)
                .is_some() {
-            let task = PostFrameTask::DeleteIndexBuffer(handle);
+            let task = PostFrameTask::DeleteMesh(mesh);
             self.frames.front().post.push(task);
         }
     }
@@ -633,10 +614,10 @@ impl GraphicsSystemShared {
 
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
-    pub fn create_texture(&self,
-                          setup: TextureSetup,
-                          data: Option<&[u8]>)
-                          -> Result<TextureHandle> {
+    pub fn create_texture<'a, T>(&self, setup: TextureSetup, data: T) -> Result<TextureHandle>
+        where T: Into<Option<&'a [u8]>>
+    {
+        let data = data.into();
         let loc = resource::Location::unique("");
         let state = Arc::new(RwLock::new(TextureState::Ready));
         let handle = self.textures.write().unwrap().create(loc, state).into();

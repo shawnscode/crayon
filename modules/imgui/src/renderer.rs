@@ -20,8 +20,7 @@ pub struct Renderer {
     shader: graphics::ShaderHandle,
     texture: graphics::TextureHandle,
 
-    vbo: Option<(u32, graphics::VertexBufferHandle)>,
-    ibo: Option<(u32, graphics::IndexBufferHandle)>,
+    mesh: Option<(usize, usize, graphics::MeshHandle)>,
 }
 
 impl Renderer {
@@ -36,9 +35,9 @@ impl Renderer {
         let surface = video.create_surface(setup)?;
 
         let layout = graphics::AttributeLayoutBuilder::new()
-            .with(graphics::VertexAttribute::Position, 2)
-            .with(graphics::VertexAttribute::Texcoord0, 2)
-            .with(graphics::VertexAttribute::Color0, 4)
+            .with(graphics::Attribute::Position, 2)
+            .with(graphics::Attribute::Texcoord0, 2)
+            .with(graphics::Attribute::Color0, 4)
             .finish();
 
         let mut setup = graphics::ShaderSetup::default();
@@ -50,8 +49,8 @@ impl Renderer {
                   graphics::BlendFactor::Value(graphics::BlendValue::SourceAlpha),
                   graphics::BlendFactor::OneMinusValue(graphics::BlendValue::SourceAlpha)));
 
-        setup.vs = include_str!("../resources/imgui.vs").to_owned();
-        setup.fs = include_str!("../resources/imgui.fs").to_owned();
+        setup.vs = include_str!("../assets/imgui.vs").to_owned();
+        setup.fs = include_str!("../assets/imgui.fs").to_owned();
         setup.uniform_variables.push("matrix".into());
         setup.uniform_variables.push("texture".into());
         let shader = video.create_shader(setup)?;
@@ -73,8 +72,7 @@ impl Renderer {
                surface: surface,
                shader: shader,
                texture: texture,
-               vbo: None,
-               ibo: None,
+               mesh: None,
            })
     }
 
@@ -90,9 +88,7 @@ impl Renderer {
             verts.push(CanvasVertex::new([v.pos.x, v.pos.y], [v.uv.x, v.uv.y], color));
         }
 
-        let vbo = self.update_vertex_buffer(&verts)?;
-        let ibo = self.update_index_buffer(&tasks.idx_buffer)?;
-
+        let mesh = self.update_mesh(&verts, &tasks.idx_buffer)?;
         let (width, height) = ui.imgui().display_size();
         let (scale_width, scale_height) = ui.imgui().display_framebuffer_scale();
 
@@ -123,79 +119,62 @@ impl Renderer {
             }
 
             {
-                let mut dc = graphics::DrawCall::new(self.shader);
+                let mut dc = graphics::DrawCall::new(self.shader, mesh);
                 dc.set_uniform_variable("matrix", matrix);
                 dc.set_uniform_variable("texture", self.texture);
-                dc.set_mesh(vbo, ibo);
-                let cmd = dc.build(graphics::Primitive::Triangles, idx_start, cmd.elem_count)?;
-
+                let cmd = dc.build(idx_start, cmd.elem_count as usize)?;
                 self.video.submit(self.surface, 0, cmd)?;
             }
 
-            idx_start += cmd.elem_count;
+            idx_start += cmd.elem_count as usize;
         }
 
         Ok(())
     }
 
-    fn update_vertex_buffer(&mut self,
-                            vertices: &[CanvasVertex])
-                            -> Result<graphics::VertexBufferHandle> {
-        if let Some((num, handle)) = self.vbo {
-            if num >= vertices.len() as u32 {
-                let slice = CanvasVertex::as_bytes(vertices);
+    fn update_mesh(&mut self,
+                   verts: &[CanvasVertex],
+                   idxes: &[u16])
+                   -> Result<graphics::MeshHandle> {
+        if let Some((nv, ni, handle)) = self.mesh {
+            if nv >= verts.len() && ni >= idxes.len() {
+                let slice = CanvasVertex::as_bytes(verts);
                 let cmd = graphics::Command::update_vertex_buffer(handle, 0, slice);
                 self.video.submit(self.surface, 0, cmd)?;
-                return Ok(handle);
-            }
 
-            self.video.delete_vertex_buffer(handle);
-        }
-
-        let mut num = 1;
-        while num < vertices.len() as u32 {
-            num *= 2;
-        }
-
-        let mut setup = graphics::VertexBufferSetup::default();
-        setup.layout = CanvasVertex::layout();
-        setup.num = num;
-        setup.hint = graphics::BufferHint::Stream;
-
-        let slice = CanvasVertex::as_bytes(vertices);
-        let vbo = self.video.create_vertex_buffer(setup, Some(slice))?;
-
-        self.vbo = Some((num, vbo));
-        Ok(vbo)
-    }
-
-    fn update_index_buffer(&mut self, indices: &[u16]) -> Result<graphics::IndexBufferHandle> {
-        if let Some((num, handle)) = self.ibo {
-            if num >= indices.len() as u32 {
-                let slice = graphics::IndexFormat::as_bytes(indices);
+                let slice = graphics::IndexFormat::as_bytes(idxes);
                 let cmd = graphics::Command::update_index_buffer(handle, 0, slice);
                 self.video.submit(self.surface, 0, cmd)?;
+
                 return Ok(handle);
             }
 
-            self.video.delete_index_buffer(handle);
+            self.video.delete_mesh(handle);
         }
 
-        let mut num = 1;
-        while num < indices.len() as u32 {
-            num *= 2;
+        let mut nv = 1;
+        while nv < verts.len() {
+            nv *= 2;
         }
 
-        let mut setup = graphics::IndexBufferSetup::default();
-        setup.format = graphics::IndexFormat::U16;
-        setup.num = num;
+        let mut ni = 1;
+        while ni < idxes.len() {
+            ni *= 2;
+        }
+
+        let mut setup = graphics::MeshSetup::default();
         setup.hint = graphics::BufferHint::Stream;
+        setup.layout = CanvasVertex::layout();
+        setup.index_format = graphics::IndexFormat::U16;
+        setup.primitive = graphics::Primitive::Triangles;
+        setup.num_verts = nv;
+        setup.num_idxes = ni;
 
-        let slice = graphics::IndexFormat::as_bytes(indices);
-        let ibo = self.video.create_index_buffer(setup, Some(slice))?;
-
-        self.ibo = Some((num, ibo));
-        Ok(ibo)
+        let verts_slice = CanvasVertex::as_bytes(verts);
+        let idxes_slice = graphics::IndexFormat::as_bytes(idxes);
+        let mesh = self.video.create_mesh(setup, verts_slice, idxes_slice)?;
+        self.mesh = Some((nv, ni, mesh));
+        Ok(mesh)
     }
 }
 
@@ -205,12 +184,8 @@ impl Drop for Renderer {
         self.video.delete_shader(self.shader);
         self.video.delete_texture(self.texture);
 
-        if let Some((_, vbo)) = self.vbo {
-            self.video.delete_vertex_buffer(vbo);
-        }
-
-        if let Some((_, ibo)) = self.ibo {
-            self.video.delete_index_buffer(ibo);
+        if let Some((_, _, mesh)) = self.mesh {
+            self.video.delete_mesh(mesh);
         }
     }
 }
