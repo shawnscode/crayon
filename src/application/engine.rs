@@ -1,5 +1,5 @@
 use std::sync::{Arc, RwLock};
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 use std::sync::mpsc;
 use std::thread;
 
@@ -73,15 +73,15 @@ impl Engine {
         context.insert::<time::TimeSystem>(time_shared);
 
         Ok(Engine {
-               events_loop: events_loop,
-               input: input,
-               window: window,
-               graphics: graphics,
-               resource: resource,
-               time: time,
+            events_loop: events_loop,
+            input: input,
+            window: window,
+            graphics: graphics,
+            resource: resource,
+            time: time,
 
-               context: Arc::new(context),
-           })
+            context: Arc::new(context),
+        })
     }
 
     pub fn context(&self) -> &Context {
@@ -91,7 +91,8 @@ impl Engine {
     /// Run the main loop of `Engine`, this will block the working
     /// thread until we finished.
     pub fn run<T>(mut self, application: T) -> Result<Self>
-        where T: Application + Send + Sync + 'static
+    where
+        T: Application + Send + Sync + 'static,
     {
         let application = Arc::new(RwLock::new(application));
 
@@ -100,10 +101,12 @@ impl Engine {
 
         let (task_sender, task_receiver) = mpsc::channel();
         let (join_sender, join_receiver) = mpsc::channel();
-        Self::main_thread(task_receiver,
-                          join_sender,
-                          self.context.clone(),
-                          application.clone());
+        Self::main_thread(
+            task_receiver,
+            join_sender,
+            self.context.clone(),
+            application.clone(),
+        );
 
         let mut alive = true;
         while alive {
@@ -173,27 +176,30 @@ impl Engine {
         Ok(self)
     }
 
-    fn main_thread<T>(receiver: mpsc::Receiver<bool>,
-                      sender: mpsc::Sender<Result<Duration>>,
-                      context: Arc<Context>,
-                      application: Arc<RwLock<T>>)
-        where T: Application + Send + Sync + 'static
+    fn main_thread<T>(
+        receiver: mpsc::Receiver<bool>,
+        sender: mpsc::Sender<Result<Duration>>,
+        context: Arc<Context>,
+        application: Arc<RwLock<T>>,
+    ) where
+        T: Application + Send + Sync + 'static,
     {
         thread::Builder::new()
             .name("LOGIC".into())
             .spawn(move || {
-                       //
-                       while receiver.recv().unwrap() {
-                           sender
-                               .send(Self::execute_frame(&context, &application))
-                               .unwrap();
-                       }
-                   })
+                //
+                while receiver.recv().unwrap() {
+                    sender
+                        .send(Self::execute_frame(&context, &application))
+                        .unwrap();
+                }
+            })
             .unwrap();
     }
 
     fn execute_frame<T>(ctx: &Context, application: &RwLock<T>) -> Result<Duration>
-        where T: Application + Send + Sync + 'static
+    where
+        T: Application + Send + Sync + 'static,
     {
         let ts = Instant::now();
 

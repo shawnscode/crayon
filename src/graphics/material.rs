@@ -36,7 +36,8 @@ impl Material {
 
     /// Bind the named field with `UniformVariable`.
     pub fn set_uniform_variable<T>(&mut self, field: &str, variable: T)
-        where T: Into<UniformVariable>
+    where
+        T: Into<UniformVariable>,
     {
         assert!(self.uniforms_len < MAX_UNIFORM_VARIABLES);
 

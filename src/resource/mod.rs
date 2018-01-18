@@ -76,4 +76,4 @@ mod registery;
 pub use self::registery::Registery;
 
 mod resource;
-pub use self::resource::{ResourceSystem, ResourceSystemShared, ResourceAsyncLoader};
+pub use self::resource::{ResourceAsyncLoader, ResourceSystem, ResourceSystemShared};

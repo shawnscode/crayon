@@ -26,10 +26,12 @@ impl Window {
         let video = ctx.shared::<GraphicsSystem>().clone();
         let mut label = graphics::RAIIGuard::new(video);
 
-        let verts: [Vertex; 4] = [Vertex::new([-1.0, -1.0]),
-                                  Vertex::new([1.0, -1.0]),
-                                  Vertex::new([1.0, 1.0]),
-                                  Vertex::new([-1.0, 1.0])];
+        let verts: [Vertex; 4] = [
+            Vertex::new([-1.0, -1.0]),
+            Vertex::new([1.0, -1.0]),
+            Vertex::new([1.0, 1.0]),
+            Vertex::new([-1.0, 1.0]),
+        ];
         let idxes: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
         let attributes = graphics::AttributeLayoutBuilder::new()
@@ -42,10 +44,11 @@ impl Window {
         setup.num_idxes = 6;
         setup.layout = Vertex::layout();
 
-        let mesh = label
-            .create_mesh(setup,
-                         Vertex::as_bytes(&verts[..]),
-                         graphics::IndexFormat::as_bytes(&idxes))?;
+        let mesh = label.create_mesh(
+            setup,
+            Vertex::as_bytes(&verts[..]),
+            graphics::IndexFormat::as_bytes(&idxes),
+        )?;
 
         // Create the view state.
         let setup = graphics::SurfaceSetup::default();
@@ -66,12 +69,12 @@ impl Window {
             .unwrap();
 
         Ok(Window {
-               surface: surface,
-               shader: shader,
-               mesh: mesh,
-               texture: texture,
-               _label: label,
-           })
+            surface: surface,
+            shader: shader,
+            mesh: mesh,
+            texture: texture,
+            _label: label,
+        })
     }
 }
 

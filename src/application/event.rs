@@ -96,8 +96,8 @@ impl EventsLoop {
             let frame = &mut self.frame_events;
             self.ctx
                 .poll_events(|event| if let Some(v) = from_event(event) {
-                                 frame.push(v);
-                             });
+                    frame.push(v);
+                });
         }
 
         self.frame_events.iter()
@@ -118,13 +118,11 @@ fn from_event(source: glutin::Event) -> Option<Event> {
 
         glutin::Event::Awakened => Some(Event::Application(ApplicationEvent::Awakened)),
 
-        glutin::Event::Suspended(v) => {
-            if v {
-                Some(Event::Application(ApplicationEvent::Suspended))
-            } else {
-                Some(Event::Application(ApplicationEvent::Resumed))
-            }
-        }
+        glutin::Event::Suspended(v) => if v {
+            Some(Event::Application(ApplicationEvent::Suspended))
+        } else {
+            Some(Event::Application(ApplicationEvent::Resumed))
+        },
 
         glutin::Event::DeviceEvent {
             device_id: _,
@@ -137,77 +135,81 @@ fn from_window_event(source: glutin::WindowEvent) -> Option<Event> {
     match source {
         glutin::WindowEvent::Closed => Some(Event::Application(ApplicationEvent::Closed)),
 
-        glutin::WindowEvent::Focused(v) => {
-            if v {
-                Some(Event::Application(ApplicationEvent::GainFocus))
-            } else {
-                Some(Event::Application(ApplicationEvent::LostFocus))
-            }
-        }
+        glutin::WindowEvent::Focused(v) => if v {
+            Some(Event::Application(ApplicationEvent::GainFocus))
+        } else {
+            Some(Event::Application(ApplicationEvent::LostFocus))
+        },
 
         glutin::WindowEvent::CursorMoved {
             device_id: _,
             position,
-        } => {
-            Some(Event::InputDevice(InputDeviceEvent::MouseMoved {
-                                        position: (position.0 as f32, position.1 as f32),
-                                    }))
-        }
+        } => Some(Event::InputDevice(InputDeviceEvent::MouseMoved {
+            position: (position.0 as f32, position.1 as f32),
+        })),
 
         glutin::WindowEvent::MouseWheel {
             device_id: _,
             delta,
             phase: _,
-        } => {
-            match delta {
-                glutin::MouseScrollDelta::LineDelta(x, y) => {
-                    Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
-                                                delta: (x as f32, y as f32),
-                                            }))
-                }
-                glutin::MouseScrollDelta::PixelDelta(x, y) => {
-                    Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
-                                                delta: (x as f32, y as f32),
-                                            }))
-                }
+        } => match delta {
+            glutin::MouseScrollDelta::LineDelta(x, y) => {
+                Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
+                    delta: (x as f32, y as f32),
+                }))
             }
-        }
+            glutin::MouseScrollDelta::PixelDelta(x, y) => {
+                Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
+                    delta: (x as f32, y as f32),
+                }))
+            }
+        },
 
         glutin::WindowEvent::MouseInput {
             device_id: _,
             state: glutin::ElementState::Pressed,
             button,
-        } => Some(Event::InputDevice(InputDeviceEvent::MousePressed { button })),
+        } => Some(Event::InputDevice(
+            InputDeviceEvent::MousePressed { button },
+        )),
 
         glutin::WindowEvent::MouseInput {
             device_id: _,
             state: glutin::ElementState::Released,
             button,
-        } => Some(Event::InputDevice(InputDeviceEvent::MouseReleased { button })),
+        } => Some(Event::InputDevice(
+            InputDeviceEvent::MouseReleased { button },
+        )),
 
         glutin::WindowEvent::KeyboardInput {
             device_id: _,
-            input: glutin::KeyboardInput {
-                scancode: _,
-                state: glutin::ElementState::Pressed,
-                virtual_keycode: Some(key),
-                modifiers: _,
-            },
-        } => Some(Event::InputDevice(InputDeviceEvent::KeyboardPressed { key })),
+            input:
+                glutin::KeyboardInput {
+                    scancode: _,
+                    state: glutin::ElementState::Pressed,
+                    virtual_keycode: Some(key),
+                    modifiers: _,
+                },
+        } => Some(Event::InputDevice(
+            InputDeviceEvent::KeyboardPressed { key },
+        )),
 
         glutin::WindowEvent::KeyboardInput {
             device_id: _,
-            input: glutin::KeyboardInput {
-                scancode: _,
-                state: glutin::ElementState::Released,
-                virtual_keycode: Some(key),
-                modifiers: _,
-            },
-        } => Some(Event::InputDevice(InputDeviceEvent::KeyboardReleased { key })),
+            input:
+                glutin::KeyboardInput {
+                    scancode: _,
+                    state: glutin::ElementState::Released,
+                    virtual_keycode: Some(key),
+                    modifiers: _,
+                },
+        } => Some(Event::InputDevice(
+            InputDeviceEvent::KeyboardReleased { key },
+        )),
 
-        glutin::WindowEvent::ReceivedCharacter(character) => {
-            Some(Event::InputDevice(InputDeviceEvent::ReceivedCharacter { character }))
-        }
+        glutin::WindowEvent::ReceivedCharacter(character) => Some(Event::InputDevice(
+            InputDeviceEvent::ReceivedCharacter { character },
+        )),
 
         glutin::WindowEvent::Touch(touch) => {
             let evt = TouchEvent {

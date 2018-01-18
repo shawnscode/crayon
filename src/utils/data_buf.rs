@@ -1,4 +1,4 @@
-use std::{str, slice, mem};
+use std::{mem, slice, str};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::borrow::Borrow;
@@ -21,9 +21,9 @@ impl DataBuffer {
     }
 
     pub fn extend<T>(&mut self, value: &T) -> DataBufferPtr<T>
-        where T: Copy
+    where
+        T: Copy,
     {
-
         let data =
             unsafe { slice::from_raw_parts(value as *const T as *const u8, mem::size_of::<T>()) };
 
@@ -37,7 +37,8 @@ impl DataBuffer {
 
     /// Clones and appends all elements in a slice to the buffer.
     pub fn extend_from_slice<T>(&mut self, slice: &[T]) -> DataBufferPtr<[T]>
-        where T: Copy
+    where
+        T: Copy,
     {
         let len = mem::size_of::<T>().wrapping_mul(slice.len());
         let u8_slice = unsafe { slice::from_raw_parts(slice.as_ptr() as *const u8, len) };
@@ -51,7 +52,8 @@ impl DataBuffer {
 
     /// Clones and append all bytes in a string slice to the buffer.
     pub fn extend_from_str<T>(&mut self, value: T) -> DataBufferPtr<str>
-        where T: Borrow<str>
+    where
+        T: Borrow<str>,
     {
         let v = utils::hash(&value.borrow());
         if let Some(ptr) = self.1.get(&v) {
@@ -72,7 +74,8 @@ impl DataBuffer {
     /// Returns reference to object indicated by `DataBufferPtr`.
     #[inline]
     pub fn as_ref<T>(&self, ptr: DataBufferPtr<T>) -> &T
-        where T: Copy
+    where
+        T: Copy,
     {
         let slice = self.as_bytes(ptr);
         assert_eq!(slice.len(), mem::size_of::<T>());
@@ -82,7 +85,8 @@ impl DataBuffer {
     /// Returns a object slice indicated by `DataBufferPtr.
     #[inline]
     pub fn as_slice<T>(&self, ptr: DataBufferPtr<[T]>) -> &[T]
-        where T: Copy
+    where
+        T: Copy,
     {
         let slice = self.as_bytes(ptr);
         let len = slice.len() / mem::size_of::<T>();
@@ -98,7 +102,8 @@ impl DataBuffer {
 
     #[inline]
     pub fn as_bytes<T>(&self, slice: DataBufferPtr<T>) -> &[u8]
-        where T: ?Sized
+    where
+        T: ?Sized,
     {
         &self.0[slice.position as usize..(slice.position + slice.size) as usize]
     }
@@ -107,7 +112,8 @@ impl DataBuffer {
 /// A view into our `DataBuffer`, indicates where the object `T` stored.
 #[derive(Debug)]
 pub struct DataBufferPtr<T>
-    where T: ?Sized
+where
+    T: ?Sized,
 {
     position: u32,
     size: u32,
@@ -115,7 +121,8 @@ pub struct DataBufferPtr<T>
 }
 
 impl<T> Clone for DataBufferPtr<T>
-    where T: ?Sized
+where
+    T: ?Sized,
 {
     fn clone(&self) -> Self {
         DataBufferPtr {
@@ -126,7 +133,11 @@ impl<T> Clone for DataBufferPtr<T>
     }
 }
 
-impl<T> Copy for DataBufferPtr<T> where T: ?Sized {}
+impl<T> Copy for DataBufferPtr<T>
+where
+    T: ?Sized,
+{
+}
 
 #[cfg(test)]
 mod test {

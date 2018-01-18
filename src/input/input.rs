@@ -63,13 +63,11 @@ impl InputSystem {
                 self.shared.mouse.write().unwrap().on_button_pressed(button)
             }
 
-            event::InputDeviceEvent::MouseReleased { button } => {
-                self.shared
-                    .mouse
-                    .write()
-                    .unwrap()
-                    .on_button_released(button)
-            }
+            event::InputDeviceEvent::MouseReleased { button } => self.shared
+                .mouse
+                .write()
+                .unwrap()
+                .on_button_released(button),
 
             event::InputDeviceEvent::MouseWheel { delta } => {
                 self.shared.mouse.write().unwrap().on_wheel_scroll(delta)

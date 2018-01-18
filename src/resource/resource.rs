@@ -32,16 +32,18 @@ impl ResourceSystem {
             let driver = driver.clone();
             thread::Builder::new()
                 .name("RESOURCE".into())
-                .spawn(|| { ResourceSystem::run(rx, driver); })
+                .spawn(|| {
+                    ResourceSystem::run(rx, driver);
+                })
                 .unwrap();
         }
 
         let shared = ResourceSystemShared::new(driver.clone(), tx);
 
         Ok(ResourceSystem {
-               filesystems: driver,
-               shared: Arc::new(shared),
-           })
+            filesystems: driver,
+            shared: Arc::new(shared),
+        })
     }
 
     /// Returns the shared parts of `ResourceSystem`.
@@ -52,8 +54,9 @@ impl ResourceSystem {
     /// Mount a file-system drive with identifier.
     #[inline]
     pub fn mount<S, F>(&self, ident: S, fs: F) -> Result<()>
-        where S: AsRef<str>,
-              F: Filesystem + 'static
+    where
+        S: AsRef<str>,
+        F: Filesystem + 'static,
     {
         self.filesystems.write().unwrap().mount(ident, fs)
     }
@@ -61,7 +64,8 @@ impl ResourceSystem {
     /// Unmount a file-system from this collection.
     #[inline]
     pub fn unmount<S>(&self, ident: S)
-        where S: AsRef<str>
+    where
+        S: AsRef<str>,
     {
         self.filesystems.write().unwrap().unmount(ident);
     }
@@ -82,7 +86,8 @@ impl ResourceSystem {
     }
 
     fn load<T>(slave: T, path: &Path, driver: &FilesystemDriver, buf: &mut Vec<u8>)
-        where T: ResourceAsyncLoader
+    where
+        T: ResourceAsyncLoader,
     {
         let from = buf.len();
 
@@ -100,14 +105,17 @@ pub struct ResourceSystemShared {
 }
 
 enum ResourceTask {
-    Load { closure: Box<FnMut(&FilesystemDriver, &mut Vec<u8>) + Send + Sync>, },
+    Load {
+        closure: Box<FnMut(&FilesystemDriver, &mut Vec<u8>) + Send + Sync>,
+    },
     Stop,
 }
 
 impl ResourceSystemShared {
-    fn new(filesystems: Arc<RwLock<FilesystemDriver>>,
-           chan: two_lock_queue::Sender<ResourceTask>)
-           -> Self {
+    fn new(
+        filesystems: Arc<RwLock<FilesystemDriver>>,
+        chan: two_lock_queue::Sender<ResourceTask>,
+    ) -> Self {
         ResourceSystemShared {
             filesystems: filesystems,
             chan: chan,
@@ -116,7 +124,8 @@ impl ResourceSystemShared {
 
     /// Return whether the path points at an existing file.
     pub fn exists<T, P>(&self, path: P) -> bool
-        where P: AsRef<Path>
+    where
+        P: AsRef<Path>,
     {
         self.filesystems.read().unwrap().exists(path)
     }
@@ -126,8 +135,9 @@ impl ResourceSystemShared {
     /// `ResourceAsyncLoader::on_finished` will be called if task finishs or any
     /// error triggered when loading.
     pub fn load_async<T, P>(&self, worker: T, path: P)
-        where T: ResourceAsyncLoader,
-              P: AsRef<Path>
+    where
+        T: ResourceAsyncLoader,
+        P: AsRef<Path>,
     {
         // Hacks: Optimize this when Box<FnOnce> is usable.
         let path = path.as_ref().to_owned();
@@ -140,7 +150,9 @@ impl ResourceSystemShared {
         };
 
         self.chan
-            .send(ResourceTask::Load { closure: Box::new(closure) })
+            .send(ResourceTask::Load {
+                closure: Box::new(closure),
+            })
             .unwrap();
     }
 }

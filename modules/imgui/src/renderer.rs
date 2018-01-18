@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crayon::{graphics, application, utils};
+use crayon::{application, graphics, utils};
 
 use imgui::{DrawList, ImGui, Ui};
 use errors::*;
@@ -44,10 +44,11 @@ impl Renderer {
         setup.layout = layout;
         setup.render_state.cull_face = graphics::CullFace::Back;
         setup.render_state.front_face_order = graphics::FrontFaceOrder::Clockwise;
-        setup.render_state.color_blend =
-            Some((graphics::Equation::Add,
-                  graphics::BlendFactor::Value(graphics::BlendValue::SourceAlpha),
-                  graphics::BlendFactor::OneMinusValue(graphics::BlendValue::SourceAlpha)));
+        setup.render_state.color_blend = Some((
+            graphics::Equation::Add,
+            graphics::BlendFactor::Value(graphics::BlendValue::SourceAlpha),
+            graphics::BlendFactor::OneMinusValue(graphics::BlendValue::SourceAlpha),
+        ));
 
         setup.vs = include_str!("../assets/imgui.vs").to_owned();
         setup.fs = include_str!("../assets/imgui.fs").to_owned();
@@ -55,25 +56,24 @@ impl Renderer {
         setup.uniform_variables.push("texture".into());
         let shader = video.create_shader(setup)?;
 
-        let texture = imgui
-            .prepare_texture(|v| {
-                                 let mut setup = graphics::TextureSetup::default();
-                                 setup.dimensions = (v.width, v.height);
-                                 setup.filter = graphics::TextureFilter::Nearest;
-                                 setup.format = graphics::TextureFormat::U8U8U8U8;
-                                 video.create_texture(setup, Some(v.pixels))
-                             })?;
+        let texture = imgui.prepare_texture(|v| {
+            let mut setup = graphics::TextureSetup::default();
+            setup.dimensions = (v.width, v.height);
+            setup.filter = graphics::TextureFilter::Nearest;
+            setup.format = graphics::TextureFormat::U8U8U8U8;
+            video.create_texture(setup, Some(v.pixels))
+        })?;
 
         imgui.set_texture_id(**texture as usize);
 
         Ok(Renderer {
-               video: video.clone(),
+            video: video.clone(),
 
-               surface: surface,
-               shader: shader,
-               texture: texture,
-               mesh: None,
-           })
+            surface: surface,
+            shader: shader,
+            texture: texture,
+            mesh: None,
+        })
     }
 
     pub fn render<'a>(&mut self, ui: Ui<'a>) -> Result<()> {
@@ -85,7 +85,11 @@ impl Renderer {
 
         for v in tasks.vtx_buffer {
             let color = utils::Color::from_abgr_u32(v.col).into();
-            verts.push(CanvasVertex::new([v.pos.x, v.pos.y], [v.uv.x, v.uv.y], color));
+            verts.push(CanvasVertex::new(
+                [v.pos.x, v.pos.y],
+                [v.uv.x, v.uv.y],
+                color,
+            ));
         }
 
         let mesh = self.update_mesh(&verts, &tasks.idx_buffer)?;
@@ -96,21 +100,29 @@ impl Renderer {
             return Ok(());
         }
 
-        let matrix = graphics::UniformVariable::Matrix4f([[2.0 / width as f32, 0.0, 0.0, 0.0],
-                                                          [0.0, 2.0 / -(height as f32), 0.0, 0.0],
-                                                          [0.0, 0.0, -1.0, 0.0],
-                                                          [-1.0, 1.0, 0.0, 1.0]],
-                                                         false);
+        let matrix = graphics::UniformVariable::Matrix4f(
+            [
+                [2.0 / width as f32, 0.0, 0.0, 0.0],
+                [0.0, 2.0 / -(height as f32), 0.0, 0.0],
+                [0.0, 0.0, -1.0, 0.0],
+                [-1.0, 1.0, 0.0, 1.0],
+            ],
+            false,
+        );
 
         let font_texture_id = **self.texture as usize;
         let mut idx_start = 0;
         for cmd in tasks.cmd_buffer {
             assert!(font_texture_id == cmd.texture_id as usize);
 
-            let scissor_pos = ((cmd.clip_rect.x * scale_width) as u16,
-                               ((height - cmd.clip_rect.w) * scale_height) as u16);
-            let scissor_size = (((cmd.clip_rect.z - cmd.clip_rect.x) * scale_width) as u16,
-                                ((cmd.clip_rect.w - cmd.clip_rect.y) * scale_height) as u16);
+            let scissor_pos = (
+                (cmd.clip_rect.x * scale_width) as u16,
+                ((height - cmd.clip_rect.w) * scale_height) as u16,
+            );
+            let scissor_size = (
+                ((cmd.clip_rect.z - cmd.clip_rect.x) * scale_width) as u16,
+                ((cmd.clip_rect.w - cmd.clip_rect.y) * scale_height) as u16,
+            );
 
             {
                 let scissor = graphics::Scissor::Enable(scissor_pos, scissor_size);
@@ -132,10 +144,11 @@ impl Renderer {
         Ok(())
     }
 
-    fn update_mesh(&mut self,
-                   verts: &[CanvasVertex],
-                   idxes: &[u16])
-                   -> Result<graphics::MeshHandle> {
+    fn update_mesh(
+        &mut self,
+        verts: &[CanvasVertex],
+        idxes: &[u16],
+    ) -> Result<graphics::MeshHandle> {
         if let Some((nv, ni, handle)) = self.mesh {
             if nv >= verts.len() && ni >= idxes.len() {
                 let slice = CanvasVertex::as_bytes(verts);

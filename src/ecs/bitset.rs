@@ -13,7 +13,9 @@ pub struct BitSet {
 impl BitSet {
     /// Create a new BitSet with *ZERO* bit.
     pub fn new() -> Self {
-        BitSet { bits: [0; MAX_COMPONENTS] }
+        BitSet {
+            bits: [0; MAX_COMPONENTS],
+        }
     }
 
     /// Adds a value to the set.
@@ -52,7 +54,8 @@ impl BitSet {
     /// Returns an bit-set that intersect self with `rhs`.
     #[inline(always)]
     pub fn intersect_with<T>(&self, rhs: T) -> Self
-        where T: Borrow<Self>
+    where
+        T: Borrow<Self>,
     {
         let mut bs = BitSet::new();
         let rhs = rhs.borrow();
@@ -65,7 +68,8 @@ impl BitSet {
     /// Returns an bit-set that union self with `rhs`.
     #[inline(always)]
     pub fn union_with<T>(&self, rhs: T) -> Self
-        where T: Borrow<Self>
+    where
+        T: Borrow<Self>,
     {
         let mut bs = BitSet::new();
         let rhs = rhs.borrow();
@@ -87,9 +91,11 @@ impl BitSet {
     #[inline(always)]
     fn split(index: usize) -> (usize, usize) {
         let len = MAX_COMPONENTS * 64;
-        assert!(index < len,
-                "Too many components. (MAX_COMPONENTS: {:?})",
-                len);
+        assert!(
+            index < len,
+            "Too many components. (MAX_COMPONENTS: {:?})",
+            len
+        );
         (index / len, index % len)
     }
 }

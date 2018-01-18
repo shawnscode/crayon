@@ -22,10 +22,10 @@ impl Scene {
         world.register::<camera::Camera>();
 
         Ok(Scene {
-               world: world,
-               camera: CameraSystem { main: None },
-               render: RenderSystem {},
-           })
+            world: world,
+            camera: CameraSystem { main: None },
+            render: RenderSystem {},
+        })
     }
 
     pub fn update(&mut self, _: &application::Context) -> Result<()> {
@@ -43,9 +43,11 @@ impl Scene {
     }
 }
 
-type RenderData<'a> = (ecs::Fetch<'a, transform::Transform>,
-                       ecs::Fetch<'a, node::Node>,
-                       ecs::Fetch<'a, camera::Camera>);
+type RenderData<'a> = (
+    ecs::Fetch<'a, transform::Transform>,
+    ecs::Fetch<'a, node::Node>,
+    ecs::Fetch<'a, camera::Camera>,
+);
 
 struct RenderSystem {}
 

@@ -11,7 +11,8 @@ use super::bitset::DynamicBitSet;
 
 /// Abstract component trait with associated storage type.
 pub trait Component: Any + 'static
-    where Self: Sized
+where
+    Self: Sized,
 {
     type Arena: ComponentArena<Self> + Any + Send + Sync;
 
@@ -33,7 +34,8 @@ macro_rules! declare_component {
 /// components storage layout and strategy by declaring different `ComponentArena`
 /// with corresponding component.
 pub trait ComponentArena<T>
-    where T: Component
+where
+    T: Component,
 {
     /// Creates a new `ComponentArena<T>`. This is called when you register a new component
     /// type within the world.
@@ -62,16 +64,20 @@ pub trait ComponentArena<T>
 
 /// HashMap based storage which are best suited for rare components.
 pub struct HashMapArena<T>
-    where T: Component
+where
+    T: Component,
 {
     values: HashMap<HandleIndex, T>,
 }
 
 impl<T> ComponentArena<T> for HashMapArena<T>
-    where T: Component
+where
+    T: Component,
 {
     fn new() -> Self {
-        HashMapArena { values: HashMap::new() }
+        HashMapArena {
+            values: HashMap::new(),
+        }
     }
 
     fn get(&self, id: HandleIndex) -> Option<&T> {
@@ -102,14 +108,16 @@ impl<T> ComponentArena<T> for HashMapArena<T>
 /// Vec based storage, supposed to have maximum performance for the components
 /// mostly present in entities.
 pub struct VecArena<T>
-    where T: Component + ::std::fmt::Debug
+where
+    T: Component + ::std::fmt::Debug,
 {
     mask: DynamicBitSet,
     values: Vec<T>,
 }
 
 impl<T> ComponentArena<T> for VecArena<T>
-    where T: Component + ::std::fmt::Debug
+where
+    T: Component + ::std::fmt::Debug,
 {
     fn new() -> Self {
         VecArena {
@@ -154,7 +162,6 @@ impl<T> ComponentArena<T> for VecArena<T>
             // the (currently uninitialized) memory.
             let value = if self.mask.contains(id as usize) {
                 Some(ptr::read(self.get_unchecked(id)))
-
             } else {
                 self.mask.insert(id as usize);
                 None
@@ -178,7 +185,8 @@ impl<T> ComponentArena<T> for VecArena<T>
 }
 
 impl<T> Drop for VecArena<T>
-    where T: Component + ::std::fmt::Debug
+where
+    T: Component + ::std::fmt::Debug,
 {
     fn drop(&mut self) {
         unsafe {

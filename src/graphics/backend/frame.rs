@@ -1,10 +1,10 @@
-use std::sync::{RwLock, Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard, RwLock};
 
 use super::super::*;
 use super::errors::*;
 use super::device::Device;
 
-use utils::{Rect, DataBuffer, DataBufferPtr};
+use utils::{DataBuffer, DataBufferPtr, Rect};
 
 #[derive(Debug, Clone)]
 pub(crate) enum PreFrameTask {
@@ -15,7 +15,12 @@ pub(crate) enum PreFrameTask {
     UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),
     CreateRenderTexture(TextureHandle, RenderTextureSetup),
     CreateRenderBuffer(RenderBufferHandle, RenderBufferSetup),
-    CreateMesh(MeshHandle, MeshSetup, Option<DataBufferPtr<[u8]>>, Option<DataBufferPtr<[u8]>>),
+    CreateMesh(
+        MeshHandle,
+        MeshSetup,
+        Option<DataBufferPtr<[u8]>>,
+        Option<DataBufferPtr<[u8]>>,
+    ),
     UpdateVertexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
     UpdateIndexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
 }
@@ -78,11 +83,12 @@ impl Frame {
     }
 
     /// Dispatch frame tasks and draw calls to the backend context.
-    pub unsafe fn dispatch(&mut self,
-                           device: &mut Device,
-                           dimensions: (u32, u32),
-                           hidpi: f32)
-                           -> Result<()> {
+    pub unsafe fn dispatch(
+        &mut self,
+        device: &mut Device,
+        dimensions: (u32, u32),
+        hidpi: f32,
+    ) -> Result<()> {
         for v in self.pre.drain(..) {
             match v {
                 PreFrameTask::CreateSurface(handle, setup) => {
@@ -179,8 +185,10 @@ impl DoubleFrame {
     pub fn with_capacity(capacity: usize) -> Self {
         DoubleFrame {
             idx: RwLock::new(0),
-            frames: [Mutex::new(Frame::with_capacity(capacity)),
-                     Mutex::new(Frame::with_capacity(capacity))],
+            frames: [
+                Mutex::new(Frame::with_capacity(capacity)),
+                Mutex::new(Frame::with_capacity(capacity)),
+            ],
         }
     }
 

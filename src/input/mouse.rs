@@ -1,5 +1,5 @@
-use std::collections::{HashSet, HashMap};
-use std::time::{Instant, Duration};
+use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 use math;
 use math::MetricSpace;
@@ -240,8 +240,9 @@ impl ClickDetector {
         let timeout = self.setup.press_timeout;
         let now = Instant::now();
 
-        if (now - self.last_press_time) < timeout &&
-           (position.distance(self.last_press_position)) < max_distance {
+        if (now - self.last_press_time) < timeout
+            && (position.distance(self.last_press_position)) < max_distance
+        {
             self.clicks += 1;
             self.frame_clicks = self.clicks;
             self.last_click_time = now;

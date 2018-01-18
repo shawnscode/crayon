@@ -32,9 +32,11 @@ impl Window {
 
         //
         let (pass, rendered_texture) = {
-            let verts: [Vertex; 3] = [Vertex::new([0.0, 0.5]),
-                                      Vertex::new([0.5, -0.5]),
-                                      Vertex::new([-0.5, -0.5])];
+            let verts: [Vertex; 3] = [
+                Vertex::new([0.0, 0.5]),
+                Vertex::new([0.5, -0.5]),
+                Vertex::new([-0.5, -0.5]),
+            ];
             let idxes: [u16; 3] = [0, 1, 2];
 
             // Create vertex buffer object.
@@ -43,10 +45,11 @@ impl Window {
             setup.num_idxes = 3;
             setup.layout = Vertex::layout();
 
-            let mesh = label
-                .create_mesh(setup,
-                             Vertex::as_bytes(&verts[..]),
-                             graphics::IndexFormat::as_bytes(&idxes))?;
+            let mesh = label.create_mesh(
+                setup,
+                Vertex::as_bytes(&verts[..]),
+                graphics::IndexFormat::as_bytes(&idxes),
+            )?;
 
             // Create render texture for post effect.
             let mut setup = graphics::RenderTextureSetup::default();
@@ -73,19 +76,23 @@ impl Window {
             setup.fs = include_str!("../../assets/render_target_p1.fs").to_owned();
             let shader = label.create_shader(setup)?;
 
-            (Pass {
-                 surface: surface,
-                 shader: shader,
-                 mesh: mesh,
-             },
-             rendered_texture)
+            (
+                Pass {
+                    surface: surface,
+                    shader: shader,
+                    mesh: mesh,
+                },
+                rendered_texture,
+            )
         };
 
         let post_effect = {
-            let verts: [Vertex; 4] = [Vertex::new([-1.0, -1.0]),
-                                      Vertex::new([1.0, -1.0]),
-                                      Vertex::new([1.0, 1.0]),
-                                      Vertex::new([-1.0, 1.0])];
+            let verts: [Vertex; 4] = [
+                Vertex::new([-1.0, -1.0]),
+                Vertex::new([1.0, -1.0]),
+                Vertex::new([1.0, 1.0]),
+                Vertex::new([-1.0, 1.0]),
+            ];
             let idxes: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
             let mut setup = graphics::MeshSetup::default();
@@ -93,10 +100,11 @@ impl Window {
             setup.num_idxes = 6;
             setup.layout = Vertex::layout();
 
-            let mesh = label
-                .create_mesh(setup,
-                             Vertex::as_bytes(&verts[..]),
-                             graphics::IndexFormat::as_bytes(&idxes))?;
+            let mesh = label.create_mesh(
+                setup,
+                Vertex::as_bytes(&verts[..]),
+                graphics::IndexFormat::as_bytes(&idxes),
+            )?;
 
             let mut setup = graphics::SurfaceSetup::default();
             setup.set_order(1);
@@ -118,14 +126,14 @@ impl Window {
         };
 
         Ok(Window {
-               _label: label,
+            _label: label,
 
-               pass: pass,
-               post_effect: post_effect,
-               texture: rendered_texture,
+            pass: pass,
+            post_effect: post_effect,
+            texture: rendered_texture,
 
-               time: 0.0,
-           })
+            time: 0.0,
+        })
     }
 }
 

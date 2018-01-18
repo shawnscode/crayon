@@ -15,7 +15,9 @@ impl ecs::Component for Transform {
 
 impl Default for Transform {
     fn default() -> Self {
-        Transform { decomposed: math::Decomposed::one() }
+        Transform {
+            decomposed: math::Decomposed::one(),
+        }
     }
 }
 
@@ -42,14 +44,16 @@ impl Transform {
 
     #[inline(always)]
     pub fn set_position<T>(&mut self, position: T)
-        where T: Into<math::Vector3<f32>>
+    where
+        T: Into<math::Vector3<f32>>,
     {
         self.decomposed.disp = position.into();
     }
 
     #[inline(always)]
     pub fn translate<T>(&mut self, disp: T)
-        where T: Into<math::Vector3<f32>>
+    where
+        T: Into<math::Vector3<f32>>,
     {
         self.decomposed.disp += disp.into();
     }
@@ -61,14 +65,16 @@ impl Transform {
 
     #[inline(always)]
     pub fn set_rotation<T>(&mut self, rotation: T)
-        where T: Into<math::Quaternion<f32>>
+    where
+        T: Into<math::Quaternion<f32>>,
     {
         self.decomposed.rot = rotation.into();
     }
 
     #[inline(always)]
     pub fn rotate<T>(&mut self, rotate: T)
-        where T: Into<math::Quaternion<f32>>
+    where
+        T: Into<math::Quaternion<f32>>,
     {
         self.decomposed.rot = rotate.into() * self.decomposed.rot;
     }

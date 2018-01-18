@@ -1,5 +1,5 @@
-extern crate crayon_scene;
 extern crate crayon;
+extern crate crayon_scene;
 extern crate rand;
 
 use crayon::prelude::*;
@@ -73,14 +73,18 @@ fn iteration() {
     Node::set_parent(&mut arena, e6, Some(e4)).unwrap();
     Node::set_parent(&mut arena, e5, Some(e4)).unwrap();
 
-    assert_eq!(Node::descendants(&arena, e1).collect::<Vec<_>>(),
-               [e2, e3, e4, e5, e6]);
+    assert_eq!(
+        Node::descendants(&arena, e1).collect::<Vec<_>>(),
+        [e2, e3, e4, e5, e6]
+    );
     assert_eq!(Node::children(&arena, e1).collect::<Vec<_>>(), [e2, e3]);
     assert_eq!(Node::ancestors(&arena, e1).collect::<Vec<_>>(), []);
     assert_eq!(Node::ancestors(&arena, e2).collect::<Vec<_>>(), [e1]);
     assert_eq!(Node::ancestors(&arena, e4).collect::<Vec<_>>(), [e3, e1]);
-    assert_eq!(Node::ancestors(&arena, e6).collect::<Vec<_>>(),
-               [e4, e3, e1]);
+    assert_eq!(
+        Node::ancestors(&arena, e6).collect::<Vec<_>>(),
+        [e4, e3, e1]
+    );
 }
 
 #[test]

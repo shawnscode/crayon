@@ -59,10 +59,11 @@ impl Node {
 
 impl Node {
     /// Attachs a new child to parent transform, before existing children.
-    pub fn set_parent(arena: &mut ecs::ArenaMut<Node>,
-                      child: ecs::Entity,
-                      parent: Option<ecs::Entity>)
-                      -> Result<()> {
+    pub fn set_parent(
+        arena: &mut ecs::ArenaMut<Node>,
+        child: ecs::Entity,
+        parent: Option<ecs::Entity>,
+    ) -> Result<()> {
         unsafe {
             if arena.get(child).is_none() {
                 bail!(ErrorKind::NonTransformFound);
@@ -97,7 +98,11 @@ impl Node {
         unsafe {
             let (parent, next_sib, prev_sib) = {
                 if let Some(node) = arena.get_mut(handle) {
-                    (node.parent.take(), node.next_sib.take(), node.prev_sib.take())
+                    (
+                        node.parent.take(),
+                        node.next_sib.take(),
+                        node.prev_sib.take(),
+                    )
                 } else {
                     bail!(ErrorKind::NonTransformFound);
                 }

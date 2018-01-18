@@ -1,7 +1,7 @@
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 use std::cmp::Ordering;
 
-use application::event::{TouchState, TouchEvent};
+use application::event::{TouchEvent, TouchState};
 use math;
 use math::MetricSpace;
 
@@ -212,15 +212,18 @@ impl GestureTapDetector {
                 let max_distance = self.setup.max_touch_distance * self.hidpi;
                 let timeout = self.setup.touch_timeout;
 
-                if (ts - self.last_tap_time) < timeout &&
-                   t1.position.distance(self.last_tap_position) < max_distance {
+                if (ts - self.last_tap_time) < timeout
+                    && t1.position.distance(self.last_tap_position) < max_distance
+                {
                     self.count += 1;
                     self.last_tap_position = t1.position;
                     self.last_tap_time = ts;
 
                     if self.count == self.required {
                         self.reset();
-                        GestureTap::Action { position: t1.position }
+                        GestureTap::Action {
+                            position: t1.position,
+                        }
                     } else {
                         GestureTap::None
                     }
@@ -329,26 +332,26 @@ impl GesturePanDetector {
                     // Checks if min-distance is reached before starting panning.
                     if self.start_position.distance(self.position) < min_distance {
                         self.pan = true;
-                        GesturePan::Start { start_position: self.start_position }
+                        GesturePan::Start {
+                            start_position: self.start_position,
+                        }
                     } else {
                         GesturePan::None
                     }
                 }
             }
 
-            TouchState::End => {
-                if self.pan {
-                    self.position = t1.position;
-                    self.reset();
-                    GesturePan::End {
-                        start_position: self.start_position,
-                        position: self.position,
-                    }
-                } else {
-                    self.reset();
-                    GesturePan::None
+            TouchState::End => if self.pan {
+                self.position = t1.position;
+                self.reset();
+                GesturePan::End {
+                    start_position: self.start_position,
+                    position: self.position,
                 }
-            }
+            } else {
+                self.reset();
+                GesturePan::None
+            },
 
             TouchState::Cancel => {
                 self.reset();

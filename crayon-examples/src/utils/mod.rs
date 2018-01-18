@@ -17,10 +17,10 @@ impl graphics::TextureParser for TextureParser {
     fn parse(bytes: &[u8]) -> image::ImageResult<graphics::TextureData> {
         let dynamic = image::load_from_memory(&bytes)?.flipv();
         Ok(graphics::TextureData {
-               format: graphics::TextureFormat::U8U8U8U8,
-               dimensions: dynamic.dimensions(),
-               data: dynamic.to_rgba().into_raw(),
-           })
+            format: graphics::TextureFormat::U8U8U8U8,
+            dimensions: dynamic.dimensions(),
+            data: dynamic.to_rgba().into_raw(),
+        })
     }
 }
 
@@ -74,15 +74,15 @@ impl graphics::MeshParser for OBJParser {
         }
 
         Ok(graphics::MeshData {
-               layout: OBJVertex::layout(),
-               index_format: graphics::IndexFormat::U32,
-               primitive: graphics::Primitive::Triangles,
-               num_verts: verts.len(),
-               num_idxes: idxes.len(),
-               sub_mesh_offsets: meshes,
-               verts: Vec::from(OBJVertex::as_bytes(&verts)),
-               idxes: Vec::from(graphics::IndexFormat::as_bytes(&idxes)),
-           })
+            layout: OBJVertex::layout(),
+            index_format: graphics::IndexFormat::U32,
+            primitive: graphics::Primitive::Triangles,
+            num_verts: verts.len(),
+            num_idxes: idxes.len(),
+            sub_mesh_offsets: meshes,
+            verts: Vec::from(OBJVertex::as_bytes(&verts)),
+            idxes: Vec::from(graphics::IndexFormat::as_bytes(&idxes)),
+        })
     }
 }
 

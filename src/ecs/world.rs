@@ -2,11 +2,11 @@
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use utils::{HandleIndex, HandlePool, HandleIter};
+use utils::{HandleIndex, HandleIter, HandlePool};
 
 use super::*;
 use super::bitset::BitSet;
-use super::cell::{RefCell, Ref, RefMut};
+use super::cell::{Ref, RefCell, RefMut};
 
 /// The `World` struct are used to manage the whole entity-component system, It keeps
 /// tracks of the state of every created `Entity`s. All memthods are supposed to be
@@ -36,7 +36,8 @@ impl World {
 
     /// Registers a new component type.
     pub fn register<T>(&mut self)
-        where T: Component
+    where
+        T: Component,
     {
         let id = TypeId::of::<T>();
 
@@ -101,7 +102,8 @@ impl World {
 
     /// Add components to entity, returns the old value if exists.
     pub fn add<T>(&mut self, ent: Entity, value: T) -> Option<T>
-        where T: Component
+    where
+        T: Component,
     {
         let index = self.index::<T>();
 
@@ -116,7 +118,8 @@ impl World {
     /// Add a component with default contructed to entity, returns the old value
     /// if exists.
     pub fn add_with_default<T>(&mut self, ent: Entity) -> Option<T>
-        where T: Component + Default
+    where
+        T: Component + Default,
     {
         self.add(ent, Default::default())
     }
@@ -124,7 +127,8 @@ impl World {
     /// Remove component of entity from the world, returning the component at the
     /// `HandleIndex`.
     pub fn remove<T>(&mut self, ent: Entity) -> Option<T>
-        where T: Component
+    where
+        T: Component,
     {
         let index = self.index::<T>();
 
@@ -139,7 +143,8 @@ impl World {
     /// Returns true if we have componen in this `Entity`, otherwise false.
     #[inline]
     pub fn has<T>(&self, ent: Entity) -> bool
-        where T: Component
+    where
+        T: Component,
     {
         let index = self.index::<T>();
         self.entities.is_alive(ent) && self.masks[ent.index() as usize].contains(index)
@@ -147,7 +152,8 @@ impl World {
 
     /// Returns a reference to the component corresponding to the `Entity`.
     pub fn get<T>(&self, ent: Entity) -> Option<T>
-        where T: Component + Copy
+    where
+        T: Component + Copy,
     {
         if self.has::<T>(ent) {
             unsafe { Some(*self.cell::<T>().borrow().get_unchecked(ent.index())) }
@@ -166,9 +172,12 @@ impl World {
     /// - Panics if the value is currently borrowed.
     #[inline]
     pub fn arena_mut<T>(&self) -> FetchMut<T>
-        where T: Component
+    where
+        T: Component,
     {
-        FetchMut { arena: self.cell::<T>().borrow_mut() }
+        FetchMut {
+            arena: self.cell::<T>().borrow_mut(),
+        }
     }
 
     /// Immutably borrows the arena. The borrow lasts until the returned `Fetch`
@@ -180,9 +189,12 @@ impl World {
     /// - Panics if the value is currently mutably borrowed.
     #[inline]
     pub fn arena<T>(&self) -> Fetch<T>
-        where T: Component
+    where
+        T: Component,
     {
-        Fetch { arena: self.cell::<T>().borrow() }
+        Fetch {
+            arena: self.cell::<T>().borrow(),
+        }
     }
 
     /// Gets immutable `World` iterator into all of the `Entity`s.
@@ -192,11 +204,12 @@ impl World {
     }
 
     pub(crate) fn index<T>(&self) -> usize
-        where T: Component
+    where
+        T: Component,
     {
         *self.registry
-             .get(&TypeId::of::<T>())
-             .expect("Component has NOT been registered.")
+            .get(&TypeId::of::<T>())
+            .expect("Component has NOT been registered.")
     }
 
     pub(crate) fn view(&self, mask: BitSet) -> View {
@@ -207,7 +220,8 @@ impl World {
     }
 
     fn cell<T>(&self) -> &RefCell<T::Arena>
-        where T: Component
+    where
+        T: Component,
     {
         let index = self.index::<T>();
         Self::any::<T>(self.arenas[index].arena.as_ref())
@@ -215,7 +229,8 @@ impl World {
 
     #[inline]
     fn any<T>(v: &Any) -> &RefCell<T::Arena>
-        where T: Component
+    where
+        T: Component,
     {
         v.downcast_ref::<RefCell<T::Arena>>().unwrap()
     }
@@ -228,14 +243,15 @@ struct Entry {
 
 impl Entry {
     fn new<T>() -> Self
-        where T: Component
+    where
+        T: Component,
     {
         let eraser = Box::new(|any: &Any, id: HandleIndex| {
-                                  any.downcast_ref::<RefCell<T::Arena>>()
-                                      .unwrap()
-                                      .borrow_mut()
-                                      .remove(id);
-                              });
+            any.downcast_ref::<RefCell<T::Arena>>()
+                .unwrap()
+                .borrow_mut()
+                .remove(id);
+        });
         Entry {
             arena: Box::new(RefCell::new(T::Arena::new())),
             eraser: eraser,
@@ -244,20 +260,23 @@ impl Entry {
 }
 
 pub trait Arena<T>
-    where T: Component
+where
+    T: Component,
 {
     fn get(&self, ent: Entity) -> Option<&T>;
     unsafe fn get_unchecked(&self, ent: Entity) -> &T;
 }
 
 pub struct Fetch<'a, T>
-    where T: Component
+where
+    T: Component,
 {
     arena: Ref<'a, T::Arena>,
 }
 
 impl<'a, T> Arena<T> for Fetch<'a, T>
-    where T: Component
+where
+    T: Component,
 {
     #[inline]
     fn get(&self, ent: Entity) -> Option<&T> {
@@ -271,20 +290,23 @@ impl<'a, T> Arena<T> for Fetch<'a, T>
 }
 
 pub trait ArenaMut<T>: Arena<T>
-    where T: Component
+where
+    T: Component,
 {
     fn get_mut(&mut self, ent: Entity) -> Option<&mut T>;
     unsafe fn get_unchecked_mut(&mut self, ent: Entity) -> &mut T;
 }
 
 pub struct FetchMut<'a, T>
-    where T: Component
+where
+    T: Component,
 {
     arena: RefMut<'a, T::Arena>,
 }
 
 impl<'a, T> Arena<T> for FetchMut<'a, T>
-    where T: Component
+where
+    T: Component,
 {
     #[inline]
     fn get(&self, ent: Entity) -> Option<&T> {
@@ -298,7 +320,8 @@ impl<'a, T> Arena<T> for FetchMut<'a, T>
 }
 
 impl<'a, T> ArenaMut<T> for FetchMut<'a, T>
-    where T: Component
+where
+    T: Component,
 {
     #[inline]
     fn get_mut(&mut self, ent: Entity) -> Option<&mut T> {
@@ -319,14 +342,16 @@ pub struct EntityBuilder<'a> {
 
 impl<'a> EntityBuilder<'a> {
     pub fn with<T>(&mut self, value: T) -> &mut Self
-        where T: Component
+    where
+        T: Component,
     {
         self.world.add::<T>(self.entity, value);
         self
     }
 
     pub fn with_default<T>(&mut self) -> &mut Self
-        where T: Component + Default
+    where
+        T: Component + Default,
     {
         self.world.add_with_default::<T>(self.entity);
         self
@@ -432,27 +457,31 @@ impl<'a> ViewSlice<'a> {
     /// the second will contain all indices from [mid, len) (excluding the index len itself).
     pub fn split_at(&mut self, len: usize) -> (ViewSlice, ViewSlice) {
         let (lhs, rhs) = self.iterator.split_at(len);
-        (ViewSlice {
-             view: self.view,
-             iterator: lhs,
-         },
-         ViewSlice {
-             view: self.view,
-             iterator: rhs,
-         })
+        (
+            ViewSlice {
+                view: self.view,
+                iterator: lhs,
+            },
+            ViewSlice {
+                view: self.view,
+                iterator: rhs,
+            },
+        )
     }
 
     /// Divides one slice into two at mid.
     pub fn split(&mut self) -> (ViewSlice, ViewSlice) {
         let (lhs, rhs) = self.iterator.split();
-        (ViewSlice {
-             view: self.view,
-             iterator: lhs,
-         },
-         ViewSlice {
-             view: self.view,
-             iterator: rhs,
-         })
+        (
+            ViewSlice {
+                view: self.view,
+                iterator: lhs,
+            },
+            ViewSlice {
+                view: self.view,
+                iterator: rhs,
+            },
+        )
     }
 }
 

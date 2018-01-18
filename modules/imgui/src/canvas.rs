@@ -75,17 +75,22 @@ impl Canvas {
         imgui.set_key(17, input.is_key_down(KeyboardButton::Y));
         imgui.set_key(18, input.is_key_down(KeyboardButton::Z));
 
-        imgui.set_key_ctrl(input.is_key_down(KeyboardButton::LControl) ||
-                           input.is_key_down(KeyboardButton::RControl));
+        imgui.set_key_ctrl(
+            input.is_key_down(KeyboardButton::LControl)
+                || input.is_key_down(KeyboardButton::RControl),
+        );
 
-        imgui.set_key_shift(input.is_key_down(KeyboardButton::LShift) ||
-                            input.is_key_down(KeyboardButton::RShift));
+        imgui.set_key_shift(
+            input.is_key_down(KeyboardButton::LShift) || input.is_key_down(KeyboardButton::RShift),
+        );
 
-        imgui.set_key_alt(input.is_key_down(KeyboardButton::LAlt) ||
-                          input.is_key_down(KeyboardButton::RAlt));
+        imgui.set_key_alt(
+            input.is_key_down(KeyboardButton::LAlt) || input.is_key_down(KeyboardButton::RAlt),
+        );
 
-        imgui.set_key_super(input.is_key_down(KeyboardButton::LWin) ||
-                            input.is_key_down(KeyboardButton::RWin));
+        imgui.set_key_super(
+            input.is_key_down(KeyboardButton::LWin) || input.is_key_down(KeyboardButton::RWin),
+        );
     }
 
     fn update_mouse_state(imgui: &mut imgui::ImGui, input: &input::InputSystemShared) {

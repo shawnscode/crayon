@@ -14,7 +14,7 @@ mod color;
 mod rect;
 
 pub use self::handle::{Handle, HandleIndex};
-pub use self::handle_pool::{HandlePool, HandleIter};
+pub use self::handle_pool::{HandleIter, HandlePool};
 pub use self::object_pool::ObjectPool;
 pub use self::finally::{finally, finally_with};
 pub use self::hash::hash;

@@ -17,10 +17,10 @@ impl Window {
         let (canvas, renderer) = crayon_imgui::new(&ctx).unwrap();
 
         Ok(Window {
-               canvas: canvas,
-               renderer: renderer,
-               info: Default::default(),
-           })
+            canvas: canvas,
+            renderer: renderer,
+            info: Default::default(),
+        })
     }
 }
 
@@ -36,13 +36,17 @@ impl Application for Window {
             .size((224.0, 65.0), ImGuiCond::FirstUseEver)
             .build(|| {
                 ui.text(im_str!("FPS: {:?}", info.fps));
-                ui.text(im_str!("DrawCalls: {:?}, Triangles: {:?}",
-                                info.video.drawcall,
-                                info.video.triangles));
+                ui.text(im_str!(
+                    "DrawCalls: {:?}, Triangles: {:?}",
+                    info.video.drawcall,
+                    info.video.triangles
+                ));
 
-                ui.text(im_str!("CPU: {:.2?}ms, GPU: {:.2?}ms",
-                                utils::to_ms(info.duration),
-                                utils::to_ms(info.video.duration)));
+                ui.text(im_str!(
+                    "CPU: {:.2?}ms, GPU: {:.2?}ms",
+                    utils::to_ms(info.duration),
+                    utils::to_ms(info.video.duration)
+                ));
             });
 
         let mut open = true;

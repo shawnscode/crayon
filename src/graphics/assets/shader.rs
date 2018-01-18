@@ -1,7 +1,7 @@
 //! Pipeline state object that containing immutable render state and vertex-layout.
 
 use math;
-use graphics::{MAX_VERTEX_ATTRIBUTES, TextureHandle};
+use graphics::{TextureHandle, MAX_VERTEX_ATTRIBUTES};
 use super::mesh::VertexLayout;
 
 impl_handle!(ShaderHandle);
@@ -56,18 +56,21 @@ impl Into<&'static str> for Attribute {
 
 impl Attribute {
     pub fn from_str(v: &str) -> Option<Attribute> {
-        let attributes = [Attribute::Position,
-                          Attribute::Normal,
-                          Attribute::Tangent,
-                          Attribute::Bitangent,
-                          Attribute::Color0,
-                          Attribute::Color1,
-                          Attribute::Indices,
-                          Attribute::Weight,
-                          Attribute::Texcoord0,
-                          Attribute::Texcoord1,
-                          Attribute::Texcoord2,
-                          Attribute::Texcoord3];
+        let attributes = [
+            Attribute::Position,
+            Attribute::Normal,
+            Attribute::Tangent,
+            Attribute::Bitangent,
+            Attribute::Color0,
+            Attribute::Color1,
+            Attribute::Indices,
+            Attribute::Weight,
+            Attribute::Texcoord0,
+            Attribute::Texcoord1,
+            Attribute::Texcoord2,
+            Attribute::Texcoord3,
+        ];
+
         for at in &attributes {
             let w: &'static str = (*at).into();
             if v == w {
@@ -251,7 +254,7 @@ impl Default for RenderState {
             cull_face: CullFace::Nothing,
             front_face_order: FrontFaceOrder::CounterClockwise,
             depth_test: Comparison::Always, // no depth test,
-            depth_write: false, // no depth write,
+            depth_write: false,             // no depth write,
             depth_write_offset: None,
             color_blend: None,
             color_write: (false, false, false, false),

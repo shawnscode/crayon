@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use gl;
 use gl::types::*;
 
-use utils::{Handle, Rect, DataBuffer, Color};
+use utils::{Color, DataBuffer, Handle, Rect};
 use graphics::*;
 
 use super::errors::*;
@@ -115,12 +115,13 @@ impl Device {
         *self.frame_info.borrow()
     }
 
-    pub fn flush(&mut self,
-                 tasks: &mut [(SurfaceHandle, u64, FrameTask)],
-                 buf: &DataBuffer,
-                 dimensions: (u32, u32),
-                 hidpi: f32)
-                 -> Result<()> {
+    pub fn flush(
+        &mut self,
+        tasks: &mut [(SurfaceHandle, u64, FrameTask)],
+        buf: &DataBuffer,
+        dimensions: (u32, u32),
+        hidpi: f32,
+    ) -> Result<()> {
         // Sort frame tasks by user defined priorities. Notes that Slice::sort_by
         // is stable, which means it does not reorder equal elements, so it will
         // not change the execution order in one specific surface.
@@ -203,13 +204,13 @@ impl Device {
             .bind_attribute_layout(&shader.layout, &mesh.setup.layout)?;
 
         // Bind index buffer object if available.
-        self.visitor
-            .bind_buffer(gl::ELEMENT_ARRAY_BUFFER, mesh.ibo)?;
+        self.visitor.bind_buffer(gl::ELEMENT_ARRAY_BUFFER, mesh.ibo)?;
 
         let (from, len) = match dc.index {
-            MeshIndex::Ptr(from, len) => {
-                ((from * mesh.setup.index_format.len()) as u32, len as GLsizei)
-            }
+            MeshIndex::Ptr(from, len) => (
+                (from * mesh.setup.index_format.len()) as u32,
+                len as GLsizei,
+            ),
             MeshIndex::SubMesh(index) => {
                 let num = mesh.setup.sub_mesh_offsets.len();
                 if index >= num || num == 0 {
@@ -227,10 +228,12 @@ impl Device {
             }
         };
 
-        gl::DrawElements(mesh.setup.primitive.into(),
-                         len,
-                         mesh.setup.index_format.into(),
-                         from as *const u32 as *const ::std::os::raw::c_void);
+        gl::DrawElements(
+            mesh.setup.primitive.into(),
+            len,
+            mesh.setup.index_format.into(),
+            from as *const u32 as *const ::std::os::raw::c_void,
+        );
 
         {
             let mut info = self.frame_info.borrow_mut();
@@ -241,14 +244,17 @@ impl Device {
         check()
     }
 
-    unsafe fn rebind_surface(&self,
-                             handle: SurfaceHandle,
-                             dimensions: (u16, u16),
-                             hidpi: f32)
-                             -> Result<()> {
+    unsafe fn rebind_surface(
+        &self,
+        handle: SurfaceHandle,
+        dimensions: (u16, u16),
+        hidpi: f32,
+    ) -> Result<()> {
         let surface = self.surfaces.get(handle).ok_or(ErrorKind::InvalidHandle)?;
-        let dimensions = ((dimensions.0 as f32 * hidpi) as u16,
-                          (dimensions.1 as f32 * hidpi) as u16);
+        let dimensions = (
+            (dimensions.0 as f32 * hidpi) as u16,
+            (dimensions.1 as f32 * hidpi) as u16,
+        );
 
         // Bind frame buffer.
         let dimensions = if let Some(fbo) = surface.setup.framebuffer {
@@ -264,10 +270,14 @@ impl Device {
         };
 
         let vp = surface.setup.viewport;
-        let position = (((vp.0).0 * dimensions.0 as f32) as u16,
-                        ((vp.0).1 * dimensions.1 as f32) as u16);
-        let dimensions = (((vp.1).0 * dimensions.0 as f32) as u16,
-                          ((vp.1).1 * dimensions.1 as f32) as u16);
+        let position = (
+            ((vp.0).0 * dimensions.0 as f32) as u16,
+            ((vp.0).1 * dimensions.1 as f32) as u16,
+        );
+        let dimensions = (
+            ((vp.1).0 * dimensions.0 as f32) as u16,
+            ((vp.1).1 * dimensions.1 as f32) as u16,
+        );
 
         // Bind the viewport and scissor box.
         self.visitor.set_viewport(position, dimensions)?;
@@ -276,10 +286,11 @@ impl Device {
         self.visitor.set_scissor(Scissor::Disable)?;
 
         // Clear frame buffer.
-        self.visitor
-            .clear(surface.setup.clear_color,
-                   surface.setup.clear_depth,
-                   surface.setup.clear_stencil)?;
+        self.visitor.clear(
+            surface.setup.clear_color,
+            surface.setup.clear_depth,
+            surface.setup.clear_stencil,
+        )?;
 
         Ok(())
     }
@@ -319,27 +330,30 @@ impl Device {
 }
 
 impl Device {
-    pub unsafe fn create_mesh(&mut self,
-                              handle: MeshHandle,
-                              setup: MeshSetup,
-                              verts: Option<&[u8]>,
-                              idxes: Option<&[u8]>)
-                              -> Result<()> {
+    pub unsafe fn create_mesh(
+        &mut self,
+        handle: MeshHandle,
+        setup: MeshSetup,
+        verts: Option<&[u8]>,
+        idxes: Option<&[u8]>,
+    ) -> Result<()> {
         if self.meshes.get(handle).is_some() {
             bail!(ErrorKind::DuplicatedHandle)
         }
 
-        let vbo = self.visitor
-            .create_buffer(OpenGLBuffer::Vertex,
-                           setup.hint,
-                           setup.vertex_buffer_len() as u32,
-                           verts)?;
+        let vbo = self.visitor.create_buffer(
+            OpenGLBuffer::Vertex,
+            setup.hint,
+            setup.vertex_buffer_len() as u32,
+            verts,
+        )?;
 
-        let ibo = self.visitor
-            .create_buffer(OpenGLBuffer::Index,
-                           setup.hint,
-                           setup.index_buffer_len() as u32,
-                           idxes)?;
+        let ibo = self.visitor.create_buffer(
+            OpenGLBuffer::Index,
+            setup.hint,
+            setup.index_buffer_len() as u32,
+            idxes,
+        )?;
 
         let mesh = MeshObject {
             vbo: vbo,
@@ -351,11 +365,12 @@ impl Device {
         check()
     }
 
-    pub unsafe fn update_vertex_buffer(&mut self,
-                                       handle: MeshHandle,
-                                       offset: usize,
-                                       data: &[u8])
-                                       -> Result<()> {
+    pub unsafe fn update_vertex_buffer(
+        &mut self,
+        handle: MeshHandle,
+        offset: usize,
+        data: &[u8],
+    ) -> Result<()> {
         if let Some(mesh) = self.meshes.get(handle) {
             if mesh.setup.hint == BufferHint::Immutable {
                 bail!(ErrorKind::InvalidUpdateStaticResource);
@@ -372,11 +387,12 @@ impl Device {
         }
     }
 
-    pub unsafe fn update_index_buffer(&mut self,
-                                      handle: MeshHandle,
-                                      offset: usize,
-                                      data: &[u8])
-                                      -> Result<()> {
+    pub unsafe fn update_index_buffer(
+        &mut self,
+        handle: MeshHandle,
+        offset: usize,
+        data: &[u8],
+    ) -> Result<()> {
         if let Some(mesh) = self.meshes.get(handle) {
             if mesh.setup.hint == BufferHint::Immutable {
                 bail!(ErrorKind::InvalidUpdateStaticResource);
@@ -403,21 +419,25 @@ impl Device {
         }
     }
 
-    pub unsafe fn create_render_buffer(&mut self,
-                                       handle: RenderBufferHandle,
-                                       setup: RenderBufferSetup)
-                                       -> Result<()> {
+    pub unsafe fn create_render_buffer(
+        &mut self,
+        handle: RenderBufferHandle,
+        setup: RenderBufferSetup,
+    ) -> Result<()> {
         let (internal_format, _, _) = setup.format.into();
-        let id =
-            self.visitor
-                .create_render_buffer(internal_format, setup.dimensions.0, setup.dimensions.1)?;
+        let id = self.visitor.create_render_buffer(
+            internal_format,
+            setup.dimensions.0,
+            setup.dimensions.1,
+        )?;
 
-        self.render_buffers
-            .set(handle,
-                 RenderBufferObject {
-                     id: id,
-                     setup: setup,
-                 });
+        self.render_buffers.set(
+            handle,
+            RenderBufferObject {
+                id: id,
+                setup: setup,
+            },
+        );
         Ok(())
     }
 
@@ -443,11 +463,12 @@ impl Device {
         Ok(())
     }
 
-    pub unsafe fn update_framebuffer_with_texture(&mut self,
-                                                  handle: FrameBufferHandle,
-                                                  texture: TextureHandle,
-                                                  slot: u32)
-                                                  -> Result<()> {
+    pub unsafe fn update_framebuffer_with_texture(
+        &mut self,
+        handle: FrameBufferHandle,
+        texture: TextureHandle,
+        slot: u32,
+    ) -> Result<()> {
         let fbo = self.framebuffers
             .get_mut(handle)
             .ok_or(ErrorKind::InvalidHandle)?;
@@ -459,8 +480,10 @@ impl Device {
             let attached_dimensions = (setup.dimensions.0 as u16, setup.dimensions.1 as u16);
             if let Some(dimensions) = fbo.dimensions {
                 if attached_dimensions != dimensions {
-                    bail!("Incompitable(mismatch dimensions) attachment of frame-buffer {:?}",
-                          handle);
+                    bail!(
+                        "Incompitable(mismatch dimensions) attachment of frame-buffer {:?}",
+                        handle
+                    );
                 }
             } else {
                 fbo.dimensions = Some(attached_dimensions);
@@ -476,51 +499,40 @@ impl Device {
                 }
                 RenderTextureFormat::Depth16 |
                 RenderTextureFormat::Depth24 |
-                RenderTextureFormat::Depth32 => {
-                    self.visitor
-                        .bind_framebuffer_with_texture(gl::DEPTH_ATTACHMENT, texture.id)
-                }
-                RenderTextureFormat::Depth24Stencil8 => {
-                    self.visitor
-                        .bind_framebuffer_with_texture(gl::DEPTH_STENCIL_ATTACHMENT, texture.id)
-                }
+                RenderTextureFormat::Depth32 => self.visitor
+                    .bind_framebuffer_with_texture(gl::DEPTH_ATTACHMENT, texture.id),
+                RenderTextureFormat::Depth24Stencil8 => self.visitor
+                    .bind_framebuffer_with_texture(gl::DEPTH_STENCIL_ATTACHMENT, texture.id),
             }
         } else {
             bail!("can't attach normal texture to framebuffer.");
         }
     }
 
-    pub unsafe fn update_framebuffer_with_renderbuffer(&mut self,
-                                                       handle: FrameBufferHandle,
-                                                       buf: RenderBufferHandle,
-                                                       slot: u32)
-                                                       -> Result<()> {
+    pub unsafe fn update_framebuffer_with_renderbuffer(
+        &mut self,
+        handle: FrameBufferHandle,
+        buf: RenderBufferHandle,
+        slot: u32,
+    ) -> Result<()> {
         let fbo = self.framebuffers
             .get(handle)
             .ok_or(ErrorKind::InvalidHandle)?;
-        let buf = self.render_buffers
-            .get(buf)
-            .ok_or(ErrorKind::InvalidHandle)?;
+        let buf = self.render_buffers.get(buf).ok_or(ErrorKind::InvalidHandle)?;
 
         self.visitor.bind_framebuffer(fbo.id, false)?;
         match buf.setup.format {
-            RenderTextureFormat::RGB8 |
-            RenderTextureFormat::RGBA4 |
-            RenderTextureFormat::RGBA8 => {
+            RenderTextureFormat::RGB8 | RenderTextureFormat::RGBA4 | RenderTextureFormat::RGBA8 => {
                 let location = gl::COLOR_ATTACHMENT0 + slot;
                 self.visitor
                     .bind_framebuffer_with_renderbuffer(location, buf.id)
             }
             RenderTextureFormat::Depth16 |
             RenderTextureFormat::Depth24 |
-            RenderTextureFormat::Depth32 => {
-                self.visitor
-                    .bind_framebuffer_with_renderbuffer(gl::DEPTH_ATTACHMENT, buf.id)
-            }
-            RenderTextureFormat::Depth24Stencil8 => {
-                self.visitor
-                    .bind_framebuffer_with_renderbuffer(gl::DEPTH_STENCIL_ATTACHMENT, buf.id)
-            }
+            RenderTextureFormat::Depth32 => self.visitor
+                .bind_framebuffer_with_renderbuffer(gl::DEPTH_ATTACHMENT, buf.id),
+            RenderTextureFormat::Depth24Stencil8 => self.visitor
+                .bind_framebuffer_with_renderbuffer(gl::DEPTH_STENCIL_ATTACHMENT, buf.id),
         }
     }
 
@@ -532,67 +544,75 @@ impl Device {
         }
     }
 
-    pub unsafe fn create_render_texture(&mut self,
-                                        handle: TextureHandle,
-                                        setup: RenderTextureSetup)
-                                        -> Result<()> {
+    pub unsafe fn create_render_texture(
+        &mut self,
+        handle: TextureHandle,
+        setup: RenderTextureSetup,
+    ) -> Result<()> {
         let (internal_format, in_format, pixel_type) = setup.format.into();
-        let id = self.visitor
-            .create_texture(internal_format,
-                            in_format,
-                            pixel_type,
-                            TextureAddress::Repeat,
-                            TextureFilter::Linear,
-                            false,
-                            setup.dimensions.0,
-                            setup.dimensions.1,
-                            None)?;
+        let id = self.visitor.create_texture(
+            internal_format,
+            in_format,
+            pixel_type,
+            TextureAddress::Repeat,
+            TextureFilter::Linear,
+            false,
+            setup.dimensions.0,
+            setup.dimensions.1,
+            None,
+        )?;
 
-        self.textures
-            .set(handle,
-                 TextureObject {
-                     id: id,
-                     setup: GenericTextureSetup::Render(setup),
-                 });
+        self.textures.set(
+            handle,
+            TextureObject {
+                id: id,
+                setup: GenericTextureSetup::Render(setup),
+            },
+        );
         Ok(())
     }
 
-    pub unsafe fn create_texture(&mut self,
-                                 handle: TextureHandle,
-                                 setup: TextureSetup,
-                                 data: Option<&[u8]>)
-                                 -> Result<()> {
+    pub unsafe fn create_texture(
+        &mut self,
+        handle: TextureHandle,
+        setup: TextureSetup,
+        data: Option<&[u8]>,
+    ) -> Result<()> {
         let (internal_format, in_format, pixel_type) = setup.format.into();
-        let id = self.visitor
-            .create_texture(internal_format,
-                            in_format,
-                            pixel_type,
-                            setup.address,
-                            setup.filter,
-                            setup.mipmap,
-                            setup.dimensions.0,
-                            setup.dimensions.1,
-                            data)?;
+        let id = self.visitor.create_texture(
+            internal_format,
+            in_format,
+            pixel_type,
+            setup.address,
+            setup.filter,
+            setup.mipmap,
+            setup.dimensions.0,
+            setup.dimensions.1,
+            data,
+        )?;
 
-        self.textures
-            .set(handle,
-                 TextureObject {
-                     id: id,
-                     setup: GenericTextureSetup::Normal(setup),
-                 });
+        self.textures.set(
+            handle,
+            TextureObject {
+                id: id,
+                setup: GenericTextureSetup::Normal(setup),
+            },
+        );
         Ok(())
     }
 
-    pub unsafe fn update_texture(&mut self,
-                                 handle: TextureHandle,
-                                 rect: Rect,
-                                 data: &[u8])
-                                 -> Result<()> {
+    pub unsafe fn update_texture(
+        &mut self,
+        handle: TextureHandle,
+        rect: Rect,
+        data: &[u8],
+    ) -> Result<()> {
         if let Some(texture) = self.textures.get(handle) {
             if let GenericTextureSetup::Normal(setup) = texture.setup {
-                if data.len() > rect.size() as usize || rect.min.x as u32 >= setup.dimensions.0 ||
-                   rect.min.y as u32 >= setup.dimensions.1 ||
-                   rect.max.x < 0 || rect.max.y < 0 {
+                if data.len() > rect.size() as usize || rect.min.x as u32 >= setup.dimensions.0
+                    || rect.min.y as u32 >= setup.dimensions.1 || rect.max.x < 0
+                    || rect.max.y < 0
+                {
                     bail!(ErrorKind::OutOfBounds);
                 }
 
@@ -635,7 +655,6 @@ impl Device {
     /// which shader objects can be attached. Vertex and fragment shader
     /// are minimal requirement to build a proper program.
     pub unsafe fn create_shader(&mut self, handle: ShaderHandle, setup: ShaderSetup) -> Result<()> {
-
         let pid = self.visitor.create_program(&setup.vs, &setup.fs)?;
 
         for (name, _) in setup.layout.iter() {
@@ -656,15 +675,16 @@ impl Device {
             uniform_locations.push(location);
         }
 
-        self.shaders
-            .set(handle,
-                 ShaderObject {
-                     id: pid,
-                     render_state: setup.render_state,
-                     layout: setup.layout,
-                     uniform_locations: uniform_locations,
-                     uniforms: HashMap::new(),
-                 });
+        self.shaders.set(
+            handle,
+            ShaderObject {
+                id: pid,
+                render_state: setup.render_state,
+                layout: setup.layout,
+                uniform_locations: uniform_locations,
+                uniforms: HashMap::new(),
+            },
+        );
         check()
     }
 
@@ -692,20 +712,23 @@ impl Device {
 }
 
 struct DataVec<T>
-    where T: Sized
+where
+    T: Sized,
 {
     pub buf: Vec<Option<T>>,
 }
 
 impl<T> DataVec<T>
-    where T: Sized
+where
+    T: Sized,
 {
     pub fn new() -> Self {
         DataVec { buf: Vec::new() }
     }
 
     pub fn get<H>(&self, handle: H) -> Option<&T>
-        where H: Borrow<Handle>
+    where
+        H: Borrow<Handle>,
     {
         self.buf
             .get(handle.borrow().index() as usize)
@@ -713,7 +736,8 @@ impl<T> DataVec<T>
     }
 
     pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
-        where H: Borrow<Handle>
+    where
+        H: Borrow<Handle>,
     {
         self.buf
             .get_mut(handle.borrow().index() as usize)
@@ -721,7 +745,8 @@ impl<T> DataVec<T>
     }
 
     pub fn set<H>(&mut self, handle: H, value: T)
-        where H: Borrow<Handle>
+    where
+        H: Borrow<Handle>,
     {
         let handle = handle.borrow();
         while self.buf.len() <= handle.index() as usize {
@@ -732,7 +757,8 @@ impl<T> DataVec<T>
     }
 
     pub fn remove<H>(&mut self, handle: H) -> Option<T>
-        where H: Borrow<Handle>
+    where
+        H: Borrow<Handle>,
     {
         let handle = handle.borrow();
         if self.buf.len() <= handle.index() as usize {

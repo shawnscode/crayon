@@ -126,8 +126,9 @@ impl DrawCall {
 
     /// Bind the named field with `UniformVariable`.
     pub fn set_uniform_variable<F, T>(&mut self, field: F, variable: T)
-        where F: Into<HashValue<str>>,
-              T: Into<UniformVariable>
+    where
+        F: Into<HashValue<str>>,
+        T: Into<UniformVariable>,
     {
         assert!(self.uniforms_len < MAX_UNIFORM_VARIABLES);
 

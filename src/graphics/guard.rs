@@ -43,35 +43,41 @@ impl RAIIGuard {
     }
 
     #[inline(always)]
-    pub fn create_mesh_from<T>(&mut self,
-                               location: Location,
-                               setup: MeshSetup)
-                               -> Result<MeshHandle>
-        where T: MeshParser + Send + Sync + 'static
+    pub fn create_mesh_from<T>(
+        &mut self,
+        location: Location,
+        setup: MeshSetup,
+    ) -> Result<MeshHandle>
+    where
+        T: MeshParser + Send + Sync + 'static,
     {
         let v = self.video.create_mesh_from::<T>(location, setup)?;
         Ok(self.push(v))
     }
 
     #[inline(always)]
-    pub fn create_mesh<'a, 'b, T1, T2>(&mut self,
-                                       setup: MeshSetup,
-                                       verts: T1,
-                                       idxes: T2)
-                                       -> Result<MeshHandle>
-        where T1: Into<Option<&'a [u8]>>,
-              T2: Into<Option<&'b [u8]>>
+    pub fn create_mesh<'a, 'b, T1, T2>(
+        &mut self,
+        setup: MeshSetup,
+        verts: T1,
+        idxes: T2,
+    ) -> Result<MeshHandle>
+    where
+        T1: Into<Option<&'a [u8]>>,
+        T2: Into<Option<&'b [u8]>>,
     {
         let v = self.video.create_mesh(setup, verts, idxes)?;
         Ok(self.push(v))
     }
 
     #[inline(always)]
-    pub fn create_texture_from<T>(&mut self,
-                                  location: Location,
-                                  setup: TextureSetup)
-                                  -> Result<TextureHandle>
-        where T: TextureParser + Send + Sync + 'static
+    pub fn create_texture_from<T>(
+        &mut self,
+        location: Location,
+        setup: TextureSetup,
+    ) -> Result<TextureHandle>
+    where
+        T: TextureParser + Send + Sync + 'static,
     {
         let v = self.video.create_texture_from::<T>(location, setup)?;
         Ok(self.push(v))
@@ -85,7 +91,8 @@ impl RAIIGuard {
 
     #[inline(always)]
     pub fn create_texture<'a, T>(&mut self, setup: TextureSetup, data: T) -> Result<TextureHandle>
-        where T: Into<Option<&'a [u8]>>
+    where
+        T: Into<Option<&'a [u8]>>,
     {
         let v = self.video.create_texture(setup, data)?;
         Ok(self.push(v))
@@ -105,7 +112,8 @@ impl RAIIGuard {
     }
 
     fn push<T>(&mut self, resource: T) -> T
-        where T: Copy + Into<Resource>
+    where
+        T: Copy + Into<Resource>,
     {
         self.stack.push(resource.into());
         resource
