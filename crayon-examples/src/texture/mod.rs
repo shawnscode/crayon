@@ -20,7 +20,7 @@ impl Window {
     fn new(engine: &mut Engine) -> errors::Result<Self> {
         engine
             .resource
-            .mount("std", resource::filesystem::DirectoryFS::new("resources")?)?;
+            .mount("std", resource::filesystem::DirectoryFS::new("assets")?)?;
 
         let ctx = engine.context();
         let video = ctx.shared::<GraphicsSystem>().clone();
@@ -38,8 +38,8 @@ impl Window {
 
         // Create vertex buffer object.
         let mut setup = graphics::MeshSetup::default();
-        setup.num_vertices = 4;
-        setup.num_indices = 6;
+        setup.num_verts = 4;
+        setup.num_idxes = 6;
         setup.layout = Vertex::layout();
 
         let mesh = label
@@ -54,8 +54,8 @@ impl Window {
         // Create shader state.
         let mut setup = graphics::ShaderSetup::default();
         setup.layout = attributes;
-        setup.vs = include_str!("../../resources/texture.vs").to_owned();
-        setup.fs = include_str!("../../resources/texture.fs").to_owned();
+        setup.vs = include_str!("../../assets/texture.vs").to_owned();
+        setup.fs = include_str!("../../assets/texture.fs").to_owned();
         setup.uniform_variables.push("renderedTexture".into());
         let shader = label.create_shader(setup)?;
 
