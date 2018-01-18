@@ -43,6 +43,17 @@ impl RAIIGuard {
     }
 
     #[inline(always)]
+    pub fn create_mesh_from<T>(&mut self,
+                               location: Location,
+                               setup: MeshSetup)
+                               -> Result<MeshHandle>
+        where T: MeshParser + Send + Sync + 'static
+    {
+        let v = self.video.create_mesh_from::<T>(location, setup)?;
+        Ok(self.push(v))
+    }
+
+    #[inline(always)]
     pub fn create_mesh<'a, 'b, T1, T2>(&mut self,
                                        setup: MeshSetup,
                                        verts: T1,

@@ -2,11 +2,12 @@
 
 use graphics::MAX_VERTEX_ATTRIBUTES;
 use graphics::assets::shader::Attribute;
+use graphics::errors::*;
 
 impl_handle!(MeshHandle);
 
 /// The setup parameters of mesh object.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct MeshSetup {
     /// Usage hints.
     pub hint: BufferHint,
@@ -17,9 +18,11 @@ pub struct MeshSetup {
     /// How the input vertex data is used to assemble primitives.
     pub primitive: Primitive,
     /// The number of vertices in this mesh.
-    pub num_vertices: u32,
+    pub num_verts: usize,
     /// The number of indices in this mesh.
-    pub num_indices: u32,
+    pub num_idxes: usize,
+    /// The start indices of sub-meshes.
+    pub sub_mesh_offsets: Vec<usize>,
 }
 
 impl Default for MeshSetup {
@@ -29,8 +32,9 @@ impl Default for MeshSetup {
             layout: VertexLayout::default(),
             index_format: IndexFormat::U16,
             primitive: Primitive::Triangles,
-            num_vertices: 0,
-            num_indices: 0,
+            num_verts: 0,
+            num_idxes: 0,
+            sub_mesh_offsets: Vec::new(),
         }
     }
 }
@@ -38,13 +42,30 @@ impl Default for MeshSetup {
 impl MeshSetup {
     #[inline(always)]
     pub fn vertex_buffer_len(&self) -> usize {
-        self.num_vertices as usize * self.layout.stride() as usize
+        self.num_verts * self.layout.stride() as usize
     }
 
     #[inline(always)]
     pub fn index_buffer_len(&self) -> usize {
-        self.num_indices as usize * self.index_format.len() as usize
+        self.num_idxes * self.index_format.len() as usize
     }
+
+    pub fn validate(&self) -> Result<()> {
+        for v in &self.sub_mesh_offsets {
+            if *v >= self.num_idxes {
+                bail!("The start index of SubMesh is out of bounds!");
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Mesh index.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum MeshIndex {
+    SubMesh(usize),
+    Ptr(usize, usize),
 }
 
 /// Hint abouts the intended update strategy of the data.

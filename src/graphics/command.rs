@@ -53,8 +53,7 @@ pub struct SliceDrawCall<'a> {
     pub(crate) shader: ShaderHandle,
     pub(crate) uniforms: &'a [(HashValue<str>, UniformVariable)],
     pub(crate) mesh: MeshHandle,
-    pub(crate) from: u32,
-    pub(crate) len: u32,
+    pub(crate) index: MeshIndex,
 }
 
 impl<'a> Into<Command<'a>> for SliceDrawCall<'a> {
@@ -146,13 +145,23 @@ impl DrawCall {
         self.uniforms_len += 1;
     }
 
-    pub fn build(&mut self, from: u32, len: u32) -> Result<SliceDrawCall> {
+    pub fn build(&mut self, from: usize, len: usize) -> Result<SliceDrawCall> {
         let task = SliceDrawCall {
             shader: self.shader,
             uniforms: &self.uniforms[0..self.uniforms_len],
             mesh: self.mesh,
-            from: from,
-            len: len,
+            index: MeshIndex::Ptr(from, len),
+        };
+
+        Ok(task)
+    }
+
+    pub fn build_sub_mesh(&mut self, index: usize) -> Result<SliceDrawCall> {
+        let task = SliceDrawCall {
+            shader: self.shader,
+            uniforms: &self.uniforms[0..self.uniforms_len],
+            mesh: self.mesh,
+            index: MeshIndex::SubMesh(index),
         };
 
         Ok(task)
