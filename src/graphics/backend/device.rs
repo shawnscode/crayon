@@ -17,7 +17,7 @@ use super::frame::{FrameDrawCall, FrameTask};
 type ResourceID = GLuint;
 type UniformID = GLint;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct MeshObject {
     vbo: ResourceID,
     ibo: ResourceID,
@@ -206,16 +206,36 @@ impl Device {
         self.visitor
             .bind_buffer(gl::ELEMENT_ARRAY_BUFFER, mesh.ibo)?;
 
-        let from = dc.from * mesh.setup.index_format.len() as u32;
+        let (from, len) = match dc.index {
+            MeshIndex::Ptr(from, len) => {
+                ((from * mesh.setup.index_format.len()) as u32, len as GLsizei)
+            }
+            MeshIndex::SubMesh(index) => {
+                let num = mesh.setup.sub_mesh_offsets.len();
+                if index >= num || num == 0 {
+                    bail!("Invalid index of sub-mesh!");
+                }
+
+                let from = mesh.setup.sub_mesh_offsets[index];
+                let len = if index == (num - 1) {
+                    mesh.setup.num_idxes
+                } else {
+                    mesh.setup.sub_mesh_offsets[index + 1]
+                };
+
+                (from as u32, len as GLsizei)
+            }
+        };
+
         gl::DrawElements(mesh.setup.primitive.into(),
-                         dc.len as GLsizei,
+                         len,
                          mesh.setup.index_format.into(),
                          from as *const u32 as *const ::std::os::raw::c_void);
 
         {
             let mut info = self.frame_info.borrow_mut();
             info.drawcall += 1;
-            info.triangles += mesh.setup.primitive.assemble_triangles(dc.len);
+            info.triangles += mesh.setup.primitive.assemble_triangles(len as u32);
         }
 
         check()

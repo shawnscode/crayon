@@ -34,8 +34,7 @@ pub(crate) struct FrameDrawCall {
     pub shader: ShaderHandle,
     pub uniforms: DataBufferPtr<[Option<DataBufferPtr<UniformVariable>>]>,
     pub mesh: MeshHandle,
-    pub from: u32,
-    pub len: u32,
+    pub index: MeshIndex,
 }
 
 #[derive(Debug, Clone, Copy)]

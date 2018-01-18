@@ -13,7 +13,9 @@ use super::backend::frame::*;
 use super::backend::device::Device;
 use super::command::Command;
 use super::window::Window;
+
 use super::assets::texture_loader::{TextureLoader, TextureParser, TextureState};
+use super::assets::mesh_loader::{MeshLoader, MeshParser, MeshState};
 
 /// The centralized management of video sub-system.
 pub struct GraphicsSystem {
@@ -143,7 +145,7 @@ pub struct GraphicsSystemShared {
     shaders: RwLock<Registery<ShaderState>>,
     framebuffers: RwLock<Registery<()>>,
     render_buffers: RwLock<Registery<()>>,
-    meshes: RwLock<Registery<()>>,
+    meshes: RwLock<Registery<Arc<RwLock<MeshState>>>>,
     textures: RwLock<Registery<Arc<RwLock<TextureState>>>>,
 }
 
@@ -239,8 +241,7 @@ impl GraphicsSystemShared {
             shader: dc.shader,
             uniforms: uniforms,
             mesh: dc.mesh,
-            from: dc.from,
-            len: dc.len,
+            index: dc.index,
         };
 
         frame.tasks.push((surface, order, FrameTask::DrawCall(dc)));
@@ -460,6 +461,39 @@ impl GraphicsSystemShared {
 }
 
 impl GraphicsSystemShared {
+    /// Lookup mesh object from location.
+    pub fn lookup_mesh_from(&self, location: resource::Location) -> Option<MeshHandle> {
+        self.meshes
+            .read()
+            .unwrap()
+            .lookup(location)
+            .map(|v| v.into())
+    }
+
+    /// Create a new mesh object from location.
+    pub fn create_mesh_from<T>(&self,
+                               location: resource::Location,
+                               setup: MeshSetup)
+                               -> Result<MeshHandle>
+        where T: MeshParser + Send + Sync + 'static
+    {
+        if let Some(v) = self.lookup_mesh_from(location) {
+            self.meshes.write().unwrap().inc_rc(v.into());
+            return Ok(v);
+        }
+
+        let state = Arc::new(RwLock::new(MeshState::NotReady));
+        let handle = {
+            let mut meshes = self.meshes.write().unwrap();
+            meshes.create(location, state.clone()).into()
+        };
+
+        let loader = MeshLoader::<T>::new(handle, state, setup, self.frames.clone());
+        self.resource.load_async(loader, location.uri());
+
+        Ok(handle)
+    }
+
     /// Create a new mesh object.
     pub fn create_mesh<'a, 'b, T1, T2>(&self,
                                        setup: MeshSetup,
@@ -484,8 +518,11 @@ impl GraphicsSystemShared {
             }
         }
 
+        setup.validate()?;
+
         let location = resource::Location::unique("");
-        let handle = self.meshes.write().unwrap().create(location, ()).into();
+        let state = Arc::new(RwLock::new(MeshState::Ready));
+        let handle = self.meshes.write().unwrap().create(location, state).into();
 
         {
             let mut frame = self.frames.front();

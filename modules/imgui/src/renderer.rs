@@ -20,7 +20,7 @@ pub struct Renderer {
     shader: graphics::ShaderHandle,
     texture: graphics::TextureHandle,
 
-    mesh: Option<(u32, u32, graphics::MeshHandle)>,
+    mesh: Option<(usize, usize, graphics::MeshHandle)>,
 }
 
 impl Renderer {
@@ -35,9 +35,9 @@ impl Renderer {
         let surface = video.create_surface(setup)?;
 
         let layout = graphics::AttributeLayoutBuilder::new()
-            .with(graphics::VertexAttribute::Position, 2)
-            .with(graphics::VertexAttribute::Texcoord0, 2)
-            .with(graphics::VertexAttribute::Color0, 4)
+            .with(graphics::Attribute::Position, 2)
+            .with(graphics::Attribute::Texcoord0, 2)
+            .with(graphics::Attribute::Color0, 4)
             .finish();
 
         let mut setup = graphics::ShaderSetup::default();
@@ -49,8 +49,8 @@ impl Renderer {
                   graphics::BlendFactor::Value(graphics::BlendValue::SourceAlpha),
                   graphics::BlendFactor::OneMinusValue(graphics::BlendValue::SourceAlpha)));
 
-        setup.vs = include_str!("../resources/imgui.vs").to_owned();
-        setup.fs = include_str!("../resources/imgui.fs").to_owned();
+        setup.vs = include_str!("../assets/imgui.vs").to_owned();
+        setup.fs = include_str!("../assets/imgui.fs").to_owned();
         setup.uniform_variables.push("matrix".into());
         setup.uniform_variables.push("texture".into());
         let shader = video.create_shader(setup)?;
@@ -122,11 +122,11 @@ impl Renderer {
                 let mut dc = graphics::DrawCall::new(self.shader, mesh);
                 dc.set_uniform_variable("matrix", matrix);
                 dc.set_uniform_variable("texture", self.texture);
-                let cmd = dc.build(idx_start, cmd.elem_count)?;
+                let cmd = dc.build(idx_start, cmd.elem_count as usize)?;
                 self.video.submit(self.surface, 0, cmd)?;
             }
 
-            idx_start += cmd.elem_count;
+            idx_start += cmd.elem_count as usize;
         }
 
         Ok(())
@@ -137,7 +137,7 @@ impl Renderer {
                    idxes: &[u16])
                    -> Result<graphics::MeshHandle> {
         if let Some((nv, ni, handle)) = self.mesh {
-            if nv >= verts.len() as u32 && ni >= idxes.len() as u32 {
+            if nv >= verts.len() && ni >= idxes.len() {
                 let slice = CanvasVertex::as_bytes(verts);
                 let cmd = graphics::Command::update_vertex_buffer(handle, 0, slice);
                 self.video.submit(self.surface, 0, cmd)?;
@@ -153,12 +153,12 @@ impl Renderer {
         }
 
         let mut nv = 1;
-        while nv < verts.len() as u32 {
+        while nv < verts.len() {
             nv *= 2;
         }
 
         let mut ni = 1;
-        while ni < idxes.len() as u32 {
+        while ni < idxes.len() {
             ni *= 2;
         }
 
@@ -167,8 +167,8 @@ impl Renderer {
         setup.layout = CanvasVertex::layout();
         setup.index_format = graphics::IndexFormat::U16;
         setup.primitive = graphics::Primitive::Triangles;
-        setup.num_vertices = nv;
-        setup.num_indices = ni;
+        setup.num_verts = nv;
+        setup.num_idxes = ni;
 
         let verts_slice = CanvasVertex::as_bytes(verts);
         let idxes_slice = graphics::IndexFormat::as_bytes(idxes);

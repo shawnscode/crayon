@@ -140,7 +140,7 @@
 //! There are two kinds of commands that could be submitted into `Surface` object, the
 //! resource manipulation and draw call.
 //!
-//! And very commands is assigned to a u64 integer key which is then used for sorting
+//! And every commands is assigned to a u64 integer key which is then used for sorting
 //! in ascending order. Typically, it could be encoded with certain data like distance,
 //! material, shader etc. Depending on where those bits are stored in the integer, u
 //! can apply different sorting criteria for the same array of draw calls, as long as
@@ -168,21 +168,18 @@
 //! ```
 //!
 //! Draw call command is a little bit complex than resource manipulations above, so we
-//! provide a helper builder `DrawCall`, it is used as follows:
+//! provide a helper builder `DrawCall`, it could be used as follows:
 //!
 //! ```rust,ignore
 //! // Creates a DrawCall buidler from shader.
-//! let mut dc = graphics::DrawCall::new(self.shader);
+//! let mut dc = graphics::DrawCall::new(self.shader, mesh);
 //! // Sets the specified uniform variable.
 //! dc.set_uniform_variable("matrix", matrix);
 //! dc.set_uniform_variable("texture", texture);
-//! // Sets the mesh which is used to assemble primitives.
-//! dc.set_mesh(vbo, ibo);
 //! // Builds a command and submits it.
-//! let cmd = dc.build(graphics::Primitive::Triangles, from, len)?;
+//! let cmd = dc.build(from, len)?;
 //! self.video.submit(self.surface, 0, cmd).unwrap();
 //! ```
-
 
 mod backend;
 pub mod assets;
@@ -198,6 +195,7 @@ pub use self::assets::surface::*;
 pub use self::assets::shader::*;
 
 pub use self::assets::mesh::*;
+pub use self::assets::mesh_loader::{MeshData, MeshParser};
 
 pub use self::assets::texture::*;
 pub use self::assets::texture_loader::{TextureData, TextureParser};

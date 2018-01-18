@@ -27,7 +27,7 @@ impl Window {
         let mut label = graphics::RAIIGuard::new(video);
 
         let attributes = graphics::AttributeLayoutBuilder::new()
-            .with(graphics::VertexAttribute::Position, 2)
+            .with(graphics::Attribute::Position, 2)
             .finish();
 
         //
@@ -39,8 +39,8 @@ impl Window {
 
             // Create vertex buffer object.
             let mut setup = graphics::MeshSetup::default();
-            setup.num_vertices = 3;
-            setup.num_indices = 3;
+            setup.num_verts = 3;
+            setup.num_idxes = 3;
             setup.layout = Vertex::layout();
 
             let mesh = label
@@ -69,8 +69,8 @@ impl Window {
             // Create shader state.
             let mut setup = graphics::ShaderSetup::default();
             setup.layout = attributes;
-            setup.vs = include_str!("../../resources/render_target_p1.vs").to_owned();
-            setup.fs = include_str!("../../resources/render_target_p1.fs").to_owned();
+            setup.vs = include_str!("../../assets/render_target_p1.vs").to_owned();
+            setup.fs = include_str!("../../assets/render_target_p1.fs").to_owned();
             let shader = label.create_shader(setup)?;
 
             (Pass {
@@ -89,8 +89,8 @@ impl Window {
             let idxes: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
             let mut setup = graphics::MeshSetup::default();
-            setup.num_vertices = 4;
-            setup.num_indices = 6;
+            setup.num_verts = 4;
+            setup.num_idxes = 6;
             setup.layout = Vertex::layout();
 
             let mesh = label
@@ -104,8 +104,8 @@ impl Window {
 
             let mut setup = graphics::ShaderSetup::default();
             setup.layout = attributes;
-            setup.vs = include_str!("../../resources/render_target_p2.vs").to_owned();
-            setup.fs = include_str!("../../resources/render_target_p2.fs").to_owned();
+            setup.vs = include_str!("../../assets/render_target_p2.vs").to_owned();
+            setup.fs = include_str!("../../assets/render_target_p2.fs").to_owned();
             setup.uniform_variables.push("renderedTexture".into());
             setup.uniform_variables.push("time".into());
             let shader = label.create_shader(setup)?;

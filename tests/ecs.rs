@@ -285,11 +285,11 @@ fn system() {
     world.register::<Position>();
     let e1 = world.build().with_default::<Position>().finish();
 
-    let mut inc = IncXSystem {};
+    let inc = IncXSystem {};
     inc.run_at(&world);
     assert!(world.get::<Position>(e1).unwrap().x == 1);
 
-    let mut dec = DecXSystem {};
+    let dec = DecXSystem {};
     dec.run_at(&world);
     assert!(world.get::<Position>(e1).unwrap().x == 0);
 

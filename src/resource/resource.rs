@@ -9,7 +9,7 @@ use super::errors::*;
 
 /// The callbacks of async loader.
 pub trait ResourceAsyncLoader: Send + Sync + 'static {
-    fn on_finished(&mut self, _: &Path, _: Result<&[u8]>);
+    fn on_finished(self, _: &Path, _: Result<&[u8]>);
 }
 
 /// Takes care of loading data asynchronously through pluggable filesystems.
@@ -81,7 +81,7 @@ impl ResourceSystem {
         }
     }
 
-    fn load<T>(slave: &mut T, path: &Path, driver: &FilesystemDriver, buf: &mut Vec<u8>)
+    fn load<T>(slave: T, path: &Path, driver: &FilesystemDriver, buf: &mut Vec<u8>)
         where T: ResourceAsyncLoader
     {
         let from = buf.len();
@@ -134,8 +134,8 @@ impl ResourceSystemShared {
         let payload = Arc::new(RwLock::new(Some((worker, path))));
         let closure = move |d: &FilesystemDriver, b: &mut Vec<u8>| {
             // ..
-            if let Some(mut data) = payload.write().unwrap().take() {
-                ResourceSystem::load::<T>(&mut data.0, &data.1, d, b);
+            if let Some(data) = payload.write().unwrap().take() {
+                ResourceSystem::load::<T>(data.0, &data.1, d, b);
             }
         };
 
