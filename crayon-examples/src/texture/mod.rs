@@ -84,8 +84,8 @@ impl Application for Window {
 
         let mut dc = graphics::DrawCall::new(self.shader, self.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
-        let cmd = dc.build(0, 6)?;
-        video.submit(self.surface, 0, cmd)?;
+        let cmd = dc.build_from(0, 6)?;
+        video.submit(self.surface, 0u64, cmd)?;
 
         Ok(())
     }

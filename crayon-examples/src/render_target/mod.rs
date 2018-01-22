@@ -143,16 +143,16 @@ impl Application for Window {
 
         {
             let mut dc = graphics::DrawCall::new(self.pass.shader, self.pass.mesh);
-            let cmd = dc.build(0, 3)?;
-            video.submit(self.pass.surface, 0, cmd)?;
+            let cmd = dc.build_from(0, 3)?;
+            video.submit(self.pass.surface, 0u64, cmd)?;
         }
 
         {
             let mut dc = graphics::DrawCall::new(self.post_effect.shader, self.post_effect.mesh);
             dc.set_uniform_variable("renderedTexture", self.texture);
             dc.set_uniform_variable("time", self.time);
-            let cmd = dc.build(0, 6)?;
-            video.submit(self.post_effect.surface, 1, cmd)?;
+            let cmd = dc.build_from(0, 6)?;
+            video.submit(self.post_effect.surface, 1u64, cmd)?;
         }
 
         self.time += 0.05;

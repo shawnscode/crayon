@@ -1,7 +1,5 @@
 pub use math;
-pub use math::prelude::{One, Zero};
-// pub use math::prelude::*;
-// pub use math::Transform as MathTransform;
+pub use math::prelude::{Matrix, One, SquareMatrix, Zero};
 
 pub use ecs;
 pub use ecs::{Arena, ArenaMut, Component, Entity, Fetch, FetchMut, System, View, World};

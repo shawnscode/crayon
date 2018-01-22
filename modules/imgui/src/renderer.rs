@@ -127,15 +127,15 @@ impl Renderer {
             {
                 let scissor = graphics::Scissor::Enable(scissor_pos, scissor_size);
                 let cmd = graphics::Command::set_scissor(scissor);
-                self.video.submit(self.surface, 0, cmd)?;
+                self.video.submit(self.surface, 0u64, cmd)?;
             }
 
             {
                 let mut dc = graphics::DrawCall::new(self.shader, mesh);
                 dc.set_uniform_variable("matrix", matrix);
                 dc.set_uniform_variable("texture", self.texture);
-                let cmd = dc.build(idx_start, cmd.elem_count as usize)?;
-                self.video.submit(self.surface, 0, cmd)?;
+                let cmd = dc.build_from(idx_start, cmd.elem_count as usize)?;
+                self.video.submit(self.surface, 0u64, cmd)?;
             }
 
             idx_start += cmd.elem_count as usize;
@@ -153,11 +153,11 @@ impl Renderer {
             if nv >= verts.len() && ni >= idxes.len() {
                 let slice = CanvasVertex::as_bytes(verts);
                 let cmd = graphics::Command::update_vertex_buffer(handle, 0, slice);
-                self.video.submit(self.surface, 0, cmd)?;
+                self.video.submit(self.surface, 0u64, cmd)?;
 
                 let slice = graphics::IndexFormat::as_bytes(idxes);
                 let cmd = graphics::Command::update_index_buffer(handle, 0, slice);
-                self.video.submit(self.surface, 0, cmd)?;
+                self.video.submit(self.surface, 0u64, cmd)?;
 
                 return Ok(handle);
             }

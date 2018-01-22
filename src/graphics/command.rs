@@ -146,7 +146,18 @@ impl DrawCall {
         self.uniforms_len += 1;
     }
 
-    pub fn build(&mut self, from: usize, len: usize) -> Result<SliceDrawCall> {
+    pub fn build(&mut self, index: MeshIndex) -> Result<SliceDrawCall> {
+        let task = SliceDrawCall {
+            shader: self.shader,
+            uniforms: &self.uniforms[0..self.uniforms_len],
+            mesh: self.mesh,
+            index: index,
+        };
+
+        Ok(task)
+    }
+
+    pub fn build_from(&mut self, from: usize, len: usize) -> Result<SliceDrawCall> {
         let task = SliceDrawCall {
             shader: self.shader,
             uniforms: &self.uniforms[0..self.uniforms_len],
