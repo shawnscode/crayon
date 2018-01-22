@@ -26,16 +26,16 @@
 //! cargo run imgui
 //! ```
 
-extern crate libc;
-extern crate glutin;
 extern crate gl;
+extern crate glutin;
+extern crate libc;
 pub extern crate cgmath as math;
 
 #[macro_use]
 extern crate error_chain;
 
-extern crate zip;
 extern crate two_lock_queue;
+extern crate zip;
 
 #[macro_use]
 pub mod utils;
@@ -46,4 +46,5 @@ pub mod ecs;
 pub mod graphics;
 pub mod resource;
 pub mod input;
+pub mod scene;
 pub mod prelude;

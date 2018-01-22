@@ -16,7 +16,7 @@ categories = ["game-engines", "multimedia"]
 travis-ci = { repository = "shawnscode/crayon", branch = "master" }
 
 [workspace]
-members = [ "crayon-examples", "modules/imgui", "modules/scene" ]
+members = [ "crayon-examples", "modules/imgui" ]
 
 [dependencies]
 libc = "0.2.34"
@@ -31,3 +31,4 @@ zip = "0.2.6"
 [dev-dependencies]
 rand = "0.3.18"
 rayon = "0.9.0"
+approx = "0.1.1"

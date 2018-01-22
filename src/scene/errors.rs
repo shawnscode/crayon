@@ -1,4 +1,5 @@
-use crayon::{graphics, resource};
+use graphics;
+use resource;
 
 error_chain!{
     types {
@@ -12,6 +13,7 @@ error_chain!{
 
     errors {
         NonTransformFound
+        CanNotInverseTransform
         CanNotAttachSelfAsParent
     }
 }

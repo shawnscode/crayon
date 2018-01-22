@@ -182,6 +182,7 @@
 //! ```
 
 mod backend;
+#[macro_use]
 pub mod assets;
 
 pub mod errors;

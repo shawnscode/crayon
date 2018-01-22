@@ -487,7 +487,6 @@ impl<'a> ViewSlice<'a> {
 
 macro_rules! build_view_with {
     ($name: ident[$($cps: ident), *]) => (
-
         mod $name {
             use $crate::ecs::*;
 

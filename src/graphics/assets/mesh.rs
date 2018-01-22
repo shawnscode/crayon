@@ -117,7 +117,6 @@ impl Primitive {
             Primitive::Triangles => indices / 3,
             Primitive::TriangleStrip => indices - 2,
         }
-
     }
 }
 
@@ -139,7 +138,8 @@ impl IndexFormat {
     }
 
     pub fn as_bytes<T>(values: &[T]) -> &[u8]
-        where T: Copy
+    where
+        T: Copy,
     {
         let len = values.len() * ::std::mem::size_of::<T>();
         unsafe { ::std::slice::from_raw_parts(values.as_ptr() as *const u8, len) }
@@ -245,12 +245,13 @@ impl VertexLayoutBuilder {
         Default::default()
     }
 
-    pub fn with(&mut self,
-                attribute: Attribute,
-                format: VertexFormat,
-                size: u8,
-                normalized: bool)
-                -> &mut Self {
+    pub fn with(
+        &mut self,
+        attribute: Attribute,
+        format: VertexFormat,
+        size: u8,
+        normalized: bool,
+    ) -> &mut Self {
         assert!(size > 0 && size <= 4);
 
         let desc = VertexAttribute {
@@ -354,13 +355,14 @@ pub mod macros {
             Default::default()
         }
 
-        pub fn with(&mut self,
-                    attribute: Attribute,
-                    format: VertexFormat,
-                    size: u8,
-                    normalized: bool,
-                    offset_of_field: u8)
-                    -> &mut Self {
+        pub fn with(
+            &mut self,
+            attribute: Attribute,
+            format: VertexFormat,
+            size: u8,
+            normalized: bool,
+            offset_of_field: u8,
+        ) -> &mut Self {
             assert!(size > 0 && size <= 4);
 
             let desc = VertexAttribute {
@@ -416,6 +418,7 @@ pub mod macros {
                     }
                 }
 
+                #[allow(dead_code)]
                 pub fn layout() -> $crate::graphics::assets::mesh::VertexLayout {
                     let mut builder = $crate::graphics::assets::mesh::macros::CustomVertexLayoutBuilder::new();
 
@@ -427,6 +430,17 @@ pub mod macros {
                         offset_of!($name, $field) as u8); ) *
 
                     builder.finish(::std::mem::size_of::<$name>() as u8)
+                }
+
+                #[allow(dead_code)]
+                pub fn attributes() -> $crate::graphics::assets::shader::AttributeLayout {
+                    let mut builder = $crate::graphics::assets::shader::AttributeLayoutBuilder::new();
+
+                    $( builder.with(
+                        $crate::graphics::assets::shader::Attribute::$attribute,
+                        $size); ) *
+
+                    builder.finish()
                 }
 
                 pub fn as_bytes(values: &[Self]) -> &[u8] {
@@ -476,7 +490,8 @@ pub mod macros {
         }
 
         fn as_bytes<T>(values: &[T]) -> &[u8]
-            where T: Copy
+        where
+            T: Copy,
         {
             let len = values.len() * ::std::mem::size_of::<T>();
             unsafe { ::std::slice::from_raw_parts(values.as_ptr() as *const u8, len) }
@@ -492,14 +507,20 @@ pub mod macros {
 
             let bytes: [f32; 5] = [1.0, 1.0, 1.0, 0.0, 0.0];
             let bytes = as_bytes(&bytes);
-            assert_eq!(bytes,
-                       Vertex::as_bytes(&[Vertex::new([1.0, 1.0, 1.0], [0.0, 0.0])]));
+            assert_eq!(
+                bytes,
+                Vertex::as_bytes(&[Vertex::new([1.0, 1.0, 1.0], [0.0, 0.0])])
+            );
 
             let bytes: [f32; 10] = [1.0, 1.0, 1.0, 0.0, 0.0, 2.0, 2.0, 2.0, 3.0, 3.0];
             let bytes = as_bytes(&bytes);
-            assert_eq!(bytes,
-                       Vertex::as_bytes(&[Vertex::new([1.0, 1.0, 1.0], [0.0, 0.0]),
-                                          Vertex::new([2.0, 2.0, 2.0], [3.0, 3.0])]));
+            assert_eq!(
+                bytes,
+                Vertex::as_bytes(&[
+                    Vertex::new([1.0, 1.0, 1.0], [0.0, 0.0]),
+                    Vertex::new([2.0, 2.0, 2.0], [3.0, 3.0])
+                ])
+            );
         }
 
         #[test]

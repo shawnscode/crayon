@@ -1,6 +1,6 @@
 //! A device through which the player views the world.
 
-use crayon::{ecs, math};
+use math;
 
 /// The projection funcs used when take primitives into camera.
 #[derive(Debug, Clone, Copy)]
@@ -19,11 +19,6 @@ pub struct Camera {
     aspect: f32,
     clip: math::Vector2<f32>,
     projection: Projection,
-}
-
-/// Declare `Camera` as component with hash storage.
-impl ecs::Component for Camera {
-    type Arena = ecs::HashMapArena<Camera>;
 }
 
 impl Camera {
