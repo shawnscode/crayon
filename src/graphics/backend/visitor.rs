@@ -114,15 +114,16 @@ impl OpenGLVisitor {
         check()
     }
 
-    pub unsafe fn bind_attribute_layout(&self,
-                                        attributes: &AttributeLayout,
-                                        layout: &VertexLayout)
-                                        -> Result<()> {
+    pub unsafe fn bind_attribute_layout(
+        &self,
+        attributes: &AttributeLayout,
+        layout: &VertexLayout,
+    ) -> Result<()> {
         let pid = self.active_program.get().ok_or(ErrorKind::InvalidHandle)?;
         let vid = *self.active_bufs
-                       .borrow()
-                       .get(&gl::ARRAY_BUFFER)
-                       .ok_or(ErrorKind::InvalidHandle)?;
+            .borrow()
+            .get(&gl::ARRAY_BUFFER)
+            .ok_or(ErrorKind::InvalidHandle)?;
 
         if let Some(vao) = self.vertex_array_objects.borrow().get(&VAOPair(pid, vid)) {
             if let Some(v) = self.active_vao.get() {
@@ -144,25 +145,31 @@ impl OpenGLVisitor {
         for (name, size) in attributes.iter() {
             if let Some(element) = layout.element(name) {
                 if element.size != size {
-                    bail!(format!("vertex buffer has incompatible attribute {:?} [{:?} - {:?}].",
-                                  name,
-                                  element.size,
-                                  size));
+                    bail!(format!(
+                        "vertex buffer has incompatible attribute {:?} [{:?} - {:?}].",
+                        name,
+                        element.size,
+                        size
+                    ));
                 }
 
                 let offset = layout.offset(name).unwrap() as *const u8 as *const c_void;
 
                 let location = self.get_uniform_location(pid, name.into())?;
                 gl::EnableVertexAttribArray(location as GLuint);
-                gl::VertexAttribPointer(location as GLuint,
-                                        element.size as GLsizei,
-                                        element.format.into(),
-                                        element.normalized as u8,
-                                        layout.stride() as GLsizei,
-                                        offset);
+                gl::VertexAttribPointer(
+                    location as GLuint,
+                    element.size as GLsizei,
+                    element.format.into(),
+                    element.normalized as u8,
+                    layout.stride() as GLsizei,
+                    offset,
+                );
             } else {
-                bail!(format!("can't find attribute {:?} description in vertex buffer.",
-                              name));
+                bail!(format!(
+                    "can't find attribute {:?} description in vertex buffer.",
+                    name
+                ));
             }
         }
 
@@ -237,9 +244,10 @@ impl OpenGLVisitor {
     }
 
     pub unsafe fn clear<C, D, S>(&self, color: C, depth: D, stencil: S) -> Result<()>
-        where C: Into<Option<Color>>,
-              D: Into<Option<f32>>,
-              S: Into<Option<i32>>
+    where
+        C: Into<Option<Color>>,
+        D: Into<Option<f32>>,
+        S: Into<Option<i32>>,
     {
         let color = color.into();
         let depth = depth.into();
@@ -268,10 +276,12 @@ impl OpenGLVisitor {
     /// Set the viewport relative to the top-lef corner of th window, in pixels.
     pub unsafe fn set_viewport(&self, position: (u16, u16), size: (u16, u16)) -> Result<()> {
         if self.viewport.get().0 != position || self.viewport.get().1 != size {
-            gl::Viewport(position.0 as i32,
-                         position.1 as i32,
-                         size.0 as i32,
-                         size.1 as i32);
+            gl::Viewport(
+                position.0 as i32,
+                position.1 as i32,
+                size.0 as i32,
+                size.1 as i32,
+            );
             self.viewport.set((position, size));
             check()
         } else {
@@ -282,20 +292,20 @@ impl OpenGLVisitor {
     /// Set the scissor box relative to the top-lef corner of th window, in pixels.
     pub unsafe fn set_scissor(&self, scissor: Scissor) -> Result<()> {
         match scissor {
-            Scissor::Disable => {
-                if self.scissor.get() != Scissor::Disable {
-                    gl::Disable(gl::SCISSOR_TEST);
-                }
-            }
+            Scissor::Disable => if self.scissor.get() != Scissor::Disable {
+                gl::Disable(gl::SCISSOR_TEST);
+            },
             Scissor::Enable(position, size) => {
                 if self.scissor.get() == Scissor::Disable {
                     gl::Enable(gl::SCISSOR_TEST);
                 }
 
-                gl::Scissor(position.0 as GLint,
-                            position.1 as GLint,
-                            size.0 as GLsizei,
-                            size.1 as GLsizei);
+                gl::Scissor(
+                    position.0 as GLint,
+                    position.1 as GLint,
+                    size.0 as GLsizei,
+                    size.1 as GLsizei,
+                );
             }
         }
 
@@ -309,10 +319,10 @@ impl OpenGLVisitor {
             if face != CullFace::Nothing {
                 gl::Enable(gl::CULL_FACE);
                 gl::CullFace(match face {
-                                 CullFace::Front => gl::FRONT,
-                                 CullFace::Back => gl::BACK,
-                                 CullFace::Nothing => unreachable!(""),
-                             });
+                    CullFace::Front => gl::FRONT,
+                    CullFace::Back => gl::BACK,
+                    CullFace::Nothing => unreachable!(""),
+                });
             } else {
                 gl::Disable(gl::CULL_FACE);
             }
@@ -328,9 +338,9 @@ impl OpenGLVisitor {
     pub unsafe fn set_front_face_order(&self, front: FrontFaceOrder) -> Result<()> {
         if self.front_face_order.get() != front {
             gl::FrontFace(match front {
-                              FrontFaceOrder::Clockwise => gl::CW,
-                              FrontFaceOrder::CounterClockwise => gl::CCW,
-                          });
+                FrontFaceOrder::Clockwise => gl::CW,
+                FrontFaceOrder::CounterClockwise => gl::CCW,
+            });
             self.front_face_order.set(front);
             check()
         } else {
@@ -384,10 +394,10 @@ impl OpenGLVisitor {
     }
 
     // Specifies how source and destination are combined.
-    pub unsafe fn set_color_blend(&self,
-                                  blend: Option<(Equation, BlendFactor, BlendFactor)>)
-                                  -> Result<()> {
-
+    pub unsafe fn set_color_blend(
+        &self,
+        blend: Option<(Equation, BlendFactor, BlendFactor)>,
+    ) -> Result<()> {
         if self.color_blend.get() != blend {
             if let Some((equation, src, dst)) = blend {
                 if self.color_blend.get() == None {
@@ -396,7 +406,6 @@ impl OpenGLVisitor {
 
                 gl::BlendFunc(src.into(), dst.into());
                 gl::BlendEquation(equation.into());
-
             } else {
                 if self.color_blend.get() != None {
                     gl::Disable(gl::BLEND);
@@ -411,12 +420,13 @@ impl OpenGLVisitor {
     }
 
     /// Enable or disable writing color elements into the color buffer.
-    pub unsafe fn set_color_write(&self,
-                                  red: bool,
-                                  green: bool,
-                                  blue: bool,
-                                  alpha: bool)
-                                  -> Result<()> {
+    pub unsafe fn set_color_write(
+        &self,
+        red: bool,
+        green: bool,
+        blue: bool,
+        alpha: bool,
+    ) -> Result<()> {
         let cw = self.color_write.get();
         if cw.0 != red || cw.1 != green || cw.2 != blue || cw.3 != alpha {
             self.color_write.set((red, green, blue, alpha));
@@ -500,11 +510,12 @@ impl OpenGLVisitor {
         check()
     }
 
-    pub unsafe fn create_render_buffer(&self,
-                                       format: GLenum,
-                                       width: u32,
-                                       height: u32)
-                                       -> Result<GLuint> {
+    pub unsafe fn create_render_buffer(
+        &self,
+        format: GLenum,
+        width: u32,
+        height: u32,
+    ) -> Result<GLuint> {
         let mut id = 0;
         gl::GenRenderbuffers(1, &mut id);
         assert!(id != 0);
@@ -540,17 +551,18 @@ impl OpenGLVisitor {
         Ok(())
     }
 
-    pub unsafe fn create_texture(&self,
-                                 internal_format: GLuint,
-                                 format: GLenum,
-                                 pixel_type: GLenum,
-                                 address: TextureAddress,
-                                 filter: TextureFilter,
-                                 mipmap: bool,
-                                 width: u32,
-                                 height: u32,
-                                 data: Option<&[u8]>)
-                                 -> Result<(GLuint)> {
+    pub unsafe fn create_texture(
+        &self,
+        internal_format: GLuint,
+        format: GLenum,
+        pixel_type: GLenum,
+        address: TextureAddress,
+        filter: TextureFilter,
+        mipmap: bool,
+        width: u32,
+        height: u32,
+        data: Option<&[u8]>,
+    ) -> Result<(GLuint)> {
         let mut id = 0;
         gl::GenTextures(1, &mut id);
         assert!(id != 0);
@@ -563,15 +575,17 @@ impl OpenGLVisitor {
             _ => ::std::ptr::null(),
         };
 
-        gl::TexImage2D(gl::TEXTURE_2D,
-                       0,
-                       internal_format as GLint,
-                       width as GLsizei,
-                       height as GLsizei,
-                       0,
-                       format,
-                       pixel_type,
-                       value);
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            internal_format as GLint,
+            width as GLsizei,
+            height as GLsizei,
+            0,
+            format,
+            pixel_type,
+            value,
+        );
 
         if mipmap {
             gl::GenerateMipmap(gl::TEXTURE_2D);
@@ -581,33 +595,37 @@ impl OpenGLVisitor {
         Ok(id)
     }
 
-    pub unsafe fn update_texture(&self,
-                                 id: GLuint,
-                                 format: GLenum,
-                                 tt: GLenum,
-                                 rect: Rect,
-                                 data: &[u8])
-                                 -> Result<()> {
+    pub unsafe fn update_texture(
+        &self,
+        id: GLuint,
+        format: GLenum,
+        tt: GLenum,
+        rect: Rect,
+        data: &[u8],
+    ) -> Result<()> {
         self.bind_texture(0, id)?;
 
-        gl::TexSubImage2D(gl::TEXTURE_2D,
-                          0,
-                          rect.min.x,
-                          rect.min.y,
-                          rect.width(),
-                          rect.height(),
-                          format,
-                          tt,
-                          ::std::mem::transmute(&data[0]));
+        gl::TexSubImage2D(
+            gl::TEXTURE_2D,
+            0,
+            rect.min.x,
+            rect.min.y,
+            rect.width(),
+            rect.height(),
+            format,
+            tt,
+            ::std::mem::transmute(&data[0]),
+        );
 
         check()
     }
 
-    pub unsafe fn update_texture_parameters(&self,
-                                            address: TextureAddress,
-                                            filter: TextureFilter,
-                                            mipmap: bool)
-                                            -> Result<()> {
+    pub unsafe fn update_texture_parameters(
+        &self,
+        address: TextureAddress,
+        filter: TextureFilter,
+        mipmap: bool,
+    ) -> Result<()> {
         let address: GLenum = address.into();
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, address as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, address as GLint);
@@ -619,9 +637,11 @@ impl OpenGLVisitor {
             }
             TextureFilter::Linear => {
                 if mipmap {
-                    gl::TexParameteri(gl::TEXTURE_2D,
-                                      gl::TEXTURE_MIN_FILTER,
-                                      gl::LINEAR_MIPMAP_NEAREST as GLint);
+                    gl::TexParameteri(
+                        gl::TEXTURE_2D,
+                        gl::TEXTURE_MIN_FILTER,
+                        gl::LINEAR_MIPMAP_NEAREST as GLint,
+                    );
                 } else {
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
                 }
@@ -703,12 +723,13 @@ impl OpenGLVisitor {
         check()
     }
 
-    pub unsafe fn create_buffer(&self,
-                                buf: OpenGLBuffer,
-                                hint: BufferHint,
-                                size: u32,
-                                data: Option<&[u8]>)
-                                -> Result<GLuint> {
+    pub unsafe fn create_buffer(
+        &self,
+        buf: OpenGLBuffer,
+        hint: BufferHint,
+        size: u32,
+        data: Option<&[u8]>,
+    ) -> Result<GLuint> {
         let mut id = 0;
         gl::GenBuffers(1, &mut id);
         assert!(id != 0);
@@ -725,17 +746,20 @@ impl OpenGLVisitor {
         Ok(id)
     }
 
-    pub unsafe fn update_buffer(&self,
-                                id: GLuint,
-                                buf: OpenGLBuffer,
-                                offset: u32,
-                                data: &[u8])
-                                -> Result<()> {
+    pub unsafe fn update_buffer(
+        &self,
+        id: GLuint,
+        buf: OpenGLBuffer,
+        offset: u32,
+        data: &[u8],
+    ) -> Result<()> {
         self.bind_buffer(buf.into(), id)?;
-        gl::BufferSubData(buf.into(),
-                          offset as isize,
-                          data.len() as isize,
-                          ::std::mem::transmute(&data[0]));
+        gl::BufferSubData(
+            buf.into(),
+            offset as isize,
+            data.len() as isize,
+            ::std::mem::transmute(&data[0]),
+        );
         check()
     }
 
@@ -787,10 +811,12 @@ impl OpenGLVisitor {
             gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
             let mut buf = Vec::with_capacity(len as usize);
             buf.set_len((len as usize) - 1); // subtract 1 to skip the trailing null character
-            gl::GetShaderInfoLog(shader,
-                                 len,
-                                 ::std::ptr::null_mut(),
-                                 buf.as_mut_ptr() as *mut GLchar);
+            gl::GetShaderInfoLog(
+                shader,
+                len,
+                ::std::ptr::null_mut(),
+                buf.as_mut_ptr() as *mut GLchar,
+            );
 
             let error = format!("{}. with source:\n{}\n", str::from_utf8(&buf).unwrap(), src);
             bail!(ErrorKind::FailedCompilePipeline(error));
@@ -814,10 +840,12 @@ impl OpenGLVisitor {
             gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
             let mut buf = Vec::with_capacity(len as usize);
             buf.set_len((len as usize) - 1); // subtract 1 to skip the trailing null character
-            gl::GetProgramInfoLog(program,
-                                  len,
-                                  ::std::ptr::null_mut(),
-                                  buf.as_mut_ptr() as *mut GLchar);
+            gl::GetProgramInfoLog(
+                program,
+                len,
+                ::std::ptr::null_mut(),
+                buf.as_mut_ptr() as *mut GLchar,
+            );
 
             let error = format!("{}. ", str::from_utf8(&buf).unwrap());
             bail!(ErrorKind::FailedCompilePipeline(error));
@@ -972,19 +1000,24 @@ impl From<RenderTextureFormat> for (GLenum, GLenum, GLenum) {
             RenderTextureFormat::RGB8 => (gl::RGB8, gl::RGB, gl::UNSIGNED_BYTE),
             RenderTextureFormat::RGBA4 => (gl::RGBA4, gl::RGBA, gl::UNSIGNED_SHORT_4_4_4_4),
             RenderTextureFormat::RGBA8 => (gl::RGBA8, gl::RGBA, gl::UNSIGNED_BYTE),
-            RenderTextureFormat::Depth16 => {
-                (gl::DEPTH_COMPONENT16, gl::DEPTH_COMPONENT, gl::UNSIGNED_BYTE)
-            }
-            RenderTextureFormat::Depth24 => {
-                (gl::DEPTH_COMPONENT24, gl::DEPTH_COMPONENT, gl::UNSIGNED_BYTE)
-            }
-            RenderTextureFormat::Depth32 => {
-                (gl::DEPTH_COMPONENT32, gl::DEPTH_COMPONENT, gl::UNSIGNED_BYTE)
-            }
+            RenderTextureFormat::Depth16 => (
+                gl::DEPTH_COMPONENT16,
+                gl::DEPTH_COMPONENT,
+                gl::UNSIGNED_BYTE,
+            ),
+            RenderTextureFormat::Depth24 => (
+                gl::DEPTH_COMPONENT24,
+                gl::DEPTH_COMPONENT,
+                gl::UNSIGNED_BYTE,
+            ),
+            RenderTextureFormat::Depth32 => (
+                gl::DEPTH_COMPONENT32,
+                gl::DEPTH_COMPONENT,
+                gl::UNSIGNED_BYTE,
+            ),
             RenderTextureFormat::Depth24Stencil8 => {
                 (gl::DEPTH24_STENCIL8, gl::DEPTH_STENCIL, gl::UNSIGNED_BYTE)
             }
-
         }
     }
 }

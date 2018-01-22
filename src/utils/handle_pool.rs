@@ -67,7 +67,8 @@ impl HandlePool {
     /// Returns true if this `Handle` was created by `HandlePool`, and has not been
     /// freed yet.
     pub fn is_alive<T>(&self, handle: T) -> bool
-        where T: Borrow<Handle>
+    where
+        T: Borrow<Handle>,
     {
         let handle = handle.borrow();
         let index = handle.index() as usize;
@@ -81,7 +82,8 @@ impl HandlePool {
 
     /// Recycles the `Handle` index, and mark its version as dead.
     pub fn free<T>(&mut self, handle: T) -> bool
-        where T: Borrow<Handle>
+    where
+        T: Borrow<Handle>,
     {
         let handle = handle.borrow();
         if !self.is_alive(handle) {

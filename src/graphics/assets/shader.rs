@@ -1,7 +1,11 @@
 //! Pipeline state object that containing immutable render state and vertex-layout.
 
+use std::collections::HashMap;
+
 use math;
 use graphics::{TextureHandle, MAX_VERTEX_ATTRIBUTES};
+use utils::HashValue;
+
 use super::mesh::VertexLayout;
 
 impl_handle!(ShaderHandle);
@@ -11,9 +15,16 @@ impl_handle!(ShaderHandle);
 #[derive(Debug, Clone, Default)]
 pub struct ShaderSetup {
     pub render_state: RenderState,
+    pub uniform_variables: HashMap<String, UniformVariableType>,
+    pub layout: AttributeLayout,
     pub vs: String,
     pub fs: String,
-    pub uniform_variables: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ShaderState {
+    pub render_state: RenderState,
+    pub uniform_variables: HashMap<HashValue<str>, UniformVariableType>,
     pub layout: AttributeLayout,
 }
 

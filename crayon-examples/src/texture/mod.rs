@@ -59,7 +59,8 @@ impl Window {
         setup.layout = attributes;
         setup.vs = include_str!("../../assets/texture.vs").to_owned();
         setup.fs = include_str!("../../assets/texture.fs").to_owned();
-        setup.uniform_variables.push("renderedTexture".into());
+        let tt = graphics::UniformVariableType::Texture;
+        setup.uniform_variables.insert("renderedTexture".into(), tt);
         let shader = label.create_shader(setup)?;
 
         let setup = graphics::TextureSetup::default();

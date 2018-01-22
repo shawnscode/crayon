@@ -3,7 +3,6 @@ extern crate approx;
 extern crate crayon;
 
 use crayon::prelude::*;
-use crayon::scene::*;
 
 pub fn build(world: &mut World) -> Entity {
     world
@@ -85,7 +84,7 @@ fn look_at() {
 
     let e1 = build(&mut world);
 
-    let mut tree = world.arena_mut::<Node>();
+    let tree = world.arena_mut::<Node>();
     let mut arena = world.arena_mut::<Transform>();
     Transform::set_world_position(&tree, &mut arena, e1, [0.0, 0.0, -5.0]).unwrap();
 

@@ -31,7 +31,8 @@ pub(crate) enum TextureState {
 
 #[doc(hidden)]
 pub(crate) struct TextureLoader<T>
-    where T: TextureParser
+where
+    T: TextureParser,
 {
     handle: TextureHandle,
     setup: TextureSetup,
@@ -41,13 +42,15 @@ pub(crate) struct TextureLoader<T>
 }
 
 impl<T> TextureLoader<T>
-    where T: TextureParser
+where
+    T: TextureParser,
 {
-    pub fn new(handle: TextureHandle,
-               state: Arc<RwLock<TextureState>>,
-               setup: TextureSetup,
-               frames: Arc<DoubleFrame>)
-               -> Self {
+    pub fn new(
+        handle: TextureHandle,
+        state: Arc<RwLock<TextureState>>,
+        setup: TextureSetup,
+        frames: Arc<DoubleFrame>,
+    ) -> Self {
         TextureLoader {
             handle: handle,
             setup: setup,
@@ -59,29 +62,28 @@ impl<T> TextureLoader<T>
 }
 
 impl<T> resource::ResourceAsyncLoader for TextureLoader<T>
-    where T: TextureParser + Send + Sync + 'static
+where
+    T: TextureParser + Send + Sync + 'static,
 {
     fn on_finished(mut self, path: &Path, result: resource::errors::Result<&[u8]>) {
         let state = match result {
-            Ok(bytes) => {
-                match T::parse(bytes) {
-                    Ok(texture) => {
-                        self.setup.dimensions = texture.dimensions;
-                        self.setup.format = texture.format;
+            Ok(bytes) => match T::parse(bytes) {
+                Ok(texture) => {
+                    self.setup.dimensions = texture.dimensions;
+                    self.setup.format = texture.format;
 
-                        let mut frame = self.frames.front();
-                        let ptr = frame.buf.extend_from_slice(&texture.data);
-                        let task = PreFrameTask::CreateTexture(self.handle, self.setup, Some(ptr));
-                        frame.pre.push(task);
+                    let mut frame = self.frames.front();
+                    let ptr = frame.buf.extend_from_slice(&texture.data);
+                    let task = PreFrameTask::CreateTexture(self.handle, self.setup, Some(ptr));
+                    frame.pre.push(task);
 
-                        TextureState::Ready
-                    }
-                    Err(error) => {
-                        let error = format!("Failed to load texture at {:?}.\n{:?}", path, error);
-                        TextureState::Err(error)
-                    }
+                    TextureState::Ready
                 }
-            }
+                Err(error) => {
+                    let error = format!("Failed to load texture at {:?}.\n{:?}", path, error);
+                    TextureState::Err(error)
+                }
+            },
             Err(error) => {
                 let error = format!("Failed to load texture at {:?}.\n{:?}", path, error);
                 TextureState::Err(error)

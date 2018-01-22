@@ -52,8 +52,13 @@ impl Renderer {
 
         setup.vs = include_str!("../assets/imgui.vs").to_owned();
         setup.fs = include_str!("../assets/imgui.fs").to_owned();
-        setup.uniform_variables.push("matrix".into());
-        setup.uniform_variables.push("texture".into());
+
+        let tt = graphics::UniformVariableType::Matrix4f;
+        setup.uniform_variables.insert("matrix".into(), tt);
+
+        let tt = graphics::UniformVariableType::Texture;
+        setup.uniform_variables.insert("texture".into(), tt);
+
         let shader = video.create_shader(setup)?;
 
         let texture = imgui.prepare_texture(|v| {

@@ -94,10 +94,11 @@ impl EventsLoop {
 
         {
             let frame = &mut self.frame_events;
-            self.ctx
-                .poll_events(|event| if let Some(v) = from_event(event) {
+            self.ctx.poll_events(|event| {
+                if let Some(v) = from_event(event) {
                     frame.push(v);
-                });
+                }
+            });
         }
 
         self.frame_events.iter()

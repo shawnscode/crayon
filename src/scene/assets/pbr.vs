@@ -14,7 +14,7 @@ out vec2 v_Texcoord0;
 
 void main()
 {
-    vec4 pos = u_ModelMatrix * Position;
+    vec4 pos = u_ModelViewMatrix * Position;
     v_Position = vec3(pos.xyz) / pos.w;
     v_Normal = normalize(vec3(u_NormalMatrix * vec4(Normal.xyz, 0.0)));
     v_Texcoord0 = Texcoord0;

@@ -114,8 +114,10 @@ impl Window {
             setup.layout = attributes;
             setup.vs = include_str!("../../assets/render_target_p2.vs").to_owned();
             setup.fs = include_str!("../../assets/render_target_p2.fs").to_owned();
-            setup.uniform_variables.push("renderedTexture".into());
-            setup.uniform_variables.push("time".into());
+            let tt = graphics::UniformVariableType::Texture;
+            setup.uniform_variables.insert("renderedTexture".into(), tt);
+            let tt = graphics::UniformVariableType::F32;
+            setup.uniform_variables.insert("time".into(), tt);
             let shader = label.create_shader(setup)?;
 
             Pass {

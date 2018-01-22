@@ -91,10 +91,28 @@ impl Transform {
     ) -> Result<math::Matrix4<f32>>
     where
         T1: ecs::Arena<Node>,
-        T2: ecs::ArenaMut<Transform>,
+        T2: ecs::Arena<Transform>,
     {
         let decomposed = Transform::world_decomposed(tree, arena, handle)?;
         Ok(math::Matrix4::from(decomposed))
+    }
+
+    /// Get the transform matrix from world space to local space.
+    pub fn inverse_world_matrix<T1, T2>(
+        tree: &T1,
+        arena: &T2,
+        handle: ecs::Entity,
+    ) -> Result<math::Matrix4<f32>>
+    where
+        T1: ecs::Arena<Node>,
+        T2: ecs::Arena<Transform>,
+    {
+        let decomposed = Transform::world_decomposed(tree, arena, handle)?;
+        if let Some(inverse) = decomposed.inverse_transform() {
+            Ok(math::Matrix4::from(inverse))
+        } else {
+            bail!(ErrorKind::CanNotInverseTransform);
+        }
     }
 
     /// Set position of `Transform` in world space.
@@ -322,7 +340,7 @@ impl Transform {
     ) -> Result<math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>>
     where
         T1: ecs::Arena<Node>,
-        T2: ecs::ArenaMut<Transform>,
+        T2: ecs::Arena<Transform>,
     {
         if let Some(transform) = arena.get(handle) {
             let mut decomposed = transform.decomposed;

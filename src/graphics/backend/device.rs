@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use gl;
 use gl::types::*;
 
-use utils::{Color, DataBuffer, Handle, Rect};
+use utils::{Color, DataBuffer, Handle, HashValue, Rect};
 use graphics::*;
 
 use super::errors::*;
@@ -29,7 +29,7 @@ struct ShaderObject {
     id: ResourceID,
     render_state: RenderState,
     layout: AttributeLayout,
-    uniform_locations: Vec<UniformID>,
+    uniform_locations: HashMap<HashValue<str>, UniformID>,
     uniforms: HashMap<String, UniformVariable>,
 }
 
@@ -180,20 +180,18 @@ impl Device {
         let shader = self.bind_shader(dc.shader)?;
 
         let texture_idx = 0;
-        for (i, v) in buf.as_slice(dc.uniforms).iter().enumerate() {
-            if let &Some(ptr) = v {
-                let variable = buf.as_ref(ptr);
-                let location = shader.uniform_locations[i];
+        for &(field, ptr) in buf.as_slice(dc.uniforms) {
+            let variable = buf.as_ref(ptr);
+            let location = shader.uniform_locations[&field];
 
-                if let &UniformVariable::Texture(handle) = variable {
-                    if let Some(texture) = self.textures.get(handle) {
-                        let v = UniformVariable::I32(texture_idx);
-                        self.visitor.bind_uniform(location, &v)?;
-                        self.visitor.bind_texture(texture_idx as u32, texture.id)?;
-                    }
-                } else {
-                    self.visitor.bind_uniform(location, &variable)?;
+            if let &UniformVariable::Texture(handle) = variable {
+                if let Some(texture) = self.textures.get(handle) {
+                    let v = UniformVariable::I32(texture_idx);
+                    self.visitor.bind_uniform(location, &v)?;
+                    self.visitor.bind_texture(texture_idx as u32, texture.id)?;
                 }
+            } else {
+                self.visitor.bind_uniform(location, &variable)?;
             }
         }
 
@@ -204,7 +202,8 @@ impl Device {
             .bind_attribute_layout(&shader.layout, &mesh.setup.layout)?;
 
         // Bind index buffer object if available.
-        self.visitor.bind_buffer(gl::ELEMENT_ARRAY_BUFFER, mesh.ibo)?;
+        self.visitor
+            .bind_buffer(gl::ELEMENT_ARRAY_BUFFER, mesh.ibo)?;
 
         let (from, len) = match dc.index {
             MeshIndex::Ptr(from, len) => (
@@ -490,16 +489,16 @@ impl Device {
             }
 
             match setup.format {
-                RenderTextureFormat::RGB8 |
-                RenderTextureFormat::RGBA4 |
-                RenderTextureFormat::RGBA8 => {
+                RenderTextureFormat::RGB8
+                | RenderTextureFormat::RGBA4
+                | RenderTextureFormat::RGBA8 => {
                     let location = gl::COLOR_ATTACHMENT0 + slot;
                     self.visitor
                         .bind_framebuffer_with_texture(location, texture.id)
                 }
-                RenderTextureFormat::Depth16 |
-                RenderTextureFormat::Depth24 |
-                RenderTextureFormat::Depth32 => self.visitor
+                RenderTextureFormat::Depth16
+                | RenderTextureFormat::Depth24
+                | RenderTextureFormat::Depth32 => self.visitor
                     .bind_framebuffer_with_texture(gl::DEPTH_ATTACHMENT, texture.id),
                 RenderTextureFormat::Depth24Stencil8 => self.visitor
                     .bind_framebuffer_with_texture(gl::DEPTH_STENCIL_ATTACHMENT, texture.id),
@@ -518,7 +517,9 @@ impl Device {
         let fbo = self.framebuffers
             .get(handle)
             .ok_or(ErrorKind::InvalidHandle)?;
-        let buf = self.render_buffers.get(buf).ok_or(ErrorKind::InvalidHandle)?;
+        let buf = self.render_buffers
+            .get(buf)
+            .ok_or(ErrorKind::InvalidHandle)?;
 
         self.visitor.bind_framebuffer(fbo.id, false)?;
         match buf.setup.format {
@@ -527,9 +528,9 @@ impl Device {
                 self.visitor
                     .bind_framebuffer_with_renderbuffer(location, buf.id)
             }
-            RenderTextureFormat::Depth16 |
-            RenderTextureFormat::Depth24 |
-            RenderTextureFormat::Depth32 => self.visitor
+            RenderTextureFormat::Depth16
+            | RenderTextureFormat::Depth24
+            | RenderTextureFormat::Depth32 => self.visitor
                 .bind_framebuffer_with_renderbuffer(gl::DEPTH_ATTACHMENT, buf.id),
             RenderTextureFormat::Depth24Stencil8 => self.visitor
                 .bind_framebuffer_with_renderbuffer(gl::DEPTH_STENCIL_ATTACHMENT, buf.id),
@@ -665,14 +666,14 @@ impl Device {
             }
         }
 
-        let mut uniform_locations = Vec::new();
-        for name in setup.uniform_variables {
+        let mut uniform_locations = HashMap::new();
+        for (name, _) in setup.uniform_variables {
             let location = self.visitor.get_uniform_location(pid, &name)?;
             if location == -1 {
                 bail!(format!("failed to locate uniform {:?}", name));
             }
 
-            uniform_locations.push(location);
+            uniform_locations.insert(name.into(), location);
         }
 
         self.shaders.set(

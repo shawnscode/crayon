@@ -4,8 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::collections::HashMap;
 
 use utils::{HashValue, Rect};
-use resource;
-use resource::{Registery, ResourceSystemShared};
+use resource::{Registery, ResourceSystemShared, Location};
 
 use super::*;
 use super::errors::*;
@@ -16,6 +15,7 @@ use super::window::Window;
 
 use super::assets::texture_loader::{TextureLoader, TextureParser, TextureState};
 use super::assets::mesh_loader::{MeshLoader, MeshParser, MeshState};
+use super::assets::shader::ShaderState;
 
 /// The centralized management of video sub-system.
 pub struct GraphicsSystem {
@@ -134,8 +134,6 @@ impl GraphicsSystem {
     }
 }
 
-type ShaderState = HashMap<HashValue<str>, usize>;
-
 /// The multi-thread friendly parts of `GraphicsSystem`.
 pub struct GraphicsSystemShared {
     resource: Arc<ResourceSystemShared>,
@@ -222,16 +220,16 @@ impl GraphicsSystemShared {
         }
 
         let mut frame = self.frames.front();
-
         let uniforms = {
-            let mut pack = [None; MAX_UNIFORM_VARIABLES];
-            let mut len = 0;
-
+            let mut pack = Vec::new();
             if let Some(shader) = self.shaders.read().unwrap().get(dc.shader.into()) {
                 for &(n, v) in dc.uniforms {
-                    if let Some(location) = shader.get(&n) {
-                        pack[*location] = Some(frame.buf.extend(&v));
-                        len = len.max((*location + 1));
+                    if let Some(&tt) = shader.uniform_variables.get(&n) {
+                        if tt == v.variable_type() {
+                            pack.push((n, frame.buf.extend(&v)));
+                        } else {
+                            bail!(format!("Undefined uniform variable: {:?}.", n));
+                        }
                     } else {
                         bail!(format!("Undefined uniform variable: {:?}.", n));
                     }
@@ -240,7 +238,7 @@ impl GraphicsSystemShared {
                 bail!("Undefined shader state handle.");
             }
 
-            frame.buf.extend_from_slice(&pack[0..len])
+            frame.buf.extend_from_slice(&pack)
         };
 
         let dc = FrameDrawCall {
@@ -340,7 +338,7 @@ impl GraphicsSystemShared {
 impl GraphicsSystemShared {
     /// Creates an view with `SurfaceSetup`.
     pub fn create_surface(&self, setup: SurfaceSetup) -> Result<SurfaceHandle> {
-        let location = resource::Location::unique("");
+        let location = Location::unique("");
         let handle = self.surfaces.write().unwrap().create(location, ()).into();
 
         {
@@ -382,13 +380,20 @@ impl GraphicsSystemShared {
             bail!("Fragment shader is required to describe a proper render pipeline.");
         }
 
-        let mut shader = ShaderState::new();
-        for (i, v) in setup.uniform_variables.iter().enumerate() {
-            let v: HashValue<str> = v.into();
-            shader.insert(v, i);
+        let mut uniform_variables = HashMap::new();
+        for (k, v) in &setup.uniform_variables 
+        {
+            let k: HashValue<str> = k.into();
+            uniform_variables.insert(k, *v);
         }
 
-        let loc = resource::Location::unique("");
+        let shader = ShaderState {
+            render_state: setup.render_state,
+            layout: setup.layout,
+            uniform_variables: uniform_variables,
+        };
+
+        let loc = Location::unique("");
         let handle = self.shaders.write().unwrap().create(loc, shader).into();
 
         {
@@ -397,6 +402,16 @@ impl GraphicsSystemShared {
         }
 
         Ok(handle)
+    }
+
+    /// Gets the shader state if exists.
+    pub fn shader_state(&self, handle: ShaderHandle) -> Option<ShaderState> {
+        self.shaders.read().unwrap().get(*handle).map(|v| v.clone())
+    }
+
+    /// Returns true if shader is exists.
+    pub fn is_shader_alive(&self, handle: ShaderHandle) -> bool {
+       self.shaders.read().unwrap().is_alive(handle.into()) 
     }
 
     /// Delete shader state object.
@@ -417,7 +432,7 @@ impl GraphicsSystemShared {
     ///
     /// At least one color attachment has been attached before you can use it.
     pub fn create_framebuffer(&self, setup: FrameBufferSetup) -> Result<FrameBufferHandle> {
-        let location = resource::Location::unique("");
+        let location = Location::unique("");
         let handle = self.framebuffers
             .write()
             .unwrap()
@@ -447,7 +462,7 @@ impl GraphicsSystemShared {
 
     /// Create a render buffer object, which could be attached to framebuffer.
     pub fn create_render_buffer(&self, setup: RenderBufferSetup) -> Result<RenderBufferHandle> {
-        let location = resource::Location::unique("");
+        let location = Location::unique("");
         let handle = self.render_buffers
             .write()
             .unwrap()
@@ -478,7 +493,7 @@ impl GraphicsSystemShared {
 
 impl GraphicsSystemShared {
     /// Lookup mesh object from location.
-    pub fn lookup_mesh_from(&self, location: resource::Location) -> Option<MeshHandle> {
+    pub fn lookup_mesh_from(&self, location: Location) -> Option<MeshHandle> {
         self.meshes
             .read()
             .unwrap()
@@ -489,7 +504,7 @@ impl GraphicsSystemShared {
     /// Create a new mesh object from location.
     pub fn create_mesh_from<T>(
         &self,
-        location: resource::Location,
+        location: Location,
         setup: MeshSetup,
     ) -> Result<MeshHandle>
     where
@@ -540,7 +555,7 @@ impl GraphicsSystemShared {
 
         setup.validate()?;
 
-        let location = resource::Location::unique("");
+        let location = Location::unique("");
         let state = Arc::new(RwLock::new(MeshState::Ready));
         let handle = self.meshes.write().unwrap().create(location, state).into();
 
@@ -601,7 +616,7 @@ impl GraphicsSystemShared {
 
 impl GraphicsSystemShared {
     /// Lookup texture object from location.
-    pub fn lookup_texture_from(&self, location: resource::Location) -> Option<TextureHandle> {
+    pub fn lookup_texture_from(&self, location: Location) -> Option<TextureHandle> {
         self.textures
             .read()
             .unwrap()
@@ -612,7 +627,7 @@ impl GraphicsSystemShared {
     /// Create texture object from location.
     pub fn create_texture_from<T>(
         &self,
-        location: resource::Location,
+        location: Location,
         setup: TextureSetup,
     ) -> Result<TextureHandle>
     where
@@ -642,7 +657,7 @@ impl GraphicsSystemShared {
         T: Into<Option<&'a [u8]>>,
     {
         let data = data.into();
-        let loc = resource::Location::unique("");
+        let loc = Location::unique("");
         let state = Arc::new(RwLock::new(TextureState::Ready));
         let handle = self.textures.write().unwrap().create(loc, state).into();
 
@@ -658,7 +673,7 @@ impl GraphicsSystemShared {
 
     /// Create render texture object, which could be attached with a framebuffer.
     pub fn create_render_texture(&self, setup: RenderTextureSetup) -> Result<TextureHandle> {
-        let loc = resource::Location::unique("");
+        let loc = Location::unique("");
         let state = Arc::new(RwLock::new(TextureState::Ready));
         let handle = self.textures.write().unwrap().create(loc, state).into();
 

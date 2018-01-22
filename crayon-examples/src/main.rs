@@ -15,6 +15,7 @@ mod texture;
 mod render_target;
 mod imgui;
 mod input;
+mod mesh;
 
 const USAGE: &'static str = "";
 
@@ -36,6 +37,7 @@ fn main() {
         "render_target" => render_target::main(name, &args[1..]),
         "imgui" => imgui::main(name, &args[1..]),
         "input" => input::main(name, &args[1..]),
+        "mesh" => mesh::main(name, &args[1..]),
         _ => usage(),
     }
 }

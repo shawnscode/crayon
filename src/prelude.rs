@@ -16,5 +16,8 @@ pub use graphics::GraphicsSystem;
 pub use input;
 pub use input::InputSystem;
 
+pub use scene;
+pub use scene::{Camera, Light, LightSource, MeshRenderer, Node, Projection, Scene, Transform};
+
 pub use utils;
 pub use utils::{Color, Rect};

@@ -15,5 +15,9 @@ error_chain!{
         NonTransformFound
         CanNotInverseTransform
         CanNotAttachSelfAsParent
+        NonCameraFound
+        UniformUndefined
+        UniformTypeInvalid
+        HandleInvalid
     }
 }

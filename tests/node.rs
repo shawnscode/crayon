@@ -2,7 +2,6 @@ extern crate crayon;
 extern crate rand;
 
 use crayon::prelude::*;
-use crayon::scene::*;
 
 use rand::{Rng, SeedableRng, XorShiftRng};
 

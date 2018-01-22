@@ -4,7 +4,7 @@ use super::super::*;
 use super::errors::*;
 use super::device::Device;
 
-use utils::{DataBuffer, DataBufferPtr, Rect};
+use utils::{DataBuffer, DataBufferPtr, HashValue, Rect};
 
 #[derive(Debug, Clone)]
 pub(crate) enum PreFrameTask {
@@ -37,7 +37,7 @@ pub(crate) enum FrameTask {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct FrameDrawCall {
     pub shader: ShaderHandle,
-    pub uniforms: DataBufferPtr<[Option<DataBufferPtr<UniformVariable>>]>,
+    pub uniforms: DataBufferPtr<[(HashValue<str>, DataBufferPtr<UniformVariable>)]>,
     pub mesh: MeshHandle,
     pub index: MeshIndex,
 }
