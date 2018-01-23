@@ -25,8 +25,12 @@ impl RAIIGuard {
     }
 
     #[inline(always)]
-    pub fn create_shader(&mut self, setup: ShaderSetup) -> Result<ShaderHandle> {
-        let v = self.video.create_shader(setup)?;
+    pub fn create_shader(
+        &mut self,
+        location: Location,
+        setup: ShaderSetup,
+    ) -> Result<ShaderHandle> {
+        let v = self.video.create_shader(location, setup)?;
         Ok(self.push(v))
     }
 
@@ -58,6 +62,7 @@ impl RAIIGuard {
     #[inline(always)]
     pub fn create_mesh<'a, 'b, T1, T2>(
         &mut self,
+        location: Location,
         setup: MeshSetup,
         verts: T1,
         idxes: T2,
@@ -66,7 +71,7 @@ impl RAIIGuard {
         T1: Into<Option<&'a [u8]>>,
         T2: Into<Option<&'b [u8]>>,
     {
-        let v = self.video.create_mesh(setup, verts, idxes)?;
+        let v = self.video.create_mesh(location, setup, verts, idxes)?;
         Ok(self.push(v))
     }
 
@@ -90,11 +95,16 @@ impl RAIIGuard {
     }
 
     #[inline(always)]
-    pub fn create_texture<'a, T>(&mut self, setup: TextureSetup, data: T) -> Result<TextureHandle>
+    pub fn create_texture<'a, T>(
+        &mut self,
+        location: Location,
+        setup: TextureSetup,
+        data: T,
+    ) -> Result<TextureHandle>
     where
         T: Into<Option<&'a [u8]>>,
     {
-        let v = self.video.create_texture(setup, data)?;
+        let v = self.video.create_texture(location, setup, data)?;
         Ok(self.push(v))
     }
 

@@ -13,7 +13,8 @@ pub struct Location<'a> {
 
 impl<'a> Location<'a> {
     pub fn unique<P>(location: &'a P) -> Self
-        where P: ?Sized + AsRef<Path>
+    where
+        P: ?Sized + AsRef<Path>,
     {
         Location {
             location: location.as_ref(),
@@ -22,7 +23,8 @@ impl<'a> Location<'a> {
     }
 
     pub fn shared<P>(code: u8, location: &'a P) -> Self
-        where P: ?Sized + AsRef<Path>
+    where
+        P: ?Sized + AsRef<Path>,
     {
         Location {
             location: location.as_ref(),
@@ -59,12 +61,10 @@ impl PartialEq<Signature> for Signature {
     fn eq(&self, other: &Signature) -> bool {
         match *self {
             Signature::Unique => false,
-            Signature::Shared(lhs) => {
-                match *other {
-                    Signature::Shared(rhs) => lhs == rhs,
-                    _ => false,
-                }
-            }
+            Signature::Shared(lhs) => match *other {
+                Signature::Shared(rhs) => lhs == rhs,
+                _ => false,
+            },
         }
     }
 }

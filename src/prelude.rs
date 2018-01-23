@@ -11,7 +11,7 @@ pub use application::{Application, Context, Engine, FrameInfo, Settings, TimeSys
 pub use application::{errors, event, time};
 
 pub use graphics;
-pub use graphics::GraphicsSystem;
+pub use graphics::{GraphicsSystem, UniformVariable, UniformVariableType};
 
 pub use input;
 pub use input::InputSystem;

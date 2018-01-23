@@ -36,7 +36,7 @@ impl Scene {
 
         let materials = HandleObjectPool::new();
 
-        let shader = video.create_shader(factory::shader::undefined())?;
+        let shader = factory::shader::undefined(&video)?;
         let shader_state = video.shader_state(shader).unwrap();
         let fallback = Material::new(shader, shader_state);
 

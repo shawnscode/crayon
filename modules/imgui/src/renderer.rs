@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crayon::{application, graphics, utils};
+use crayon::{application, graphics, resource, utils};
 
 use imgui::{DrawList, ImGui, Ui};
 use errors::*;
@@ -59,14 +59,14 @@ impl Renderer {
         let tt = graphics::UniformVariableType::Texture;
         setup.uniform_variables.insert("texture".into(), tt);
 
-        let shader = video.create_shader(setup)?;
+        let shader = video.create_shader(resource::Location::unique(""), setup)?;
 
         let texture = imgui.prepare_texture(|v| {
             let mut setup = graphics::TextureSetup::default();
             setup.dimensions = (v.width, v.height);
             setup.filter = graphics::TextureFilter::Nearest;
             setup.format = graphics::TextureFormat::U8U8U8U8;
-            video.create_texture(setup, Some(v.pixels))
+            video.create_texture(resource::Location::unique(""), setup, Some(v.pixels))
         })?;
 
         imgui.set_texture_id(**texture as usize);
@@ -190,7 +190,12 @@ impl Renderer {
 
         let verts_slice = CanvasVertex::as_bytes(verts);
         let idxes_slice = graphics::IndexFormat::as_bytes(idxes);
-        let mesh = self.video.create_mesh(setup, verts_slice, idxes_slice)?;
+        let mesh = self.video.create_mesh(
+            resource::Location::unique(""),
+            setup,
+            verts_slice,
+            idxes_slice,
+        )?;
         self.mesh = Some((nv, ni, mesh));
         Ok(mesh)
     }

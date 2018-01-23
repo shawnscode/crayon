@@ -45,6 +45,7 @@ impl Window {
         setup.layout = Vertex::layout();
 
         let mesh = label.create_mesh(
+            Location::unique(""),
             setup,
             Vertex::as_bytes(&verts[..]),
             graphics::IndexFormat::as_bytes(&idxes),
@@ -61,7 +62,7 @@ impl Window {
         setup.fs = include_str!("../../assets/texture.fs").to_owned();
         let tt = graphics::UniformVariableType::Texture;
         setup.uniform_variables.insert("renderedTexture".into(), tt);
-        let shader = label.create_shader(setup)?;
+        let shader = label.create_shader(Location::unique(""), setup)?;
 
         let setup = graphics::TextureSetup::default();
         let location = Location::unique("/std/texture.png");

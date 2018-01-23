@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::collections::HashMap;
 
 use utils::{HashValue, Rect};
-use resource::{Registery, ResourceSystemShared, Location};
+use resource::{Location, Registery, ResourceSystemShared};
 
 use super::*;
 use super::errors::*;
@@ -362,9 +362,18 @@ impl GraphicsSystemShared {
         }
     }
 
+    /// Lookup shader object from location.
+    pub fn lookup_shader_from(&self, location: Location) -> Option<ShaderHandle> {
+        self.shaders
+            .read()
+            .unwrap()
+            .lookup(location)
+            .map(|v| v.into())
+    }
+
     /// Create a shader with initial shaders and render state. Pipeline encapusulate
     /// all the informations we need to configurate OpenGL before real drawing.
-    pub fn create_shader(&self, setup: ShaderSetup) -> Result<ShaderHandle> {
+    pub fn create_shader(&self, location: Location, setup: ShaderSetup) -> Result<ShaderHandle> {
         if setup.uniform_variables.len() > MAX_UNIFORM_VARIABLES {
             bail!(
                 "Too many uniform variables (>= {:?}).",
@@ -380,27 +389,31 @@ impl GraphicsSystemShared {
             bail!("Fragment shader is required to describe a proper render pipeline.");
         }
 
-        let mut uniform_variables = HashMap::new();
-        for (k, v) in &setup.uniform_variables 
-        {
-            let k: HashValue<str> = k.into();
-            uniform_variables.insert(k, *v);
-        }
+        let handle = {
+            let mut shaders = self.shaders.write().unwrap();
+            if let Some(handle) = shaders.lookup(location) {
+                shaders.inc_rc(handle);
+                return Ok(handle.into());
+            }
 
-        let shader = ShaderState {
-            render_state: setup.render_state,
-            layout: setup.layout,
-            uniform_variables: uniform_variables,
+            let mut uniform_variables = HashMap::new();
+            for (k, v) in &setup.uniform_variables {
+                let k: HashValue<str> = k.into();
+                uniform_variables.insert(k, *v);
+            }
+
+            let shader_state = ShaderState {
+                render_state: setup.render_state,
+                layout: setup.layout,
+                uniform_variables: uniform_variables,
+            };
+
+            let handle = shaders.create(location, shader_state).into();
+            handle
         };
 
-        let loc = Location::unique("");
-        let handle = self.shaders.write().unwrap().create(loc, shader).into();
-
-        {
-            let task = PreFrameTask::CreatePipeline(handle, setup);
-            self.frames.front().pre.push(task);
-        }
-
+        let task = PreFrameTask::CreatePipeline(handle, setup);
+        self.frames.front().pre.push(task);
         Ok(handle)
     }
 
@@ -411,7 +424,7 @@ impl GraphicsSystemShared {
 
     /// Returns true if shader is exists.
     pub fn is_shader_alive(&self, handle: ShaderHandle) -> bool {
-       self.shaders.read().unwrap().is_alive(handle.into()) 
+        self.shaders.read().unwrap().is_alive(handle.into())
     }
 
     /// Delete shader state object.
@@ -502,34 +515,31 @@ impl GraphicsSystemShared {
     }
 
     /// Create a new mesh object from location.
-    pub fn create_mesh_from<T>(
-        &self,
-        location: Location,
-        setup: MeshSetup,
-    ) -> Result<MeshHandle>
+    pub fn create_mesh_from<T>(&self, location: Location, setup: MeshSetup) -> Result<MeshHandle>
     where
         T: MeshParser + Send + Sync + 'static,
     {
-        if let Some(v) = self.lookup_mesh_from(location) {
-            self.meshes.write().unwrap().inc_rc(v.into());
-            return Ok(v);
-        }
-
-        let state = Arc::new(RwLock::new(MeshState::NotReady));
-        let handle = {
+        let (handle, state) = {
             let mut meshes = self.meshes.write().unwrap();
-            meshes.create(location, state.clone()).into()
+            if let Some(handle) = meshes.lookup(location) {
+                meshes.inc_rc(handle);
+                return Ok(handle.into());
+            }
+
+            let state = Arc::new(RwLock::new(MeshState::NotReady));
+            let handle = meshes.create(location, state.clone()).into();
+            (handle, state)
         };
 
         let loader = MeshLoader::<T>::new(handle, state, setup, self.frames.clone());
         self.resource.load_async(loader, location.uri());
-
         Ok(handle)
     }
 
     /// Create a new mesh object.
     pub fn create_mesh<'a, 'b, T1, T2>(
         &self,
+        location: Location,
         setup: MeshSetup,
         verts: T1,
         idxes: T2,
@@ -554,19 +564,24 @@ impl GraphicsSystemShared {
         }
 
         setup.validate()?;
+        
+        let handle = {
+            let mut meshes = self.meshes.write().unwrap();
+            if let Some(handle) = meshes.lookup(location) {
+                meshes.inc_rc(handle);
+                return Ok(handle.into());
+            }
 
-        let location = Location::unique("");
-        let state = Arc::new(RwLock::new(MeshState::Ready));
-        let handle = self.meshes.write().unwrap().create(location, state).into();
+            let state = Arc::new(RwLock::new(MeshState::Ready));
+            let handle = meshes.create(location, state).into();
+            handle
+        };
 
-        {
-            let mut frame = self.frames.front();
-            let verts_ptr = verts.map(|v| frame.buf.extend_from_slice(v));
-            let idxes_ptr = idxes.map(|v| frame.buf.extend_from_slice(v));
-            let task = PreFrameTask::CreateMesh(handle, setup, verts_ptr, idxes_ptr);
-            frame.pre.push(task);
-        }
-
+        let mut frame = self.frames.front();
+        let verts_ptr = verts.map(|v| frame.buf.extend_from_slice(v));
+        let idxes_ptr = idxes.map(|v| frame.buf.extend_from_slice(v));
+        let task = PreFrameTask::CreateMesh(handle, setup, verts_ptr, idxes_ptr);
+        frame.pre.push(task);
         Ok(handle)
     }
 
@@ -633,49 +648,64 @@ impl GraphicsSystemShared {
     where
         T: TextureParser + Send + Sync + 'static,
     {
-        if let Some(v) = self.lookup_texture_from(location) {
-            self.textures.write().unwrap().inc_rc(v.into());
-            return Ok(v);
-        }
-
-        let state = Arc::new(RwLock::new(TextureState::NotReady));
-        let handle = {
+        let (handle, state) = {
             let mut textures = self.textures.write().unwrap();
-            textures.create(location, state.clone()).into()
-        };
+            if let Some(handle) = textures.lookup(location) {
+                textures.inc_rc(handle);
+                return Ok(handle.into());
+            }
 
+            let state = Arc::new(RwLock::new(TextureState::NotReady));
+            let handle = textures.create(location, state.clone()).into();
+            (handle, state)
+        };
+    
         let loader = TextureLoader::<T>::new(handle, state, setup, self.frames.clone());
         self.resource.load_async(loader, location.uri());
-
         Ok(handle)
     }
 
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
-    pub fn create_texture<'a, T>(&self, setup: TextureSetup, data: T) -> Result<TextureHandle>
+    pub fn create_texture<'a, T>(
+        &self,
+        location: Location,
+        setup: TextureSetup,
+        data: T,
+    ) -> Result<TextureHandle>
     where
         T: Into<Option<&'a [u8]>>,
     {
-        let data = data.into();
-        let loc = Location::unique("");
-        let state = Arc::new(RwLock::new(TextureState::Ready));
-        let handle = self.textures.write().unwrap().create(loc, state).into();
+        let handle = {
+            let mut textures = self.textures.write().unwrap();
+            if let Some(handle) = textures.lookup(location) {
+                textures.inc_rc(handle);
+                return Ok(handle.into());
+            }
 
-        {
-            let mut frame = self.frames.front();
-            let ptr = data.map(|v| frame.buf.extend_from_slice(v));
-            let task = PreFrameTask::CreateTexture(handle, setup, ptr);
-            frame.pre.push(task);
-        }
-
+            let state = Arc::new(RwLock::new(TextureState::Ready));
+            textures.create(location, state).into()
+        };
+    
+        let mut frame = self.frames.front();
+        let ptr = data.into().map(|v| frame.buf.extend_from_slice(v));
+        let task = PreFrameTask::CreateTexture(handle, setup, ptr);
+        frame.pre.push(task);
         Ok(handle)
     }
 
     /// Create render texture object, which could be attached with a framebuffer.
-    pub fn create_render_texture(&self, setup: RenderTextureSetup) -> Result<TextureHandle> {
-        let loc = Location::unique("");
+    pub fn create_render_texture(
+        &self,
+        setup: RenderTextureSetup,
+    ) -> Result<TextureHandle> {
+        let location = Location::unique("");
         let state = Arc::new(RwLock::new(TextureState::Ready));
-        let handle = self.textures.write().unwrap().create(loc, state).into();
+        let handle = self.textures
+            .write()
+            .unwrap()
+            .create(location, state)
+            .into();
 
         {
             let task = PreFrameTask::CreateRenderTexture(handle, setup);

@@ -46,6 +46,7 @@ impl Window {
             setup.layout = Vertex::layout();
 
             let mesh = label.create_mesh(
+                Location::unique(""),
                 setup,
                 Vertex::as_bytes(&verts[..]),
                 graphics::IndexFormat::as_bytes(&idxes),
@@ -74,7 +75,7 @@ impl Window {
             setup.layout = attributes;
             setup.vs = include_str!("../../assets/render_target_p1.vs").to_owned();
             setup.fs = include_str!("../../assets/render_target_p1.fs").to_owned();
-            let shader = label.create_shader(setup)?;
+            let shader = label.create_shader(Location::unique(""), setup)?;
 
             (
                 Pass {
@@ -101,6 +102,7 @@ impl Window {
             setup.layout = Vertex::layout();
 
             let mesh = label.create_mesh(
+                Location::unique(""),
                 setup,
                 Vertex::as_bytes(&verts[..]),
                 graphics::IndexFormat::as_bytes(&idxes),
@@ -118,7 +120,7 @@ impl Window {
             setup.uniform_variables.insert("renderedTexture".into(), tt);
             let tt = graphics::UniformVariableType::F32;
             setup.uniform_variables.insert("time".into(), tt);
-            let shader = label.create_shader(setup)?;
+            let shader = label.create_shader(Location::unique(""), setup)?;
 
             Pass {
                 surface: surface,
