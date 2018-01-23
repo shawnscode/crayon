@@ -206,10 +206,16 @@ impl Device {
             .bind_buffer(gl::ELEMENT_ARRAY_BUFFER, mesh.ibo)?;
 
         let (from, len) = match dc.index {
-            MeshIndex::Ptr(from, len) => (
-                (from * mesh.setup.index_format.len()) as u32,
-                len as GLsizei,
-            ),
+            MeshIndex::Ptr(from, len) => {
+                if (from + len) > mesh.setup.num_idxes {
+                    bail!("Invalid index of sub-mesh!");
+                }
+
+                (
+                    (from * mesh.setup.index_format.len()) as u32,
+                    len as GLsizei,
+                )
+            }
             MeshIndex::SubMesh(index) => {
                 let num = mesh.setup.sub_mesh_offsets.len();
                 if index >= num || num == 0 {
@@ -217,14 +223,18 @@ impl Device {
                 }
 
                 let from = mesh.setup.sub_mesh_offsets[index];
-                let len = if index == (num - 1) {
+                let to = if index == (num - 1) {
                     mesh.setup.num_idxes
                 } else {
                     mesh.setup.sub_mesh_offsets[index + 1]
                 };
 
-                (from as u32, len as GLsizei)
+                (
+                    (from * mesh.setup.index_format.len()) as u32,
+                    (to - from) as GLsizei,
+                )
             }
+            MeshIndex::All => (0, mesh.setup.num_idxes as i32),
         };
 
         gl::DrawElements(

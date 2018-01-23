@@ -144,9 +144,9 @@ impl OpenGLVisitor {
 
         for (name, size) in attributes.iter() {
             if let Some(element) = layout.element(name) {
-                if element.size != size {
+                if element.size < size {
                     bail!(format!(
-                        "vertex buffer has incompatible attribute {:?} [{:?} - {:?}].",
+                        "vertex buffer has incompatible attribute `{:?}` [{:?} - {:?}].",
                         name,
                         element.size,
                         size

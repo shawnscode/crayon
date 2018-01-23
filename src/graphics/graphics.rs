@@ -228,10 +228,12 @@ impl GraphicsSystemShared {
                         if tt == v.variable_type() {
                             pack.push((n, frame.buf.extend(&v)));
                         } else {
-                            bail!(format!("Undefined uniform variable: {:?}.", n));
+                            let name = &shader.uniform_variable_names[&n];
+                            bail!(format!("Unmatched uniform variable: {:?}.", name));
                         }
                     } else {
-                        bail!(format!("Undefined uniform variable: {:?}.", n));
+                        let name = &shader.uniform_variable_names[&n];
+                        bail!(format!("Undefined uniform variable: {:?}.", name));
                     }
                 }
             } else {
@@ -396,16 +398,19 @@ impl GraphicsSystemShared {
                 return Ok(handle.into());
             }
 
+            let mut uniform_variable_names = HashMap::new();
             let mut uniform_variables = HashMap::new();
-            for (k, v) in &setup.uniform_variables {
-                let k: HashValue<str> = k.into();
+            for (name, v) in &setup.uniform_variables {
+                let k: HashValue<str> = name.into();
                 uniform_variables.insert(k, *v);
+                uniform_variable_names.insert(k, name.clone());
             }
 
             let shader_state = ShaderState {
                 render_state: setup.render_state,
                 layout: setup.layout,
                 uniform_variables: uniform_variables,
+                uniform_variable_names: uniform_variable_names,
             };
 
             let handle = shaders.create(location, shader_state).into();

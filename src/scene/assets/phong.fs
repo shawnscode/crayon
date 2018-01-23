@@ -5,7 +5,6 @@ precision lowp float;
 
 varying vec3 v_EyeFragPos;
 varying vec3 v_EyeNormal;
-varying vec2 v_Texcoord;
 varying vec4 v_Color;
 
 uniform vec3 u_DirLightEyeDir;
@@ -43,11 +42,13 @@ void main()
         vec3 lightDir2 = normalize(v_EyeFragPos - u_PointLightEyePos[i]);
         vec3 reflectDir2 = reflect(-lightDir2, normal);
         float distance = length(u_PointLightEyePos[i] - v_EyeFragPos);
-        float attenuation = 1.0 / (
+        float attenuation =
             u_PointLightAttenuation[i].x +
             u_PointLightAttenuation[i].y * distance +
-            u_PointLightAttenuation[i].z * (distance * distance));
-        result += CalculateLight(normal, viewDir, lightDir2, reflectDir2) * u_PointLightColor[i] * attenuation;
+            u_PointLightAttenuation[i].z * (distance * distance);
+
+        vec3 power = CalculateLight(normal, viewDir, lightDir2, reflectDir2) * u_PointLightColor[i];
+        result += max(power * attenuation, vec3(0.0, 0.0, 0.0));
     }
 
     gl_FragColor = vec4(result, 1.0) * v_Color;

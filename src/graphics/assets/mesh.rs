@@ -66,6 +66,7 @@ impl MeshSetup {
 pub enum MeshIndex {
     SubMesh(usize),
     Ptr(usize, usize),
+    All,
 }
 
 /// Hint abouts the intended update strategy of the data.

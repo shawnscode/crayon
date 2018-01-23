@@ -6,6 +6,7 @@ pub mod shader {
     pub const PBR: &str = "__Core/Scene/Shader/PBR";
     pub const PHONG: &str = "__Core/Scene/Shader/PHONG";
     pub const UNDEFINED: &str = "__Core/Scene/Shader/UNDEFINED";
+    pub const COLOR: &str = "__Core/Scene/Shader/COLOR";
 
     pub fn pbr(video: &GraphicsSystemShared) -> Result<ShaderHandle> {
         let location = Location::shared(0, PBR);
@@ -19,7 +20,12 @@ pub mod shader {
             .with(Attribute::Texcoord0, 2)
             .finish();
 
+        let mut render_state = RenderState::default();
+        render_state.depth_write = true;
+        render_state.depth_test = Comparison::LessOrEqual;
+
         let mut setup = ShaderSetup::default();
+        setup.render_state = render_state;
         setup.layout = attributes;
         setup.vs = include_str!("assets/pbr.vs").to_owned();
         setup.fs = include_str!("assets/pbr.fs").to_owned();
@@ -47,10 +53,15 @@ pub mod shader {
             .with(Attribute::Position, 3)
             .with(Attribute::Normal, 3)
             .with(Attribute::Color0, 4)
-            .with(Attribute::Texcoord0, 2)
             .finish();
 
+        let mut render_state = RenderState::default();
+        render_state.depth_write = true;
+        render_state.depth_test = Comparison::LessOrEqual;
+        render_state.cull_face = CullFace::Back;
+
         let mut setup = ShaderSetup::default();
+        setup.render_state = render_state;
         setup.layout = attributes;
         setup.vs = include_str!("assets/phong.vs").to_owned();
         setup.fs = include_str!("assets/phong.fs").to_owned();
@@ -86,6 +97,39 @@ pub mod shader {
         video.create_shader(location, setup)
     }
 
+    pub fn color(video: &GraphicsSystemShared) -> Result<ShaderHandle> {
+        let location = Location::shared(0, COLOR);
+        if let Some(shader) = video.lookup_shader_from(location) {
+            return Ok(shader);
+        }
+
+        let attributes = AttributeLayout::build()
+            .with(Attribute::Position, 3)
+            .finish();
+
+        let mut render_state = RenderState::default();
+        render_state.depth_write = true;
+        render_state.depth_test = Comparison::LessOrEqual;
+        render_state.cull_face = CullFace::Back;
+
+        let mut setup = ShaderSetup::default();
+        setup.render_state = render_state;
+        setup.layout = attributes;
+        setup.vs = include_str!("assets/color.vs").to_owned();
+        setup.fs = include_str!("assets/color.fs").to_owned();
+
+        let uvs = [
+            ("u_MVPMatrix", UniformVariableType::Matrix4f),
+            ("u_Color", UniformVariableType::Vector4f),
+        ];
+
+        for &(field, tt) in &uvs {
+            setup.uniform_variables.insert(field.into(), tt);
+        }
+
+        video.create_shader(location, setup)
+    }
+
     pub fn undefined(video: &GraphicsSystemShared) -> Result<ShaderHandle> {
         let location = Location::shared(0, UNDEFINED);
         if let Some(shader) = video.lookup_shader_from(location) {
@@ -93,10 +137,16 @@ pub mod shader {
         }
 
         let attributes = AttributeLayout::build()
-            .with(Attribute::Position, 4)
+            .with(Attribute::Position, 3)
             .finish();
 
+        let mut render_state = RenderState::default();
+        render_state.depth_write = true;
+        render_state.depth_test = Comparison::LessOrEqual;
+        render_state.cull_face = CullFace::Back;
+
         let mut setup = ShaderSetup::default();
+        setup.render_state = render_state;
         setup.layout = attributes;
         setup.vs = include_str!("assets/undefined.vs").to_owned();
         setup.fs = include_str!("assets/undefined.fs").to_owned();
@@ -137,14 +187,14 @@ pub mod mesh {
         let texcoords = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
 
         let points = [
-            [-1.0, -1.0, 1.0],
-            [1.0, -1.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [-1.0, 1.0, 1.0],
-            [-1.0, -1.0, -1.0],
-            [1.0, -1.0, -1.0],
-            [1.0, 1.0, -1.0],
-            [-1.0, 1.0, -1.0],
+            [-0.5, -0.5, 0.5],
+            [0.5, -0.5, 0.5],
+            [0.5, 0.5, 0.5],
+            [-0.5, 0.5, 0.5],
+            [-0.5, -0.5, -0.5],
+            [0.5, -0.5, -0.5],
+            [0.5, 0.5, -0.5],
+            [-0.5, 0.5, -0.5],
         ];
 
         let normals = [
@@ -183,49 +233,21 @@ pub mod mesh {
             PrimitiveVertex::new(points[0], color, texcoords[3], normals[5]),
         ];
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let idxes = [
-            0,
-            1,
-            2,
-            2,
-            3,
-            0,
-            4,
-            5,
-            6,
-            6,
-            7,
-            4,
-            8,
-            9,
-            10,
-            10,
-            11,
-            8,
-            12,
-            13,
-            14,
-            14,
-            15,
-            12,
-            16,
-            17,
-            18,
-            18,
-            19,
-            16,
-            20,
-            21,
-            22,
-            22,
-            23,
-            20,
+            0, 1, 2, 2, 3, 0,
+            4, 5, 6, 6, 7, 4,
+            8, 9, 10, 10, 11, 8,
+            12, 13, 14, 14, 15, 12,
+            16, 17, 18, 18, 19, 16,
+            20, 21, 22, 22, 23, 20,
         ];
 
         let mut setup = MeshSetup::default();
         setup.layout = PrimitiveVertex::layout();
         setup.num_verts = verts.len();
         setup.num_idxes = idxes.len();
+        setup.sub_mesh_offsets.push(0);
 
         let vbytes = PrimitiveVertex::as_bytes(&verts);
         let ibytes = IndexFormat::as_bytes::<u16>(&idxes);

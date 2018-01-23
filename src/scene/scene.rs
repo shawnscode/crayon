@@ -7,7 +7,7 @@ use utils::{HandleObjectPool, HashValue};
 
 use scene::{Camera, Light, MeshRenderer, Node, Transform};
 use scene::material::{Material, MaterialHandle};
-use scene::renderer::RenderTask;
+use scene::renderer::{RenderDataCollectTask, RenderTask};
 use scene::errors::*;
 use scene::factory;
 
@@ -112,7 +112,7 @@ impl Scene {
     }
 
     #[inline(always)]
-    pub fn update_material_uniform_variable<T1, T2>(
+    pub fn update_material_uniform<T1, T2>(
         &mut self,
         handle: MaterialHandle,
         field: T1,
@@ -144,13 +144,16 @@ impl Scene {
             if let Some(SceneNode::Camera(v)) = self.world.get::<SceneNode>(camera) {
                 let tree = self.world.arena::<Node>();
                 let arena = self.world.arena::<Transform>();
-                let view = Transform::inverse_world_matrix(&tree, &arena, camera)?;
+                let view = Transform::world_view_matrix(&tree, &arena, camera)?;
                 let projection = v.matrix();
                 (view, projection)
             } else {
                 bail!(ErrorKind::NonCameraFound);
             }
         };
+
+        let mut task = RenderDataCollectTask::new(view);
+        task.run_mut_at(&self.world);
 
         let task = RenderTask {
             video: &self.video,
@@ -159,9 +162,10 @@ impl Scene {
             fallback: &self.fallback,
             view_matrix: view,
             projection_matrix: projection,
+            data: task.data,
         };
-
         task.run_at(&self.world);
+
         Ok(())
     }
 }
@@ -194,5 +198,11 @@ impl Into<SceneNode> for Camera {
 impl Into<SceneNode> for MeshRenderer {
     fn into(self) -> SceneNode {
         SceneNode::Mesh(self)
+    }
+}
+
+impl Into<SceneNode> for () {
+    fn into(self) -> SceneNode {
+        SceneNode::None
     }
 }

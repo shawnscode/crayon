@@ -25,6 +25,7 @@ pub struct ShaderSetup {
 pub struct ShaderState {
     pub render_state: RenderState,
     pub uniform_variables: HashMap<HashValue<str>, UniformVariableType>,
+    pub uniform_variable_names: HashMap<HashValue<str>, String>,
     pub layout: AttributeLayout,
 }
 
@@ -342,9 +343,21 @@ impl Into<UniformVariable> for math::Matrix2<f32> {
     }
 }
 
+impl Into<UniformVariable> for [[f32; 2]; 2] {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Matrix2f(self, false)
+    }
+}
+
 impl Into<UniformVariable> for math::Matrix3<f32> {
     fn into(self) -> UniformVariable {
         UniformVariable::Matrix3f(*self.as_ref(), false)
+    }
+}
+
+impl Into<UniformVariable> for [[f32; 3]; 3] {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Matrix3f(self, false)
     }
 }
 
@@ -354,9 +367,21 @@ impl Into<UniformVariable> for math::Matrix4<f32> {
     }
 }
 
+impl Into<UniformVariable> for [[f32; 4]; 4] {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Matrix4f(self, false)
+    }
+}
+
 impl Into<UniformVariable> for math::Vector2<f32> {
     fn into(self) -> UniformVariable {
         UniformVariable::Vector2f(*self.as_ref())
+    }
+}
+
+impl Into<UniformVariable> for [f32; 2] {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Vector2f(self)
     }
 }
 
@@ -366,8 +391,20 @@ impl Into<UniformVariable> for math::Vector3<f32> {
     }
 }
 
+impl Into<UniformVariable> for [f32; 3] {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Vector3f(self)
+    }
+}
+
 impl Into<UniformVariable> for math::Vector4<f32> {
     fn into(self) -> UniformVariable {
         UniformVariable::Vector4f(*self.as_ref())
+    }
+}
+
+impl Into<UniformVariable> for [f32; 4] {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Vector4f(self)
     }
 }

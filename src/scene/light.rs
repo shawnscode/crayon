@@ -25,3 +25,14 @@ pub enum LightSource {
         smoothness: f32,
     },
 }
+
+impl Default for Light {
+    fn default() -> Self {
+        Light {
+            enable: true,
+            color: Color::white(),
+            intensity: 1.0,
+            source: LightSource::Directional,
+        }
+    }
+}

@@ -27,7 +27,7 @@ pub trait System<'a> {
     fn run(&self, _: View, _: Self::ViewWith) {}
 
     /// Mutably Run the system with the required components.
-    fn run_mut(&self, _: View, _: Self::ViewWith) {}
+    fn run_mut(&mut self, _: View, _: Self::ViewWith) {}
 
     /// View the world with required components.
     fn view(&self, _: View) {}

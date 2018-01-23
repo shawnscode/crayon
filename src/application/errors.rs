@@ -1,5 +1,6 @@
 use graphics;
 use resource;
+use scene;
 
 error_chain!{
     types {
@@ -13,5 +14,6 @@ error_chain!{
     links {
         Graphics(graphics::errors::Error, graphics::errors::ErrorKind);
         Resource(resource::errors::Error, resource::errors::ErrorKind);
+        Scene(scene::errors::Error, scene::errors::ErrorKind);
     }
 }

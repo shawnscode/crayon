@@ -1,40 +1,63 @@
-use ecs;
-use ecs::Arena;
+use ecs::{Arena, Fetch, System, View};
 use math;
 use math::{Matrix, SquareMatrix};
-use graphics;
-use utils::Handle;
-use utils;
+use graphics::{DrawCall, GraphicsSystemShared, MeshHandle, MeshIndex, ShaderHandle, SurfaceHandle};
+use utils::HandleObjectPool;
 
-use scene::{material, node, transform};
+use scene::{LightSource, Node, Transform};
+use scene::material::{Material, MaterialHandle};
 use scene::scene::SceneNode;
 
 #[derive(Debug, Copy, Clone)]
 pub struct MeshRenderer {
-    pub mesh: graphics::MeshHandle,
-    pub index: graphics::MeshIndex,
-    pub material: Handle,
+    pub mesh: MeshHandle,
+    pub index: MeshIndex,
+    pub material: MaterialHandle,
+}
+
+type SceneViewData<'a> = (Fetch<'a, Node>, Fetch<'a, Transform>, Fetch<'a, SceneNode>);
+
+#[derive(Debug, Clone)]
+pub(crate) struct RenderDataDirLight {
+    /// Direction in eye space.
+    pub forward: math::Vector3<f32>,
+    pub dir: math::Vector3<f32>,
+    pub dir_field: String,
+    pub color: math::Vector3<f32>,
+    pub color_field: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RenderDataPointLight {
+    /// Position in eye space.
+    pub position: math::Vector3<f32>,
+    pub position_field: String,
+    pub color: math::Vector3<f32>,
+    pub color_field: String,
+    pub attenuation: math::Vector3<f32>,
+    pub attenuation_field: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RenderData {
+    pub dir: Option<RenderDataDirLight>,
+    pub points: Vec<RenderDataPointLight>,
 }
 
 pub(crate) struct RenderTask<'a> {
-    pub(crate) video: &'a graphics::GraphicsSystemShared,
-    pub(crate) materials: &'a utils::HandleObjectPool<material::Material>,
-    pub(crate) fallback: &'a material::Material,
-    pub(crate) surface: graphics::SurfaceHandle,
-    pub(crate) view_matrix: math::Matrix4<f32>,
-    pub(crate) projection_matrix: math::Matrix4<f32>,
+    pub video: &'a GraphicsSystemShared,
+    pub materials: &'a HandleObjectPool<Material>,
+    pub fallback: &'a Material,
+    pub surface: SurfaceHandle,
+    pub view_matrix: math::Matrix4<f32>,
+    pub projection_matrix: math::Matrix4<f32>,
+    pub data: RenderData,
 }
 
-type RenderData<'a> = (
-    ecs::Fetch<'a, node::Node>,
-    ecs::Fetch<'a, transform::Transform>,
-    ecs::Fetch<'a, SceneNode>,
-);
+impl<'a, 'b> System<'a> for RenderTask<'b> {
+    type ViewWith = SceneViewData<'a>;
 
-impl<'a, 'b> ecs::System<'a> for RenderTask<'b> {
-    type ViewWith = RenderData<'a>;
-
-    fn run(&self, view: ecs::View, data: Self::ViewWith) {
+    fn run(&self, view: View, data: Self::ViewWith) {
         let vp = self.projection_matrix * self.view_matrix;
         unsafe {
             for v in view {
@@ -45,7 +68,7 @@ impl<'a, 'b> ecs::System<'a> for RenderTask<'b> {
                     }
 
                     // Generate packed draw order.
-                    let p = transform::Transform::world_position(&data.0, &data.1, v).unwrap();
+                    let p = Transform::world_position(&data.0, &data.1, v).unwrap();
                     let mut csp = self.view_matrix * math::Vector4::new(p.x, p.y, p.z, 1.0);
                     csp /= csp.w;
 
@@ -56,8 +79,8 @@ impl<'a, 'b> ecs::System<'a> for RenderTask<'b> {
                     };
 
                     // Generate draw call and fill it with build-in uniforms.
-                    let mut dc = graphics::DrawCall::new(mat.shader(), mesh.mesh);
-                    let m = transform::Transform::world_matrix(&data.0, &data.1, v).unwrap();
+                    let mut dc = DrawCall::new(mat.shader(), mesh.mesh);
+                    let m = Transform::world_matrix(&data.0, &data.1, v).unwrap();
                     let mv = self.view_matrix * m;
 
                     for (k, v) in &mat.variables {
@@ -86,6 +109,30 @@ impl<'a, 'b> ecs::System<'a> for RenderTask<'b> {
                         dc.set_uniform_variable("u_NormalMatrix", n);
                     }
 
+                    if let &Some(ref dir) = &self.data.dir {
+                        if mat.has_uniform_variable(&dir.dir_field) {
+                            dc.set_uniform_variable(&dir.dir_field, dir.dir);
+                        }
+
+                        if mat.has_uniform_variable(&dir.color_field) {
+                            dc.set_uniform_variable(&dir.color_field, dir.color);
+                        }
+                    }
+
+                    for v in &self.data.points {
+                        if mat.has_uniform_variable(&v.position_field) {
+                            dc.set_uniform_variable(&v.position_field, v.position);
+                        }
+
+                        if mat.has_uniform_variable(&v.color_field) {
+                            dc.set_uniform_variable(&v.color_field, v.color);
+                        }
+
+                        if mat.has_uniform_variable(&v.attenuation_field) {
+                            dc.set_uniform_variable(&v.attenuation_field, v.attenuation);
+                        }
+                    }
+
                     let sdc = dc.build(mesh.index).unwrap();
 
                     // Submit.
@@ -96,10 +143,80 @@ impl<'a, 'b> ecs::System<'a> for RenderTask<'b> {
     }
 }
 
+pub(crate) struct RenderDataCollectTask {
+    pub data: RenderData,
+    pub view_matrix: math::Matrix4<f32>,
+}
+
+impl RenderDataCollectTask {
+    pub fn new(view: math::Matrix4<f32>) -> Self {
+        RenderDataCollectTask {
+            view_matrix: view,
+            data: RenderData {
+                dir: None,
+                points: Vec::new(),
+            },
+        }
+    }
+}
+
+impl<'a> System<'a> for RenderDataCollectTask {
+    type ViewWith = SceneViewData<'a>;
+
+    fn run_mut(&mut self, view: View, data: Self::ViewWith) {
+        let dir_matrix = math::Matrix3::from_cols(
+            self.view_matrix.x.truncate(),
+            self.view_matrix.y.truncate(),
+            self.view_matrix.z.truncate(),
+        );
+
+        unsafe {
+            for v in view {
+                if let &SceneNode::Light(light) = data.2.get_unchecked(v) {
+                    match light.source {
+                        LightSource::Directional => if self.data.dir.is_none() {
+                            let dir = Transform::forward(&data.0, &data.1, v).unwrap();
+                            let vdir = dir_matrix * dir;
+                            let color: [f32; 4] = light.color.into();
+                            self.data.dir = Some(RenderDataDirLight {
+                                forward: dir,
+                                dir: vdir,
+                                dir_field: "u_DirLightEyeDir".into(),
+                                color: math::Vector4::from(color).truncate(),
+                                color_field: "u_DirLightColor".into(),
+                            });
+                        },
+
+                        LightSource::Point { radius, smoothness } => {
+                            let p = Transform::world_position(&data.0, &data.1, v).unwrap();
+                            let vp = (self.view_matrix * p.extend(1.0)).truncate();
+                            let color: [f32; 4] = light.color.into();
+                            let n = self.data.points.len();
+                            self.data.points.push(RenderDataPointLight {
+                                position: vp,
+                                position_field: format!("u_PointLightEyePos[{0}]", n),
+                                color: math::Vector4::from(color).truncate(),
+                                color_field: format!("u_PointLightColor[{0}]", n),
+                                attenuation: math::Vector3::new(
+                                    1.0,
+                                    -1.0 / (radius + smoothness * radius * radius),
+                                    -smoothness / (radius + smoothness * radius * radius),
+                                ),
+                                attenuation_field: format!("u_PointLightAttenuation[{0}]", n),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
 struct DrawOrder {
     tranlucent: bool,
     zorder: u32,
-    shader: graphics::ShaderHandle,
+    shader: ShaderHandle,
 }
 
 impl Into<u64> for DrawOrder {
