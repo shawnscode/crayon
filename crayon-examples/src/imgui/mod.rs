@@ -1,32 +1,35 @@
 use crayon::prelude::*;
-
-pub(crate) use crayon_imgui::prelude::*;
-pub(crate) use crayon_imgui;
+use crayon_imgui::prelude::*;
 
 use utils;
 
 struct Window {
     canvas: Canvas,
-    renderer: Renderer,
+    surface: SurfaceHandle,
     info: FrameInfo,
 }
 
 impl Window {
     fn new(engine: &mut Engine) -> errors::Result<Self> {
         let ctx = engine.context();
-        let (canvas, renderer) = crayon_imgui::new(&ctx).unwrap();
+        let canvas = Canvas::new(&ctx).unwrap();
+
+        let mut setup = graphics::SurfaceSetup::default();
+        setup.set_clear(Color::white(), None, None);
+        setup.set_sequence(true);
+        let surface = ctx.shared::<GraphicsSystem>().create_surface(setup)?;
 
         Ok(Window {
-               canvas: canvas,
-               renderer: renderer,
-               info: Default::default(),
-           })
+            canvas: canvas,
+            surface: surface,
+            info: Default::default(),
+        })
     }
 }
 
 impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
-        let ui = self.canvas.paint(&ctx);
+        let ui = self.canvas.frame(self.surface, &ctx);
         let info = self.info;
         ui.window(im_str!("ImGui & Crayon"))
             .movable(false)
@@ -36,13 +39,17 @@ impl Application for Window {
             .size((224.0, 65.0), ImGuiCond::FirstUseEver)
             .build(|| {
                 ui.text(im_str!("FPS: {:?}", info.fps));
-                ui.text(im_str!("DrawCalls: {:?}, Triangles: {:?}",
-                                info.video.drawcall,
-                                info.video.triangles));
+                ui.text(im_str!(
+                    "DrawCalls: {:?}, Triangles: {:?}",
+                    info.video.drawcall,
+                    info.video.triangles
+                ));
 
-                ui.text(im_str!("CPU: {:.2?}ms, GPU: {:.2?}ms",
-                                utils::to_ms(info.duration),
-                                utils::to_ms(info.video.duration)));
+                ui.text(im_str!(
+                    "CPU: {:.2?}ms, GPU: {:.2?}ms",
+                    utils::to_ms(info.duration),
+                    utils::to_ms(info.video.duration)
+                ));
             });
 
         let mut open = true;
@@ -52,7 +59,6 @@ impl Application for Window {
             ctx.shutdown();
         }
 
-        self.renderer.render(ui).unwrap();
         Ok(())
     }
 

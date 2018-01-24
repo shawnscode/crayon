@@ -3,7 +3,7 @@
 #[macro_use]
 pub mod handle;
 pub mod handle_pool;
-pub mod object_pool;
+pub mod handle_object_pool;
 pub mod hash;
 pub mod hash_value;
 pub mod variant;
@@ -14,8 +14,8 @@ mod color;
 mod rect;
 
 pub use self::handle::{Handle, HandleIndex};
-pub use self::handle_pool::{HandlePool, HandleIter};
-pub use self::object_pool::ObjectPool;
+pub use self::handle_pool::{HandleIter, HandlePool};
+pub use self::handle_object_pool::HandleObjectPool;
 pub use self::finally::{finally, finally_with};
 pub use self::hash::hash;
 pub use self::hash_value::HashValue;

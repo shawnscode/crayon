@@ -21,7 +21,8 @@ struct ResourceDesc<T> {
 /// A cache that holds a limited size of path-resource pairs. When the capacity of
 /// the cache is exceeded, the least-recently-used resource will be removed.
 pub struct Cache<T>
-    where T: Meansurable
+where
+    T: Meansurable,
 {
     cache: HashMap<HashValue<Path>, ResourceDesc<T>>,
     lru_front: Option<HashValue<Path>>,
@@ -31,7 +32,8 @@ pub struct Cache<T>
 }
 
 impl<T> Cache<T>
-    where T: Meansurable
+where
+    T: Meansurable,
 {
     /// Create a new and empty `Cache`.
     pub fn new(threshold: usize) -> Self {
@@ -54,7 +56,8 @@ impl<T> Cache<T>
     ///
     /// This operation has no effect on LRU strategy.
     pub fn contains<P>(&self, path: P) -> bool
-        where P: Into<HashValue<Path>>
+    where
+        P: Into<HashValue<Path>>,
     {
         self.cache.get(&path.into()).is_some()
     }
@@ -64,7 +67,8 @@ impl<T> Cache<T>
     /// If the cache did have this path present, the resource associated with this
     /// path is replaced with new one.
     pub fn insert<P>(&mut self, path: P, resource: Arc<T>)
-        where P: Into<HashValue<Path>>
+    where
+        P: Into<HashValue<Path>>,
     {
         let hash = path.into();
         let size = resource.size();
@@ -90,7 +94,8 @@ impl<T> Cache<T>
 
     /// Returns a reference to the value corresponding to the `Path`,
     pub fn get<P>(&mut self, path: P) -> Option<&Arc<T>>
-        where P: Into<HashValue<Path>>
+    where
+        P: Into<HashValue<Path>>,
     {
         let hash = path.into();
         if let Some(mut desc) = self.cache.remove(&hash) {

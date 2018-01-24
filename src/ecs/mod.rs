@@ -61,7 +61,7 @@ pub mod world;
 pub mod system;
 
 pub use self::component::{Component, ComponentArena, HashMapArena, VecArena};
-pub use self::world::{World, Arena, ArenaMut, Fetch, FetchMut, View};
+pub use self::world::{Arena, ArenaMut, Fetch, FetchMut, View, World};
 pub use self::system::System;
 
 /// `Entity` type, as seen by the user, its a alias to `Handle` internally.

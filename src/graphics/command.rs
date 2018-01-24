@@ -6,6 +6,7 @@ use utils::{HashValue, Rect};
 /// `Command` will be executed in sequential order.
 pub enum Command<'a> {
     DrawCall(SliceDrawCall<'a>),
+    // ShaderUniformVariableUpdate(),
     VertexBufferUpdate(VertexBufferUpdate<'a>),
     IndexBufferUpdate(IndexBufferUpdate<'a>),
     TextureUpdate(TextureUpdate<'a>),
@@ -83,6 +84,12 @@ pub struct TextureUpdate<'a> {
     pub(crate) data: &'a [u8],
 }
 
+// /// Shader uniform update.
+// pub struct ShaderUniformVariableUpdate {
+//     pub(crate)  variables: [()],
+//     pub()
+// }
+
 /// Scissor update.
 pub struct ScissorUpdate {
     pub(crate) scissor: Scissor,
@@ -108,26 +115,11 @@ impl DrawCall {
         }
     }
 
-    /// Creates a new `DrawCall` from material.
-    pub fn from(mat: &Material, mesh: MeshHandle) -> Self {
-        let mut dc = DrawCall {
-            shader: mat.shader(),
-            uniforms: [(HashValue::zero(), UniformVariable::I32(0)); MAX_UNIFORM_VARIABLES],
-            uniforms_len: 0,
-            mesh: mesh,
-        };
-
-        for &(field, variable) in mat.iter() {
-            dc.set_uniform_variable(field, variable);
-        }
-
-        dc
-    }
-
     /// Bind the named field with `UniformVariable`.
     pub fn set_uniform_variable<F, T>(&mut self, field: F, variable: T)
-        where F: Into<HashValue<str>>,
-              T: Into<UniformVariable>
+    where
+        F: Into<HashValue<str>>,
+        T: Into<UniformVariable>,
     {
         assert!(self.uniforms_len < MAX_UNIFORM_VARIABLES);
 
@@ -145,7 +137,18 @@ impl DrawCall {
         self.uniforms_len += 1;
     }
 
-    pub fn build(&mut self, from: usize, len: usize) -> Result<SliceDrawCall> {
+    pub fn build(&mut self, index: MeshIndex) -> Result<SliceDrawCall> {
+        let task = SliceDrawCall {
+            shader: self.shader,
+            uniforms: &self.uniforms[0..self.uniforms_len],
+            mesh: self.mesh,
+            index: index,
+        };
+
+        Ok(task)
+    }
+
+    pub fn build_from(&mut self, from: usize, len: usize) -> Result<SliceDrawCall> {
         let task = SliceDrawCall {
             shader: self.shader,
             uniforms: &self.uniforms[0..self.uniforms_len],

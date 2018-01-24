@@ -1,5 +1,5 @@
-use std::collections::{HashSet, HashMap};
-use std::time::{Instant, Duration};
+use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 use application::event;
 
@@ -67,11 +67,10 @@ impl Keyboard {
         let last_frame_ts = self.now;
         for (_, v) in &mut self.downs {
             match v {
-                &mut KeyDownState::Start(ts) => {
-                    if (last_frame_ts - ts) > self.setup.repeat_timeout {
-                        *v = KeyDownState::Press(ts);
-                    }
-                }
+                &mut KeyDownState::Start(ts) => if (last_frame_ts - ts) > self.setup.repeat_timeout
+                {
+                    *v = KeyDownState::Press(ts);
+                },
                 &mut KeyDownState::Press(ts) => {
                     if (last_frame_ts - ts) > self.setup.repeat_interval_timeout {
                         *v = KeyDownState::Press(last_frame_ts);

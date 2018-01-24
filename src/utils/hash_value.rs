@@ -5,10 +5,13 @@ use std::hash::{Hash, Hasher};
 use utils::hash;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct HashValue<T>(u64, PhantomData<T>) where T: Hash + ?Sized;
+pub struct HashValue<T>(u64, PhantomData<T>)
+where
+    T: Hash + ?Sized;
 
 impl<T> HashValue<T>
-    where T: Hash + ?Sized
+where
+    T: Hash + ?Sized,
 {
     pub fn zero() -> Self {
         HashValue(0, PhantomData)
@@ -16,27 +19,35 @@ impl<T> HashValue<T>
 }
 
 impl<T> Clone for HashValue<T>
-    where T: Hash + ?Sized
+where
+    T: Hash + ?Sized,
 {
     fn clone(&self) -> Self {
         HashValue(self.0, self.1)
     }
 }
 
-impl<T> Copy for HashValue<T> where T: Hash + ?Sized {}
+impl<T> Copy for HashValue<T>
+where
+    T: Hash + ?Sized,
+{
+}
 
 impl<T> Hash for HashValue<T>
-    where T: Hash + ?Sized
+where
+    T: Hash + ?Sized,
 {
     fn hash<H>(&self, state: &mut H)
-        where H: Hasher
+    where
+        H: Hasher,
     {
         self.0.hash(state);
     }
 }
 
 impl<F> From<F> for HashValue<str>
-    where F: AsRef<str>
+where
+    F: AsRef<str>,
 {
     fn from(v: F) -> Self {
         HashValue(hash(&v.as_ref()), PhantomData)
@@ -44,7 +55,8 @@ impl<F> From<F> for HashValue<str>
 }
 
 impl<T> PartialEq<T> for HashValue<str>
-    where T: AsRef<str>
+where
+    T: AsRef<str>,
 {
     fn eq(&self, rhs: &T) -> bool {
         hash(&rhs.as_ref()) == self.0
@@ -52,7 +64,8 @@ impl<T> PartialEq<T> for HashValue<str>
 }
 
 impl<T> From<T> for HashValue<Path>
-    where T: AsRef<Path>
+where
+    T: AsRef<Path>,
 {
     fn from(v: T) -> Self {
         HashValue(hash(&v.as_ref()), PhantomData)
@@ -60,7 +73,8 @@ impl<T> From<T> for HashValue<Path>
 }
 
 impl<T> PartialEq<T> for HashValue<Path>
-    where T: AsRef<Path>
+where
+    T: AsRef<Path>,
 {
     fn eq(&self, rhs: &T) -> bool {
         hash(&rhs.as_ref()) == self.0
@@ -85,8 +99,10 @@ mod test {
         set.insert(HashValue::from("asdasd"));
         set.insert(HashValue::from("asdasd"));
         assert_eq!(set.len(), 1);
-        assert_eq!(set.get(&("asdasd".into())),
-                   Some(&HashValue::from("asdasd")));
+        assert_eq!(
+            set.get(&("asdasd".into())),
+            Some(&HashValue::from("asdasd"))
+        );
     }
 
     #[test]

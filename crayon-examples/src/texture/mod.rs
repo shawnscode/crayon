@@ -26,10 +26,12 @@ impl Window {
         let video = ctx.shared::<GraphicsSystem>().clone();
         let mut label = graphics::RAIIGuard::new(video);
 
-        let verts: [Vertex; 4] = [Vertex::new([-1.0, -1.0]),
-                                  Vertex::new([1.0, -1.0]),
-                                  Vertex::new([1.0, 1.0]),
-                                  Vertex::new([-1.0, 1.0])];
+        let verts: [Vertex; 4] = [
+            Vertex::new([-1.0, -1.0]),
+            Vertex::new([1.0, -1.0]),
+            Vertex::new([1.0, 1.0]),
+            Vertex::new([-1.0, 1.0]),
+        ];
         let idxes: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
         let attributes = graphics::AttributeLayoutBuilder::new()
@@ -42,10 +44,12 @@ impl Window {
         setup.num_idxes = 6;
         setup.layout = Vertex::layout();
 
-        let mesh = label
-            .create_mesh(setup,
-                         Vertex::as_bytes(&verts[..]),
-                         graphics::IndexFormat::as_bytes(&idxes))?;
+        let mesh = label.create_mesh(
+            Location::unique(""),
+            setup,
+            Vertex::as_bytes(&verts[..]),
+            graphics::IndexFormat::as_bytes(&idxes),
+        )?;
 
         // Create the view state.
         let setup = graphics::SurfaceSetup::default();
@@ -56,8 +60,9 @@ impl Window {
         setup.layout = attributes;
         setup.vs = include_str!("../../assets/texture.vs").to_owned();
         setup.fs = include_str!("../../assets/texture.fs").to_owned();
-        setup.uniform_variables.push("renderedTexture".into());
-        let shader = label.create_shader(setup)?;
+        let tt = graphics::UniformVariableType::Texture;
+        setup.uniform_variables.insert("renderedTexture".into(), tt);
+        let shader = label.create_shader(Location::unique(""), setup)?;
 
         let setup = graphics::TextureSetup::default();
         let location = Location::unique("/std/texture.png");
@@ -66,12 +71,12 @@ impl Window {
             .unwrap();
 
         Ok(Window {
-               surface: surface,
-               shader: shader,
-               mesh: mesh,
-               texture: texture,
-               _label: label,
-           })
+            surface: surface,
+            shader: shader,
+            mesh: mesh,
+            texture: texture,
+            _label: label,
+        })
     }
 }
 
@@ -81,8 +86,8 @@ impl Application for Window {
 
         let mut dc = graphics::DrawCall::new(self.shader, self.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
-        let cmd = dc.build(0, 6)?;
-        video.submit(self.surface, 0, cmd)?;
+        let cmd = dc.build_from(0, 6)?;
+        video.submit(self.surface, 0u64, cmd)?;
 
         Ok(())
     }

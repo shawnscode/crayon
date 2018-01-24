@@ -182,6 +182,7 @@
 //! ```
 
 mod backend;
+#[macro_use]
 pub mod assets;
 
 pub mod errors;
@@ -189,7 +190,6 @@ pub mod graphics;
 pub mod window;
 pub mod guard;
 pub mod command;
-pub mod material;
 
 pub use self::assets::surface::*;
 pub use self::assets::shader::*;
@@ -205,7 +205,6 @@ pub use self::window::{Window, WindowBuilder};
 
 pub use self::guard::RAIIGuard;
 pub use self::command::{Command, DrawCall};
-pub use self::material::Material;
 
 /// Maximum number of attributes in vertex layout.
 pub const MAX_VERTEX_ATTRIBUTES: usize = 12;

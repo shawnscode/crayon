@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use utils::{HandlePool, Handle};
+use utils::{Handle, HandlePool};
 use super::location::LocationAtom;
 
 struct Entry<T: Sized + 'static> {
@@ -21,7 +21,8 @@ impl<T: Sized + 'static> Entry<T> {
 
 /// Compact resource registery.
 pub struct Registery<T>
-    where T: Sized + 'static
+where
+    T: Sized + 'static,
 {
     handles: HandlePool,
     delay_free: Vec<Handle>,
@@ -30,7 +31,8 @@ pub struct Registery<T>
 }
 
 impl<T> Registery<T>
-    where T: Sized
+where
+    T: Sized,
 {
     /// Construct a new, empty `Registery`.
     pub fn new() -> Self {
@@ -54,7 +56,8 @@ impl<T> Registery<T>
 
     /// Add a new entry to the register.
     pub fn create<L>(&mut self, location: L, value: T) -> Handle
-        where L: Into<LocationAtom>
+    where
+        L: Into<LocationAtom>,
     {
         let location = location.into();
         assert!(self.lookup(location).is_none());
@@ -137,7 +140,8 @@ impl<T> Registery<T>
 
     /// Get the handle with `Location`.
     pub fn lookup<L>(&self, location: L) -> Option<Handle>
-        where L: Into<LocationAtom>
+    where
+        L: Into<LocationAtom>,
     {
         let location = location.into();
         if location.is_shared() {

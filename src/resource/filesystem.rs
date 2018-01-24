@@ -1,6 +1,6 @@
 //! The virtual file-system module that allows user to load data asynchronously.
 
-use std::path::{Path, PathBuf, Component, Components};
+use std::path::{Component, Components, Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
@@ -38,8 +38,9 @@ impl FilesystemDriver {
 
     /// Mount a file-system drive with identifier.
     pub fn mount<S, F>(&mut self, ident: S, fs: F) -> Result<()>
-        where S: AsRef<str>,
-              F: Filesystem + 'static
+    where
+        S: AsRef<str>,
+        F: Filesystem + 'static,
     {
         let hash = HashValue::from(ident);
 
@@ -53,7 +54,8 @@ impl FilesystemDriver {
 
     /// Unmount a file-system from this collection.
     pub fn unmount<S>(&mut self, ident: S)
-        where S: AsRef<str>
+    where
+        S: AsRef<str>,
     {
         let hash = HashValue::from(ident);
         self.filesystems.remove(&hash);
@@ -61,23 +63,25 @@ impl FilesystemDriver {
 
     /// Return whether the path points at an existing file.
     pub fn exists<P>(&self, path: P) -> bool
-        where P: AsRef<Path>
+    where
+        P: AsRef<Path>,
     {
         FilesystemDriver::parse(path.as_ref().components())
             .and_then(|(bundle, file)| {
-                          let hash = HashValue::from(bundle);
-                          let found = self.filesystems
-                              .get(&hash)
-                              .map(|fs| fs.exists(file.as_ref()))
-                              .unwrap_or(false);
-                          Some(found)
-                      })
+                let hash = HashValue::from(bundle);
+                let found = self.filesystems
+                    .get(&hash)
+                    .map(|fs| fs.exists(file.as_ref()))
+                    .unwrap_or(false);
+                Some(found)
+            })
             .unwrap_or(false)
     }
 
     /// Read all bytes until EOF in this source.
     pub fn load_into<P>(&self, path: P, buf: &mut Vec<u8>) -> Result<&[u8]>
-        where P: AsRef<Path> + Sync
+    where
+        P: AsRef<Path> + Sync,
     {
         if let Some((bundle, file)) = FilesystemDriver::parse(path.as_ref().components()) {
             let hash = HashValue::from(bundle);
@@ -111,11 +115,14 @@ pub struct DirectoryFS {
 impl DirectoryFS {
     /// Create a new disk filesystem.
     pub fn new<T>(path: T) -> Result<Self>
-        where T: AsRef<Path>
+    where
+        T: AsRef<Path>,
     {
         let meta = fs::metadata(&path)?;
         if meta.is_dir() {
-            Ok(DirectoryFS { wp: path.as_ref().to_owned() })
+            Ok(DirectoryFS {
+                wp: path.as_ref().to_owned(),
+            })
         } else {
             bail!(ErrorKind::NotFound);
         }
@@ -142,11 +149,14 @@ pub struct ZipFS {
 impl ZipFS {
     /// Create a new zip filesystem.
     pub fn new<T>(path: T) -> Result<Self>
-        where T: AsRef<Path>
+    where
+        T: AsRef<Path>,
     {
         let file = fs::File::open(path)?;
         let archive = zip::ZipArchive::new(file)?;
-        Ok(ZipFS { archive: RwLock::new(archive) })
+        Ok(ZipFS {
+            archive: RwLock::new(archive),
+        })
     }
 }
 

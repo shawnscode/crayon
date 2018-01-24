@@ -143,8 +143,8 @@ mod input;
 
 pub use self::keyboard::KeyboardSetup;
 pub use self::mouse::MouseSetup;
-pub use self::touchpad::TouchPadSetup;
-pub use self::input::{InputSystem, InputSystemShared, InputSetup};
+pub use self::touchpad::{GesturePan, GestureTap, TouchPadSetup};
+pub use self::input::{InputSetup, InputSystem, InputSystemShared};
 
 /// Maximum touches that would be tracked at sametime.
 pub const MAX_TOUCHES: usize = 4;

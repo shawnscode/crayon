@@ -7,4 +7,4 @@ pub mod device;
 pub mod visitor;
 pub mod frame;
 
-pub use self::capabilities::{Capabilities, Version, Profile};
+pub use self::capabilities::{Capabilities, Profile, Version};

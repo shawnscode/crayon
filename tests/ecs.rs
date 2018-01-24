@@ -156,11 +156,13 @@ fn random_allocate() {
         for j in 0..100 {
             if j % p == 0 {
                 let e = world.create();
-                world.add::<Position>(e,
-                                      Position {
-                                          x: e.index(),
-                                          y: e.version(),
-                                      });
+                world.add::<Position>(
+                    e,
+                    Position {
+                        x: e.index(),
+                        y: e.version(),
+                    },
+                );
                 if j % r == 0 {
                     world.add_with_default::<Reference>(e);
                 }
@@ -176,11 +178,13 @@ fn random_allocate() {
     }
 
     for i in v {
-        assert_eq!(world.get::<Position>(i).unwrap(),
-                   Position {
-                       x: i.index(),
-                       y: i.version(),
-                   });
+        assert_eq!(
+            world.get::<Position>(i).unwrap(),
+            Position {
+                x: i.index(),
+                y: i.version(),
+            }
+        );
     }
 }
 
@@ -195,11 +199,13 @@ fn iter_with() {
         let e = world.create();
 
         if i % 2 == 0 {
-            world.add::<Position>(e,
-                                  Position {
-                                      x: e.index(),
-                                      y: e.version(),
-                                  });
+            world.add::<Position>(
+                e,
+                Position {
+                    x: e.index(),
+                    y: e.version(),
+                },
+            );
         }
 
         if i % 3 == 0 {

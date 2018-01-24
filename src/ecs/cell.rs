@@ -60,7 +60,11 @@ pub struct RefCell<T> {
     inner: UnsafeCell<T>,
 }
 
-unsafe impl<T> Sync for RefCell<T> where T: Sync {}
+unsafe impl<T> Sync for RefCell<T>
+where
+    T: Sync,
+{
+}
 
 impl<T> RefCell<T> {
     /// Creates a new `RefCell` containing value.
@@ -86,9 +90,9 @@ impl<T> RefCell<T> {
 
             if self.flag.compare_and_swap(val, val + 1, Ordering::AcqRel) == val {
                 return Ref {
-                           flag: &self.flag,
-                           value: unsafe { &*self.inner.get() },
-                       };
+                    flag: &self.flag,
+                    value: unsafe { &*self.inner.get() },
+                };
             }
         }
     }
@@ -106,8 +110,8 @@ impl<T> RefCell<T> {
         assert!(val == 0, "Already borrowed");
 
         return RefMut {
-                   flag: &self.flag,
-                   value: unsafe { &mut *self.inner.get() },
-               };
+            flag: &self.flag,
+            value: unsafe { &mut *self.inner.get() },
+        };
     }
 }

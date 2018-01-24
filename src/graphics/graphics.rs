@@ -3,9 +3,8 @@
 use std::sync::{Arc, RwLock};
 use std::collections::HashMap;
 
-use utils::{Rect, HashValue};
-use resource;
-use resource::{ResourceSystemShared, Registery};
+use utils::{HashValue, Rect};
+use resource::{Location, Registery, ResourceSystemShared};
 
 use super::*;
 use super::errors::*;
@@ -16,6 +15,7 @@ use super::window::Window;
 
 use super::assets::texture_loader::{TextureLoader, TextureParser, TextureState};
 use super::assets::mesh_loader::{MeshLoader, MeshParser, MeshState};
+use super::assets::shader::ShaderState;
 
 /// The centralized management of video sub-system.
 pub struct GraphicsSystem {
@@ -44,14 +44,14 @@ impl GraphicsSystem {
             GraphicsSystemShared::new(resource, frames.clone(), dimensions, dimensions_in_pixels);
 
         Ok(GraphicsSystem {
-               last_dimensions: dimensions,
-               last_hidpi: window.hidpi_factor(),
+            last_dimensions: dimensions,
+            last_hidpi: window.hidpi_factor(),
 
-               window: window,
-               device: device,
-               frames: frames,
-               shared: Arc::new(shared),
-           })
+            window: window,
+            device: device,
+            frames: frames,
+            shared: Arc::new(shared),
+        })
     }
 
     /// Returns the multi-thread friendly parts of `GraphicsSystem`.
@@ -126,14 +126,13 @@ impl GraphicsSystem {
     }
 
     fn clear<T>(v: &mut Registery<T>) -> u32
-        where T: Sized
+    where
+        T: Sized,
     {
         v.clear();
         v.len() as u32
     }
 }
-
-type ShaderState = HashMap<HashValue<str>, usize>;
 
 /// The multi-thread friendly parts of `GraphicsSystem`.
 pub struct GraphicsSystemShared {
@@ -151,11 +150,12 @@ pub struct GraphicsSystemShared {
 
 impl GraphicsSystemShared {
     /// Create a new `GraphicsSystem` with one `Window` context.
-    fn new(resource: Arc<ResourceSystemShared>,
-           frames: Arc<DoubleFrame>,
-           dimensions: (u32, u32),
-           dimensions_in_pixels: (u32, u32))
-           -> Self {
+    fn new(
+        resource: Arc<ResourceSystemShared>,
+        frames: Arc<DoubleFrame>,
+        dimensions: (u32, u32),
+        dimensions_in_pixels: (u32, u32),
+    ) -> Self {
         GraphicsSystemShared {
             resource: resource,
             frames: frames,
@@ -190,13 +190,16 @@ impl GraphicsSystemShared {
     /// Submit a task into named bucket.
     ///
     /// Tasks inside bucket will be executed in sequential order.
-    pub fn submit<'a, T>(&self, s: SurfaceHandle, o: u64, task: T) -> Result<()>
-        where T: Into<Command<'a>>
+    pub fn submit<'a, T1, T2>(&self, s: SurfaceHandle, o: T1, task: T2) -> Result<()>
+    where
+        T1: Into<u64>,
+        T2: Into<Command<'a>>,
     {
         if !self.surfaces.read().unwrap().is_alive(s.into()) {
             bail!("Undefined surface handle.");
         }
 
+        let o = o.into();
         match task.into() {
             Command::DrawCall(dc) => self.submit_drawcall(s, o, dc),
             Command::VertexBufferUpdate(vbu) => self.submit_update_vertex_buffer(s, o, vbu),
@@ -206,35 +209,38 @@ impl GraphicsSystemShared {
         }
     }
 
-    fn submit_drawcall<'a>(&self,
-                           surface: SurfaceHandle,
-                           order: u64,
-                           dc: command::SliceDrawCall<'a>)
-                           -> Result<()> {
+    fn submit_drawcall<'a>(
+        &self,
+        surface: SurfaceHandle,
+        order: u64,
+        dc: command::SliceDrawCall<'a>,
+    ) -> Result<()> {
         if !self.meshes.read().unwrap().is_alive(dc.mesh.into()) {
             bail!("Undefined mesh handle.");
         }
 
         let mut frame = self.frames.front();
-
         let uniforms = {
-            let mut pack = [None; MAX_UNIFORM_VARIABLES];
-            let mut len = 0;
-
+            let mut pack = Vec::new();
             if let Some(shader) = self.shaders.read().unwrap().get(dc.shader.into()) {
                 for &(n, v) in dc.uniforms {
-                    if let Some(location) = shader.get(&n) {
-                        pack[*location] = Some(frame.buf.extend(&v));
-                        len = len.max((*location + 1));
+                    if let Some(&tt) = shader.uniform_variables.get(&n) {
+                        if tt == v.variable_type() {
+                            pack.push((n, frame.buf.extend(&v)));
+                        } else {
+                            let name = &shader.uniform_variable_names[&n];
+                            bail!(format!("Unmatched uniform variable: {:?}.", name));
+                        }
                     } else {
-                        bail!(format!("Undefined uniform variable: {:?}.", n));
+                        let name = &shader.uniform_variable_names[&n];
+                        bail!(format!("Undefined uniform variable: {:?}.", name));
                     }
                 }
             } else {
                 bail!("Undefined shader state handle.");
             }
 
-            frame.buf.extend_from_slice(&pack[0..len])
+            frame.buf.extend_from_slice(&pack)
         };
 
         let dc = FrameDrawCall {
@@ -248,11 +254,12 @@ impl GraphicsSystemShared {
         Ok(())
     }
 
-    fn submit_set_scissor(&self,
-                          surface: SurfaceHandle,
-                          order: u64,
-                          su: command::ScissorUpdate)
-                          -> Result<()> {
+    fn submit_set_scissor(
+        &self,
+        surface: SurfaceHandle,
+        order: u64,
+        su: command::ScissorUpdate,
+    ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
         }
@@ -263,11 +270,12 @@ impl GraphicsSystemShared {
         Ok(())
     }
 
-    fn submit_update_vertex_buffer(&self,
-                                   surface: SurfaceHandle,
-                                   order: u64,
-                                   vbu: command::VertexBufferUpdate)
-                                   -> Result<()> {
+    fn submit_update_vertex_buffer(
+        &self,
+        surface: SurfaceHandle,
+        order: u64,
+        vbu: command::VertexBufferUpdate,
+    ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
         }
@@ -283,11 +291,12 @@ impl GraphicsSystemShared {
         }
     }
 
-    fn submit_update_index_buffer(&self,
-                                  surface: SurfaceHandle,
-                                  order: u64,
-                                  ibu: command::IndexBufferUpdate)
-                                  -> Result<()> {
+    fn submit_update_index_buffer(
+        &self,
+        surface: SurfaceHandle,
+        order: u64,
+        ibu: command::IndexBufferUpdate,
+    ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
         }
@@ -303,11 +312,12 @@ impl GraphicsSystemShared {
         }
     }
 
-    fn submit_update_texture(&self,
-                             surface: SurfaceHandle,
-                             order: u64,
-                             tu: command::TextureUpdate)
-                             -> Result<()> {
+    fn submit_update_texture(
+        &self,
+        surface: SurfaceHandle,
+        order: u64,
+        tu: command::TextureUpdate,
+    ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
         }
@@ -330,7 +340,7 @@ impl GraphicsSystemShared {
 impl GraphicsSystemShared {
     /// Creates an view with `SurfaceSetup`.
     pub fn create_surface(&self, setup: SurfaceSetup) -> Result<SurfaceHandle> {
-        let location = resource::Location::unique("");
+        let location = Location::unique("");
         let handle = self.surfaces.write().unwrap().create(location, ()).into();
 
         {
@@ -344,21 +354,33 @@ impl GraphicsSystemShared {
     /// Delete surface object.
     pub fn delete_surface(&self, handle: SurfaceHandle) {
         if self.surfaces
-               .write()
-               .unwrap()
-               .dec_rc(handle.into(), true)
-               .is_some() {
+            .write()
+            .unwrap()
+            .dec_rc(handle.into(), true)
+            .is_some()
+        {
             let task = PostFrameTask::DeleteSurface(handle);
             self.frames.front().post.push(task);
         }
     }
 
+    /// Lookup shader object from location.
+    pub fn lookup_shader_from(&self, location: Location) -> Option<ShaderHandle> {
+        self.shaders
+            .read()
+            .unwrap()
+            .lookup(location)
+            .map(|v| v.into())
+    }
+
     /// Create a shader with initial shaders and render state. Pipeline encapusulate
     /// all the informations we need to configurate OpenGL before real drawing.
-    pub fn create_shader(&self, setup: ShaderSetup) -> Result<ShaderHandle> {
+    pub fn create_shader(&self, location: Location, setup: ShaderSetup) -> Result<ShaderHandle> {
         if setup.uniform_variables.len() > MAX_UNIFORM_VARIABLES {
-            bail!("Too many uniform variables (>= {:?}).",
-                  MAX_UNIFORM_VARIABLES);
+            bail!(
+                "Too many uniform variables (>= {:?}).",
+                MAX_UNIFORM_VARIABLES
+            );
         }
 
         if setup.vs.len() == 0 {
@@ -369,30 +391,55 @@ impl GraphicsSystemShared {
             bail!("Fragment shader is required to describe a proper render pipeline.");
         }
 
-        let mut shader = ShaderState::new();
-        for (i, v) in setup.uniform_variables.iter().enumerate() {
-            let v: HashValue<str> = v.into();
-            shader.insert(v, i);
-        }
+        let handle = {
+            let mut shaders = self.shaders.write().unwrap();
+            if let Some(handle) = shaders.lookup(location) {
+                shaders.inc_rc(handle);
+                return Ok(handle.into());
+            }
 
-        let loc = resource::Location::unique("");
-        let handle = self.shaders.write().unwrap().create(loc, shader).into();
+            let mut uniform_variable_names = HashMap::new();
+            let mut uniform_variables = HashMap::new();
+            for (name, v) in &setup.uniform_variables {
+                let k: HashValue<str> = name.into();
+                uniform_variables.insert(k, *v);
+                uniform_variable_names.insert(k, name.clone());
+            }
 
-        {
-            let task = PreFrameTask::CreatePipeline(handle, setup);
-            self.frames.front().pre.push(task);
-        }
+            let shader_state = ShaderState {
+                render_state: setup.render_state,
+                layout: setup.layout,
+                uniform_variables: uniform_variables,
+                uniform_variable_names: uniform_variable_names,
+            };
 
+            let handle = shaders.create(location, shader_state).into();
+            handle
+        };
+
+        let task = PreFrameTask::CreatePipeline(handle, setup);
+        self.frames.front().pre.push(task);
         Ok(handle)
+    }
+
+    /// Gets the shader state if exists.
+    pub fn shader_state(&self, handle: ShaderHandle) -> Option<ShaderState> {
+        self.shaders.read().unwrap().get(*handle).map(|v| v.clone())
+    }
+
+    /// Returns true if shader is exists.
+    pub fn is_shader_alive(&self, handle: ShaderHandle) -> bool {
+        self.shaders.read().unwrap().is_alive(handle.into())
     }
 
     /// Delete shader state object.
     pub fn delete_shader(&self, handle: ShaderHandle) {
         if self.shaders
-               .write()
-               .unwrap()
-               .dec_rc(handle.into(), true)
-               .is_some() {
+            .write()
+            .unwrap()
+            .dec_rc(handle.into(), true)
+            .is_some()
+        {
             let task = PostFrameTask::DeletePipeline(handle);
             self.frames.front().post.push(task);
         }
@@ -403,7 +450,7 @@ impl GraphicsSystemShared {
     ///
     /// At least one color attachment has been attached before you can use it.
     pub fn create_framebuffer(&self, setup: FrameBufferSetup) -> Result<FrameBufferHandle> {
-        let location = resource::Location::unique("");
+        let location = Location::unique("");
         let handle = self.framebuffers
             .write()
             .unwrap()
@@ -421,10 +468,11 @@ impl GraphicsSystemShared {
     /// Delete frame buffer object.
     pub fn delete_framebuffer(&self, handle: FrameBufferHandle) {
         if self.framebuffers
-               .write()
-               .unwrap()
-               .dec_rc(handle.into(), true)
-               .is_some() {
+            .write()
+            .unwrap()
+            .dec_rc(handle.into(), true)
+            .is_some()
+        {
             let task = PostFrameTask::DeleteFrameBuffer(handle);
             self.frames.front().post.push(task);
         }
@@ -432,7 +480,7 @@ impl GraphicsSystemShared {
 
     /// Create a render buffer object, which could be attached to framebuffer.
     pub fn create_render_buffer(&self, setup: RenderBufferSetup) -> Result<RenderBufferHandle> {
-        let location = resource::Location::unique("");
+        let location = Location::unique("");
         let handle = self.render_buffers
             .write()
             .unwrap()
@@ -450,10 +498,11 @@ impl GraphicsSystemShared {
     /// Delete frame buffer object.
     pub fn delete_render_buffer(&self, handle: RenderBufferHandle) {
         if self.render_buffers
-               .write()
-               .unwrap()
-               .dec_rc(handle.into(), true)
-               .is_some() {
+            .write()
+            .unwrap()
+            .dec_rc(handle.into(), true)
+            .is_some()
+        {
             let task = PostFrameTask::DeleteRenderBuffer(handle);
             self.frames.front().post.push(task);
         }
@@ -462,7 +511,7 @@ impl GraphicsSystemShared {
 
 impl GraphicsSystemShared {
     /// Lookup mesh object from location.
-    pub fn lookup_mesh_from(&self, location: resource::Location) -> Option<MeshHandle> {
+    pub fn lookup_mesh_from(&self, location: Location) -> Option<MeshHandle> {
         self.meshes
             .read()
             .unwrap()
@@ -471,37 +520,38 @@ impl GraphicsSystemShared {
     }
 
     /// Create a new mesh object from location.
-    pub fn create_mesh_from<T>(&self,
-                               location: resource::Location,
-                               setup: MeshSetup)
-                               -> Result<MeshHandle>
-        where T: MeshParser + Send + Sync + 'static
+    pub fn create_mesh_from<T>(&self, location: Location, setup: MeshSetup) -> Result<MeshHandle>
+    where
+        T: MeshParser + Send + Sync + 'static,
     {
-        if let Some(v) = self.lookup_mesh_from(location) {
-            self.meshes.write().unwrap().inc_rc(v.into());
-            return Ok(v);
-        }
-
-        let state = Arc::new(RwLock::new(MeshState::NotReady));
-        let handle = {
+        let (handle, state) = {
             let mut meshes = self.meshes.write().unwrap();
-            meshes.create(location, state.clone()).into()
+            if let Some(handle) = meshes.lookup(location) {
+                meshes.inc_rc(handle);
+                return Ok(handle.into());
+            }
+
+            let state = Arc::new(RwLock::new(MeshState::NotReady));
+            let handle = meshes.create(location, state.clone()).into();
+            (handle, state)
         };
 
         let loader = MeshLoader::<T>::new(handle, state, setup, self.frames.clone());
         self.resource.load_async(loader, location.uri());
-
         Ok(handle)
     }
 
     /// Create a new mesh object.
-    pub fn create_mesh<'a, 'b, T1, T2>(&self,
-                                       setup: MeshSetup,
-                                       verts: T1,
-                                       idxes: T2)
-                                       -> Result<MeshHandle>
-        where T1: Into<Option<&'a [u8]>>,
-              T2: Into<Option<&'b [u8]>>
+    pub fn create_mesh<'a, 'b, T1, T2>(
+        &self,
+        location: Location,
+        setup: MeshSetup,
+        verts: T1,
+        idxes: T2,
+    ) -> Result<MeshHandle>
+    where
+        T1: Into<Option<&'a [u8]>>,
+        T2: Into<Option<&'b [u8]>>,
     {
         let verts = verts.into();
         let idxes = idxes.into();
@@ -519,19 +569,24 @@ impl GraphicsSystemShared {
         }
 
         setup.validate()?;
+        
+        let handle = {
+            let mut meshes = self.meshes.write().unwrap();
+            if let Some(handle) = meshes.lookup(location) {
+                meshes.inc_rc(handle);
+                return Ok(handle.into());
+            }
 
-        let location = resource::Location::unique("");
-        let state = Arc::new(RwLock::new(MeshState::Ready));
-        let handle = self.meshes.write().unwrap().create(location, state).into();
+            let state = Arc::new(RwLock::new(MeshState::Ready));
+            let handle = meshes.create(location, state).into();
+            handle
+        };
 
-        {
-            let mut frame = self.frames.front();
-            let verts_ptr = verts.map(|v| frame.buf.extend_from_slice(v));
-            let idxes_ptr = idxes.map(|v| frame.buf.extend_from_slice(v));
-            let task = PreFrameTask::CreateMesh(handle, setup, verts_ptr, idxes_ptr);
-            frame.pre.push(task);
-        }
-
+        let mut frame = self.frames.front();
+        let verts_ptr = verts.map(|v| frame.buf.extend_from_slice(v));
+        let idxes_ptr = idxes.map(|v| frame.buf.extend_from_slice(v));
+        let task = PreFrameTask::CreateMesh(handle, setup, verts_ptr, idxes_ptr);
+        frame.pre.push(task);
         Ok(handle)
     }
 
@@ -568,10 +623,11 @@ impl GraphicsSystemShared {
     /// Delete mesh object.
     pub fn delete_mesh(&self, mesh: MeshHandle) {
         if self.meshes
-               .write()
-               .unwrap()
-               .dec_rc(mesh.into(), true)
-               .is_some() {
+            .write()
+            .unwrap()
+            .dec_rc(mesh.into(), true)
+            .is_some()
+        {
             let task = PostFrameTask::DeleteMesh(mesh);
             self.frames.front().post.push(task);
         }
@@ -580,7 +636,7 @@ impl GraphicsSystemShared {
 
 impl GraphicsSystemShared {
     /// Lookup texture object from location.
-    pub fn lookup_texture_from(&self, location: resource::Location) -> Option<TextureHandle> {
+    pub fn lookup_texture_from(&self, location: Location) -> Option<TextureHandle> {
         self.textures
             .read()
             .unwrap()
@@ -589,54 +645,72 @@ impl GraphicsSystemShared {
     }
 
     /// Create texture object from location.
-    pub fn create_texture_from<T>(&self,
-                                  location: resource::Location,
-                                  setup: TextureSetup)
-                                  -> Result<TextureHandle>
-        where T: TextureParser + Send + Sync + 'static
+    pub fn create_texture_from<T>(
+        &self,
+        location: Location,
+        setup: TextureSetup,
+    ) -> Result<TextureHandle>
+    where
+        T: TextureParser + Send + Sync + 'static,
     {
-        if let Some(v) = self.lookup_texture_from(location) {
-            self.textures.write().unwrap().inc_rc(v.into());
-            return Ok(v);
-        }
-
-        let state = Arc::new(RwLock::new(TextureState::NotReady));
-        let handle = {
+        let (handle, state) = {
             let mut textures = self.textures.write().unwrap();
-            textures.create(location, state.clone()).into()
-        };
+            if let Some(handle) = textures.lookup(location) {
+                textures.inc_rc(handle);
+                return Ok(handle.into());
+            }
 
+            let state = Arc::new(RwLock::new(TextureState::NotReady));
+            let handle = textures.create(location, state.clone()).into();
+            (handle, state)
+        };
+    
         let loader = TextureLoader::<T>::new(handle, state, setup, self.frames.clone());
         self.resource.load_async(loader, location.uri());
-
         Ok(handle)
     }
 
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
-    pub fn create_texture<'a, T>(&self, setup: TextureSetup, data: T) -> Result<TextureHandle>
-        where T: Into<Option<&'a [u8]>>
+    pub fn create_texture<'a, T>(
+        &self,
+        location: Location,
+        setup: TextureSetup,
+        data: T,
+    ) -> Result<TextureHandle>
+    where
+        T: Into<Option<&'a [u8]>>,
     {
-        let data = data.into();
-        let loc = resource::Location::unique("");
-        let state = Arc::new(RwLock::new(TextureState::Ready));
-        let handle = self.textures.write().unwrap().create(loc, state).into();
+        let handle = {
+            let mut textures = self.textures.write().unwrap();
+            if let Some(handle) = textures.lookup(location) {
+                textures.inc_rc(handle);
+                return Ok(handle.into());
+            }
 
-        {
-            let mut frame = self.frames.front();
-            let ptr = data.map(|v| frame.buf.extend_from_slice(v));
-            let task = PreFrameTask::CreateTexture(handle, setup, ptr);
-            frame.pre.push(task);
-        }
-
+            let state = Arc::new(RwLock::new(TextureState::Ready));
+            textures.create(location, state).into()
+        };
+    
+        let mut frame = self.frames.front();
+        let ptr = data.into().map(|v| frame.buf.extend_from_slice(v));
+        let task = PreFrameTask::CreateTexture(handle, setup, ptr);
+        frame.pre.push(task);
         Ok(handle)
     }
 
     /// Create render texture object, which could be attached with a framebuffer.
-    pub fn create_render_texture(&self, setup: RenderTextureSetup) -> Result<TextureHandle> {
-        let loc = resource::Location::unique("");
+    pub fn create_render_texture(
+        &self,
+        setup: RenderTextureSetup,
+    ) -> Result<TextureHandle> {
+        let location = Location::unique("");
         let state = Arc::new(RwLock::new(TextureState::Ready));
-        let handle = self.textures.write().unwrap().create(loc, state).into();
+        let handle = self.textures
+            .write()
+            .unwrap()
+            .create(location, state)
+            .into();
 
         {
             let task = PreFrameTask::CreateRenderTexture(handle, setup);
@@ -668,10 +742,11 @@ impl GraphicsSystemShared {
     /// Delete the texture object.
     pub fn delete_texture(&self, handle: TextureHandle) {
         if self.textures
-               .write()
-               .unwrap()
-               .dec_rc(handle.into(), true)
-               .is_some() {
+            .write()
+            .unwrap()
+            .dec_rc(handle.into(), true)
+            .is_some()
+        {
             let task = PostFrameTask::DeleteTexture(handle);
             self.frames.front().post.push(task);
         }

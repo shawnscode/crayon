@@ -1,4 +1,5 @@
-use crayon::{graphics, resource};
+use graphics;
+use resource;
 
 error_chain!{
     types {
@@ -8,5 +9,15 @@ error_chain!{
     links {
         Graphics(graphics::errors::Error, graphics::errors::ErrorKind);
         Resource(resource::errors::Error, resource::errors::ErrorKind);
+    }
+
+    errors {
+        NonTransformFound
+        CanNotInverseTransform
+        CanNotAttachSelfAsParent
+        NonCameraFound
+        UniformUndefined
+        UniformTypeInvalid
+        HandleInvalid
     }
 }

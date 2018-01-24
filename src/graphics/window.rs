@@ -86,9 +86,12 @@ impl Window {
     #[inline]
     pub fn dimensions_in_pixels(&self) -> Option<(u32, u32)> {
         let hdpi_factor = self.window.hidpi_factor();
-        self.window
-            .get_inner_size()
-            .map(|v| ((v.0 as f32 * hdpi_factor) as u32, (v.1 as f32 * hdpi_factor) as u32))
+        self.window.get_inner_size().map(|v| {
+            (
+                (v.0 as f32 * hdpi_factor) as u32,
+                (v.1 as f32 * hdpi_factor) as u32,
+            )
+        })
     }
 
     /// Returns the ratio between the backing framebuffer resolution and the window size in
@@ -205,9 +208,9 @@ impl WindowBuilder {
         println!("{:#?}", capabilities);
         check_minimal_requirements(&capabilities)?;
         Ok(Window {
-               window: Arc::new(window),
-               capabilities: capabilities,
-           })
+            window: Arc::new(window),
+            capabilities: capabilities,
+        })
     }
 
     /// Requests a specific title for the window.
@@ -269,37 +272,44 @@ impl Default for WindowBuilder {
 }
 
 fn check_minimal_requirements(caps: &Capabilities) -> Result<()> {
-    if caps.version < Version::GL(1, 5) && caps.version < Version::ES(2, 0) &&
-       (!caps.extensions.gl_arb_vertex_buffer_object || !caps.extensions.gl_arb_map_buffer_range) {
+    if caps.version < Version::GL(1, 5) && caps.version < Version::ES(2, 0)
+        && (!caps.extensions.gl_arb_vertex_buffer_object
+            || !caps.extensions.gl_arb_map_buffer_range)
+    {
         bail!("OpenGL implementation doesn't support vertex buffer objects.");
     }
 
-    if caps.version < Version::GL(2, 0) && caps.version < Version::ES(2, 0) &&
-       (!caps.extensions.gl_arb_shader_objects || !caps.extensions.gl_arb_vertex_shader ||
-        !caps.extensions.gl_arb_fragment_shader) {
+    if caps.version < Version::GL(2, 0) && caps.version < Version::ES(2, 0)
+        && (!caps.extensions.gl_arb_shader_objects || !caps.extensions.gl_arb_vertex_shader
+            || !caps.extensions.gl_arb_fragment_shader)
+    {
         bail!("OpenGL implementation doesn't support vertex/fragment shaders.");
     }
 
-    if caps.version < Version::GL(3, 0) && caps.version < Version::ES(2, 0) &&
-       !caps.extensions.gl_ext_framebuffer_object &&
-       !caps.extensions.gl_arb_framebuffer_object {
+    if caps.version < Version::GL(3, 0) && caps.version < Version::ES(2, 0)
+        && !caps.extensions.gl_ext_framebuffer_object
+        && !caps.extensions.gl_arb_framebuffer_object
+    {
         bail!("OpenGL implementation doesn't support framebuffers.");
     }
 
-    if caps.version < Version::ES(2, 0) && caps.version < Version::GL(3, 0) &&
-       !caps.extensions.gl_ext_framebuffer_blit {
+    if caps.version < Version::ES(2, 0) && caps.version < Version::GL(3, 0)
+        && !caps.extensions.gl_ext_framebuffer_blit
+    {
         bail!("OpenGL implementation doesn't support blitting framebuffers.");
     }
 
-    if caps.version < Version::GL(3, 1) && caps.version < Version::ES(3, 0) &&
-       !caps.extensions.gl_arb_uniform_buffer_object {
+    if caps.version < Version::GL(3, 1) && caps.version < Version::ES(3, 0)
+        && !caps.extensions.gl_arb_uniform_buffer_object
+    {
         bail!("OpenGL implementation doesn't support uniform buffer object.");
     }
 
-    if caps.version < Version::GL(3, 0) && caps.version < Version::ES(3, 0) &&
-       !caps.extensions.gl_arb_vertex_array_object &&
-       !caps.extensions.gl_apple_vertex_array_object &&
-       !caps.extensions.gl_oes_vertex_array_object {
+    if caps.version < Version::GL(3, 0) && caps.version < Version::ES(3, 0)
+        && !caps.extensions.gl_arb_vertex_array_object
+        && !caps.extensions.gl_apple_vertex_array_object
+        && !caps.extensions.gl_oes_vertex_array_object
+    {
         bail!("OpenGL implementation doesn't support vertex array object.");
     }
 

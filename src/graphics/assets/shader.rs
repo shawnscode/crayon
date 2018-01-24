@@ -1,7 +1,11 @@
 //! Pipeline state object that containing immutable render state and vertex-layout.
 
+use std::collections::HashMap;
+
 use math;
-use graphics::{MAX_VERTEX_ATTRIBUTES, TextureHandle};
+use graphics::{TextureHandle, MAX_VERTEX_ATTRIBUTES};
+use utils::HashValue;
+
 use super::mesh::VertexLayout;
 
 impl_handle!(ShaderHandle);
@@ -11,9 +15,17 @@ impl_handle!(ShaderHandle);
 #[derive(Debug, Clone, Default)]
 pub struct ShaderSetup {
     pub render_state: RenderState,
+    pub uniform_variables: HashMap<String, UniformVariableType>,
+    pub layout: AttributeLayout,
     pub vs: String,
     pub fs: String,
-    pub uniform_variables: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ShaderState {
+    pub render_state: RenderState,
+    pub uniform_variables: HashMap<HashValue<str>, UniformVariableType>,
+    pub uniform_variable_names: HashMap<HashValue<str>, String>,
     pub layout: AttributeLayout,
 }
 
@@ -56,18 +68,21 @@ impl Into<&'static str> for Attribute {
 
 impl Attribute {
     pub fn from_str(v: &str) -> Option<Attribute> {
-        let attributes = [Attribute::Position,
-                          Attribute::Normal,
-                          Attribute::Tangent,
-                          Attribute::Bitangent,
-                          Attribute::Color0,
-                          Attribute::Color1,
-                          Attribute::Indices,
-                          Attribute::Weight,
-                          Attribute::Texcoord0,
-                          Attribute::Texcoord1,
-                          Attribute::Texcoord2,
-                          Attribute::Texcoord3];
+        let attributes = [
+            Attribute::Position,
+            Attribute::Normal,
+            Attribute::Tangent,
+            Attribute::Bitangent,
+            Attribute::Color0,
+            Attribute::Color1,
+            Attribute::Indices,
+            Attribute::Weight,
+            Attribute::Texcoord0,
+            Attribute::Texcoord1,
+            Attribute::Texcoord2,
+            Attribute::Texcoord3,
+        ];
+
         for at in &attributes {
             let w: &'static str = (*at).into();
             if v == w {
@@ -251,10 +266,10 @@ impl Default for RenderState {
             cull_face: CullFace::Nothing,
             front_face_order: FrontFaceOrder::CounterClockwise,
             depth_test: Comparison::Always, // no depth test,
-            depth_write: false, // no depth write,
+            depth_write: false,             // no depth write,
             depth_write_offset: None,
             color_blend: None,
-            color_write: (false, false, false, false),
+            color_write: (true, true, true, true),
         }
     }
 }
@@ -328,9 +343,21 @@ impl Into<UniformVariable> for math::Matrix2<f32> {
     }
 }
 
+impl Into<UniformVariable> for [[f32; 2]; 2] {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Matrix2f(self, false)
+    }
+}
+
 impl Into<UniformVariable> for math::Matrix3<f32> {
     fn into(self) -> UniformVariable {
         UniformVariable::Matrix3f(*self.as_ref(), false)
+    }
+}
+
+impl Into<UniformVariable> for [[f32; 3]; 3] {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Matrix3f(self, false)
     }
 }
 
@@ -340,9 +367,21 @@ impl Into<UniformVariable> for math::Matrix4<f32> {
     }
 }
 
+impl Into<UniformVariable> for [[f32; 4]; 4] {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Matrix4f(self, false)
+    }
+}
+
 impl Into<UniformVariable> for math::Vector2<f32> {
     fn into(self) -> UniformVariable {
         UniformVariable::Vector2f(*self.as_ref())
+    }
+}
+
+impl Into<UniformVariable> for [f32; 2] {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Vector2f(self)
     }
 }
 
@@ -352,8 +391,20 @@ impl Into<UniformVariable> for math::Vector3<f32> {
     }
 }
 
+impl Into<UniformVariable> for [f32; 3] {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Vector3f(self)
+    }
+}
+
 impl Into<UniformVariable> for math::Vector4<f32> {
     fn into(self) -> UniformVariable {
         UniformVariable::Vector4f(*self.as_ref())
+    }
+}
+
+impl Into<UniformVariable> for [f32; 4] {
+    fn into(self) -> UniformVariable {
+        UniformVariable::Vector4f(self)
     }
 }

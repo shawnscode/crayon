@@ -1,5 +1,6 @@
 pub fn finally_with<A, F>(arg: A, func: F) -> FinallyGuardWith<A, F>
-    where F: FnMut(&mut A)
+where
+    F: FnMut(&mut A),
 {
     FinallyGuardWith {
         arg: arg,
@@ -8,20 +9,23 @@ pub fn finally_with<A, F>(arg: A, func: F) -> FinallyGuardWith<A, F>
 }
 
 pub fn finally<F>(func: F) -> FinallyGuard<F>
-    where F: FnMut()
+where
+    F: FnMut(),
 {
     FinallyGuard { func: func }
 }
 
 pub struct FinallyGuardWith<A, F>
-    where F: FnMut(&mut A)
+where
+    F: FnMut(&mut A),
 {
     arg: A,
     func: F,
 }
 
 impl<A, F> FinallyGuardWith<A, F>
-    where F: FnMut(&mut A)
+where
+    F: FnMut(&mut A),
 {
     pub fn forget(self) {
         ::std::mem::forget(self);
@@ -29,7 +33,8 @@ impl<A, F> FinallyGuardWith<A, F>
 }
 
 impl<A, F> Drop for FinallyGuardWith<A, F>
-    where F: FnMut(&mut A)
+where
+    F: FnMut(&mut A),
 {
     fn drop(&mut self) {
         (self.func)(&mut self.arg)
@@ -37,13 +42,15 @@ impl<A, F> Drop for FinallyGuardWith<A, F>
 }
 
 pub struct FinallyGuard<F>
-    where F: FnMut()
+where
+    F: FnMut(),
 {
     func: F,
 }
 
 impl<F> FinallyGuard<F>
-    where F: FnMut()
+where
+    F: FnMut(),
 {
     pub fn forget(self) {
         ::std::mem::forget(self);
@@ -51,7 +58,8 @@ impl<F> FinallyGuard<F>
 }
 
 impl<F> Drop for FinallyGuard<F>
-    where F: FnMut()
+where
+    F: FnMut(),
 {
     fn drop(&mut self) {
         (self.func)()

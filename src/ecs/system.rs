@@ -1,6 +1,6 @@
 //! Execution utilities based on `View` and `Arena`s.
 
-use super::{World, View, Fetch, FetchMut, Component};
+use super::{Component, Fetch, FetchMut, View, World};
 use super::bitset::BitSet;
 
 /// A system that handles `Entities` with specified view.
@@ -27,7 +27,7 @@ pub trait System<'a> {
     fn run(&self, _: View, _: Self::ViewWith) {}
 
     /// Mutably Run the system with the required components.
-    fn run_mut(&self, _: View, _: Self::ViewWith) {}
+    fn run_mut(&mut self, _: View, _: Self::ViewWith) {}
 
     /// View the world with required components.
     fn view(&self, _: View) {}
@@ -71,7 +71,8 @@ pub trait SystemValidator {
 }
 
 impl<'a, T> SystemValidator for T
-    where T: System<'a>
+where
+    T: System<'a>,
 {
     fn readables(&self, world: &World) -> BitSet {
         T::ViewWith::readables(world)
@@ -126,7 +127,8 @@ impl<'a> SystemData<'a> for () {
 }
 
 impl<'a, T> SystemData<'a> for Fetch<'a, T>
-    where T: Component
+where
+    T: Component,
 {
     fn fetch(world: &'a World) -> Self {
         world.arena::<T>()
@@ -144,7 +146,8 @@ impl<'a, T> SystemData<'a> for Fetch<'a, T>
 }
 
 impl<'a, T> SystemData<'a> for FetchMut<'a, T>
-    where T: Component
+where
+    T: Component,
 {
     fn fetch(world: &'a World) -> Self {
         world.arena_mut::<T>()

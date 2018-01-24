@@ -17,7 +17,8 @@ enum _VariantStr {
 pub struct VariantStr(_VariantStr);
 
 impl<T> From<T> for VariantStr
-    where T: Borrow<str>
+where
+    T: Borrow<str>,
 {
     fn from(v: T) -> Self {
         let v = v.borrow();

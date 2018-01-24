@@ -3,7 +3,7 @@
 
 use utils::Color;
 use graphics::MAX_FRAMEBUFFER_ATTACHMENTS;
-use graphics::assets::texture::{TextureHandle, RenderBufferHandle};
+use graphics::assets::texture::{RenderBufferHandle, TextureHandle};
 use graphics::errors::*;
 
 /// SurfaceObject wraps rendering operations to a render-target. Likes clearing, MSAA
@@ -46,7 +46,8 @@ impl SurfaceSetup {
     /// default framebuffer will be used as render target.
     #[inline(always)]
     pub fn set_framebuffer<T>(&mut self, framebuffer: T)
-        where T: Into<Option<FrameBufferHandle>>
+    where
+        T: Into<Option<FrameBufferHandle>>,
     {
         self.framebuffer = framebuffer.into();
     }
@@ -62,9 +63,10 @@ impl SurfaceSetup {
     /// Sets the clear flags for this surface.A
     #[inline(always)]
     pub fn set_clear<C, D, S>(&mut self, color: C, depth: D, stentil: S)
-        where C: Into<Option<Color>>,
-              D: Into<Option<f32>>,
-              S: Into<Option<i32>>
+    where
+        C: Into<Option<Color>>,
+        D: Into<Option<f32>>,
+        S: Into<Option<i32>>,
     {
         self.clear_color = color.into();
         self.clear_depth = depth.into();
@@ -128,8 +130,9 @@ impl FrameBufferSetup {
     /// `FrameBufferObject`.
     #[inline(always)]
     pub fn set_attachment<T, S>(&mut self, handle: T, slot: S) -> Result<()>
-        where T: Into<FrameBufferAttachment>,
-              S: Into<Option<usize>>
+    where
+        T: Into<FrameBufferAttachment>,
+        S: Into<Option<usize>>,
     {
         let slot = slot.into().unwrap_or(0);
         if slot >= MAX_FRAMEBUFFER_ATTACHMENTS {

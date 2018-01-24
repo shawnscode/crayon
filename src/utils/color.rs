@@ -16,28 +16,34 @@ impl Into<u32> for Color {
 
 impl From<u32> for Color {
     fn from(encoded: u32) -> Self {
-        Color(((encoded >> 24) & 0xFF) as f32 / 255.0,
-              ((encoded >> 16) & 0xFF) as f32 / 255.0,
-              ((encoded >> 8) & 0xFF) as f32 / 255.0,
-              ((encoded >> 0) & 0xFF) as f32 / 255.0)
+        Color(
+            ((encoded >> 24) & 0xFF) as f32 / 255.0,
+            ((encoded >> 16) & 0xFF) as f32 / 255.0,
+            ((encoded >> 8) & 0xFF) as f32 / 255.0,
+            ((encoded >> 0) & 0xFF) as f32 / 255.0,
+        )
     }
 }
 
 impl Into<[u8; 4]> for Color {
     fn into(self) -> [u8; 4] {
-        [(self.0 / 1.0 * 255.0) as u8,
-         (self.1 / 1.0 * 255.0) as u8,
-         (self.2 / 1.0 * 255.0) as u8,
-         (self.3 / 1.0 * 255.0) as u8]
+        [
+            (self.0 / 1.0 * 255.0) as u8,
+            (self.1 / 1.0 * 255.0) as u8,
+            (self.2 / 1.0 * 255.0) as u8,
+            (self.3 / 1.0 * 255.0) as u8,
+        ]
     }
 }
 
 impl From<[u8; 4]> for Color {
     fn from(v: [u8; 4]) -> Self {
-        Color(v[0] as f32 / 255.0,
-              v[1] as f32 / 255.0,
-              v[2] as f32 / 255.0,
-              v[3] as f32 / 255.0)
+        Color(
+            v[0] as f32 / 255.0,
+            v[1] as f32 / 255.0,
+            v[2] as f32 / 255.0,
+            v[3] as f32 / 255.0,
+        )
     }
 }
 
@@ -50,18 +56,22 @@ impl Into<[f32; 4]> for Color {
 impl Color {
     /// Creates `Color` from a u32 encoded `ARGB`.
     pub fn from_argb_u32(encoded: u32) -> Self {
-        Color(((encoded >> 16) & 0xFF) as f32 / 255.0,
-              ((encoded >> 8) & 0xFF) as f32 / 255.0,
-              ((encoded >> 0) & 0xFF) as f32 / 255.0,
-              ((encoded >> 24) & 0xFF) as f32 / 255.0)
+        Color(
+            ((encoded >> 16) & 0xFF) as f32 / 255.0,
+            ((encoded >> 8) & 0xFF) as f32 / 255.0,
+            ((encoded >> 0) & 0xFF) as f32 / 255.0,
+            ((encoded >> 24) & 0xFF) as f32 / 255.0,
+        )
     }
 
     /// Creates `Color` from a u32 encoded `ABGR`.
     pub fn from_abgr_u32(encoded: u32) -> Self {
-        Color(((encoded >> 0) & 0xFF) as f32 / 255.0,
-              ((encoded >> 8) & 0xFF) as f32 / 255.0,
-              ((encoded >> 16) & 0xFF) as f32 / 255.0,
-              ((encoded >> 24) & 0xFF) as f32 / 255.0)
+        Color(
+            ((encoded >> 0) & 0xFF) as f32 / 255.0,
+            ((encoded >> 8) & 0xFF) as f32 / 255.0,
+            ((encoded >> 16) & 0xFF) as f32 / 255.0,
+            ((encoded >> 24) & 0xFF) as f32 / 255.0,
+        )
     }
 
     /// Returns the `grayscale` representation of RGB values.

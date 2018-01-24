@@ -1,7 +1,7 @@
 //! Timing and stepping system.
 
 use std;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 
@@ -26,15 +26,15 @@ impl TimeSystem {
     pub fn new(setup: EngineSettings) -> Result<Self> {
         let shared = TimeSystemShared::new(setup);
         Ok(TimeSystem {
-               min_fps: setup.min_fps,
-               max_fps: setup.max_fps,
-               max_inactive_fps: setup.max_inactive_fps,
-               smoothing_step: setup.time_smooth_step as usize,
-               previous_timesteps: VecDeque::new(),
-               timestep: Duration::new(0, 0),
-               last_frame_timepoint: Instant::now(),
-               shared: Arc::new(shared),
-           })
+            min_fps: setup.min_fps,
+            max_fps: setup.max_fps,
+            max_inactive_fps: setup.max_inactive_fps,
+            smoothing_step: setup.time_smooth_step as usize,
+            previous_timesteps: VecDeque::new(),
+            timestep: Duration::new(0, 0),
+            last_frame_timepoint: Instant::now(),
+            shared: Arc::new(shared),
+        })
     }
 
     /// Gets the multi-thread friendly parts of `TimeSystem`.
