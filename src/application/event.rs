@@ -145,6 +145,7 @@ fn from_window_event(source: glutin::WindowEvent) -> Option<Event> {
         glutin::WindowEvent::CursorMoved {
             device_id: _,
             position,
+            modifiers:_,
         } => Some(Event::InputDevice(InputDeviceEvent::MouseMoved {
             position: (position.0 as f32, position.1 as f32),
         })),
@@ -153,6 +154,7 @@ fn from_window_event(source: glutin::WindowEvent) -> Option<Event> {
             device_id: _,
             delta,
             phase: _,
+            modifiers: _,
         } => match delta {
             glutin::MouseScrollDelta::LineDelta(x, y) => {
                 Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
@@ -170,6 +172,7 @@ fn from_window_event(source: glutin::WindowEvent) -> Option<Event> {
             device_id: _,
             state: glutin::ElementState::Pressed,
             button,
+            modifiers: _,
         } => Some(Event::InputDevice(
             InputDeviceEvent::MousePressed { button },
         )),
@@ -178,6 +181,7 @@ fn from_window_event(source: glutin::WindowEvent) -> Option<Event> {
             device_id: _,
             state: glutin::ElementState::Released,
             button,
+            modifiers: _,
         } => Some(Event::InputDevice(
             InputDeviceEvent::MouseReleased { button },
         )),

@@ -1,6 +1,6 @@
 [package]
 name = "crayon"
-version = "0.1.0"
+version = "0.2.0"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 
 description = "An experimental entity-component-based multithread game engine."
@@ -19,16 +19,16 @@ travis-ci = { repository = "shawnscode/crayon", branch = "master" }
 members = [ "crayon-examples", "modules/imgui" ]
 
 [dependencies]
-libc = "0.2.34"
-gl = "0.7.0"
-glutin = "0.11.0"
-cgmath = "0.15.0"
+libc = "0.2.36"
+gl = "0.9.0"
+glutin = "0.12.0"
+cgmath = "0.16.0"
 error-chain = "0.11.0"
 
 two-lock-queue = "0.1.1"
-zip = "0.2.6"
+zip = "0.3.0"
 
 [dev-dependencies]
-rand = "0.3.18"
+rand = "0.4.2"
 rayon = "0.9.0"
 approx = "0.1.1"

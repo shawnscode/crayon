@@ -1,6 +1,6 @@
 [package]
 name = "crayon-imgui"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Jingkai Mao <oammix@gmail.com>"]
 description = "Crayon's ImGui."
 repository = "https://github.com/shawnscode/crayon"
@@ -9,5 +9,5 @@ keywords = ["crayon", "game-dev", "ui", "gui"]
 categories = ["multimedia", "gui"]
 
 [dependencies]
-crayon = { path = "../../", version = "0.1.0" }
+crayon = { path = "../../", version = "0.2.0" }
 imgui = "0.0.18"
