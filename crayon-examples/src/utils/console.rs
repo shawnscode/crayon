@@ -1,34 +1,47 @@
-use crayon::prelude::*;
-use crayon_imgui::prelude::*;
+use std::sync::Arc;
 
+use crayon::prelude::*;
+use crayon_imgui;
+use crayon_imgui::prelude::*;
 use utils;
 
-struct Window {
+pub struct ConsoleCanvas {
     canvas: Canvas,
-    surface: SurfaceHandle,
     info: FrameInfo,
+    surface: SurfaceHandle,
+    video: Arc<GraphicsSystemShared>,
 }
 
-impl Window {
-    fn new(engine: &mut Engine) -> errors::Result<Self> {
-        let ctx = engine.context();
-        let canvas = Canvas::new(&ctx).unwrap();
-
-        let mut setup = graphics::SurfaceSetup::default();
-        setup.set_clear(Color::white(), None, None);
-        setup.set_sequence(true);
-        let surface = ctx.shared::<GraphicsSystem>().create_surface(setup)?;
-
-        Ok(Window {
-            canvas: canvas,
-            surface: surface,
-            info: Default::default(),
-        })
+impl Drop for ConsoleCanvas {
+    fn drop(&mut self) {
+        self.video.delete_surface(self.surface);
     }
 }
 
-impl Application for Window {
-    fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
+impl ConsoleCanvas {
+    pub fn new(order: u64, ctx: &Context) -> errors::Result<Self> {
+        let video = ctx.shared::<GraphicsSystem>().clone();
+        let canvas = Canvas::new(&ctx).unwrap();
+
+        let mut setup = graphics::SurfaceSetup::default();
+        setup.set_clear(None, None, None);
+        setup.set_sequence(true);
+        setup.set_order(order);
+        let surface = video.create_surface(setup)?;
+
+        Ok(ConsoleCanvas {
+            surface: surface,
+            canvas: canvas,
+            info: Default::default(),
+            video: video,
+        })
+    }
+
+    pub fn update(&mut self, info: &FrameInfo) {
+        self.info = *info;
+    }
+
+    pub fn render<'a>(&'a mut self, ctx: &Context) -> crayon_imgui::canvas::FrameGuard<'a> {
         let ui = self.canvas.frame(self.surface, &ctx);
         let info = self.info;
         ui.window(im_str!("ImGui & Crayon"))
@@ -36,7 +49,7 @@ impl Application for Window {
             .resizable(false)
             .title_bar(false)
             .position((0.0, 0.0), ImGuiCond::FirstUseEver)
-            .size((224.0, 65.0), ImGuiCond::FirstUseEver)
+            .size((250.0, 65.0), ImGuiCond::FirstUseEver)
             .build(|| {
                 ui.text(im_str!("FPS: {:?}", info.fps));
                 ui.text(im_str!(
@@ -52,29 +65,6 @@ impl Application for Window {
                 ));
             });
 
-        let mut open = true;
-        ui.show_test_window(&mut open);
-
-        if !open {
-            ctx.shutdown();
-        }
-
-        Ok(())
+        ui
     }
-
-    fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> errors::Result<()> {
-        self.info = *info;
-        Ok(())
-    }
-}
-
-pub fn main(title: String, _: &[String]) {
-    let mut settings = Settings::default();
-    settings.window.width = 1024;
-    settings.window.height = 768;
-    settings.window.title = title;
-
-    let mut engine = Engine::new_with(settings).unwrap();
-    let window = Window::new(&mut engine).unwrap();
-    engine.run(window).unwrap();
 }

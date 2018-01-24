@@ -1,13 +1,11 @@
 use crayon::prelude::*;
-
-use crayon_imgui;
 use crayon_imgui::prelude::*;
 
 use utils;
 
 struct Window {
     canvas: Canvas,
-    renderer: Renderer,
+    surface: SurfaceHandle,
     info: FrameInfo,
     text: String,
     repeat_count: u32,
@@ -19,17 +17,22 @@ struct Window {
 impl Window {
     fn new(engine: &mut Engine) -> errors::Result<Self> {
         let ctx = engine.context();
-        let (canvas, renderer) = crayon_imgui::new(&ctx).unwrap();
+        let canvas = Canvas::new(&ctx).unwrap();
+
+        let mut setup = graphics::SurfaceSetup::default();
+        setup.set_clear(Color::white(), None, None);
+        setup.set_sequence(true);
+        let surface = ctx.shared::<GraphicsSystem>().create_surface(setup)?;
 
         Ok(Window {
-               canvas: canvas,
-               renderer: renderer,
-               info: Default::default(),
-               text: String::new(),
-               repeat_count: 0,
-               click_count: 0,
-               double_click_count: 0,
-           })
+            canvas: canvas,
+            surface: surface,
+            info: Default::default(),
+            text: String::new(),
+            repeat_count: 0,
+            click_count: 0,
+            double_click_count: 0,
+        })
     }
 }
 
@@ -51,7 +54,7 @@ impl Application for Window {
             self.double_click_count += 1;
         }
 
-        let ui = self.canvas.paint(&ctx);
+        let ui = self.canvas.frame(self.surface, &ctx);
         let info = self.info;
         let text = &self.text;
         let rc = self.repeat_count;
@@ -66,13 +69,17 @@ impl Application for Window {
             .size((400.0, 400.0), ImGuiCond::FirstUseEver)
             .build(|| {
                 ui.text(im_str!("FPS: {:?}", info.fps));
-                ui.text(im_str!("DrawCalls: {:?}, Triangles: {:?}",
-                                info.video.drawcall,
-                                info.video.triangles));
+                ui.text(im_str!(
+                    "DrawCalls: {:?}, Triangles: {:?}",
+                    info.video.drawcall,
+                    info.video.triangles
+                ));
 
-                ui.text(im_str!("CPU: {:.2?}ms, GPU: {:.2?}ms",
-                                utils::to_ms(info.duration),
-                                utils::to_ms(info.video.duration)));
+                ui.text(im_str!(
+                    "CPU: {:.2?}ms, GPU: {:.2?}ms",
+                    utils::to_ms(info.duration),
+                    utils::to_ms(info.video.duration)
+                ));
 
                 ui.separator();
 
@@ -87,14 +94,18 @@ impl Application for Window {
                     let is_down = input.is_mouse_down(event::MouseButton::Left);
                     let is_press = input.is_mouse_press(event::MouseButton::Left);
                     let is_release = input.is_mouse_release(event::MouseButton::Left);
-                    ui.text(im_str!("Down({:?}) Pressed({:?}) Released({:?})",
-                                    is_down,
-                                    is_press,
-                                    is_release));
+                    ui.text(im_str!(
+                        "Down({:?}) Pressed({:?}) Released({:?})",
+                        is_down,
+                        is_press,
+                        is_release
+                    ));
 
-                    ui.text(im_str!("Clicks: ({:.1}, Double Clicks: {:.1})",
-                                    clicks,
-                                    double_clicks));
+                    ui.text(im_str!(
+                        "Clicks: ({:.1}, Double Clicks: {:.1})",
+                        clicks,
+                        double_clicks
+                    ));
                 };
 
                 if ui.collapsing_header(im_str!("Keyboard")).build() {
@@ -102,25 +113,28 @@ impl Application for Window {
                     let is_press = input.is_key_press(event::KeyboardButton::A);
                     let is_release = input.is_key_release(event::KeyboardButton::A);
 
-                    ui.text(im_str!("[A] Pressed({:?}) Down({:?}) Released({:?})",
-                                    is_down,
-                                    is_press,
-                                    is_release));
+                    ui.text(im_str!(
+                        "[A] Pressed({:?}) Down({:?}) Released({:?})",
+                        is_down,
+                        is_press,
+                        is_release
+                    ));
                     ui.text(im_str!("[A] Repeat({:?})", rc));
 
                     let is_down = input.is_key_down(event::KeyboardButton::Z);
                     let is_press = input.is_key_press(event::KeyboardButton::Z);
                     let is_release = input.is_key_release(event::KeyboardButton::Z);
-                    ui.text(im_str!("[Z] Down({:?}) Pressed({:?}) Released({:?})",
-                                    is_down,
-                                    is_press,
-                                    is_release));
+                    ui.text(im_str!(
+                        "[Z] Down({:?}) Pressed({:?}) Released({:?})",
+                        is_down,
+                        is_press,
+                        is_release
+                    ));
 
                     ui.text_wrapped(im_str!("Text: {:?}.", text));
                 };
             });
 
-        self.renderer.render(ui).unwrap();
         Ok(())
     }
 

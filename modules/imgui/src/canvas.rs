@@ -1,32 +1,82 @@
+use std::ops::{Deref, DerefMut};
+
 use imgui;
 use crayon::{application, graphics, input};
-use errors::*;
+use crayon::application::errors::*;
+use renderer::Renderer;
+
+pub struct FrameGuard<'a> {
+    renderer: &'a mut Renderer,
+    frame: Option<imgui::Ui<'a>>,
+    surface: graphics::SurfaceHandle,
+}
+
+impl<'a> Deref for FrameGuard<'a> {
+    type Target = imgui::Ui<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        self.frame.as_ref().unwrap()
+    }
+}
+
+impl<'a> DerefMut for FrameGuard<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.frame.as_mut().unwrap()
+    }
+}
+
+impl<'a> Drop for FrameGuard<'a> {
+    fn drop(&mut self) {
+        if let Some(ui) = self.frame.take() {
+            self.renderer.render(self.surface, ui).unwrap();
+        }
+    }
+}
 
 pub struct Canvas {
-    canvas: imgui::ImGui,
+    ctx: imgui::ImGui,
+    renderer: Renderer,
 }
 
 impl Canvas {
-    pub fn new(mut imgui: imgui::ImGui) -> Result<Self> {
+    pub fn new(ctx: &application::Context) -> Result<Self> {
+        let mut imgui = imgui::ImGui::init();
+        imgui.set_ini_filename(None);
+
+        let renderer = Renderer::new(ctx, &mut imgui)?;
+
         Self::bind_keycode(&mut imgui);
-        Ok(Canvas { canvas: imgui })
+        Ok(Canvas {
+            ctx: imgui,
+            renderer: renderer,
+        })
     }
 
-    pub fn paint<'a>(&'a mut self, ctx: &application::Context) -> imgui::Ui<'a> {
+    pub fn frame<'a>(
+        &'a mut self,
+        surface: graphics::SurfaceHandle,
+        ctx: &application::Context,
+    ) -> FrameGuard<'a> {
         // Update input device states.
         let input = ctx.shared::<input::InputSystem>();
-        Self::update_mouse_state(&mut self.canvas, &input);
-        Self::update_keycode_state(&mut self.canvas, &input);
+        Self::update_mouse_state(&mut self.ctx, &input);
+        Self::update_keycode_state(&mut self.ctx, &input);
 
         // Generates frame builder.
         let v = ctx.shared::<graphics::GraphicsSystem>();
         let duration = ctx.shared::<application::TimeSystem>().frame_delta();
         let ts = duration.as_secs() as f32 + duration.subsec_nanos() as f32 / 1_000_000_000.0;
 
-        //
         let (dp, d) = (v.dimensions_in_pixels(), v.dimensions());
-        self.canvas.frame(d, dp, ts)
+
+        FrameGuard {
+            renderer: &mut self.renderer,
+            frame: Some(self.ctx.frame(d, dp, ts)),
+            surface: surface,
+        }
     }
+
+    pub fn render(&mut self) {}
 
     fn bind_keycode(imgui: &mut imgui::ImGui) {
         use imgui::ImGuiKey;
@@ -75,22 +125,21 @@ impl Canvas {
         imgui.set_key(17, input.is_key_down(KeyboardButton::Y));
         imgui.set_key(18, input.is_key_down(KeyboardButton::Z));
 
-        imgui.set_key_ctrl(
-            input.is_key_down(KeyboardButton::LControl)
-                || input.is_key_down(KeyboardButton::RControl),
-        );
+        let lcontrol = input.is_key_down(KeyboardButton::LControl);
+        let rcontrol = input.is_key_down(KeyboardButton::RControl);
+        imgui.set_key_ctrl(lcontrol || rcontrol);
 
-        imgui.set_key_shift(
-            input.is_key_down(KeyboardButton::LShift) || input.is_key_down(KeyboardButton::RShift),
-        );
+        let lshift = input.is_key_down(KeyboardButton::LShift);
+        let rshift = input.is_key_down(KeyboardButton::RShift);
+        imgui.set_key_shift(lshift || rshift);
 
-        imgui.set_key_alt(
-            input.is_key_down(KeyboardButton::LAlt) || input.is_key_down(KeyboardButton::RAlt),
-        );
+        let lalt = input.is_key_down(KeyboardButton::LAlt);
+        let ralt = input.is_key_down(KeyboardButton::RAlt);
+        imgui.set_key_alt(lalt || ralt);
 
-        imgui.set_key_super(
-            input.is_key_down(KeyboardButton::LWin) || input.is_key_down(KeyboardButton::RWin),
-        );
+        let lwin = input.is_key_down(KeyboardButton::LWin);
+        let rwin = input.is_key_down(KeyboardButton::RWin);
+        imgui.set_key_super(lwin || rwin);
     }
 
     fn update_mouse_state(imgui: &mut imgui::ImGui, input: &input::InputSystemShared) {

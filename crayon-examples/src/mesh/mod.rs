@@ -1,13 +1,20 @@
 use crayon::prelude::*;
+use crayon_imgui::prelude::*;
+use crayon::scene::material::MaterialHandle;
 use utils::*;
 
 struct Window {
     surface: SurfaceHandle,
     scene: Scene,
+    console: ConsoleCanvas,
 
+    material: MaterialHandle,
     camera: Entity,
     room: Entity,
     rotation: math::Vector3<f32>,
+    ambient: [f32; 3],
+    diffuse: [f32; 3],
+    specular: [f32; 3],
 }
 
 impl Window {
@@ -30,7 +37,7 @@ impl Window {
             scene.create_node(c)
         };
 
-        let room = Window::create_room(&mut scene, &video)?;
+        let (room, mat_block) = Window::create_room(&mut scene, &video)?;
         Window::create_lits(&mut scene, &video)?;
 
         let light = scene.create_node(Light::default());
@@ -44,16 +51,21 @@ impl Window {
             Transform::set_world_position(&tree, &mut transforms, camera, [0.0, 0.0, -500.0])?;
             Transform::look_at(&tree, &mut transforms, camera, zero, up)?;
 
-            Transform::set_world_position(&tree, &mut transforms, light, [0.0, 0.0, -500.0])?;
+            Transform::set_world_position(&tree, &mut transforms, light, [0.0, 500.0, -500.0])?;
             Transform::look_at(&tree, &mut transforms, light, zero, up)?;
         }
 
         Ok(Window {
+            console: ConsoleCanvas::new(1, ctx)?,
             surface: surface,
             scene: scene,
             camera: camera,
             room: room,
             rotation: math::Vector3::new(0.0, 0.0, 0.0),
+            material: mat_block,
+            ambient: [1.0, 1.0, 1.0],
+            diffuse: [1.0, 1.0, 1.0],
+            specular: [1.0, 1.0, 1.0],
         })
     }
 
@@ -112,7 +124,7 @@ impl Window {
     fn create_room(
         scene: &mut Scene,
         video: &graphics::GraphicsSystemShared,
-    ) -> errors::Result<Entity> {
+    ) -> errors::Result<(Entity, MaterialHandle)> {
         // Create shader state.
         let shader = scene::factory::shader::phong(&video)?;
 
@@ -164,19 +176,45 @@ impl Window {
         let tree = scene.arena::<Node>();
         let mut transforms = scene.arena_mut::<Transform>();
         Transform::set_world_scale(&tree, &mut transforms, room, 0.5)?;
-        Ok(room)
+        Ok((room, mat_block))
     }
 }
 
 impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
-        let input = ctx.shared::<InputSystem>();
-        unsafe {
-            let mut transforms = self.scene.arena_mut::<Transform>();
+        let ambient = &mut self.ambient;
+        let diffuse = &mut self.diffuse;
+        let specular = &mut self.specular;
+
+        let capture = {
+            let canvas = self.console.render(&ctx);
+            canvas
+                .window(im_str!("Materials"))
+                .movable(false)
+                .resizable(false)
+                .position((0.0, 70.0), ImGuiCond::FirstUseEver)
+                .size((250.0, 150.0), ImGuiCond::FirstUseEver)
+                .build(|| {
+                    canvas
+                        .slider_float3(im_str!("u_Ambient"), ambient, 0.0, 1.0)
+                        .build();
+                    canvas
+                        .slider_float3(im_str!("u_Diffuse"), diffuse, 0.0, 1.0)
+                        .build();
+                    canvas
+                        .slider_float3(im_str!("u_Specular"), specular, 0.0, 1.0)
+                        .build();
+                });
+
+            canvas.want_capture_mouse()
+        };
+
+        if !capture {
+            let input = ctx.shared::<InputSystem>();
             match input.finger_pan() {
                 input::GesturePan::Move {
-                    start_position,
-                    position,
+                    start_position: _,
+                    position: _,
                     movement,
                 } => {
                     self.rotation.y -= movement.y;
@@ -186,13 +224,27 @@ impl Application for Window {
                         math::Deg(self.rotation.x),
                         math::Deg(self.rotation.z),
                     );
-                    transforms.get_unchecked_mut(self.room).set_rotation(euler);
+                    unsafe {
+                        let mut transforms = self.scene.arena_mut::<Transform>();
+                        transforms.get_unchecked_mut(self.room).set_rotation(euler);
+                    }
                 }
                 _ => {}
             };
         }
 
+        self.scene
+            .update_material_uniform(self.material, "u_Ambient", *ambient)?;
+        self.scene
+            .update_material_uniform(self.material, "u_Diffuse", *diffuse)?;
+        self.scene
+            .update_material_uniform(self.material, "u_Specular", *specular)?;
         self.scene.render(self.surface, self.camera)?;
+        Ok(())
+    }
+
+    fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> errors::Result<()> {
+        self.console.update(info);
         Ok(())
     }
 }

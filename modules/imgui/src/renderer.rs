@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use crayon::{application, graphics, resource, utils};
+use crayon::application::errors::*;
 
 use imgui::{DrawList, ImGui, Ui};
-use errors::*;
 
 impl_vertex!{
     CanvasVertex {
@@ -16,7 +16,6 @@ impl_vertex!{
 pub struct Renderer {
     video: Arc<graphics::GraphicsSystemShared>,
 
-    surface: graphics::SurfaceHandle,
     shader: graphics::ShaderHandle,
     texture: graphics::TextureHandle,
 
@@ -28,11 +27,6 @@ impl Renderer {
     /// resources in background.
     pub fn new(ctx: &application::Context, imgui: &mut ImGui) -> Result<Self> {
         let video = ctx.shared::<graphics::GraphicsSystem>();
-
-        let mut setup = graphics::SurfaceSetup::default();
-        setup.set_clear(utils::Color::white(), None, None);
-        setup.set_sequence(true);
-        let surface = video.create_surface(setup)?;
 
         let layout = graphics::AttributeLayoutBuilder::new()
             .with(graphics::Attribute::Position, 2)
@@ -73,19 +67,23 @@ impl Renderer {
 
         Ok(Renderer {
             video: video.clone(),
-
-            surface: surface,
             shader: shader,
             texture: texture,
             mesh: None,
         })
     }
 
-    pub fn render<'a>(&mut self, ui: Ui<'a>) -> Result<()> {
-        ui.render(|ui, dcs| self.render_draw_list(ui, &dcs))
+    pub fn render<'a>(&mut self, surface: graphics::SurfaceHandle, ui: Ui<'a>) -> Result<()> {
+        ui.render(|ui, dcs| self.render_draw_list(surface, ui, &dcs))?;
+        Ok(())
     }
 
-    fn render_draw_list<'a>(&mut self, ui: &'a Ui<'a>, tasks: &DrawList<'a>) -> Result<()> {
+    fn render_draw_list<'a>(
+        &mut self,
+        surface: graphics::SurfaceHandle,
+        ui: &'a Ui<'a>,
+        tasks: &DrawList<'a>,
+    ) -> Result<()> {
         let mut verts = Vec::with_capacity(tasks.vtx_buffer.len());
 
         for v in tasks.vtx_buffer {
@@ -97,7 +95,7 @@ impl Renderer {
             ));
         }
 
-        let mesh = self.update_mesh(&verts, &tasks.idx_buffer)?;
+        let mesh = self.update_mesh(surface, &verts, &tasks.idx_buffer)?;
         let (width, height) = ui.imgui().display_size();
         let (scale_width, scale_height) = ui.imgui().display_framebuffer_scale();
 
@@ -132,7 +130,7 @@ impl Renderer {
             {
                 let scissor = graphics::Scissor::Enable(scissor_pos, scissor_size);
                 let cmd = graphics::Command::set_scissor(scissor);
-                self.video.submit(self.surface, 0u64, cmd)?;
+                self.video.submit(surface, 0u64, cmd)?;
             }
 
             {
@@ -140,17 +138,21 @@ impl Renderer {
                 dc.set_uniform_variable("matrix", matrix);
                 dc.set_uniform_variable("texture", self.texture);
                 let cmd = dc.build_from(idx_start, cmd.elem_count as usize)?;
-                self.video.submit(self.surface, 0u64, cmd)?;
+                self.video.submit(surface, 0u64, cmd)?;
             }
 
             idx_start += cmd.elem_count as usize;
         }
 
+        let scissor = graphics::Scissor::Disable;
+        let cmd = graphics::Command::set_scissor(scissor);
+        self.video.submit(surface, 0u64, cmd)?;
         Ok(())
     }
 
     fn update_mesh(
         &mut self,
+        surface: graphics::SurfaceHandle,
         verts: &[CanvasVertex],
         idxes: &[u16],
     ) -> Result<graphics::MeshHandle> {
@@ -158,11 +160,11 @@ impl Renderer {
             if nv >= verts.len() && ni >= idxes.len() {
                 let slice = CanvasVertex::as_bytes(verts);
                 let cmd = graphics::Command::update_vertex_buffer(handle, 0, slice);
-                self.video.submit(self.surface, 0u64, cmd)?;
+                self.video.submit(surface, 0u64, cmd)?;
 
                 let slice = graphics::IndexFormat::as_bytes(idxes);
                 let cmd = graphics::Command::update_index_buffer(handle, 0, slice);
-                self.video.submit(self.surface, 0u64, cmd)?;
+                self.video.submit(surface, 0u64, cmd)?;
 
                 return Ok(handle);
             }
@@ -203,11 +205,10 @@ impl Renderer {
 
 impl Drop for Renderer {
     fn drop(&mut self) {
-        self.video.delete_surface(self.surface);
         self.video.delete_shader(self.shader);
         self.video.delete_texture(self.texture);
 
-        if let Some((_, _, mesh)) = self.mesh {
+        if let Some((_, _, mesh)) = self.mesh.take() {
             self.video.delete_mesh(mesh);
         }
     }

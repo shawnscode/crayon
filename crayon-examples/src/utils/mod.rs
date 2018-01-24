@@ -9,6 +9,9 @@ use std;
 use std::io;
 use std::time::Duration;
 
+mod console;
+pub use self::console::ConsoleCanvas;
+
 pub struct TextureParser {}
 
 impl graphics::TextureParser for TextureParser {

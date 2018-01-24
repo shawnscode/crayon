@@ -10,5 +10,4 @@ categories = ["multimedia", "gui"]
 
 [dependencies]
 crayon = { path = "../../", version = "0.1.0" }
-imgui = "0.0.17"
-error-chain = "0.11.0"
+imgui = "0.0.18"
