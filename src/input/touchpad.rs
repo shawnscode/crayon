@@ -420,7 +420,7 @@ impl TouchesRecord {
         }
 
         if !found {
-            self.touches[MAX_TOUCHES + 1] = (Instant::now(), touch);
+            self.touches[MAX_TOUCHES] = (Instant::now(), touch);
         }
 
         self.touches.sort_by(Self::sort);

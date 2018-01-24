@@ -16,6 +16,7 @@ pub struct InputSetup {
 /// internal states.
 pub struct InputSystem {
     touch_emulation: bool,
+    touch_emulation_button: Option<event::MouseButton>,
     shared: Arc<InputSystemShared>,
 }
 
@@ -26,6 +27,7 @@ impl InputSystem {
         InputSystem {
             shared: shared,
             touch_emulation: false,
+            touch_emulation_button: None,
         }
     }
 
@@ -39,6 +41,7 @@ impl InputSystem {
         self.shared.mouse.write().unwrap().reset();
         self.shared.keyboard.write().unwrap().reset();
         self.shared.touchpad.write().unwrap().reset();
+        self.touch_emulation_button = None;
     }
 
     /// Set touch emulation by mouse.
@@ -56,18 +59,54 @@ impl InputSystem {
     pub(crate) fn update_with(&mut self, v: event::InputDeviceEvent) {
         match v {
             event::InputDeviceEvent::MouseMoved { position } => {
+                if self.touch_emulation_button.is_some() {
+                    let touch = event::TouchEvent {
+                        id: 255,
+                        state: event::TouchState::Move,
+                        position: self.shared.mouse_position(),
+                    };
+
+                    self.shared.touchpad.write().unwrap().on_touch(touch);
+                }
+
                 self.shared.mouse.write().unwrap().on_move(position)
             }
 
             event::InputDeviceEvent::MousePressed { button } => {
+                if self.touch_emulation {
+                    self.touch_emulation_button = Some(button);
+
+                    let touch = event::TouchEvent {
+                        id: 255,
+                        state: event::TouchState::Start,
+                        position: self.shared.mouse_position(),
+                    };
+
+                    self.shared.touchpad.write().unwrap().on_touch(touch);
+                }
+
                 self.shared.mouse.write().unwrap().on_button_pressed(button)
             }
 
-            event::InputDeviceEvent::MouseReleased { button } => self.shared
-                .mouse
-                .write()
-                .unwrap()
-                .on_button_released(button),
+            event::InputDeviceEvent::MouseReleased { button } => {
+                if self.touch_emulation_button == Some(button) {
+                    self.touch_emulation_button = None;
+
+                    let touch = event::TouchEvent {
+                        id: 255,
+                        state: event::TouchState::End,
+                        position: self.shared.mouse_position(),
+                    };
+
+                    self.shared.touchpad.write().unwrap().on_touch(touch);
+                }
+
+                self.shared
+                    .mouse
+                    .write()
+                    .unwrap()
+                    .on_button_released(button)
+            }
 
             event::InputDeviceEvent::MouseWheel { delta } => {
                 self.shared.mouse.write().unwrap().on_wheel_scroll(delta)

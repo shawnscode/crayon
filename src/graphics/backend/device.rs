@@ -106,6 +106,7 @@ impl Device {
         self.active_shader.set(None);
         self.visitor.bind_framebuffer(0, false)?;
         self.visitor.clear(Color::black(), None, None)?;
+        self.visitor.set_scissor(Scissor::Disable)?;
 
         *self.frame_info.borrow_mut() = FrameInfo::default();
         Ok(())

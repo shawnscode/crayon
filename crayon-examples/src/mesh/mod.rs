@@ -7,11 +7,13 @@ struct Window {
 
     camera: Entity,
     room: Entity,
+    rotation: math::Vector3<f32>,
 }
 
 impl Window {
     fn new(engine: &mut Engine) -> errors::Result<Self> {
         engine.resource.mount("std", DirectoryFS::new("assets")?)?;
+        engine.input.set_touch_emulation(true);
 
         let ctx = engine.context();
         let video = ctx.shared::<GraphicsSystem>().clone();
@@ -51,6 +53,7 @@ impl Window {
             scene: scene,
             camera: camera,
             room: room,
+            rotation: math::Vector3::new(0.0, 0.0, 0.0),
         })
     }
 
@@ -170,19 +173,23 @@ impl Application for Window {
         let input = ctx.shared::<InputSystem>();
         unsafe {
             let mut transforms = self.scene.arena_mut::<Transform>();
-            if input.is_key_down(event::KeyboardButton::A) {
-                let euler = math::Euler::new(math::Deg(0.0), math::Deg(1.0), math::Deg(0.0));
-                transforms.get_unchecked_mut(self.room).rotate(euler);
-            } else if input.is_key_down(event::KeyboardButton::D) {
-                let euler = math::Euler::new(math::Deg(0.0), math::Deg(-1.0), math::Deg(0.0));
-                transforms.get_unchecked_mut(self.room).rotate(euler);
-            } else if input.is_key_down(event::KeyboardButton::W) {
-                let euler = math::Euler::new(math::Deg(1.0), math::Deg(0.0), math::Deg(0.0));
-                transforms.get_unchecked_mut(self.room).rotate(euler);
-            } else if input.is_key_down(event::KeyboardButton::S) {
-                let euler = math::Euler::new(math::Deg(-1.0), math::Deg(0.0), math::Deg(0.0));
-                transforms.get_unchecked_mut(self.room).rotate(euler);
-            }
+            match input.finger_pan() {
+                input::GesturePan::Move {
+                    start_position,
+                    position,
+                    movement,
+                } => {
+                    self.rotation.y -= movement.y;
+                    self.rotation.x -= movement.x;
+                    let euler = math::Euler::new(
+                        math::Deg(self.rotation.y),
+                        math::Deg(self.rotation.x),
+                        math::Deg(self.rotation.z),
+                    );
+                    transforms.get_unchecked_mut(self.room).set_rotation(euler);
+                }
+                _ => {}
+            };
         }
 
         self.scene.render(self.surface, self.camera)?;
