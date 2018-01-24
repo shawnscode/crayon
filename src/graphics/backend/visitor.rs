@@ -64,7 +64,7 @@ impl OpenGLVisitor {
             depth_write: Cell::new(false),
             depth_write_offset: Cell::new(None),
             color_blend: Cell::new(None),
-            color_write: Cell::new((false, false, false, false)),
+            color_write: Cell::new((true, true, true, true)),
             viewport: Cell::new(((0, 0), (128, 128))),
             scissor: Cell::new(Scissor::Disable),
 

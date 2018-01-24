@@ -289,13 +289,13 @@ impl Device {
             ((vp.1).1 * dimensions.1 as f32) as u16,
         );
 
-        // Bind the viewport and scissor box.
+        // Binds the viewport and scissor box.
         self.visitor.set_viewport(position, dimensions)?;
-
-        // Disable scissor.
         self.visitor.set_scissor(Scissor::Disable)?;
+        // Sets depth write enable to make sure that we can clear depth buffer properly.
+        self.visitor.set_depth_write(true, None)?;
 
-        // Clear frame buffer.
+        // Clears frame buffer.
         self.visitor.clear(
             surface.setup.clear_color,
             surface.setup.clear_depth,

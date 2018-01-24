@@ -269,7 +269,7 @@ impl Default for RenderState {
             depth_write: false,             // no depth write,
             depth_write_offset: None,
             color_blend: None,
-            color_write: (false, false, false, false),
+            color_write: (true, true, true, true),
         }
     }
 }
