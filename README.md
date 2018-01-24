@@ -32,4 +32,4 @@ cargo run imgui
 
 Check out [here](./crayon-examples) for details.
 
-![ImGui](./crayon-examples/screenshots/imgui.png)
+![Mesh](./crayon-examples/screenshots/mesh.png)

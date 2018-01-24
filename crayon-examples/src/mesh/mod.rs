@@ -33,7 +33,7 @@ impl Window {
         let mut scene = Scene::new(&ctx)?;
 
         let camera = {
-            let c = Camera::perspective(math::Deg(60.0), 4.8 / 3.2, 0.1, 1000.0);
+            let c = Camera::perspective(math::Deg(60.0), 6.4 / 4.8, 0.1, 1000.0);
             scene.create_node(c)
         };
 
@@ -175,7 +175,7 @@ impl Window {
 
         let tree = scene.arena::<Node>();
         let mut transforms = scene.arena_mut::<Transform>();
-        Transform::set_world_scale(&tree, &mut transforms, room, 0.5)?;
+        Transform::set_world_scale(&tree, &mut transforms, room, 0.6)?;
         Ok((room, mat_block))
     }
 }
