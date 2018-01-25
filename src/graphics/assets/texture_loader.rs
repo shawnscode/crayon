@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 
 use resource;
 use graphics::assets::texture::*;
+use graphics::assets::{AssetState, AssetTextureState};
 use graphics::backend::frame::{DoubleFrame, PreFrameTask};
 
 /// Parsed texture from `TextureParser`.
@@ -22,21 +23,13 @@ pub trait TextureParser {
 }
 
 #[doc(hidden)]
-#[derive(PartialEq, Eq)]
-pub(crate) enum TextureState {
-    NotReady,
-    Ready,
-    Err(String),
-}
-
-#[doc(hidden)]
 pub(crate) struct TextureLoader<T>
 where
     T: TextureParser,
 {
     handle: TextureHandle,
     setup: TextureSetup,
-    state: Arc<RwLock<TextureState>>,
+    state: Arc<RwLock<AssetTextureState>>,
     frames: Arc<DoubleFrame>,
     _phantom: PhantomData<T>,
 }
@@ -47,7 +40,7 @@ where
 {
     pub fn new(
         handle: TextureHandle,
-        state: Arc<RwLock<TextureState>>,
+        state: Arc<RwLock<AssetTextureState>>,
         setup: TextureSetup,
         frames: Arc<DoubleFrame>,
     ) -> Self {
@@ -77,16 +70,16 @@ where
                     let task = PreFrameTask::CreateTexture(self.handle, self.setup, Some(ptr));
                     frame.pre.push(task);
 
-                    TextureState::Ready
+                    AssetState::ready(self.setup)
                 }
                 Err(error) => {
                     let error = format!("Failed to load texture at {:?}.\n{:?}", path, error);
-                    TextureState::Err(error)
+                    AssetState::Err(error)
                 }
             },
             Err(error) => {
                 let error = format!("Failed to load texture at {:?}.\n{:?}", path, error);
-                TextureState::Err(error)
+                AssetState::Err(error)
             }
         };
 

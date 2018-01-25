@@ -183,6 +183,7 @@ impl OpenGLVisitor {
     pub unsafe fn bind_uniform(&self, location: GLint, variable: &UniformVariable) -> Result<()> {
         match *variable {
             UniformVariable::Texture(_) => unreachable!(),
+            UniformVariable::RenderTexture(_) => unreachable!(),
             UniformVariable::I32(v) => gl::Uniform1i(location, v),
             UniformVariable::F32(v) => gl::Uniform1f(location, v),
             UniformVariable::Vector2f(v) => gl::Uniform2f(location, v[0], v[1]),

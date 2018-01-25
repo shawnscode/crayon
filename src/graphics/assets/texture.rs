@@ -1,6 +1,7 @@
 //! Immutable or dynamic 2D texture.
 
-/// The public attributes of a texture object.
+/// A texture is a container of one or more images. It can be the source of a texture
+/// access from a Shader.
 #[derive(Debug, Copy, Clone)]
 pub struct TextureSetup {
     pub format: TextureFormat,
@@ -9,6 +10,9 @@ pub struct TextureSetup {
     pub mipmap: bool,
     pub dimensions: (u32, u32),
 }
+
+pub type TextureStateObject = TextureSetup;
+impl_handle!(TextureHandle);
 
 impl Default for TextureSetup {
     fn default() -> Self {
@@ -22,6 +26,9 @@ impl Default for TextureSetup {
     }
 }
 
+/// A RenderTexture object is basicly texture object with special format. It can be
+/// the source of a texture access from a Shader, or it can be used as a render
+/// target.
 #[derive(Debug, Copy, Clone)]
 pub struct RenderTextureSetup {
     pub format: RenderTextureFormat,
@@ -37,14 +44,19 @@ impl Default for RenderTextureSetup {
     }
 }
 
-impl_handle!(TextureHandle);
+pub type RenderTextureStateObject = RenderTextureSetup;
+impl_handle!(RenderTextureHandle);
 
+/// RBOs are like a texture with a hint - that you won't expect some functionality
+/// from them. The driver can speedup rendering to them. Yet, on most modern cards,
+/// the performance difference is almost zero.
 #[derive(Debug, Copy, Clone)]
 pub struct RenderBufferSetup {
     pub format: RenderTextureFormat,
     pub dimensions: (u32, u32),
 }
 
+pub type RenderBufferStateObject = RenderBufferSetup;
 impl_handle!(RenderBufferHandle);
 
 /// Specify how the texture is used whenever the pixel being sampled.

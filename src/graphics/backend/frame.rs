@@ -13,7 +13,7 @@ pub(crate) enum PreFrameTask {
     CreateFrameBuffer(FrameBufferHandle, FrameBufferSetup),
     CreateTexture(TextureHandle, TextureSetup, Option<DataBufferPtr<[u8]>>),
     UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),
-    CreateRenderTexture(TextureHandle, RenderTextureSetup),
+    CreateRenderTexture(RenderTextureHandle, RenderTextureSetup),
     CreateRenderBuffer(RenderBufferHandle, RenderBufferSetup),
     CreateMesh(
         MeshHandle,
@@ -48,6 +48,7 @@ pub(crate) enum PostFrameTask {
     DeletePipeline(ShaderHandle),
     DeleteMesh(MeshHandle),
     DeleteTexture(TextureHandle),
+    DeleteRenderTexture(RenderTextureHandle),
     DeleteRenderBuffer(RenderBufferHandle),
     DeleteFrameBuffer(FrameBufferHandle),
 }
@@ -162,6 +163,9 @@ impl Frame {
                 }
                 PostFrameTask::DeleteTexture(handle) => {
                     device.delete_texture(handle)?;
+                }
+                PostFrameTask::DeleteRenderTexture(handle) => {
+                    device.delete_render_texture(handle)?;
                 }
                 PostFrameTask::DeleteRenderBuffer(handle) => {
                     device.delete_render_buffer(handle)?;

@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 
 use resource;
 use graphics::assets::mesh::*;
+use graphics::assets::{AssetMeshState, AssetState};
 use graphics::backend::frame::{DoubleFrame, PreFrameTask};
 
 /// Parsed mesh from `MeshParser`.
@@ -27,21 +28,13 @@ pub trait MeshParser {
 }
 
 #[doc(hidden)]
-#[derive(PartialEq, Eq)]
-pub(crate) enum MeshState {
-    NotReady,
-    Ready,
-    Err(String),
-}
-
-#[doc(hidden)]
 pub(crate) struct MeshLoader<T>
 where
     T: MeshParser,
 {
     handle: MeshHandle,
     setup: MeshSetup,
-    state: Arc<RwLock<MeshState>>,
+    state: Arc<RwLock<AssetMeshState>>,
     frames: Arc<DoubleFrame>,
     _phantom: PhantomData<T>,
 }
@@ -52,7 +45,7 @@ where
 {
     pub fn new(
         handle: MeshHandle,
-        state: Arc<RwLock<MeshState>>,
+        state: Arc<RwLock<AssetMeshState>>,
         setup: MeshSetup,
         frames: Arc<DoubleFrame>,
     ) -> Self {
@@ -84,19 +77,20 @@ where
                     let mut frame = self.frames.front();
                     let vptr = Some(frame.buf.extend_from_slice(&mesh.verts));
                     let iptr = Some(frame.buf.extend_from_slice(&mesh.idxes));
-                    let task = PreFrameTask::CreateMesh(self.handle, self.setup, vptr, iptr);
+                    let task =
+                        PreFrameTask::CreateMesh(self.handle, self.setup.clone(), vptr, iptr);
                     frame.pre.push(task);
 
-                    MeshState::Ready
+                    AssetState::ready(self.setup)
                 }
                 Err(error) => {
                     let error = format!("Failed to load mesh at {:?}.\n{:?}", path, error);
-                    MeshState::Err(error)
+                    AssetState::Err(error)
                 }
             },
             Err(error) => {
                 let error = format!("Failed to load mesh at {:?}.\n{:?}", path, error);
-                MeshState::Err(error)
+                AssetState::Err(error)
             }
         };
 

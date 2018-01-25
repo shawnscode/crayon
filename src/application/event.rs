@@ -145,7 +145,7 @@ fn from_window_event(source: glutin::WindowEvent) -> Option<Event> {
         glutin::WindowEvent::CursorMoved {
             device_id: _,
             position,
-            modifiers:_,
+            modifiers: _,
         } => Some(Event::InputDevice(InputDeviceEvent::MouseMoved {
             position: (position.0 as f32, position.1 as f32),
         })),

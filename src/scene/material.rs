@@ -1,6 +1,7 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
-use graphics::{RenderState, ShaderHandle, ShaderState, UniformVariable, UniformVariableType};
+use graphics::{RenderState, ShaderHandle, ShaderStateObject, UniformVariable};
 use utils::HashValue;
 
 use scene::errors::*;
@@ -10,17 +11,15 @@ impl_handle!(MaterialHandle);
 #[derive(Debug, Clone)]
 pub struct Material {
     shader: ShaderHandle,
-    render_state: RenderState,
-    fields: HashMap<HashValue<str>, UniformVariableType>,
+    sso: Arc<ShaderStateObject>,
     pub(crate) variables: HashMap<HashValue<str>, UniformVariable>,
 }
 
 impl Material {
-    pub fn new(shader: ShaderHandle, state: ShaderState) -> Self {
+    pub fn new(shader: ShaderHandle, sso: Arc<ShaderStateObject>) -> Self {
         Material {
             shader: shader,
-            render_state: state.render_state,
-            fields: state.uniform_variables,
+            sso: sso,
             variables: HashMap::new(),
         }
     }
@@ -31,8 +30,8 @@ impl Material {
     }
 
     #[inline(always)]
-    pub fn render_state(&self) -> RenderState {
-        self.render_state
+    pub fn render_state(&self) -> &RenderState {
+        self.sso.render_state()
     }
 
     #[inline(always)]
@@ -40,7 +39,7 @@ impl Material {
     where
         T1: Into<HashValue<str>>,
     {
-        self.fields.contains_key(&field.into())
+        self.sso.uniform_variable(field).is_some()
     }
 
     pub fn set_uniform_variable<T1, T2>(&mut self, field: T1, variable: T2) -> Result<()>
@@ -51,14 +50,12 @@ impl Material {
         let field = field.into();
         let variable = variable.into();
 
-        if !self.fields.contains_key(&field) {
-            bail!(ErrorKind::UniformUndefined);
-        }
-
-        if let Some(&tt) = self.fields.get(&field) {
+        if let Some(tt) = self.sso.uniform_variable(field) {
             if tt != variable.variable_type() {
                 bail!(ErrorKind::UniformTypeInvalid);
             }
+        } else {
+            bail!(ErrorKind::UniformUndefined);
         }
 
         self.variables.insert(field, variable);

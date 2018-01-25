@@ -63,7 +63,7 @@ impl<'a, 'b> System<'a> for RenderTask<'b> {
             for v in view {
                 if let &SceneNode::Mesh(mesh) = data.2.get_unchecked(v) {
                     let mut mat = self.materials.get(mesh.material).unwrap_or(self.fallback);
-                    if !self.video.is_shader_alive(mat.shader()) {
+                    if !self.video.shader_alive(mat.shader()) {
                         mat = self.fallback;
                     }
 

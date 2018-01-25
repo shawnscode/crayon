@@ -37,7 +37,7 @@ impl Scene {
         let materials = HandleObjectPool::new();
 
         let shader = factory::shader::undefined(&video)?;
-        let shader_state = video.shader_state(shader).unwrap();
+        let shader_state = video.shader(shader).unwrap();
         let fallback = Material::new(shader, shader_state);
 
         Ok(Scene {
@@ -104,7 +104,7 @@ impl Scene {
 
     #[inline(always)]
     pub fn create_material(&mut self, shader: ShaderHandle) -> Result<MaterialHandle> {
-        if let Some(state) = self.video.shader_state(shader) {
+        if let Some(state) = self.video.shader(shader) {
             Ok(self.materials.create(Material::new(shader, state)).into())
         } else {
             bail!("Undefined shader handle.");

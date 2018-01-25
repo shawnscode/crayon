@@ -13,9 +13,9 @@ use super::backend::device::Device;
 use super::command::Command;
 use super::window::Window;
 
-use super::assets::texture_loader::{TextureLoader, TextureParser, TextureState};
-use super::assets::mesh_loader::{MeshLoader, MeshParser, MeshState};
-use super::assets::shader::ShaderState;
+use super::assets::texture_loader::{TextureLoader, TextureParser};
+use super::assets::mesh_loader::{MeshLoader, MeshParser};
+use super::assets::*;
 
 /// The centralized management of video sub-system.
 pub struct GraphicsSystem {
@@ -141,11 +141,12 @@ pub struct GraphicsSystemShared {
     dimensions: RwLock<((u32, u32), (u32, u32))>,
 
     surfaces: RwLock<Registery<()>>,
-    shaders: RwLock<Registery<ShaderState>>,
     framebuffers: RwLock<Registery<()>>,
     render_buffers: RwLock<Registery<()>>,
-    meshes: RwLock<Registery<Arc<RwLock<MeshState>>>>,
-    textures: RwLock<Registery<Arc<RwLock<TextureState>>>>,
+    shaders: RwLock<Registery<AssetShaderState>>,
+    meshes: RwLock<Registery<Arc<RwLock<AssetMeshState>>>>,
+    textures: RwLock<Registery<Arc<RwLock<AssetTextureState>>>>,
+    render_textures: RwLock<Registery<Arc<RwLock<AssetRenderTextureState>>>>,
 }
 
 impl GraphicsSystemShared {
@@ -167,6 +168,7 @@ impl GraphicsSystemShared {
             render_buffers: RwLock::new(Registery::new()),
             meshes: RwLock::new(Registery::new()),
             textures: RwLock::new(Registery::new()),
+            render_textures: RwLock::new(Registery::new()),
         }
     }
 
@@ -215,27 +217,37 @@ impl GraphicsSystemShared {
         order: u64,
         dc: command::SliceDrawCall<'a>,
     ) -> Result<()> {
-        if !self.meshes.read().unwrap().is_alive(dc.mesh.into()) {
+        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+            bail!("Undefined surface handle.");
+        }
+
+        if let Some(state) = self.meshes.read().unwrap().get(dc.mesh.into()) {
+            if !state.read().unwrap().is_ready() {
+                return Ok(());
+            }
+        } else {
             bail!("Undefined mesh handle.");
         }
 
         let mut frame = self.frames.front();
         let uniforms = {
             let mut pack = Vec::new();
-            if let Some(shader) = self.shaders.read().unwrap().get(dc.shader.into()) {
-                for &(n, v) in dc.uniforms {
-                    if let Some(&tt) = shader.uniform_variables.get(&n) {
-                        if tt == v.variable_type() {
-                            pack.push((n, frame.buf.extend(&v)));
+            if let Some(state) = self.shaders.read().unwrap().get(dc.shader.into()) {
+                match *state {
+                    AssetState::Ready(ref sso) => for &(n, v) in dc.uniforms {
+                        if let Some(tt) = sso.uniform_variable(n) {
+                            if tt == v.variable_type() {
+                                pack.push((n, frame.buf.extend(&v)));
+                            } else {
+                                let name = sso.uniform_variable_name(n).unwrap();
+                                bail!(format!("Unmatched uniform variable: {:?}.", name));
+                            }
                         } else {
-                            let name = &shader.uniform_variable_names[&n];
-                            bail!(format!("Unmatched uniform variable: {:?}.", name));
+                            bail!(format!("Undefined uniform variable: {:?}.", n));
                         }
-                    } else {
-                        let name = &shader.uniform_variable_names[&n];
-                        bail!(format!("Undefined uniform variable: {:?}.", name));
-                    }
-                }
+                    },
+                    _ => return Ok(()),
+                };
             } else {
                 bail!("Undefined shader state handle.");
             }
@@ -261,7 +273,7 @@ impl GraphicsSystemShared {
         su: command::ScissorUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
-            bail!("Undefined surface handle.");
+            bail!(ErrorKind::InvalidSurfaceHandle);
         }
 
         let mut frame = self.frames.front();
@@ -277,15 +289,19 @@ impl GraphicsSystemShared {
         vbu: command::VertexBufferUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
-            bail!("Undefined surface handle.");
+            bail!(ErrorKind::InvalidSurfaceHandle);
         }
 
-        if self.meshes.read().unwrap().is_alive(vbu.mesh.into()) {
-            let mut frame = self.frames.front();
-            let ptr = frame.buf.extend_from_slice(vbu.data);
-            let task = FrameTask::UpdateVertexBuffer(vbu.mesh, vbu.offset, ptr);
-            frame.tasks.push((surface, order, task));
-            Ok(())
+        if let Some(state) = self.meshes.read().unwrap().get(vbu.mesh.into()) {
+            if !state.read().unwrap().is_ready() {
+                bail!(ErrorKind::AssetNotReady);
+            } else {
+                let mut frame = self.frames.front();
+                let ptr = frame.buf.extend_from_slice(vbu.data);
+                let task = FrameTask::UpdateVertexBuffer(vbu.mesh, vbu.offset, ptr);
+                frame.tasks.push((surface, order, task));
+                Ok(())
+            }
         } else {
             bail!(ErrorKind::InvalidHandle);
         }
@@ -298,15 +314,19 @@ impl GraphicsSystemShared {
         ibu: command::IndexBufferUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
-            bail!("Undefined surface handle.");
+            bail!(ErrorKind::InvalidSurfaceHandle);
         }
 
-        if self.meshes.read().unwrap().is_alive(ibu.mesh.into()) {
-            let mut frame = self.frames.front();
-            let ptr = frame.buf.extend_from_slice(ibu.data);
-            let task = FrameTask::UpdateIndexBuffer(ibu.mesh, ibu.offset, ptr);
-            frame.tasks.push((surface, order, task));
-            Ok(())
+        if let Some(state) = self.meshes.read().unwrap().get(ibu.mesh.into()) {
+            if !state.read().unwrap().is_ready() {
+                bail!(ErrorKind::AssetNotReady);
+            } else {
+                let mut frame = self.frames.front();
+                let ptr = frame.buf.extend_from_slice(ibu.data);
+                let task = FrameTask::UpdateIndexBuffer(ibu.mesh, ibu.offset, ptr);
+                frame.tasks.push((surface, order, task));
+                Ok(())
+            }
         } else {
             bail!(ErrorKind::InvalidHandle);
         }
@@ -319,11 +339,13 @@ impl GraphicsSystemShared {
         tu: command::TextureUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
-            bail!("Undefined surface handle.");
+            bail!(ErrorKind::InvalidSurfaceHandle);
         }
 
         if let Some(state) = self.textures.read().unwrap().get(tu.texture.into()) {
-            if TextureState::Ready == *state.read().unwrap() {
+            if !state.read().unwrap().is_ready() {
+                bail!(ErrorKind::AssetNotReady);
+            } else {
                 let mut frame = self.frames.front();
                 let ptr = frame.buf.extend_from_slice(tu.data);
                 let task = FrameTask::UpdateTexture(tu.texture, tu.rect, ptr);
@@ -360,87 +382,6 @@ impl GraphicsSystemShared {
             .is_some()
         {
             let task = PostFrameTask::DeleteSurface(handle);
-            self.frames.front().post.push(task);
-        }
-    }
-
-    /// Lookup shader object from location.
-    pub fn lookup_shader_from(&self, location: Location) -> Option<ShaderHandle> {
-        self.shaders
-            .read()
-            .unwrap()
-            .lookup(location)
-            .map(|v| v.into())
-    }
-
-    /// Create a shader with initial shaders and render state. Pipeline encapusulate
-    /// all the informations we need to configurate OpenGL before real drawing.
-    pub fn create_shader(&self, location: Location, setup: ShaderSetup) -> Result<ShaderHandle> {
-        if setup.uniform_variables.len() > MAX_UNIFORM_VARIABLES {
-            bail!(
-                "Too many uniform variables (>= {:?}).",
-                MAX_UNIFORM_VARIABLES
-            );
-        }
-
-        if setup.vs.len() == 0 {
-            bail!("Vertex shader is required to describe a proper render pipeline.");
-        }
-
-        if setup.fs.len() == 0 {
-            bail!("Fragment shader is required to describe a proper render pipeline.");
-        }
-
-        let handle = {
-            let mut shaders = self.shaders.write().unwrap();
-            if let Some(handle) = shaders.lookup(location) {
-                shaders.inc_rc(handle);
-                return Ok(handle.into());
-            }
-
-            let mut uniform_variable_names = HashMap::new();
-            let mut uniform_variables = HashMap::new();
-            for (name, v) in &setup.uniform_variables {
-                let k: HashValue<str> = name.into();
-                uniform_variables.insert(k, *v);
-                uniform_variable_names.insert(k, name.clone());
-            }
-
-            let shader_state = ShaderState {
-                render_state: setup.render_state,
-                layout: setup.layout,
-                uniform_variables: uniform_variables,
-                uniform_variable_names: uniform_variable_names,
-            };
-
-            let handle = shaders.create(location, shader_state).into();
-            handle
-        };
-
-        let task = PreFrameTask::CreatePipeline(handle, setup);
-        self.frames.front().pre.push(task);
-        Ok(handle)
-    }
-
-    /// Gets the shader state if exists.
-    pub fn shader_state(&self, handle: ShaderHandle) -> Option<ShaderState> {
-        self.shaders.read().unwrap().get(*handle).map(|v| v.clone())
-    }
-
-    /// Returns true if shader is exists.
-    pub fn is_shader_alive(&self, handle: ShaderHandle) -> bool {
-        self.shaders.read().unwrap().is_alive(handle.into())
-    }
-
-    /// Delete shader state object.
-    pub fn delete_shader(&self, handle: ShaderHandle) {
-        if self.shaders
-            .write()
-            .unwrap()
-            .dec_rc(handle.into(), true)
-            .is_some()
-        {
-            let task = PostFrameTask::DeletePipeline(handle);
             self.frames.front().post.push(task);
         }
     }
@@ -510,6 +451,93 @@ impl GraphicsSystemShared {
 }
 
 impl GraphicsSystemShared {
+    /// Lookup shader object from location.
+    pub fn lookup_shader_from(&self, location: Location) -> Option<ShaderHandle> {
+        self.shaders
+            .read()
+            .unwrap()
+            .lookup(location)
+            .map(|v| v.into())
+    }
+
+    /// Create a shader with initial shaders and render state. Pipeline encapusulate
+    /// all the informations we need to configurate OpenGL before real drawing.
+    pub fn create_shader(&self, location: Location, setup: ShaderSetup) -> Result<ShaderHandle> {
+        if setup.uniform_variables.len() > MAX_UNIFORM_VARIABLES {
+            bail!(
+                "Too many uniform variables (>= {:?}).",
+                MAX_UNIFORM_VARIABLES
+            );
+        }
+
+        if setup.vs.len() == 0 {
+            bail!("Vertex shader is required to describe a proper render pipeline.");
+        }
+
+        if setup.fs.len() == 0 {
+            bail!("Fragment shader is required to describe a proper render pipeline.");
+        }
+
+        let handle = {
+            let mut shaders = self.shaders.write().unwrap();
+            if let Some(handle) = shaders.lookup(location) {
+                shaders.inc_rc(handle);
+                return Ok(handle.into());
+            }
+
+            let mut uniform_variable_names = HashMap::new();
+            let mut uniform_variables = HashMap::new();
+            for (name, v) in &setup.uniform_variables {
+                let k: HashValue<str> = name.into();
+                uniform_variables.insert(k, *v);
+                uniform_variable_names.insert(k, name.clone());
+            }
+
+            let shader_state = AssetShaderState::ready(ShaderStateObject {
+                render_state: setup.render_state,
+                layout: setup.layout,
+                uniform_variables: uniform_variables,
+                uniform_variable_names: uniform_variable_names,
+            });
+
+            let handle = shaders.create(location, shader_state).into();
+            handle
+        };
+
+        let task = PreFrameTask::CreatePipeline(handle, setup);
+        self.frames.front().pre.push(task);
+        Ok(handle)
+    }
+
+    /// Gets the shader state if exists.
+    pub fn shader(&self, handle: ShaderHandle) -> Option<Arc<ShaderStateObject>> {
+        self.shaders
+            .read()
+            .unwrap()
+            .get(*handle)
+            .and_then(|v| v.clone())
+    }
+
+    /// Returns true if shader is exists.
+    pub fn shader_alive(&self, handle: ShaderHandle) -> bool {
+        self.shaders.read().unwrap().is_alive(handle.into())
+    }
+
+    /// Delete shader state object.
+    pub fn delete_shader(&self, handle: ShaderHandle) {
+        if self.shaders
+            .write()
+            .unwrap()
+            .dec_rc(handle.into(), true)
+            .is_some()
+        {
+            let task = PostFrameTask::DeletePipeline(handle);
+            self.frames.front().post.push(task);
+        }
+    }
+}
+
+impl GraphicsSystemShared {
     /// Lookup mesh object from location.
     pub fn lookup_mesh_from(&self, location: Location) -> Option<MeshHandle> {
         self.meshes
@@ -531,7 +559,7 @@ impl GraphicsSystemShared {
                 return Ok(handle.into());
             }
 
-            let state = Arc::new(RwLock::new(MeshState::NotReady));
+            let state = Arc::new(RwLock::new(AssetState::NotReady));
             let handle = meshes.create(location, state.clone()).into();
             (handle, state)
         };
@@ -569,7 +597,7 @@ impl GraphicsSystemShared {
         }
 
         setup.validate()?;
-        
+
         let handle = {
             let mut meshes = self.meshes.write().unwrap();
             if let Some(handle) = meshes.lookup(location) {
@@ -577,7 +605,7 @@ impl GraphicsSystemShared {
                 return Ok(handle.into());
             }
 
-            let state = Arc::new(RwLock::new(MeshState::Ready));
+            let state = Arc::new(RwLock::new(AssetState::ready(setup.clone())));
             let handle = meshes.create(location, state).into();
             handle
         };
@@ -590,15 +618,41 @@ impl GraphicsSystemShared {
         Ok(handle)
     }
 
+    /// Gets the mesh state if exists.
+    pub fn mesh(&self, handle: MeshHandle) -> Option<Arc<MeshStateObject>> {
+        self.meshes
+            .read()
+            .unwrap()
+            .get(*handle)
+            .and_then(|v| v.read().unwrap().clone())
+    }
+
+    /// Returns true if shader is exists.
+    pub fn mesh_alive(&self, handle: MeshHandle) -> bool {
+        self.meshes.read().unwrap().is_alive(handle.into())
+    }
+
     /// Update a subset of dynamic vertex buffer. Use `offset` specifies the offset
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
+    ///
+    /// Notes that this method might fails without any error when the mesh is not
+    /// ready for operating.
     pub fn update_vertex_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
-        if self.meshes.read().unwrap().is_alive(mesh.into()) {
-            let mut frame = self.frames.front();
-            let ptr = frame.buf.extend_from_slice(data);
-            let task = PreFrameTask::UpdateVertexBuffer(mesh, offset, ptr);
-            frame.pre.push(task);
+        if let Some(state) = self.meshes.read().unwrap().get(mesh.into()) {
+            match *state.read().unwrap() {
+                AssetState::Ready(ref mso) => {
+                    if mso.hint == BufferHint::Immutable {
+                        bail!(ErrorKind::CanNotUpdateImmutableBuffer);
+                    }
+                    let mut frame = self.frames.front();
+                    let ptr = frame.buf.extend_from_slice(data);
+                    let task = PreFrameTask::UpdateVertexBuffer(mesh, offset, ptr);
+                    frame.pre.push(task);
+                }
+                _ => {}
+            }
+
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -608,12 +662,25 @@ impl GraphicsSystemShared {
     /// Update a subset of dynamic index buffer. Use `offset` specifies the offset
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
+    ///
+    /// Notes that this method might fails without any error when the mesh is not
+    /// ready for operating.
     pub fn update_index_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
-        if self.meshes.read().unwrap().is_alive(mesh.into()) {
-            let mut frame = self.frames.front();
-            let ptr = frame.buf.extend_from_slice(data);
-            let task = PreFrameTask::UpdateIndexBuffer(mesh, offset, ptr);
-            frame.pre.push(task);
+        if let Some(state) = self.meshes.read().unwrap().get(mesh.into()) {
+            match *state.read().unwrap() {
+                AssetState::Ready(ref mso) => {
+                    if mso.hint == BufferHint::Immutable {
+                        bail!(ErrorKind::CanNotUpdateImmutableBuffer);
+                    }
+
+                    let mut frame = self.frames.front();
+                    let ptr = frame.buf.extend_from_slice(data);
+                    let task = PreFrameTask::UpdateIndexBuffer(mesh, offset, ptr);
+                    frame.pre.push(task);
+                }
+                _ => {}
+            }
+
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -660,11 +727,11 @@ impl GraphicsSystemShared {
                 return Ok(handle.into());
             }
 
-            let state = Arc::new(RwLock::new(TextureState::NotReady));
+            let state = Arc::new(RwLock::new(AssetState::NotReady));
             let handle = textures.create(location, state.clone()).into();
             (handle, state)
         };
-    
+
         let loader = TextureLoader::<T>::new(handle, state, setup, self.frames.clone());
         self.resource.load_async(loader, location.uri());
         Ok(handle)
@@ -688,10 +755,10 @@ impl GraphicsSystemShared {
                 return Ok(handle.into());
             }
 
-            let state = Arc::new(RwLock::new(TextureState::Ready));
+            let state = Arc::new(RwLock::new(AssetState::ready(setup.clone())));
             textures.create(location, state).into()
         };
-    
+
         let mut frame = self.frames.front();
         let ptr = data.into().map(|v| frame.buf.extend_from_slice(v));
         let task = PreFrameTask::CreateTexture(handle, setup, ptr);
@@ -699,25 +766,18 @@ impl GraphicsSystemShared {
         Ok(handle)
     }
 
-    /// Create render texture object, which could be attached with a framebuffer.
-    pub fn create_render_texture(
-        &self,
-        setup: RenderTextureSetup,
-    ) -> Result<TextureHandle> {
-        let location = Location::unique("");
-        let state = Arc::new(RwLock::new(TextureState::Ready));
-        let handle = self.textures
-            .write()
+    /// Gets the mesh state if exists.
+    pub fn texture(&self, handle: TextureHandle) -> Option<Arc<TextureStateObject>> {
+        self.textures
+            .read()
             .unwrap()
-            .create(location, state)
-            .into();
+            .get(*handle)
+            .and_then(|v| v.read().unwrap().clone())
+    }
 
-        {
-            let task = PreFrameTask::CreateRenderTexture(handle, setup);
-            self.frames.front().pre.push(task);
-        }
-
-        Ok(handle)
+    /// Returns true if texture is exists.
+    pub fn texture_alive(&self, handle: TextureHandle) -> bool {
+        self.textures.read().unwrap().is_alive(handle.into())
     }
 
     /// Update the texture object.
@@ -726,7 +786,7 @@ impl GraphicsSystemShared {
     /// ready for operating.
     pub fn update_texture(&self, texture: TextureHandle, rect: Rect, data: &[u8]) -> Result<()> {
         if let Some(state) = self.textures.read().unwrap().get(texture.into()) {
-            if TextureState::Ready == *state.read().unwrap() {
+            if state.read().unwrap().is_ready() {
                 let mut frame = self.frames.front();
                 let ptr = frame.buf.extend_from_slice(data);
                 let task = PreFrameTask::UpdateTexture(texture, rect, ptr);
@@ -748,6 +808,39 @@ impl GraphicsSystemShared {
             .is_some()
         {
             let task = PostFrameTask::DeleteTexture(handle);
+            self.frames.front().post.push(task);
+        }
+    }
+}
+
+impl GraphicsSystemShared {
+    /// Create render texture object, which could be attached with a framebuffer.
+    pub fn create_render_texture(&self, setup: RenderTextureSetup) -> Result<RenderTextureHandle> {
+        let location = Location::unique("");
+        let state = Arc::new(RwLock::new(AssetState::ready(setup)));
+        let handle = self.render_textures
+            .write()
+            .unwrap()
+            .create(location, state)
+            .into();
+
+        {
+            let task = PreFrameTask::CreateRenderTexture(handle, setup);
+            self.frames.front().pre.push(task);
+        }
+
+        Ok(handle)
+    }
+
+    /// Delete the render texture object.
+    pub fn delete_render_texture(&self, handle: RenderTextureHandle) {
+        if self.render_textures
+            .write()
+            .unwrap()
+            .dec_rc(handle.into(), true)
+            .is_some()
+        {
+            let task = PostFrameTask::DeleteRenderTexture(handle);
             self.frames.front().post.push(task);
         }
     }
