@@ -9,29 +9,33 @@ use scene::errors::*;
 impl_handle!(MaterialHandle);
 
 #[derive(Debug, Clone)]
+pub struct ShaderPair {
+    pub handle: ShaderHandle,
+    pub sso: Arc<ShaderStateObject>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Material {
-    shader: ShaderHandle,
-    sso: Arc<ShaderStateObject>,
+    shader: ShaderPair,
     pub(crate) variables: HashMap<HashValue<str>, UniformVariable>,
 }
 
 impl Material {
-    pub fn new(shader: ShaderHandle, sso: Arc<ShaderStateObject>) -> Self {
+    pub fn new(shader: ShaderPair) -> Self {
         Material {
             shader: shader,
-            sso: sso,
             variables: HashMap::new(),
         }
     }
 
     #[inline(always)]
     pub fn shader(&self) -> ShaderHandle {
-        self.shader
+        self.shader.handle
     }
 
     #[inline(always)]
     pub fn render_state(&self) -> &RenderState {
-        self.sso.render_state()
+        self.shader.sso.render_state()
     }
 
     #[inline(always)]
@@ -39,7 +43,7 @@ impl Material {
     where
         T1: Into<HashValue<str>>,
     {
-        self.sso.uniform_variable(field).is_some()
+        self.shader.sso.uniform_variable(field).is_some()
     }
 
     pub fn set_uniform_variable<T1, T2>(&mut self, field: T1, variable: T2) -> Result<()>
@@ -50,7 +54,7 @@ impl Material {
         let field = field.into();
         let variable = variable.into();
 
-        if let Some(tt) = self.sso.uniform_variable(field) {
+        if let Some(tt) = self.shader.sso.uniform_variable(field) {
             if tt != variable.variable_type() {
                 bail!(ErrorKind::UniformTypeInvalid);
             }

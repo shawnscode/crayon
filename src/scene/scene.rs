@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use application::Context;
 use ecs::{ArenaMut, Component, Entity, Fetch, FetchMut, System, VecArena, World};
-use graphics::{GraphicsSystem, GraphicsSystemShared, ShaderHandle, SurfaceHandle, UniformVariable};
-use utils::{HandleObjectPool, HashValue};
+use graphics::{GraphicsSystem, GraphicsSystemShared, ShaderHandle, SurfaceHandle};
+use utils::HandleObjectPool;
 
 use scene::{Camera, Light, MeshRenderer, Node, Transform};
-use scene::material::{Material, MaterialHandle};
+use scene::material::{Material, MaterialHandle, ShaderPair};
 use scene::renderer::{RenderDataCollectTask, RenderTask};
 use scene::errors::*;
 use scene::factory;
@@ -37,8 +37,11 @@ impl Scene {
         let materials = HandleObjectPool::new();
 
         let shader = factory::shader::undefined(&video)?;
-        let shader_state = video.shader(shader).unwrap();
-        let fallback = Material::new(shader, shader_state);
+        let sso = video.shader(shader).unwrap();
+        let fallback = Material::new(ShaderPair {
+            handle: shader,
+            sso: sso,
+        });
 
         Ok(Scene {
             world: world,
@@ -105,28 +108,25 @@ impl Scene {
     #[inline(always)]
     pub fn create_material(&mut self, shader: ShaderHandle) -> Result<MaterialHandle> {
         if let Some(state) = self.video.shader(shader) {
-            Ok(self.materials.create(Material::new(shader, state)).into())
+            let m = self.materials.create(Material::new(ShaderPair {
+                handle: shader,
+                sso: state,
+            }));
+
+            Ok(m.into())
         } else {
             bail!("Undefined shader handle.");
         }
     }
 
     #[inline(always)]
-    pub fn update_material_uniform<T1, T2>(
-        &mut self,
-        handle: MaterialHandle,
-        field: T1,
-        variable: T2,
-    ) -> Result<()>
-    where
-        T1: Into<HashValue<str>>,
-        T2: Into<UniformVariable>,
-    {
-        if let Some(mat) = self.materials.get_mut(*handle) {
-            mat.set_uniform_variable(field, variable)
-        } else {
-            bail!("Undefined material handle.");
-        }
+    pub fn material(&self, handle: MaterialHandle) -> Option<&Material> {
+        self.materials.get(*handle)
+    }
+
+    #[inline(always)]
+    pub fn material_mut(&mut self, handle: MaterialHandle) -> Option<&mut Material> {
+        self.materials.get_mut(*handle)
     }
 
     #[inline(always)]

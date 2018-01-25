@@ -96,9 +96,12 @@ impl Window {
                 },
             });
 
-            let mat = scene.create_material(shader)?;
             let color: [f32; 4] = colors[i].into();
-            scene.update_material_uniform(mat, "u_Color", color)?;
+            let mat = scene.create_material(shader)?;
+            scene
+                .material_mut(mat)
+                .unwrap()
+                .set_uniform_variable("u_Color", color)?;
 
             let cube = scene.create_node(MeshRenderer {
                 mesh: mesh,
@@ -133,16 +136,22 @@ impl Window {
             .create_mesh_from::<OBJParser>(Location::shared(0, "/std/cornell_box.obj"), setup)?;
 
         let mat_wall = scene.create_material(shader)?;
-        scene.update_material_uniform(mat_wall, "u_Ambient", [1.0, 1.0, 1.0])?;
-        scene.update_material_uniform(mat_wall, "u_Diffuse", [1.0, 1.0, 1.0])?;
-        scene.update_material_uniform(mat_wall, "u_Specular", [0.0, 0.0, 0.0])?;
-        scene.update_material_uniform(mat_wall, "u_Shininess", 0.0)?;
+        {
+            let mat = scene.material_mut(mat_wall).unwrap();
+            mat.set_uniform_variable("u_Ambient", [1.0, 1.0, 1.0])?;
+            mat.set_uniform_variable("u_Diffuse", [1.0, 1.0, 1.0])?;
+            mat.set_uniform_variable("u_Specular", [0.0, 0.0, 0.0])?;
+            mat.set_uniform_variable("u_Shininess", 0.0)?;
+        }
 
         let mat_block = scene.create_material(shader)?;
-        scene.update_material_uniform(mat_block, "u_Ambient", [1.0, 1.0, 1.0])?;
-        scene.update_material_uniform(mat_block, "u_Diffuse", [1.0, 1.0, 1.0])?;
-        scene.update_material_uniform(mat_block, "u_Specular", [1.0, 1.0, 1.0])?;
-        scene.update_material_uniform(mat_block, "u_Shininess", 0.5)?;
+        {
+            let mat = scene.material_mut(mat_block).unwrap();
+            mat.set_uniform_variable("u_Ambient", [1.0, 1.0, 1.0])?;
+            mat.set_uniform_variable("u_Diffuse", [1.0, 1.0, 1.0])?;
+            mat.set_uniform_variable("u_Specular", [1.0, 1.0, 1.0])?;
+            mat.set_uniform_variable("u_Shininess", 0.5)?;
+        }
 
         let room = scene.create_node(());
         let anchor = [-278.0, -274.0, 280.0];
@@ -233,12 +242,13 @@ impl Application for Window {
             };
         }
 
-        self.scene
-            .update_material_uniform(self.material, "u_Ambient", *ambient)?;
-        self.scene
-            .update_material_uniform(self.material, "u_Diffuse", *diffuse)?;
-        self.scene
-            .update_material_uniform(self.material, "u_Specular", *specular)?;
+        {
+            let mat = self.scene.material_mut(self.material).unwrap();
+            mat.set_uniform_variable("u_Ambient", *ambient)?;
+            mat.set_uniform_variable("u_Diffuse", *diffuse)?;
+            mat.set_uniform_variable("u_Specular", *specular)?;
+        }
+
         self.scene.render(self.surface, self.camera)?;
         Ok(())
     }
