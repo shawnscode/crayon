@@ -1,13 +1,14 @@
 use std::sync::Arc;
+use std::collections::HashMap;
 
 use application::Context;
 use ecs::{ArenaMut, Component, Entity, Fetch, FetchMut, System, VecArena, World};
 use graphics::{GraphicsSystem, GraphicsSystemShared, ShaderHandle, SurfaceHandle};
-use utils::HandleObjectPool;
+use utils::{HandleObjectPool, HashValue};
 
 use scene::{Camera, Light, MeshRenderer, Node, Transform};
 use scene::material::{Material, MaterialHandle, ShaderPair};
-use scene::renderer::{RenderDataCollectTask, RenderTask};
+use scene::renderer::{RenderDataCollectTask, RenderTask, SceneUniformVariables};
 use scene::errors::*;
 use scene::factory;
 
@@ -17,6 +18,7 @@ pub struct Scene {
     video: Arc<GraphicsSystemShared>,
     fallback: Material,
     shader: ShaderHandle,
+    shader_uniforms: HashMap<ShaderHandle, HashMap<SceneUniformVariables, HashValue<str>>>,
 }
 
 impl Drop for Scene {
@@ -48,6 +50,7 @@ impl Scene {
             materials: materials,
             video: video,
             shader: shader,
+            shader_uniforms: HashMap::new(),
             fallback: fallback,
         })
     }
@@ -105,9 +108,40 @@ impl Scene {
         Ok(())
     }
 
+    pub fn update_shader_uniforms<T1, T2>(&mut self, shader: ShaderHandle, pairs: T1) -> Result<()>
+    where
+        T1: Iterator<Item = (SceneUniformVariables, T2)>,
+        T2: Into<HashValue<str>>,
+    {
+        if let Some(state) = self.video.shader(shader) {
+            let mut uvs = self.shader_uniforms.get_mut(&shader).unwrap();
+
+            for (suv, field) in pairs {
+                let field = field.into();
+                if let Some(tt) = state.uniform_variable(field) {
+                    if tt == suv.into() {
+                        uvs.insert(suv, field);
+                    } else {
+                        bail!(ErrorKind::UniformTypeInvalid);
+                    }
+                } else {
+                    bail!(ErrorKind::UniformUndefined);
+                }
+            }
+
+            Ok(())
+        } else {
+            bail!("Undefined shader handle.");
+        }
+    }
+
     #[inline(always)]
     pub fn create_material(&mut self, shader: ShaderHandle) -> Result<MaterialHandle> {
         if let Some(state) = self.video.shader(shader) {
+            if !self.shader_uniforms.contains_key(&shader) {
+                self.shader_uniforms.insert(shader, HashMap::new());
+            }
+
             let m = self.materials.create(Material::new(ShaderPair {
                 handle: shader,
                 sso: state,
@@ -160,6 +194,7 @@ impl Scene {
             materials: &self.materials,
             surface: surface,
             fallback: &self.fallback,
+            shader_binds: &self.shader_uniforms,
             view_matrix: view,
             projection_matrix: projection,
             data: task.data,

@@ -1,8 +1,16 @@
+pub mod uniforms;
+pub use self::uniforms::SceneUniformVariables;
+
+use self::SceneUniformVariables as SUV;
+
+use std::collections::HashMap;
+
 use ecs::{Arena, Fetch, System, View};
 use math;
 use math::{Matrix, SquareMatrix};
-use graphics::{DrawCall, GraphicsSystemShared, MeshHandle, MeshIndex, ShaderHandle, SurfaceHandle};
-use utils::HandleObjectPool;
+use graphics::{DrawCall, GraphicsSystemShared, MeshHandle, MeshIndex, ShaderHandle, SurfaceHandle,
+               UniformVariable};
+use utils::{HandleObjectPool, HashValue};
 
 use scene::{LightSource, Node, Transform};
 use scene::material::{Material, MaterialHandle};
@@ -20,22 +28,16 @@ type SceneViewData<'a> = (Fetch<'a, Node>, Fetch<'a, Transform>, Fetch<'a, Scene
 #[derive(Debug, Clone)]
 pub(crate) struct RenderDataDirLight {
     /// Direction in eye space.
-    pub forward: math::Vector3<f32>,
     pub dir: math::Vector3<f32>,
-    pub dir_field: String,
     pub color: math::Vector3<f32>,
-    pub color_field: String,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct RenderDataPointLight {
     /// Position in eye space.
     pub position: math::Vector3<f32>,
-    pub position_field: String,
     pub color: math::Vector3<f32>,
-    pub color_field: String,
     pub attenuation: math::Vector3<f32>,
-    pub attenuation_field: String,
 }
 
 #[derive(Debug, Clone)]
@@ -48,17 +50,32 @@ pub(crate) struct RenderTask<'a> {
     pub video: &'a GraphicsSystemShared,
     pub materials: &'a HandleObjectPool<Material>,
     pub fallback: &'a Material,
+    pub shader_binds: &'a HashMap<ShaderHandle, HashMap<SceneUniformVariables, HashValue<str>>>,
     pub surface: SurfaceHandle,
     pub view_matrix: math::Matrix4<f32>,
     pub projection_matrix: math::Matrix4<f32>,
     pub data: RenderData,
 }
 
+fn bind<T>(
+    dc: &mut DrawCall,
+    m: &Material,
+    binds: &HashMap<SceneUniformVariables, HashValue<str>>,
+    suv: SceneUniformVariables,
+    v: T,
+) where
+    T: Into<UniformVariable>,
+{
+    let field = binds.get(&suv).and_then(|v| Some(*v)).unwrap_or(suv.into());
+    if m.has_uniform_variable(field) {
+        dc.set_uniform_variable(field, v);
+    }
+}
+
 impl<'a, 'b> System<'a> for RenderTask<'b> {
     type ViewWith = SceneViewData<'a>;
 
     fn run(&self, view: View, data: Self::ViewWith) {
-        let vp = self.projection_matrix * self.view_matrix;
         unsafe {
             for v in view {
                 if let &SceneNode::Mesh(mesh) = data.2.get_unchecked(v) {
@@ -80,57 +97,44 @@ impl<'a, 'b> System<'a> for RenderTask<'b> {
 
                     // Generate draw call and fill it with build-in uniforms.
                     let mut dc = DrawCall::new(mat.shader(), mesh.mesh);
-                    let m = Transform::world_matrix(&data.0, &data.1, v).unwrap();
-                    let mv = self.view_matrix * m;
+                    let binds = self.shader_binds.get(&mat.shader()).unwrap();
 
                     for (k, v) in &mat.variables {
                         dc.set_uniform_variable(*k, *v);
                     }
 
-                    if mat.has_uniform_variable("u_ModelMatrix") {
-                        dc.set_uniform_variable("u_ModelMatrix", m);
+                    let m = Transform::world_matrix(&data.0, &data.1, v).unwrap();
+                    let mv = self.view_matrix * m;
+                    let mvp = self.projection_matrix * mv;
+                    let n = mv.invert().and_then(|v| Some(v.transpose())).unwrap_or(mv);
+
+                    // Model matrix.
+                    bind(&mut dc, &mat, &binds, SUV::ModelMatrix, m);
+                    // Model view matrix.
+                    bind(&mut dc, &mat, &binds, SUV::ModelViewMatrix, mv);
+                    // Mode view projection matrix.
+                    bind(&mut dc, &mat, &binds, SUV::ModelViewProjectionMatrix, mvp);
+                    // Normal matrix.
+                    bind(&mut dc, &mat, &binds, SUV::ViewNormalMatrix, n);
+
+                    if let Some(ref dir) = self.data.dir {
+                        // The direction of directional light in view space.
+                        bind(&mut dc, &mat, &binds, SUV::DirLightViewDir, dir.dir);
+                        // The color of directional light.
+                        bind(&mut dc, &mat, &binds, SUV::DirLightColor, dir.color);
                     }
 
-                    if mat.has_uniform_variable("u_ModelViewMatrix") {
-                        dc.set_uniform_variable("u_ModelViewMatrix", mv);
-                    }
+                    let len = ::std::cmp::min(self.data.points.len(), SUV::POINT_LIT_FIELDS.len());
 
-                    if mat.has_uniform_variable("u_MVPMatrix") {
-                        dc.set_uniform_variable("u_MVPMatrix", vp * m);
-                    }
-
-                    if mat.has_uniform_variable("u_NormalMatrix") {
-                        let n = if let Some(invert) = mv.invert() {
-                            invert.transpose()
-                        } else {
-                            mv
-                        };
-
-                        dc.set_uniform_variable("u_NormalMatrix", n);
-                    }
-
-                    if let &Some(ref dir) = &self.data.dir {
-                        if mat.has_uniform_variable(&dir.dir_field) {
-                            dc.set_uniform_variable(&dir.dir_field, dir.dir);
-                        }
-
-                        if mat.has_uniform_variable(&dir.color_field) {
-                            dc.set_uniform_variable(&dir.color_field, dir.color);
-                        }
-                    }
-
-                    for v in &self.data.points {
-                        if mat.has_uniform_variable(&v.position_field) {
-                            dc.set_uniform_variable(&v.position_field, v.position);
-                        }
-
-                        if mat.has_uniform_variable(&v.color_field) {
-                            dc.set_uniform_variable(&v.color_field, v.color);
-                        }
-
-                        if mat.has_uniform_variable(&v.attenuation_field) {
-                            dc.set_uniform_variable(&v.attenuation_field, v.attenuation);
-                        }
+                    for i in 0..len {
+                        let v = &self.data.points[i];
+                        let fields = SUV::POINT_LIT_FIELDS[i];
+                        // The position of point light in view space.
+                        bind(&mut dc, &mat, &binds, fields[0], v.position);
+                        // The color of point light in view space.
+                        bind(&mut dc, &mat, &binds, fields[1], v.color);
+                        // The attenuation of point light in view space.
+                        bind(&mut dc, &mat, &binds, fields[2], v.attenuation);
                     }
 
                     let sdc = dc.build(mesh.index).unwrap();
@@ -179,11 +183,8 @@ impl<'a> System<'a> for RenderDataCollectTask {
                             let vdir = dir_matrix * dir;
                             let color: [f32; 4] = light.color.into();
                             self.data.dir = Some(RenderDataDirLight {
-                                forward: dir,
                                 dir: vdir,
-                                dir_field: "u_DirLightEyeDir".into(),
                                 color: math::Vector4::from(color).truncate(),
-                                color_field: "u_DirLightColor".into(),
                             });
                         },
 
@@ -191,18 +192,14 @@ impl<'a> System<'a> for RenderDataCollectTask {
                             let p = Transform::world_position(&data.0, &data.1, v).unwrap();
                             let vp = (self.view_matrix * p.extend(1.0)).truncate();
                             let color: [f32; 4] = light.color.into();
-                            let n = self.data.points.len();
                             self.data.points.push(RenderDataPointLight {
                                 position: vp,
-                                position_field: format!("u_PointLightEyePos[{0}]", n),
                                 color: math::Vector4::from(color).truncate(),
-                                color_field: format!("u_PointLightColor[{0}]", n),
                                 attenuation: math::Vector3::new(
                                     1.0,
                                     -1.0 / (radius + smoothness * radius * radius),
                                     -smoothness / (radius + smoothness * radius * radius),
                                 ),
-                                attenuation_field: format!("u_PointLightAttenuation[{0}]", n),
                             });
                         }
                     }
