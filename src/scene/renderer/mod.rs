@@ -15,6 +15,7 @@ use utils::{HandleObjectPool, HashValue};
 use scene::{LightSource, Node, Transform};
 use scene::material::{Material, MaterialHandle};
 use scene::scene::SceneNode;
+use scene::errors::*;
 
 #[derive(Debug, Copy, Clone)]
 pub struct MeshRenderer {
@@ -74,6 +75,7 @@ fn bind<T>(
 
 impl<'a, 'b> System<'a> for RenderTask<'b> {
     type ViewWith = SceneViewData<'a>;
+    type Result = ();
 
     fn run(&self, view: View, data: Self::ViewWith) {
         unsafe {
@@ -148,26 +150,25 @@ impl<'a, 'b> System<'a> for RenderTask<'b> {
 }
 
 pub(crate) struct RenderDataCollectTask {
-    pub data: RenderData,
     pub view_matrix: math::Matrix4<f32>,
 }
 
 impl RenderDataCollectTask {
     pub fn new(view: math::Matrix4<f32>) -> Self {
-        RenderDataCollectTask {
-            view_matrix: view,
-            data: RenderData {
-                dir: None,
-                points: Vec::new(),
-            },
-        }
+        RenderDataCollectTask { view_matrix: view }
     }
 }
 
 impl<'a> System<'a> for RenderDataCollectTask {
     type ViewWith = SceneViewData<'a>;
+    type Result = Result<RenderData>;
 
-    fn run_mut(&mut self, view: View, data: Self::ViewWith) {
+    fn run_mut(&mut self, view: View, data: Self::ViewWith) -> Self::Result {
+        let mut res = RenderData {
+            dir: None,
+            points: Vec::new(),
+        };
+
         let dir_matrix = math::Matrix3::from_cols(
             self.view_matrix.x.truncate(),
             self.view_matrix.y.truncate(),
@@ -178,21 +179,23 @@ impl<'a> System<'a> for RenderDataCollectTask {
             for v in view {
                 if let &SceneNode::Light(light) = data.2.get_unchecked(v) {
                     match light.source {
-                        LightSource::Directional => if self.data.dir.is_none() {
-                            let dir = Transform::forward(&data.0, &data.1, v).unwrap();
+                        LightSource::Directional => if res.dir.is_none() {
+                            let dir = Transform::forward(&data.0, &data.1, v)?;
                             let vdir = dir_matrix * dir;
                             let color: [f32; 4] = light.color.into();
-                            self.data.dir = Some(RenderDataDirLight {
+
+                            res.dir = Some(RenderDataDirLight {
                                 dir: vdir,
                                 color: math::Vector4::from(color).truncate(),
                             });
                         },
 
                         LightSource::Point { radius, smoothness } => {
-                            let p = Transform::world_position(&data.0, &data.1, v).unwrap();
+                            let p = Transform::world_position(&data.0, &data.1, v)?;
                             let vp = (self.view_matrix * p.extend(1.0)).truncate();
                             let color: [f32; 4] = light.color.into();
-                            self.data.points.push(RenderDataPointLight {
+
+                            res.points.push(RenderDataPointLight {
                                 position: vp,
                                 color: math::Vector4::from(color).truncate(),
                                 attenuation: math::Vector3::new(
@@ -206,6 +209,8 @@ impl<'a> System<'a> for RenderDataCollectTask {
                 }
             }
         }
+
+        Ok(res)
     }
 }
 

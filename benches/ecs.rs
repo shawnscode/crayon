@@ -1,7 +1,7 @@
 #![feature(test)]
-extern crate test;
 extern crate crayon;
 extern crate rayon;
+extern crate test;
 
 use test::Bencher;
 use crayon::prelude::*;
@@ -36,6 +36,7 @@ struct HeavyCPU {}
 
 impl<'a> System<'a> for HeavyCPU {
     type ViewWith = Fetch<'a, PlaceHolderCMP>;
+    type Result = ();
 
     fn run(&self, view: View, _: Self::ViewWith) {
         for _ in view {
@@ -49,14 +50,15 @@ struct HeavyCPUWithRayon {}
 
 impl<'a> System<'a> for HeavyCPUWithRayon {
     type ViewWith = Fetch<'a, PlaceHolderCMP>;
+    type Result = ();
 
     fn run(&self, view: View, _: Self::ViewWith) {
         rayon::scope(|s| {
-                         //
-                         for _ in view {
-                             s.spawn(|_| execute());
-                         }
-                     })
+            //
+            for _ in view {
+                s.spawn(|_| execute());
+            }
+        })
     }
 }
 
@@ -82,11 +84,11 @@ fn bench_parralle_execution(b: &mut Bencher) {
         let s3 = HeavyCPU {};
 
         rayon::scope(|s| {
-                         //
-                         s.spawn(|_| s1.run_at(&world));
-                         s.spawn(|_| s2.run_at(&world));
-                         s.spawn(|_| s3.run_at(&world));
-                     });
+            //
+            s.spawn(|_| s1.run_at(&world));
+            s.spawn(|_| s2.run_at(&world));
+            s.spawn(|_| s3.run_at(&world));
+        });
     });
 }
 
@@ -99,10 +101,10 @@ fn bench_parralle_execution_2(b: &mut Bencher) {
         let s3 = HeavyCPUWithRayon {};
 
         rayon::scope(|s| {
-                         //
-                         s.spawn(|_| s1.run_at(&world));
-                         s.spawn(|_| s2.run_at(&world));
-                         s.spawn(|_| s3.run_at(&world));
-                     });
+            //
+            s.spawn(|_| s1.run_at(&world));
+            s.spawn(|_| s2.run_at(&world));
+            s.spawn(|_| s3.run_at(&world));
+        });
     });
 }

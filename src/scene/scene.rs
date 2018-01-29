@@ -187,7 +187,7 @@ impl Scene {
         };
 
         let mut task = RenderDataCollectTask::new(view);
-        task.run_mut_at(&self.world);
+        let env = task.run_mut_at(&self.world)?;
 
         let task = RenderTask {
             video: &self.video,
@@ -197,7 +197,7 @@ impl Scene {
             shader_binds: &self.shader_uniforms,
             view_matrix: view,
             projection_matrix: projection,
-            data: task.data,
+            data: env,
         };
         task.run_at(&self.world);
 

@@ -22,12 +22,18 @@ use super::bitset::BitSet;
 pub trait System<'a> {
     /// The component arenas required to execute system.
     type ViewWith: SystemData<'a>;
+    /// The result of execution.
+    type Result: Sized;
 
     /// Run the system with the required components.
-    fn run(&self, _: View, _: Self::ViewWith) {}
+    fn run(&self, _: View, _: Self::ViewWith) -> Self::Result {
+        unimplemented!()
+    }
 
     /// Mutably Run the system with the required components.
-    fn run_mut(&mut self, _: View, _: Self::ViewWith) {}
+    fn run_mut(&mut self, _: View, _: Self::ViewWith) -> Self::Result {
+        unimplemented!()
+    }
 
     /// View the world with required components.
     fn view(&self, _: View) {}
@@ -35,14 +41,14 @@ pub trait System<'a> {
     /// Mutably view the world with required components.
     fn view_mut(&mut self, _: View) {}
 
-    fn run_at(&self, world: &'a World) {
+    fn run_at(&self, world: &'a World) -> Self::Result {
         let mask = Self::mask_at(world);
-        self.run(world.view(mask), Self::ViewWith::fetch(world));
+        self.run(world.view(mask), Self::ViewWith::fetch(world))
     }
 
-    fn run_mut_at(&mut self, world: &'a World) {
+    fn run_mut_at(&mut self, world: &'a World) -> Self::Result {
         let mask = Self::mask_at(world);
-        self.run_mut(world.view(mask), Self::ViewWith::fetch(world));
+        self.run_mut(world.view(mask), Self::ViewWith::fetch(world))
     }
 
     fn view_at(&self, world: &'a World) {
