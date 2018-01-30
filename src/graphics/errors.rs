@@ -16,9 +16,12 @@ error_chain!{
 
     errors {
         InvalidHandle
+        InvalidSurfaceHandle
         WindowNotExist
         CanNotDrawWithoutView
         CanNotDrawWithoutShaderState
         CanNotDrawWihtoutVertexBuffer
+        AssetNotReady
+        CanNotUpdateImmutableBuffer
     }
 }

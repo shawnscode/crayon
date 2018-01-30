@@ -16,7 +16,7 @@ struct Window {
     _label: graphics::RAIIGuard,
     pass: Pass,
     post_effect: Pass,
-    texture: graphics::TextureHandle,
+    texture: graphics::RenderTextureHandle,
     time: f32,
 }
 
@@ -116,7 +116,7 @@ impl Window {
             setup.layout = attributes;
             setup.vs = include_str!("../../assets/render_target_p2.vs").to_owned();
             setup.fs = include_str!("../../assets/render_target_p2.fs").to_owned();
-            let tt = graphics::UniformVariableType::Texture;
+            let tt = graphics::UniformVariableType::RenderTexture;
             setup.uniform_variables.insert("renderedTexture".into(), tt);
             let tt = graphics::UniformVariableType::F32;
             setup.uniform_variables.insert("time".into(), tt);

@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use math;
-use graphics::{TextureHandle, MAX_VERTEX_ATTRIBUTES};
+use graphics::{RenderTextureHandle, TextureHandle, MAX_VERTEX_ATTRIBUTES};
 use utils::HashValue;
 
 use super::mesh::VertexLayout;
@@ -22,11 +22,37 @@ pub struct ShaderSetup {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct ShaderState {
-    pub render_state: RenderState,
-    pub uniform_variables: HashMap<HashValue<str>, UniformVariableType>,
-    pub uniform_variable_names: HashMap<HashValue<str>, String>,
-    pub layout: AttributeLayout,
+pub struct ShaderStateObject {
+    pub(crate) render_state: RenderState,
+    pub(crate) uniform_variables: HashMap<HashValue<str>, UniformVariableType>,
+    pub(crate) uniform_variable_names: HashMap<HashValue<str>, String>,
+    pub(crate) layout: AttributeLayout,
+}
+
+impl ShaderStateObject {
+    pub fn render_state(&self) -> &RenderState {
+        &self.render_state
+    }
+
+    pub fn layout(&self) -> &AttributeLayout {
+        &self.layout
+    }
+
+    pub fn uniform_variable<T>(&self, field: T) -> Option<UniformVariableType>
+    where
+        T: Into<HashValue<str>>,
+    {
+        self.uniform_variables.get(&field.into()).map(|v| *v)
+    }
+
+    pub fn uniform_variable_name<T>(&self, field: T) -> Option<&str>
+    where
+        T: Into<HashValue<str>>,
+    {
+        self.uniform_variable_names
+            .get(&field.into())
+            .map(|v| v.as_ref())
+    }
 }
 
 /// The possible pre-defined and named attributes in the vertex component, describing
@@ -278,6 +304,7 @@ impl Default for RenderState {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum UniformVariableType {
     Texture,
+    RenderTexture,
     I32,
     F32,
     Vector2f,
@@ -293,6 +320,7 @@ pub enum UniformVariableType {
 #[derive(Debug, Copy, Clone)]
 pub enum UniformVariable {
     Texture(TextureHandle),
+    RenderTexture(RenderTextureHandle),
     I32(i32),
     F32(f32),
     Vector2f([f32; 2]),
@@ -306,6 +334,7 @@ pub enum UniformVariable {
 impl UniformVariable {
     pub fn variable_type(&self) -> UniformVariableType {
         match self {
+            &UniformVariable::RenderTexture(_) => UniformVariableType::RenderTexture,
             &UniformVariable::Texture(_) => UniformVariableType::Texture,
             &UniformVariable::I32(_) => UniformVariableType::I32,
             &UniformVariable::F32(_) => UniformVariableType::F32,
@@ -322,6 +351,12 @@ impl UniformVariable {
 impl Into<UniformVariable> for TextureHandle {
     fn into(self) -> UniformVariable {
         UniformVariable::Texture(self)
+    }
+}
+
+impl Into<UniformVariable> for RenderTextureHandle {
+    fn into(self) -> UniformVariable {
+        UniformVariable::RenderTexture(self)
     }
 }
 

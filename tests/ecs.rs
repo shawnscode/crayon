@@ -35,6 +35,7 @@ struct DecXSystem {}
 
 impl<'a> System<'a> for IncXSystem {
     type ViewWith = FetchMut<'a, Position>;
+    type Result = ();
 
     fn run(&self, view: View, mut arena: Self::ViewWith) {
         unsafe {
@@ -47,6 +48,7 @@ impl<'a> System<'a> for IncXSystem {
 
 impl<'a> System<'a> for DecXSystem {
     type ViewWith = FetchMut<'a, Position>;
+    type Result = ();
 
     fn run(&self, view: View, mut arena: Self::ViewWith) {
         unsafe {

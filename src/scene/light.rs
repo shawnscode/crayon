@@ -9,14 +9,14 @@ pub struct Light {
     /// Brightness of the light source, in lumens.
     pub intensity: f32,
     /// Light source
-    pub source: LightSource,
+    pub source: LitSrc,
 }
 
 /// Enumeration for all light sources.
 #[derive(Debug, Clone, Copy)]
-pub enum LightSource {
+pub enum LitSrc {
     /// A direcitonal light.
-    Directional,
+    Dir,
     /// A point light.
     Point {
         /// Maximum raidus of the point light's affected data.
@@ -32,7 +32,7 @@ impl Default for Light {
             enable: true,
             color: Color::white(),
             intensity: 1.0,
-            source: LightSource::Directional,
+            source: LitSrc::Dir,
         }
     }
 }

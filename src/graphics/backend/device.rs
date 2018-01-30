@@ -39,15 +39,15 @@ struct SurfaceObject {
 }
 
 #[derive(Debug, Copy, Clone)]
-enum GenericTextureSetup {
-    Normal(TextureSetup),
-    Render(RenderTextureSetup),
+struct TextureObject {
+    id: ResourceID,
+    setup: TextureSetup,
 }
 
 #[derive(Debug, Copy, Clone)]
-struct TextureObject {
+struct RenderTextureObject {
     id: ResourceID,
-    setup: GenericTextureSetup,
+    setup: RenderTextureSetup,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -75,6 +75,7 @@ pub(crate) struct Device {
     shaders: DataVec<ShaderObject>,
     surfaces: DataVec<SurfaceObject>,
     textures: DataVec<TextureObject>,
+    render_textures: DataVec<RenderTextureObject>,
     render_buffers: DataVec<RenderBufferObject>,
     framebuffers: DataVec<FrameBufferObject>,
 
@@ -94,6 +95,7 @@ impl Device {
             surfaces: DataVec::new(),
             textures: DataVec::new(),
             render_buffers: DataVec::new(),
+            render_textures: DataVec::new(),
             framebuffers: DataVec::new(),
             active_shader: Cell::new(None),
             frame_info: RefCell::new(FrameInfo::default()),
@@ -180,7 +182,7 @@ impl Device {
         // Bind program and associated uniforms and textures.
         let shader = self.bind_shader(dc.shader)?;
 
-        let texture_idx = 0;
+        let mut texture_idx = 0;
         for &(field, ptr) in buf.as_slice(dc.uniforms) {
             let variable = buf.as_ref(ptr);
             let location = shader.uniform_locations[&field];
@@ -190,6 +192,14 @@ impl Device {
                     let v = UniformVariable::I32(texture_idx);
                     self.visitor.bind_uniform(location, &v)?;
                     self.visitor.bind_texture(texture_idx as u32, texture.id)?;
+                    texture_idx += 1;
+                }
+            } else if let &UniformVariable::RenderTexture(handle) = variable {
+                if let Some(texture) = self.render_textures.get(handle) {
+                    let v = UniformVariable::I32(texture_idx);
+                    self.visitor.bind_uniform(location, &v)?;
+                    self.visitor.bind_texture(texture_idx as u32, texture.id)?;
+                    texture_idx += 1;
                 }
             } else {
                 self.visitor.bind_uniform(location, &variable)?;
@@ -476,46 +486,42 @@ impl Device {
     pub unsafe fn update_framebuffer_with_texture(
         &mut self,
         handle: FrameBufferHandle,
-        texture: TextureHandle,
+        texture: RenderTextureHandle,
         slot: u32,
     ) -> Result<()> {
         let fbo = self.framebuffers
             .get_mut(handle)
             .ok_or(ErrorKind::InvalidHandle)?;
 
-        let texture = self.textures.get(texture).ok_or(ErrorKind::InvalidHandle)?;
-        if let GenericTextureSetup::Render(setup) = texture.setup {
-            self.visitor.bind_framebuffer(fbo.id, false)?;
+        let rt = self.render_textures
+            .get(texture)
+            .ok_or(ErrorKind::InvalidHandle)?;
 
-            let attached_dimensions = (setup.dimensions.0 as u16, setup.dimensions.1 as u16);
-            if let Some(dimensions) = fbo.dimensions {
-                if attached_dimensions != dimensions {
-                    bail!(
-                        "Incompitable(mismatch dimensions) attachment of frame-buffer {:?}",
-                        handle
-                    );
-                }
-            } else {
-                fbo.dimensions = Some(attached_dimensions);
-            }
+        self.visitor.bind_framebuffer(fbo.id, false)?;
 
-            match setup.format {
-                RenderTextureFormat::RGB8
-                | RenderTextureFormat::RGBA4
-                | RenderTextureFormat::RGBA8 => {
-                    let location = gl::COLOR_ATTACHMENT0 + slot;
-                    self.visitor
-                        .bind_framebuffer_with_texture(location, texture.id)
-                }
-                RenderTextureFormat::Depth16
-                | RenderTextureFormat::Depth24
-                | RenderTextureFormat::Depth32 => self.visitor
-                    .bind_framebuffer_with_texture(gl::DEPTH_ATTACHMENT, texture.id),
-                RenderTextureFormat::Depth24Stencil8 => self.visitor
-                    .bind_framebuffer_with_texture(gl::DEPTH_STENCIL_ATTACHMENT, texture.id),
+        let attached_dimensions = (rt.setup.dimensions.0 as u16, rt.setup.dimensions.1 as u16);
+        if let Some(dimensions) = fbo.dimensions {
+            if attached_dimensions != dimensions {
+                bail!(
+                    "Incompitable(mismatch dimensions) attachment of frame-buffer {:?}",
+                    handle
+                );
             }
         } else {
-            bail!("can't attach normal texture to framebuffer.");
+            fbo.dimensions = Some(attached_dimensions);
+        }
+
+        match rt.setup.format {
+            RenderTextureFormat::RGB8 | RenderTextureFormat::RGBA4 | RenderTextureFormat::RGBA8 => {
+                let location = gl::COLOR_ATTACHMENT0 + slot;
+                self.visitor.bind_framebuffer_with_texture(location, rt.id)
+            }
+            RenderTextureFormat::Depth16
+            | RenderTextureFormat::Depth24
+            | RenderTextureFormat::Depth32 => self.visitor
+                .bind_framebuffer_with_texture(gl::DEPTH_ATTACHMENT, rt.id),
+            RenderTextureFormat::Depth24Stencil8 => self.visitor
+                .bind_framebuffer_with_texture(gl::DEPTH_STENCIL_ATTACHMENT, rt.id),
         }
     }
 
@@ -558,7 +564,7 @@ impl Device {
 
     pub unsafe fn create_render_texture(
         &mut self,
-        handle: TextureHandle,
+        handle: RenderTextureHandle,
         setup: RenderTextureSetup,
     ) -> Result<()> {
         let (internal_format, in_format, pixel_type) = setup.format.into();
@@ -574,14 +580,23 @@ impl Device {
             None,
         )?;
 
-        self.textures.set(
+        self.render_textures.set(
             handle,
-            TextureObject {
+            RenderTextureObject {
                 id: id,
-                setup: GenericTextureSetup::Render(setup),
+                setup: setup,
             },
         );
         Ok(())
+    }
+
+    pub unsafe fn delete_render_texture(&mut self, handle: RenderTextureHandle) -> Result<()> {
+        if let Some(texture) = self.render_textures.remove(handle) {
+            self.visitor.delete_texture(texture.id)?;
+            Ok(())
+        } else {
+            bail!(ErrorKind::InvalidHandle);
+        }
     }
 
     pub unsafe fn create_texture(
@@ -607,7 +622,7 @@ impl Device {
             handle,
             TextureObject {
                 id: id,
-                setup: GenericTextureSetup::Normal(setup),
+                setup: setup,
             },
         );
         Ok(())
@@ -620,21 +635,17 @@ impl Device {
         data: &[u8],
     ) -> Result<()> {
         if let Some(texture) = self.textures.get(handle) {
-            if let GenericTextureSetup::Normal(setup) = texture.setup {
-                if data.len() > rect.size() as usize || rect.min.x as u32 >= setup.dimensions.0
-                    || rect.min.y as u32 >= setup.dimensions.1 || rect.max.x < 0
-                    || rect.max.y < 0
-                {
-                    bail!(ErrorKind::OutOfBounds);
-                }
-
-                let (_, format, tt) = setup.format.into();
-                self.visitor
-                    .update_texture(texture.id, format, tt, rect, data)?;
-                Ok(())
-            } else {
-                bail!("Can not update render texture.");
+            if data.len() > rect.size() as usize || rect.min.x as u32 >= texture.setup.dimensions.0
+                || rect.min.y as u32 >= texture.setup.dimensions.1 || rect.max.x < 0
+                || rect.max.y < 0
+            {
+                bail!(ErrorKind::OutOfBounds);
             }
+
+            let (_, format, tt) = texture.setup.format.into();
+            self.visitor
+                .update_texture(texture.id, format, tt, rect, data)?;
+            Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
         }

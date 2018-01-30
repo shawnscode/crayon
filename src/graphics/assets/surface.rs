@@ -3,7 +3,7 @@
 
 use utils::Color;
 use graphics::MAX_FRAMEBUFFER_ATTACHMENTS;
-use graphics::assets::texture::{RenderBufferHandle, TextureHandle};
+use graphics::assets::texture::{RenderBufferHandle, RenderTextureHandle};
 use graphics::errors::*;
 
 /// SurfaceObject wraps rendering operations to a render-target. Likes clearing, MSAA
@@ -103,11 +103,11 @@ pub struct FrameBufferSetup {
 
 #[derive(Debug, Clone, Copy)]
 pub enum FrameBufferAttachment {
-    Texture(TextureHandle),
+    Texture(RenderTextureHandle),
     RenderBuffer(RenderBufferHandle),
 }
 
-impl Into<FrameBufferAttachment> for TextureHandle {
+impl Into<FrameBufferAttachment> for RenderTextureHandle {
     fn into(self) -> FrameBufferAttachment {
         FrameBufferAttachment::Texture(self)
     }

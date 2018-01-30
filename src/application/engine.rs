@@ -30,8 +30,9 @@ impl ContextSystem for time::TimeSystem {
 /// management.
 pub struct Engine {
     pub events_loop: event::EventsLoop,
-    pub input: input::InputSystem,
     pub window: Arc<graphics::Window>,
+
+    pub input: input::InputSystem,
     pub graphics: graphics::GraphicsSystem,
     pub resource: resource::ResourceSystem,
     pub time: time::TimeSystem,

@@ -89,7 +89,10 @@ impl RAIIGuard {
     }
 
     #[inline(always)]
-    pub fn create_render_texture(&mut self, setup: RenderTextureSetup) -> Result<TextureHandle> {
+    pub fn create_render_texture(
+        &mut self,
+        setup: RenderTextureSetup,
+    ) -> Result<RenderTextureHandle> {
         let v = self.video.create_render_texture(setup)?;
         Ok(self.push(v))
     }
@@ -112,6 +115,7 @@ impl RAIIGuard {
         for v in self.stack.drain(..) {
             match v {
                 Resource::Texture(handle) => self.video.delete_texture(handle),
+                Resource::RenderTexture(handle) => self.video.delete_render_texture(handle),
                 Resource::Mesh(handle) => self.video.delete_mesh(handle),
                 Resource::Surface(handle) => self.video.delete_surface(handle),
                 Resource::ShaderState(handle) => self.video.delete_shader(handle),
@@ -138,6 +142,7 @@ impl Drop for RAIIGuard {
 
 enum Resource {
     Texture(TextureHandle),
+    RenderTexture(RenderTextureHandle),
     Mesh(MeshHandle),
     Surface(SurfaceHandle),
     ShaderState(ShaderHandle),
@@ -148,6 +153,12 @@ enum Resource {
 impl From<TextureHandle> for Resource {
     fn from(handle: TextureHandle) -> Resource {
         Resource::Texture(handle)
+    }
+}
+
+impl From<RenderTextureHandle> for Resource {
+    fn from(handle: RenderTextureHandle) -> Resource {
+        Resource::RenderTexture(handle)
     }
 }
 

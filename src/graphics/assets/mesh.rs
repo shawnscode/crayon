@@ -25,6 +25,8 @@ pub struct MeshSetup {
     pub sub_mesh_offsets: Vec<usize>,
 }
 
+pub type MeshStateObject = MeshSetup;
+
 impl Default for MeshSetup {
     fn default() -> Self {
         MeshSetup {

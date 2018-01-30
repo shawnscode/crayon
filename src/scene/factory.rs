@@ -1,12 +1,28 @@
 pub mod shader {
-    use graphics::errors::*;
     use graphics::*;
+    use graphics::UniformVariableType as UVT;
+    use graphics::errors::*;
     use resource::Location;
+
+    use scene;
+    use scene::{RenderUniform, Scene};
 
     pub const PBR: &str = "__Core/Scene/Shader/PBR";
     pub const PHONG: &str = "__Core/Scene/Shader/PHONG";
     pub const UNDEFINED: &str = "__Core/Scene/Shader/UNDEFINED";
     pub const COLOR: &str = "__Core/Scene/Shader/COLOR";
+
+    pub(crate) fn setup(
+        scene: &mut Scene,
+        video: &GraphicsSystemShared,
+    ) -> scene::errors::Result<()> {
+        let pairs: &[(RenderUniform, &'static str)] = &[];
+        scene.setup_render_shader(undefined(video)?, pairs)?;
+        scene.setup_render_shader(color(video)?, pairs)?;
+        scene.setup_render_shader(phong(video)?, pairs)?;
+        // scene.setup_render_shader(pbr(video)?, pairs)?;
+        Ok(())
+    }
 
     pub fn pbr(video: &GraphicsSystemShared) -> Result<ShaderHandle> {
         let location = Location::shared(0, PBR);
@@ -31,9 +47,9 @@ pub mod shader {
         setup.fs = include_str!("assets/pbr.fs").to_owned();
 
         let uvs = [
-            ("u_MVPMatrix", UniformVariableType::Matrix4f),
-            ("u_ModelViewMatrix", UniformVariableType::Matrix4f),
-            ("u_NormalMatrix", UniformVariableType::Matrix4f),
+            ("scn_MVPMatrix", UVT::Matrix4f),
+            ("scn_ModelViewMatrix", UVT::Matrix4f),
+            ("scn_ViewNormalMatrix", UVT::Matrix4f),
         ];
 
         for &(field, tt) in &uvs {
@@ -67,27 +83,27 @@ pub mod shader {
         setup.fs = include_str!("assets/phong.fs").to_owned();
 
         let uvs = [
-            ("u_MVPMatrix", UniformVariableType::Matrix4f),
-            ("u_ModelViewMatrix", UniformVariableType::Matrix4f),
-            ("u_NormalMatrix", UniformVariableType::Matrix4f),
-            ("u_DirLightEyeDir", UniformVariableType::Vector3f),
-            ("u_DirLightColor", UniformVariableType::Vector3f),
-            ("u_PointLightEyePos[0]", UniformVariableType::Vector3f),
-            ("u_PointLightColor[0]", UniformVariableType::Vector3f),
-            ("u_PointLightAttenuation[0]", UniformVariableType::Vector3f),
-            ("u_PointLightEyePos[1]", UniformVariableType::Vector3f),
-            ("u_PointLightColor[1]", UniformVariableType::Vector3f),
-            ("u_PointLightAttenuation[1]", UniformVariableType::Vector3f),
-            ("u_PointLightEyePos[2]", UniformVariableType::Vector3f),
-            ("u_PointLightColor[2]", UniformVariableType::Vector3f),
-            ("u_PointLightAttenuation[2]", UniformVariableType::Vector3f),
-            ("u_PointLightEyePos[3]", UniformVariableType::Vector3f),
-            ("u_PointLightColor[3]", UniformVariableType::Vector3f),
-            ("u_PointLightAttenuation[3]", UniformVariableType::Vector3f),
-            ("u_Ambient", UniformVariableType::Vector3f),
-            ("u_Diffuse", UniformVariableType::Vector3f),
-            ("u_Specular", UniformVariableType::Vector3f),
-            ("u_Shininess", UniformVariableType::F32),
+            ("scn_MVPMatrix", UVT::Matrix4f),
+            ("scn_ModelViewMatrix", UVT::Matrix4f),
+            ("scn_ViewNormalMatrix", UVT::Matrix4f),
+            ("scn_DirLightViewDir", UVT::Vector3f),
+            ("scn_DirLightColor", UVT::Vector3f),
+            ("scn_PointLightViewPos[0]", UVT::Vector3f),
+            ("scn_PointLightColor[0]", UVT::Vector3f),
+            ("scn_PointLightAttenuation[0]", UVT::Vector3f),
+            ("scn_PointLightViewPos[1]", UVT::Vector3f),
+            ("scn_PointLightColor[1]", UVT::Vector3f),
+            ("scn_PointLightAttenuation[1]", UVT::Vector3f),
+            ("scn_PointLightViewPos[2]", UVT::Vector3f),
+            ("scn_PointLightColor[2]", UVT::Vector3f),
+            ("scn_PointLightAttenuation[2]", UVT::Vector3f),
+            ("scn_PointLightViewPos[3]", UVT::Vector3f),
+            ("scn_PointLightColor[3]", UVT::Vector3f),
+            ("scn_PointLightAttenuation[3]", UVT::Vector3f),
+            ("u_Ambient", UVT::Vector3f),
+            ("u_Diffuse", UVT::Vector3f),
+            ("u_Specular", UVT::Vector3f),
+            ("u_Shininess", UVT::F32),
         ];
 
         for &(field, tt) in &uvs {
@@ -118,10 +134,7 @@ pub mod shader {
         setup.vs = include_str!("assets/color.vs").to_owned();
         setup.fs = include_str!("assets/color.fs").to_owned();
 
-        let uvs = [
-            ("u_MVPMatrix", UniformVariableType::Matrix4f),
-            ("u_Color", UniformVariableType::Vector4f),
-        ];
+        let uvs = [("scn_MVPMatrix", UVT::Matrix4f), ("u_Color", UVT::Vector4f)];
 
         for &(field, tt) in &uvs {
             setup.uniform_variables.insert(field.into(), tt);
@@ -151,7 +164,7 @@ pub mod shader {
         setup.vs = include_str!("assets/undefined.vs").to_owned();
         setup.fs = include_str!("assets/undefined.fs").to_owned();
 
-        let uvs = [("u_MVPMatrix", UniformVariableType::Matrix4f)];
+        let uvs = [("scn_MVPMatrix", UVT::Matrix4f)];
 
         for &(field, tt) in &uvs {
             setup.uniform_variables.insert(field.into(), tt);
