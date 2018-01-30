@@ -1,27 +1,23 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use graphics::{RenderState, ShaderHandle, ShaderStateObject, UniformVariable};
+use graphics::{RenderState, ShaderHandle, UniformVariable};
 use utils::HashValue;
 
 use scene::errors::*;
+use scene::scene::RenderShader;
+use scene::renderer::RenderUniform;
 
 impl_handle!(MaterialHandle);
 
 #[derive(Debug, Clone)]
-pub struct ShaderPair {
-    pub handle: ShaderHandle,
-    pub sso: Arc<ShaderStateObject>,
-}
-
-#[derive(Debug, Clone)]
 pub struct Material {
-    shader: ShaderPair,
+    pub(crate) shader: Arc<RenderShader>,
     pub(crate) variables: HashMap<HashValue<str>, UniformVariable>,
 }
 
 impl Material {
-    pub fn new(shader: ShaderPair) -> Self {
+    pub fn new(shader: Arc<RenderShader>) -> Self {
         Material {
             shader: shader,
             variables: HashMap::new(),
@@ -72,5 +68,14 @@ impl Material {
         T1: Into<HashValue<str>>,
     {
         self.variables.get(&field.into()).map(|v| *v)
+    }
+
+    #[inline(always)]
+    pub(crate) fn render_uniform_field(&self, uniform: RenderUniform) -> HashValue<str> {
+        self.shader
+            .render_uniforms
+            .get(&uniform)
+            .map(|v| *v)
+            .unwrap_or(RenderUniform::FIELDS[uniform as usize].into())
     }
 }

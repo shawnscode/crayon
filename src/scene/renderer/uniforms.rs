@@ -2,23 +2,35 @@ use graphics::UniformVariableType;
 use utils::HashValue;
 
 macro_rules! impl_scene_uniforms {
-    ($name: ident { $fkey: ident => [$fuvt: ident, $ffield: tt], $($key: ident => [$uvt: ident, $field: tt], )* }) => {
+    ($name: ident { $head: ident => [$tt_head: ident, $field_head: tt], $($tails: ident => [$uvt: ident, $field: tt], )* }) => {
+        /// A list of supported build-in uniform variables that would be filled when
+        /// drawing `Scene`.
+        /// 
+        /// Space coordinate system related variables like `LitPosition`, `LitDir` are
+        /// defined in _View_ space (or _Eye_ space) for conveninent.
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
         pub enum $name {
-            $fkey = 0,
+            $head = 0,
             $(
-                $key,
+                $tails,
             ) *
         }
 
         impl $name {
+            pub const UNIFORMS: &'static [$name] = &[
+                $name::$head,
+                $(
+                    $name::$tails,
+                ) *
+            ];
+
             pub const FIELDS: &'static [&'static str] = &[
-                $ffield,
+                $field_head,
                 $( $field, )*
             ];
 
             pub const TYPES: &'static [UniformVariableType] = &[
-                UniformVariableType::$fuvt,
+                UniformVariableType::$tt_head,
                 $( UniformVariableType::$uvt, ) *
             ];
         }
@@ -38,7 +50,7 @@ macro_rules! impl_scene_uniforms {
 }
 
 impl_scene_uniforms!(
-    SceneUniformVariables {
+    RenderUniform {
         ModelMatrix => [Matrix4f, "scn_ModelMatrix"],
         ModelViewMatrix => [Matrix4f, "scn_ModelViewMatrix"],
         ModelViewProjectionMatrix => [Matrix4f, "scn_MVPMatrix"],
@@ -60,27 +72,27 @@ impl_scene_uniforms!(
     }
 );
 
-impl SceneUniformVariables {
-    pub const POINT_LIT_FIELDS: [[SceneUniformVariables; 3]; 4] = [
+impl RenderUniform {
+    pub const POINT_LIT_UNIFORMS: [[RenderUniform; 3]; 4] = [
         [
-            SceneUniformVariables::PointLightViewPos0,
-            SceneUniformVariables::PointLightColor0,
-            SceneUniformVariables::PointLightAttenuation0,
+            RenderUniform::PointLightViewPos0,
+            RenderUniform::PointLightColor0,
+            RenderUniform::PointLightAttenuation0,
         ],
         [
-            SceneUniformVariables::PointLightViewPos1,
-            SceneUniformVariables::PointLightColor1,
-            SceneUniformVariables::PointLightAttenuation1,
+            RenderUniform::PointLightViewPos1,
+            RenderUniform::PointLightColor1,
+            RenderUniform::PointLightAttenuation1,
         ],
         [
-            SceneUniformVariables::PointLightViewPos2,
-            SceneUniformVariables::PointLightColor2,
-            SceneUniformVariables::PointLightAttenuation2,
+            RenderUniform::PointLightViewPos2,
+            RenderUniform::PointLightColor2,
+            RenderUniform::PointLightAttenuation2,
         ],
         [
-            SceneUniformVariables::PointLightViewPos3,
-            SceneUniformVariables::PointLightColor3,
-            SceneUniformVariables::PointLightAttenuation3,
+            RenderUniform::PointLightViewPos3,
+            RenderUniform::PointLightColor3,
+            RenderUniform::PointLightAttenuation3,
         ],
     ];
 }

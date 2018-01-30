@@ -1,13 +1,28 @@
 pub mod shader {
-    use graphics::errors::*;
     use graphics::*;
-    use resource::Location;
     use graphics::UniformVariableType as UVT;
+    use graphics::errors::*;
+    use resource::Location;
+
+    use scene;
+    use scene::{RenderUniform, Scene};
 
     pub const PBR: &str = "__Core/Scene/Shader/PBR";
     pub const PHONG: &str = "__Core/Scene/Shader/PHONG";
     pub const UNDEFINED: &str = "__Core/Scene/Shader/UNDEFINED";
     pub const COLOR: &str = "__Core/Scene/Shader/COLOR";
+
+    pub(crate) fn setup(
+        scene: &mut Scene,
+        video: &GraphicsSystemShared,
+    ) -> scene::errors::Result<()> {
+        let pairs: &[(RenderUniform, &'static str)] = &[];
+        scene.setup_render_shader(undefined(video)?, pairs)?;
+        scene.setup_render_shader(color(video)?, pairs)?;
+        scene.setup_render_shader(phong(video)?, pairs)?;
+        // scene.setup_render_shader(pbr(video)?, pairs)?;
+        Ok(())
+    }
 
     pub fn pbr(video: &GraphicsSystemShared) -> Result<ShaderHandle> {
         let location = Location::shared(0, PBR);

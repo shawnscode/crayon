@@ -90,7 +90,7 @@ impl Window {
                 enable: true,
                 color: colors[i],
                 intensity: 1.0,
-                source: LightSource::Point {
+                source: LitSrc::Point {
                     radius: 100.0,
                     smoothness: 0.001,
                 },
