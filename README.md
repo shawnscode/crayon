@@ -25,7 +25,7 @@ For the sake of brevity, you can also run a simple and quick example with comman
 
 ``` sh
 git clone git@github.com:shawnscode/crayon.git && cd crayon/crayon-examples
-cargo run imgui
+cargo run mesh
 ```
 
 ### Examples and Screenshots

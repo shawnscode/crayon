@@ -9,8 +9,10 @@ The format is based on [Keep a Changelog][kc], and this project adheres to
 
 ## [Unreleased]
 
+## [0.2.0] - 2018-01-30
+
 ### Added
-* Introduced scene in core module. ([#42])
+* Introduced scene in core module. ([#42][#43])
 * Added touch emulation with mouse device. ([#42])
 
 ### Fixed
@@ -26,8 +28,10 @@ The format is based on [Keep a Changelog][kc], and this project adheres to
 [#40]: https://github.com/shawnscode/crayon/pull/40
 [#41]: https://github.com/shawnscode/crayon/pull/41
 [#42]: https://github.com/shawnscode/crayon/pull/42
+[#43]: https://github.com/shawnscode/crayon/pull/43
 
 ## 0.1.0 - 2017-12-16
 * Initial release
 
+[0.2.0]: https://github.com/shawnscode/crayon/compare/v0.1.0...v0.2.0
 [Unreleased]: https://github.com/shawnscode/crayon/compare/v0.1.0...HEAD
