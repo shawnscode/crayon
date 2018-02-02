@@ -3,6 +3,7 @@ use super::{Handle, HandleIter, HandlePool};
 
 /// A named object collections. Every time u create or free a handle, a
 /// attached instance `T` will be created/ freed.
+#[derive(Default)]
 pub struct HandleObjectPool<T: Sized> {
     handles: HandlePool,
     entries: Vec<Option<T>>,
@@ -111,6 +112,12 @@ impl<T: Sized> HandleObjectPool<T> {
         self.handles.len()
     }
 
+    /// Checks if the pool is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Returns an iterator over the `ObjectPool`.
     #[inline]
     pub fn iter(&self) -> HandleIter {
@@ -139,7 +146,7 @@ where
             for i in self.index..self.entries.len() {
                 let v = self.entries.get_unchecked_mut(i);
 
-                let free = if let &mut Some(ref payload) = v {
+                let free = if let Some(ref payload) = *v {
                     (self.predicate)(payload)
                 } else {
                     false

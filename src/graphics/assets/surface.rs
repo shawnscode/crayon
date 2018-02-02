@@ -6,7 +6,7 @@ use graphics::MAX_FRAMEBUFFER_ATTACHMENTS;
 use graphics::assets::texture::{RenderBufferHandle, RenderTextureHandle};
 use graphics::errors::*;
 
-/// SurfaceObject wraps rendering operations to a render-target. Likes clearing, MSAA
+/// `SurfaceObject` wraps rendering operations to a render-target. Likes clearing, MSAA
 /// resolves, etc..
 ///
 /// It also plays as the named bucket of draw commands. Drawcalls inside `Surface` are
@@ -44,7 +44,7 @@ impl_handle!(SurfaceHandle);
 impl SurfaceSetup {
     /// Sets the render target of this `Surface` layer. If `framebuffer` is none,
     /// default framebuffer will be used as render target.
-    #[inline(always)]
+    #[inline]
     pub fn set_framebuffer<T>(&mut self, framebuffer: T)
     where
         T: Into<Option<FrameBufferHandle>>,
@@ -55,13 +55,13 @@ impl SurfaceSetup {
     /// By defaults, surface are sorted in ascending oreder by ids when rendering.
     /// For dynamic renderers where order might not be known until the last moment,
     /// surface ids can be remaped to arbitrary `order`.
-    #[inline(always)]
+    #[inline]
     pub fn set_order(&mut self, order: u64) {
         self.order = order;
     }
 
     /// Sets the clear flags for this surface.A
-    #[inline(always)]
+    #[inline]
     pub fn set_clear<C, D, S>(&mut self, color: C, depth: D, stentil: S)
     where
         C: Into<Option<Color>>,
@@ -75,7 +75,7 @@ impl SurfaceSetup {
 
     /// Sets the viewport of view. This specifies the affine transformation of (x, y) from
     /// NDC(normalized device coordinates) to normalized window coordinates.
-    #[inline(always)]
+    #[inline]
     pub fn set_viewport<T>(&mut self, position: (f32, f32), size: (f32, f32)) {
         self.viewport = (position, size);
     }
@@ -88,7 +88,7 @@ impl SurfaceSetup {
     ///
     /// Sequential order is less efficient, because it doesn't allow state change
     /// optimization, and should be avoided when possible.
-    #[inline(always)]
+    #[inline]
     pub fn set_sequence(&mut self, sequence: bool) {
         self.sequence = sequence;
     }
@@ -121,14 +121,14 @@ impl Into<FrameBufferAttachment> for RenderBufferHandle {
 
 impl FrameBufferSetup {
     /// Gets the underlying attachments.
-    #[inline(always)]
+    #[inline]
     pub fn attachments(&self) -> &[Option<FrameBufferAttachment>] {
         &self.attachments[..]
     }
 
     /// Attach a `RenderBufferObject` or `TextureObject` as a logical buffer to the
     /// `FrameBufferObject`.
-    #[inline(always)]
+    #[inline]
     pub fn set_attachment<T, S>(&mut self, handle: T, slot: S) -> Result<()>
     where
         T: Into<FrameBufferAttachment>,

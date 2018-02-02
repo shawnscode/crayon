@@ -262,8 +262,8 @@ pub mod mesh {
         setup.num_idxes = idxes.len();
         setup.sub_mesh_offsets.push(0);
 
-        let vbytes = PrimitiveVertex::as_bytes(&verts);
-        let ibytes = IndexFormat::as_bytes::<u16>(&idxes);
+        let vbytes = PrimitiveVertex::encode(&verts);
+        let ibytes = IndexFormat::encode::<u16>(&idxes);
         video.create_mesh(location, setup, vbytes, ibytes)
     }
 }

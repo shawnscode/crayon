@@ -153,7 +153,7 @@
 //! graphics.submit(surface, 0, cmd).unwrap();
 //!
 //! // Update the index buffer object.
-//! let slice = IndexFormat::as_bytes(indices);
+//! let slice = IndexFormat::encode(indices);
 //! let cmd = Command::update_index_buffer(ibo, 0, slice);
 //! graphics.submit(surface, 1, cmd).unwrap();
 //!

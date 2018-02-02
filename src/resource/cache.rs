@@ -102,7 +102,7 @@ where
             self.detach(&desc);
             self.attach(&mut desc);
             self.cache.insert(hash, desc);
-            Some(&self.cache.get(&hash).unwrap().resource)
+            Some(&self.cache[&hash].resource)
         } else {
             None
         }

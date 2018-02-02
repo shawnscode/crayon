@@ -9,7 +9,7 @@ use super::MAX_TOUCHES;
 
 /// The setup parameters of touch pad device.
 ///
-/// Notes that the `distance` series paramters will be multiplied by HiDPI
+/// Notes that the `distance` series paramters will be multiplied by `HiDPI`
 /// factor before recognizing processes.
 #[derive(Debug, Clone, Copy)]
 pub struct TouchPadSetup {
@@ -97,27 +97,27 @@ impl TouchPad {
         self.double_tap = self.double_tap_detector.detect(&self.record);
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn is_touched(&self, index: usize) -> bool {
         self.record.position(index).is_some()
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn position(&self, index: usize) -> Option<math::Vector2<f32>> {
         self.record.position(index)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn pan(&self) -> GesturePan {
         self.pan
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn tap(&self) -> GestureTap {
         self.tap
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn double_tap(&self) -> GestureTap {
         self.double_tap
     }
@@ -328,16 +328,14 @@ impl GesturePanDetector {
                         position: self.position,
                         movement: movement,
                     }
-                } else {
+                } else if self.start_position.distance(self.position) < min_distance {
                     // Checks if min-distance is reached before starting panning.
-                    if self.start_position.distance(self.position) < min_distance {
-                        self.pan = true;
-                        GesturePan::Start {
-                            start_position: self.start_position,
-                        }
-                    } else {
-                        GesturePan::None
+                    self.pan = true;
+                    GesturePan::Start {
+                        start_position: self.start_position,
                     }
+                } else {
+                    GesturePan::None
                 }
             }
 

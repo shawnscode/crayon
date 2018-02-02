@@ -21,6 +21,7 @@ pub trait Filesystem: Sync + Send {
 }
 
 /// The driver of the virtual filesystem (VFS).
+#[derive(Default)]
 pub struct FilesystemDriver {
     filesystems: HashMap<HashValue<str>, Arc<Box<Filesystem>>>,
     buf: Vec<u8>,
@@ -71,7 +72,7 @@ impl FilesystemDriver {
                 let hash = HashValue::from(bundle);
                 let found = self.filesystems
                     .get(&hash)
-                    .map(|fs| fs.exists(file.as_ref()))
+                    .map(|fs| fs.exists(file))
                     .unwrap_or(false);
                 Some(found)
             })
@@ -94,7 +95,7 @@ impl FilesystemDriver {
         bail!(ErrorKind::DriveNotFound);
     }
 
-    fn parse<'a>(mut cmps: Components<'a>) -> Option<(&'a str, &'a Path)> {
+    fn parse(mut cmps: Components) -> Option<(&str, &Path)> {
         while let Some(v) = cmps.next() {
             if let Component::Normal(ident) = v {
                 if let Some(ident) = ident.to_str() {

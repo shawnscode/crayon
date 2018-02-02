@@ -20,7 +20,7 @@ impl Context {
         T: ContextSystem + 'static,
     {
         let tid = TypeId::of::<T>();
-        Self::cast::<T>(self.shareds.get(&tid).unwrap().as_ref())
+        Self::cast::<T>(self.shareds[&tid].as_ref())
     }
 
     /// Shutdown the whole application.

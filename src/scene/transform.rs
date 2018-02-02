@@ -28,23 +28,23 @@ impl Default for Transform {
 
 impl Transform {
     /// Get the scale component in local space.
-    #[inline(always)]
+    #[inline]
     pub fn scale(&self) -> f32 {
         self.decomposed.scale
     }
 
     /// Set the scale component in local space.
-    #[inline(always)]
+    #[inline]
     pub fn set_scale(&mut self, scale: f32) {
         self.decomposed.scale = scale;
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn position(&self) -> math::Vector3<f32> {
         self.decomposed.disp
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn set_position<T>(&mut self, position: T)
     where
         T: Into<math::Vector3<f32>>,
@@ -52,7 +52,7 @@ impl Transform {
         self.decomposed.disp = position.into();
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn translate<T>(&mut self, disp: T)
     where
         T: Into<math::Vector3<f32>>,
@@ -60,12 +60,12 @@ impl Transform {
         self.decomposed.disp += disp.into();
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn rotation(&self) -> math::Quaternion<f32> {
         self.decomposed.rot
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn set_rotation<T>(&mut self, rotation: T)
     where
         T: Into<math::Quaternion<f32>>,
@@ -73,7 +73,7 @@ impl Transform {
         self.decomposed.rot = rotation.into();
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn rotate<T>(&mut self, rotate: T)
     where
         T: Into<math::Quaternion<f32>>,

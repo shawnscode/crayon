@@ -32,7 +32,7 @@ impl Window {
         let surface = video.create_surface(setup)?;
 
         // Create scene.
-        let mut scene = Scene::new(&ctx)?;
+        let mut scene = Scene::new(ctx)?;
 
         let camera = {
             let c = Camera::perspective(math::Deg(60.0), 6.4 / 4.8, 0.1, 1000.0);
@@ -73,8 +73,8 @@ impl Window {
 
     fn create_lits(scene: &mut Scene, video: &GraphicsSystemShared) -> errors::Result<[Entity; 4]> {
         // Create shader state.
-        let shader = scene::factory::shader::color(&video)?;
-        let mesh = scene::factory::mesh::cube(&video)?;
+        let shader = scene::factory::shader::color(video)?;
+        let mesh = scene::factory::mesh::cube(video)?;
 
         let mut lits = [Entity::nil(); 4];
         let colors = [Color::red(), Color::blue(), Color::green(), Color::cyan()];
@@ -131,7 +131,7 @@ impl Window {
         video: &graphics::GraphicsSystemShared,
     ) -> errors::Result<(Entity, MaterialHandle)> {
         // Create shader state.
-        let shader = scene::factory::shader::phong(&video)?;
+        let shader = scene::factory::shader::phong(video)?;
 
         let setup = graphics::MeshSetup::default();
         let mesh = video
@@ -198,7 +198,7 @@ impl Application for Window {
         let specular = &mut self.specular;
 
         let capture = {
-            let canvas = self.console.render(&ctx);
+            let canvas = self.console.render(ctx);
             canvas
                 .window(im_str!("Materials"))
                 .movable(false)
@@ -222,26 +222,19 @@ impl Application for Window {
 
         if !capture {
             let input = ctx.shared::<InputSystem>();
-            match input.finger_pan() {
-                input::GesturePan::Move {
-                    start_position: _,
-                    position: _,
-                    movement,
-                } => {
-                    self.rotation.y -= movement.y;
-                    self.rotation.x -= movement.x;
-                    let euler = math::Euler::new(
-                        math::Deg(self.rotation.y),
-                        math::Deg(self.rotation.x),
-                        math::Deg(self.rotation.z),
-                    );
-                    unsafe {
-                        let mut transforms = self.scene.arena_mut::<Transform>();
-                        transforms.get_unchecked_mut(self.room).set_rotation(euler);
-                    }
+            if let input::GesturePan::Move { movement, .. } = input.finger_pan() {
+                self.rotation.y -= movement.y;
+                self.rotation.x -= movement.x;
+                let euler = math::Euler::new(
+                    math::Deg(self.rotation.y),
+                    math::Deg(self.rotation.x),
+                    math::Deg(self.rotation.z),
+                );
+                unsafe {
+                    let mut transforms = self.scene.arena_mut::<Transform>();
+                    transforms.get_unchecked_mut(self.room).set_rotation(euler);
                 }
-                _ => {}
-            };
+            }
         }
 
         {
@@ -265,7 +258,7 @@ pub fn main(mut settings: Settings) {
     settings.window.width = 640;
     settings.window.height = 480;
 
-    let mut engine = Engine::new_with(settings).unwrap();
+    let mut engine = Engine::new_with(&settings).unwrap();
     let window = Window::new(&mut engine).unwrap();
     engine.run(window).unwrap();
 }

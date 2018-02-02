@@ -72,7 +72,7 @@ impl Scene {
             render_env: RenderGraph::new(ctx)?,
         };
 
-        factory::shader::setup(&mut scene, &video)?;
+        factory::shader::setup(&mut scene, video)?;
         Ok(scene)
     }
 
@@ -84,7 +84,7 @@ impl Scene {
     ///
     /// - Panics if user has not register the arena with type `T`.
     /// - Panics if the value is currently mutably borrowed.
-    #[inline(always)]
+    #[inline]
     pub fn arena<T>(&self) -> Fetch<T>
     where
         T: Component,
@@ -100,7 +100,7 @@ impl Scene {
     ///
     /// - Panics if user has not register the arena with type `T`.
     /// - Panics if the value is currently borrowed.
-    #[inline(always)]
+    #[inline]
     pub fn arena_mut<T>(&self) -> FetchMut<T>
     where
         T: Component,
@@ -108,7 +108,7 @@ impl Scene {
         self.world.arena_mut::<T>()
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn create_node<T1>(&mut self, node: T1) -> Entity
     where
         T1: Into<SceneNode>,
@@ -121,7 +121,7 @@ impl Scene {
             .finish()
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn update_node<T1>(&mut self, handle: Entity, node: T1) -> Result<()>
     where
         T1: Into<SceneNode>,
@@ -138,7 +138,7 @@ impl Scene {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn delete_node(&mut self, handle: Entity) -> Result<()> {
         Node::remove_from_parent(&mut self.arena_mut::<Node>(), handle)?;
         self.world.free(handle);
@@ -146,7 +146,7 @@ impl Scene {
     }
 
     /// Creates a new material instance from shader.
-    #[inline(always)]
+    #[inline]
     pub fn create_material(&mut self, shader: ShaderHandle) -> Result<MaterialHandle> {
         if let Some(render_shader) = self.render_shaders.get(&shader) {
             let m = self.materials.create(Material::new(render_shader.clone()));
@@ -159,13 +159,13 @@ impl Scene {
     }
 
     /// Gets a reference to the material.
-    #[inline(always)]
+    #[inline]
     pub fn material(&self, handle: MaterialHandle) -> Option<&Material> {
         self.materials.get(*handle)
     }
 
     /// Gets a mutable reference to the material.
-    #[inline(always)]
+    #[inline]
     pub fn material_mut(&mut self, handle: MaterialHandle) -> Option<&mut Material> {
         self.materials.get_mut(*handle)
     }
@@ -173,7 +173,7 @@ impl Scene {
     /// Deletes the material instance from `Scene`. Any meshes that associated with a
     /// invalid/deleted material handle will be drawed with a fallback material marked
     /// with purple color.
-    #[inline(always)]
+    #[inline]
     pub fn delete_material(&mut self, handle: MaterialHandle) -> Result<()> {
         if self.materials.free(handle).is_none() {
             bail!("Undefined material handle");
@@ -191,7 +191,7 @@ impl Scene {
 
         let fallback = self.materials.get(self.fallback.unwrap()).unwrap();
         self.render_env
-            .render(&self.world, &self.materials, &fallback, surface, camera)?;
+            .render(&self.world, &self.materials, fallback, surface, camera)?;
 
         Ok(())
     }

@@ -26,15 +26,15 @@ where
     }
 
     pub fn is_ready(&self) -> bool {
-        match self {
-            &AssetState::Ready(_) => true,
+        match *self {
+            AssetState::Ready(_) => true,
             _ => false,
         }
     }
 
     pub fn clone(&self) -> Option<Arc<T>> {
-        match self {
-            &AssetState::Ready(ref v) => Some(v.clone()),
+        match *self {
+            AssetState::Ready(ref v) => Some(v.clone()),
             _ => None,
         }
     }

@@ -60,38 +60,38 @@ impl Camera {
     }
 
     /// Gets the aspect ratio (width divided by height).
-    #[inline(always)]
+    #[inline]
     pub fn aspect(&self) -> f32 {
         self.aspect
     }
 
     /// Gets the near clipping plane distances.
-    #[inline(always)]
+    #[inline]
     pub fn near_clip_plane(&self) -> f32 {
         self.clip.x
     }
 
     /// Gets the far clipping plane distances.
-    #[inline(always)]
+    #[inline]
     pub fn far_clip_plane(&self) -> f32 {
         self.clip.y
     }
 
     /// Sets the near/far clipping plane distances.
-    #[inline(always)]
+    #[inline]
     pub fn set_clip_plane(&mut self, near: f32, far: f32) {
         self.clip = math::Vector2::new(near.min(far), far.max(near));
         self.validate();
     }
 
     /// Gets the projection type and its payload.
-    #[inline(always)]
+    #[inline]
     pub fn projection(&self) -> Projection {
         self.projection
     }
 
     /// Sets the projection type.
-    #[inline(always)]
+    #[inline]
     pub fn set_projection(&mut self, projection: Projection) {
         self.projection = projection;
         self.validate();
@@ -103,10 +103,10 @@ impl Camera {
         match self.projection {
             Projection::Ortho(vsize) => {
                 let hsize = vsize * self.aspect;
-                Camera::ortho_matrix(-hsize, hsize, -vsize, vsize, self.clip.x, self.clip.y).into()
+                Camera::ortho_matrix(-hsize, hsize, -vsize, vsize, self.clip.x, self.clip.y)
             }
             Projection::Perspective(fovy) => {
-                Camera::perspective_matrix(fovy, self.aspect, self.clip.x, self.clip.y).into()
+                Camera::perspective_matrix(fovy, self.aspect, self.clip.x, self.clip.y)
             }
         }
     }

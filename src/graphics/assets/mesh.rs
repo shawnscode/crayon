@@ -42,14 +42,14 @@ impl Default for MeshSetup {
 }
 
 impl MeshSetup {
-    #[inline(always)]
+    #[inline]
     pub fn vertex_buffer_len(&self) -> usize {
         self.num_verts * self.layout.stride() as usize
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn index_buffer_len(&self) -> usize {
-        self.num_idxes * self.index_format.len() as usize
+        self.num_idxes * self.index_format.stride() as usize
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -114,8 +114,8 @@ impl Primitive {
 
     pub fn assemble_triangles(&self, indices: u32) -> u32 {
         match *self {
-            Primitive::Points => 0,
-            Primitive::Lines => 0,
+            Primitive::Points |
+            Primitive::Lines |
             Primitive::LineStrip => 0,
             Primitive::Triangles => indices / 3,
             Primitive::TriangleStrip => indices - 2,
@@ -133,14 +133,14 @@ pub enum IndexFormat {
 }
 
 impl IndexFormat {
-    pub fn len(&self) -> usize {
-        match self {
-            &IndexFormat::U16 => 2,
-            &IndexFormat::U32 => 4,
+    pub fn stride(&self) -> usize {
+        match *self {
+            IndexFormat::U16 => 2,
+            IndexFormat::U32 => 4,
         }
     }
 
-    pub fn as_bytes<T>(values: &[T]) -> &[u8]
+    pub fn encode<T>(values: &[T]) -> &[u8]
     where
         T: Copy,
     {
@@ -211,6 +211,12 @@ impl VertexLayout {
     #[inline]
     pub fn len(&self) -> u8 {
         self.len
+    }
+
+    /// Checks if the vertex layout is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     /// Relative element offset from the layout.
@@ -401,7 +407,11 @@ pub mod macros {
     #[macro_export]
     macro_rules! offset_of {
         ($ty:ty, $field:ident) => {
-            unsafe { &(*(0 as *const $ty)).$field as *const _ as usize }
+            {
+                use std;
+                let ptr: *const $ty = std::ptr::null();
+                unsafe { &(*ptr).$field as *const _ as usize }
+            }
         }
     }
 
@@ -446,7 +456,7 @@ pub mod macros {
                     builder.finish()
                 }
 
-                pub fn as_bytes(values: &[Self]) -> &[u8] {
+                pub fn encode(values: &[Self]) -> &[u8] {
                     let len = values.len() * ::std::mem::size_of::<Self>();
                     unsafe { ::std::slice::from_raw_parts(values.as_ptr() as *const u8, len) }
                 }
@@ -512,14 +522,14 @@ pub mod macros {
             let bytes = as_bytes(&bytes);
             assert_eq!(
                 bytes,
-                Vertex::as_bytes(&[Vertex::new([1.0, 1.0, 1.0], [0.0, 0.0])])
+                Vertex::encode(&[Vertex::new([1.0, 1.0, 1.0], [0.0, 0.0])])
             );
 
             let bytes: [f32; 10] = [1.0, 1.0, 1.0, 0.0, 0.0, 2.0, 2.0, 2.0, 3.0, 3.0];
             let bytes = as_bytes(&bytes);
             assert_eq!(
                 bytes,
-                Vertex::as_bytes(&[
+                Vertex::encode(&[
                     Vertex::new([1.0, 1.0, 1.0], [0.0, 0.0]),
                     Vertex::new([2.0, 2.0, 2.0], [3.0, 3.0])
                 ])
@@ -533,7 +543,7 @@ pub mod macros {
 
             let layout = Vertex2::layout();
             let _v = Vertex2::new([1.0, 1.0], [0, 0, 0, 0], [0, 0]);
-            let _b = Vertex2::as_bytes(&[]);
+            let _b = Vertex2::encode(&[]);
             assert_eq!(layout.stride() as usize, ::std::mem::size_of::<Vertex2>());
         }
     }

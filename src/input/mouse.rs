@@ -7,7 +7,7 @@ use application::event;
 
 /// The setup parameters of mouse device.
 ///
-/// Notes that the `distance` series paramters will be multiplied by HiDPI
+/// Notes that the `distance` series paramters will be multiplied by `HiDPI`
 /// factor before recognizing processes.
 #[derive(Debug, Clone, Copy)]
 pub struct MouseSetup {
@@ -55,7 +55,7 @@ impl Mouse {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn reset(&mut self) {
         self.downs.clear();
         self.presses.clear();
@@ -64,29 +64,29 @@ impl Mouse {
         self.position = math::Vector2::new(0.0, 0.0);
         self.scrol = math::Vector2::new(0.0, 0.0);
 
-        for (_, v) in &mut self.click_detectors {
+        for v in self.click_detectors.values_mut() {
             v.reset();
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn advance(&mut self, hidpi: f32) {
         self.presses.clear();
         self.releases.clear();
         self.scrol = math::Vector2::new(0.0, 0.0);
         self.last_position = self.position;
 
-        for (_, v) in &mut self.click_detectors {
+        for v in self.click_detectors.values_mut() {
             v.advance(hidpi);
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn on_move(&mut self, position: (f32, f32)) {
         self.position = position.into();
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn on_button_pressed(&mut self, button: event::MouseButton) {
         if !self.downs.contains(&button) {
             self.downs.insert(button);
@@ -103,7 +103,7 @@ impl Mouse {
         self.click_detectors.insert(button, detector);
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn on_button_released(&mut self, button: event::MouseButton) {
         self.downs.remove(&button);
         self.releases.insert(button);
@@ -118,27 +118,27 @@ impl Mouse {
         self.click_detectors.insert(button, detector);
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn on_wheel_scroll(&mut self, delta: (f32, f32)) {
         self.scrol = delta.into();
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn is_button_down(&self, button: event::MouseButton) -> bool {
         self.downs.contains(&button)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn is_button_press(&self, button: event::MouseButton) -> bool {
         self.presses.contains(&button)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn is_button_release(&self, button: event::MouseButton) -> bool {
         self.releases.contains(&button)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn is_button_click(&self, button: event::MouseButton) -> bool {
         if let Some(v) = self.click_detectors.get(&button) {
             v.clicks() > 0
@@ -147,7 +147,7 @@ impl Mouse {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn is_button_double_click(&self, button: event::MouseButton) -> bool {
         if let Some(v) = self.click_detectors.get(&button) {
             v.clicks() > 0 && v.clicks() % 2 == 0
@@ -156,17 +156,17 @@ impl Mouse {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn position(&self) -> math::Vector2<f32> {
         self.position
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn movement(&self) -> math::Vector2<f32> {
         self.position - self.last_position
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn scroll(&self) -> math::Vector2<f32> {
         self.scrol
     }

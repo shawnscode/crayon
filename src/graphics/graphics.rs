@@ -84,7 +84,7 @@ impl GraphicsSystem {
             let hidpi = self.window.hidpi_factor();
 
             // Resize the window, which would recreate the underlying framebuffer.
-            if dimensions != self.last_dimensions || self.last_hidpi != hidpi {
+            if dimensions != self.last_dimensions || (self.last_hidpi - hidpi).abs() < ::std::f32::EPSILON {
                 self.last_dimensions = dimensions;
                 self.last_hidpi = hidpi;
                 self.window.resize(dimensions);
@@ -203,11 +203,11 @@ impl GraphicsSystemShared {
 
         let o = o.into();
         match task.into() {
-            Command::DrawCall(dc) => self.submit_drawcall(s, o, dc),
-            Command::VertexBufferUpdate(vbu) => self.submit_update_vertex_buffer(s, o, vbu),
-            Command::IndexBufferUpdate(ibu) => self.submit_update_index_buffer(s, o, ibu),
-            Command::TextureUpdate(tu) => self.submit_update_texture(s, o, tu),
-            Command::SetScissor(sc) => self.submit_set_scissor(s, o, sc),
+            Command::DrawCall(dc) => self.submit_drawcall(s, o, &dc),
+            Command::VertexBufferUpdate(vbu) => self.submit_update_vertex_buffer(s, o, &vbu),
+            Command::IndexBufferUpdate(ibu) => self.submit_update_index_buffer(s, o, &ibu),
+            Command::TextureUpdate(tu) => self.submit_update_texture(s, o, &tu),
+            Command::SetScissor(sc) => self.submit_set_scissor(s, o, &sc),
         }
     }
 
@@ -215,7 +215,7 @@ impl GraphicsSystemShared {
         &self,
         surface: SurfaceHandle,
         order: u64,
-        dc: command::SliceDrawCall<'a>,
+        dc: &command::SliceDrawCall<'a>,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!("Undefined surface handle.");
@@ -270,7 +270,7 @@ impl GraphicsSystemShared {
         &self,
         surface: SurfaceHandle,
         order: u64,
-        su: command::ScissorUpdate,
+        su: &command::ScissorUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!(ErrorKind::InvalidSurfaceHandle);
@@ -286,7 +286,7 @@ impl GraphicsSystemShared {
         &self,
         surface: SurfaceHandle,
         order: u64,
-        vbu: command::VertexBufferUpdate,
+        vbu: &command::VertexBufferUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!(ErrorKind::InvalidSurfaceHandle);
@@ -311,7 +311,7 @@ impl GraphicsSystemShared {
         &self,
         surface: SurfaceHandle,
         order: u64,
-        ibu: command::IndexBufferUpdate,
+        ibu: &command::IndexBufferUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!(ErrorKind::InvalidSurfaceHandle);
@@ -336,7 +336,7 @@ impl GraphicsSystemShared {
         &self,
         surface: SurfaceHandle,
         order: u64,
-        tu: command::TextureUpdate,
+        tu: &command::TextureUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             bail!(ErrorKind::InvalidSurfaceHandle);
@@ -470,11 +470,11 @@ impl GraphicsSystemShared {
             );
         }
 
-        if setup.vs.len() == 0 {
+        if setup.vs.is_empty() {
             bail!("Vertex shader is required to describe a proper render pipeline.");
         }
 
-        if setup.fs.len() == 0 {
+        if setup.fs.is_empty() {
             bail!("Fragment shader is required to describe a proper render pipeline.");
         }
 
@@ -500,8 +500,7 @@ impl GraphicsSystemShared {
                 uniform_variable_names: uniform_variable_names,
             });
 
-            let handle = shaders.create(location, shader_state).into();
-            handle
+            shaders.create(location, shader_state).into()
         };
 
         let task = PreFrameTask::CreatePipeline(handle, setup);
@@ -606,8 +605,7 @@ impl GraphicsSystemShared {
             }
 
             let state = Arc::new(RwLock::new(AssetState::ready(setup.clone())));
-            let handle = meshes.create(location, state).into();
-            handle
+            meshes.create(location, state).into()
         };
 
         let mut frame = self.frames.front();
@@ -640,17 +638,14 @@ impl GraphicsSystemShared {
     /// ready for operating.
     pub fn update_vertex_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
         if let Some(state) = self.meshes.read().unwrap().get(mesh.into()) {
-            match *state.read().unwrap() {
-                AssetState::Ready(ref mso) => {
-                    if mso.hint == BufferHint::Immutable {
-                        bail!(ErrorKind::CanNotUpdateImmutableBuffer);
-                    }
-                    let mut frame = self.frames.front();
-                    let ptr = frame.buf.extend_from_slice(data);
-                    let task = PreFrameTask::UpdateVertexBuffer(mesh, offset, ptr);
-                    frame.pre.push(task);
+            if let AssetState::Ready(ref mso) = *state.read().unwrap() {
+                if mso.hint == BufferHint::Immutable {
+                    bail!(ErrorKind::CanNotUpdateImmutableBuffer);
                 }
-                _ => {}
+                let mut frame = self.frames.front();
+                let ptr = frame.buf.extend_from_slice(data);
+                let task = PreFrameTask::UpdateVertexBuffer(mesh, offset, ptr);
+                frame.pre.push(task);
             }
 
             Ok(())
@@ -667,18 +662,15 @@ impl GraphicsSystemShared {
     /// ready for operating.
     pub fn update_index_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
         if let Some(state) = self.meshes.read().unwrap().get(mesh.into()) {
-            match *state.read().unwrap() {
-                AssetState::Ready(ref mso) => {
-                    if mso.hint == BufferHint::Immutable {
-                        bail!(ErrorKind::CanNotUpdateImmutableBuffer);
-                    }
-
-                    let mut frame = self.frames.front();
-                    let ptr = frame.buf.extend_from_slice(data);
-                    let task = PreFrameTask::UpdateIndexBuffer(mesh, offset, ptr);
-                    frame.pre.push(task);
+            if let AssetState::Ready(ref mso) = *state.read().unwrap() {
+                if mso.hint == BufferHint::Immutable {
+                    bail!(ErrorKind::CanNotUpdateImmutableBuffer);
                 }
-                _ => {}
+
+                let mut frame = self.frames.front();
+                let ptr = frame.buf.extend_from_slice(data);
+                let task = PreFrameTask::UpdateIndexBuffer(mesh, offset, ptr);
+                frame.pre.push(task);
             }
 
             Ok(())
@@ -755,7 +747,7 @@ impl GraphicsSystemShared {
                 return Ok(handle.into());
             }
 
-            let state = Arc::new(RwLock::new(AssetState::ready(setup.clone())));
+            let state = Arc::new(RwLock::new(AssetState::ready(setup)));
             textures.create(location, state).into()
         };
 

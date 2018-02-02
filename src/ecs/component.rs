@@ -62,7 +62,7 @@ where
     fn remove(&mut self, HandleIndex) -> Option<T>;
 }
 
-/// HashMap based storage which are best suited for rare components.
+/// `HashMap` based storage which are best suited for rare components.
 pub struct HashMapArena<T>
 where
     T: Component,
@@ -85,7 +85,7 @@ where
     }
 
     unsafe fn get_unchecked(&self, id: HandleIndex) -> &T {
-        self.values.get(&id).unwrap()
+        &self.values[&id]
     }
 
     fn get_mut(&mut self, id: HandleIndex) -> Option<&mut T> {

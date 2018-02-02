@@ -9,6 +9,18 @@ The format is based on [Keep a Changelog][kc], and this project adheres to
 
 ## [Unreleased]
 
+## [0.2.1] - 2018-02-02
+
+### Added
+* Add headless mode which makes example integration possible. ([#45])
+
+### Fixed
+* Fixed clippy linter warnings. ([#46])
+* Fixed `Location/LocationAtom::is_shared()`. ([#46])
+
+[#46]: https://github.com/shawnscode/crayon/pull/46
+[#45]: https://github.com/shawnscode/crayon/pull/45
+
 ## [0.2.0] - 2018-01-30
 
 ### Added

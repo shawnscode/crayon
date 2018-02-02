@@ -96,7 +96,7 @@ impl Window {
 
     /// Returns the ratio between the backing framebuffer resolution and the window size in
     /// screen pixels. This is typically one for a normal display and two for a retina display.
-    #[inline(always)]
+    #[inline]
     pub fn hidpi_factor(&self) -> f32 {
         self.window.hidpi_factor()
     }

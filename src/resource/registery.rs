@@ -20,6 +20,7 @@ impl<T: Sized + 'static> Entry<T> {
 }
 
 /// Compact resource registery.
+#[derive(Default)]
 pub struct Registery<T>
 where
     T: Sized + 'static,
@@ -101,7 +102,7 @@ where
         }
 
         unsafe {
-            let has_reference = {
+            let free = {
                 let entry = self.entries
                     .get_unchecked_mut(handle.index() as usize)
                     .as_mut()
@@ -110,13 +111,15 @@ where
                 entry.rc == 0
             };
 
-            if has_reference {
+            if free {
                 let mut v = None;
                 let block = self.entries.get_unchecked_mut(handle.index() as usize);
                 ::std::mem::swap(&mut v, block);
 
                 let v = v.unwrap();
-                self.locations.remove(&v.location);
+                if v.location.is_shared() {
+                    self.locations.remove(&v.location);
+                }
 
                 if delay {
                     self.delay_free.push(handle);
@@ -145,14 +148,14 @@ where
     {
         let location = location.into();
         if location.is_shared() {
-            self.locations.get(&location).map(|v| *v)
+            self.locations.get(&location).cloned()
         } else {
             None
         }
     }
 
     /// Get mutable reference to internal value with `Handle`.
-    #[inline(always)]
+    #[inline]
     pub fn get_mut(&mut self, handle: Handle) -> Option<&mut T> {
         if self.handles.is_alive(handle) {
             self.entries[handle.index() as usize]
@@ -164,7 +167,7 @@ where
     }
 
     /// Get immutable reference to internal value with `Handle`.
-    #[inline(always)]
+    #[inline]
     pub fn get(&self, handle: Handle) -> Option<&T> {
         if self.handles.is_alive(handle) {
             self.entries[handle.index() as usize]
@@ -177,7 +180,7 @@ where
 
     /// Return true if this `Handle` was created by `Registery`, and has not been
     /// freed yet.
-    #[inline(always)]
+    #[inline]
     pub fn is_alive(&self, handle: Handle) -> bool {
         self.handles.is_alive(handle)
     }
@@ -186,5 +189,11 @@ where
     #[inline]
     pub fn len(&self) -> usize {
         self.handles.len()
+    }
+
+    /// Checks if the `Registery` is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }

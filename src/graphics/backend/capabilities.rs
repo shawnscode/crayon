@@ -75,7 +75,7 @@ impl Version {
             (false, &desc[..])
         };
 
-        let desc = desc.split(' ').next().ok_or(ErrorKind::Msg(
+        let desc = desc.split(' ').next().ok_or_else(|| ErrorKind::Msg(
             "glGetString(GL_VERSION) returned an empty string".to_string(),
         ))?;
 
@@ -85,11 +85,9 @@ impl Version {
 
         let major = major
             .parse()
-            .ok()
             .expect("failed to parse GL major version");
         let minor = minor
             .parse()
-            .ok()
             .expect("failed to parse GL minor version");
 
         if es {
@@ -144,7 +142,7 @@ macro_rules! extensions {
                     )+
                 };
 
-                for extension in strings.into_iter() {
+                for extension in strings {
                     match &extension[..] {
                         $(
                             $string => extensions.$field = true,

@@ -24,17 +24,17 @@ impl Material {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn shader(&self) -> ShaderHandle {
         self.shader.handle
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn render_state(&self) -> &RenderState {
         self.shader.sso.render_state()
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn has_uniform_variable<T1>(&self, field: T1) -> bool
     where
         T1: Into<HashValue<str>>,
@@ -62,20 +62,20 @@ impl Material {
         Ok(())
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn uniform_variable<T1>(&self, field: T1) -> Option<UniformVariable>
     where
         T1: Into<HashValue<str>>,
     {
-        self.variables.get(&field.into()).map(|v| *v)
+        self.variables.get(&field.into()).cloned()
     }
 
-    #[inline(always)]
+    #[inline]
     pub(crate) fn render_uniform_field(&self, uniform: RenderUniform) -> HashValue<str> {
         self.shader
             .render_uniforms
             .get(&uniform)
-            .map(|v| *v)
-            .unwrap_or(RenderUniform::FIELDS[uniform as usize].into())
+            .cloned()
+            .unwrap_or_else(|| RenderUniform::FIELDS[uniform as usize].into())
     }
 }

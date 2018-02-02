@@ -44,11 +44,11 @@ pub struct Engine {
 impl Engine {
     /// Constructs a new, empty engine.
     pub fn new() -> Result<Self> {
-        Engine::new_with(Settings::default())
+        Engine::new_with(&Settings::default())
     }
 
     /// Setup engine with specified settings.
-    pub fn new_with(settings: Settings) -> Result<Self> {
+    pub fn new_with(settings: &Settings) -> Result<Self> {
         let mut wb = graphics::WindowBuilder::new();
         wb.with_title(settings.window.title.clone())
             .with_dimensions(settings.window.width, settings.window.height);
@@ -57,7 +57,7 @@ impl Engine {
         let input_shared = input.shared();
 
         let events_loop = event::EventsLoop::new();
-        let window = Arc::new(wb.build(&events_loop.underlaying())?);
+        let window = Arc::new(wb.build(events_loop.underlaying())?);
 
         let resource = resource::ResourceSystem::new()?;
         let resource_shared = resource.shared();
@@ -124,12 +124,9 @@ impl Engine {
                             application.on_receive_event(&self.context, value)?;
                         }
 
-                        match value {
-                            event::ApplicationEvent::Closed => {
-                                alive = false;
-                            }
-                            _ => {}
-                        };
+                        if let event::ApplicationEvent::Closed = value {
+                            alive = false;
+                        }
                     }
 
                     event::Event::InputDevice(value) => self.input.update_with(value),
@@ -207,8 +204,8 @@ impl Engine {
         let ts = Instant::now();
 
         let mut application = application.write().unwrap();
-        application.on_update(&ctx)?;
-        application.on_render(&ctx)?;
+        application.on_update(ctx)?;
+        application.on_render(ctx)?;
 
         Ok(Instant::now() - ts)
     }

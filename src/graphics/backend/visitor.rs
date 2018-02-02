@@ -159,10 +159,10 @@ impl OpenGLVisitor {
                 gl::EnableVertexAttribArray(location as GLuint);
                 gl::VertexAttribPointer(
                     location as GLuint,
-                    element.size as GLsizei,
+                    GLsizei::from(element.size),
                     element.format.into(),
                     element.normalized as u8,
-                    layout.stride() as GLsizei,
+                    GLsizei::from(layout.stride()),
                     offset,
                 );
             } else {
@@ -209,7 +209,7 @@ impl OpenGLVisitor {
     pub unsafe fn get_uniform_location(&self, id: GLuint, name: &str) -> Result<GLint> {
         let mut cache = self.program_uniform_locations.borrow_mut();
         if let Some(uniforms) = cache.get_mut(&id) {
-            match uniforms.get(name).map(|v| *v) {
+            match uniforms.get(name).cloned() {
                 Some(location) => Ok(location),
                 None => {
                     let c_name = ::std::ffi::CString::new(name.as_bytes()).unwrap();
@@ -228,7 +228,7 @@ impl OpenGLVisitor {
     pub unsafe fn get_attribute_location(&self, id: GLuint, name: &str) -> Result<GLint> {
         let mut cache = self.program_uniform_locations.borrow_mut();
         if let Some(attributes) = cache.get_mut(&id) {
-            match attributes.get(name).map(|v| *v) {
+            match attributes.get(name).cloned() {
                 Some(location) => Ok(location),
                 None => {
                     let c_name = ::std::ffi::CString::new(name.as_bytes()).unwrap();
@@ -262,7 +262,7 @@ impl OpenGLVisitor {
 
         if let Some(v) = depth {
             bits |= gl::DEPTH_BUFFER_BIT;
-            gl::ClearDepth(v as f64);
+            gl::ClearDepth(f64::from(v));
         }
 
         if let Some(v) = stencil {
@@ -278,10 +278,10 @@ impl OpenGLVisitor {
     pub unsafe fn set_viewport(&self, position: (u16, u16), size: (u16, u16)) -> Result<()> {
         if self.viewport.get().0 != position || self.viewport.get().1 != size {
             gl::Viewport(
-                position.0 as i32,
-                position.1 as i32,
-                size.0 as i32,
-                size.1 as i32,
+                i32::from(position.0),
+                i32::from(position.1),
+                i32::from(size.0),
+                i32::from(size.1),
             );
             self.viewport.set((position, size));
             check()
@@ -302,10 +302,10 @@ impl OpenGLVisitor {
                 }
 
                 gl::Scissor(
-                    position.0 as GLint,
-                    position.1 as GLint,
-                    size.0 as GLsizei,
-                    size.1 as GLsizei,
+                    GLint::from(position.0),
+                    GLint::from(position.1),
+                    GLsizei::from(size.0),
+                    GLsizei::from(size.1),
                 );
             }
         }
@@ -407,10 +407,9 @@ impl OpenGLVisitor {
 
                 gl::BlendFunc(src.into(), dst.into());
                 gl::BlendEquation(equation.into());
-            } else {
-                if self.color_blend.get() != None {
-                    gl::Disable(gl::BLEND);
-                }
+
+            } else if self.color_blend.get() != None {
+                gl::Disable(gl::BLEND);
             }
 
             self.color_blend.set(blend);
@@ -572,7 +571,7 @@ impl OpenGLVisitor {
         self.update_texture_parameters(address, filter, mipmap)?;
 
         let value = match data {
-            Some(v) if v.len() > 0 => ::std::mem::transmute(&v[0]),
+            Some(v) if !v.is_empty() => &v[0] as *const u8 as *const ::std::os::raw::c_void,
             _ => ::std::ptr::null(),
         };
 
@@ -615,7 +614,7 @@ impl OpenGLVisitor {
             rect.height(),
             format,
             tt,
-            ::std::mem::transmute(&data[0]),
+            &data[0] as *const u8 as *const ::std::os::raw::c_void,
         );
 
         check()
@@ -655,9 +654,9 @@ impl OpenGLVisitor {
 
     pub unsafe fn delete_texture(&self, id: GLuint) -> Result<()> {
         let cache = &mut self.active_textures.borrow_mut();
-        for i in 0..MAX_UNIFORM_TEXTURE_SLOTS {
-            if cache[i] == id {
-                cache[i] = 0;
+        for v in cache.iter_mut() {
+            if *v == id {
+                *v = 0;
             }
         }
 
@@ -738,7 +737,7 @@ impl OpenGLVisitor {
         self.bind_buffer(buf.into(), id)?;
 
         let value = match data {
-            Some(v) if v.len() > 0 => ::std::mem::transmute(&v[0]),
+            Some(v) if !v.is_empty() => &v[0] as *const u8 as *const ::std::os::raw::c_void,
             _ => ::std::ptr::null(),
         };
 
@@ -759,7 +758,7 @@ impl OpenGLVisitor {
             buf.into(),
             offset as isize,
             data.len() as isize,
-            ::std::mem::transmute(&data[0]),
+            &data[0] as *const u8 as *const ::std::os::raw::c_void
         );
         check()
     }
@@ -803,11 +802,11 @@ impl OpenGLVisitor {
         gl::CompileShader(shader);
 
         // Get the compile status
-        let mut status = gl::FALSE as GLint;
+        let mut status = GLint::from(gl::FALSE);
         gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut status);
 
         // Fail on error
-        if status != (gl::TRUE as GLint) {
+        if status != GLint::from(gl::TRUE) {
             let mut len = 0;
             gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
             let mut buf = Vec::with_capacity(len as usize);
@@ -832,11 +831,11 @@ impl OpenGLVisitor {
 
         gl::LinkProgram(program);
         // Get the link status
-        let mut status = gl::FALSE as GLint;
+        let mut status = GLint::from(gl::FALSE);
         gl::GetProgramiv(program, gl::LINK_STATUS, &mut status);
 
         // Fail on error
-        if status != (gl::TRUE as GLint) {
+        if status != GLint::from(gl::TRUE) {
             let mut len: GLint = 0;
             gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
             let mut buf = Vec::with_capacity(len as usize);

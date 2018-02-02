@@ -52,7 +52,7 @@ impl TimeSystem {
         // Perform waiting loop if maximum fps set, cooperatively gives up
         // a timeslice to the OS scheduler.
         if self.max_fps > 0 {
-            let td = Duration::from_millis((1000 / self.max_fps) as u64);
+            let td = Duration::from_millis(u64::from(1000 / self.max_fps));
             while self.last_frame_timepoint.elapsed() <= td {
                 if (self.last_frame_timepoint.elapsed() + Duration::from_millis(2)) < td {
                     std::thread::sleep(Duration::from_millis(1));
@@ -67,7 +67,10 @@ impl TimeSystem {
 
         // If fps lower than minimum, simply clamp it.
         if self.min_fps > 0 {
-            elapsed = std::cmp::min(elapsed, Duration::from_millis((1000 / self.min_fps) as u64));
+            elapsed = std::cmp::min(
+                elapsed,
+                Duration::from_millis(u64::from(1000 / self.min_fps)),
+            );
         }
 
         // Perform timestep smoothing.
@@ -77,7 +80,7 @@ impl TimeSystem {
                 self.previous_timesteps.drain(self.smoothing_step..);
 
                 self.timestep = Duration::new(0, 0);
-                for step in self.previous_timesteps.iter() {
+                for step in &self.previous_timesteps {
                     self.timestep += *step;
                 }
                 self.timestep /= self.previous_timesteps.len() as u32;
@@ -148,7 +151,7 @@ impl TimeSystemShared {
         if ts.subsec_nanos() == 0 {
             0
         } else {
-            (1000000000.0 / ts.subsec_nanos() as f64) as u32
+            (1000000000.0 / f64::from(ts.subsec_nanos())) as u32
         }
     }
 

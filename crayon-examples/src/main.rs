@@ -17,7 +17,7 @@ mod imgui;
 mod input;
 mod mesh;
 
-const USAGE: &'static str = "";
+const USAGE: &str = "";
 
 fn usage() -> ! {
     let _ = writeln!(&mut io::stderr(), "{}", USAGE);

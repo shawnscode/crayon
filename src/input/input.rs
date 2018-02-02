@@ -154,38 +154,38 @@ impl InputSystemShared {
 
 impl InputSystemShared {
     /// Returns true if a keyboard is attached
-    #[inline(always)]
+    #[inline]
     pub fn has_keyboard_attached(&self) -> bool {
         // TODO
         true
     }
 
     /// Checks if a key is currently held down.
-    #[inline(always)]
+    #[inline]
     pub fn is_key_down(&self, key: event::KeyboardButton) -> bool {
         self.keyboard.read().unwrap().is_key_down(key)
     }
 
     /// Checks if a key has been pressed down during the last frame.
-    #[inline(always)]
+    #[inline]
     pub fn is_key_press(&self, key: event::KeyboardButton) -> bool {
         self.keyboard.read().unwrap().is_key_press(key)
     }
 
     /// Checks if a key has been released during the last frame.
-    #[inline(always)]
+    #[inline]
     pub fn is_key_release(&self, key: event::KeyboardButton) -> bool {
         self.keyboard.read().unwrap().is_key_release(key)
     }
 
     /// Checks if a key has been repeated during the last frame.
-    #[inline(always)]
+    #[inline]
     pub fn is_key_repeat(&self, key: event::KeyboardButton) -> bool {
         self.keyboard.read().unwrap().is_key_repeat(key)
     }
 
     /// Gets captured text during the last frame.
-    #[inline(always)]
+    #[inline]
     pub fn text(&self) -> String {
         use std::iter::FromIterator;
 
@@ -195,56 +195,56 @@ impl InputSystemShared {
 
 impl InputSystemShared {
     /// Returns true if a mouse is attached
-    #[inline(always)]
+    #[inline]
     pub fn has_mouse_attached(&self) -> bool {
         // TODO
         true
     }
 
     /// Checks if a mouse button is held down.
-    #[inline(always)]
+    #[inline]
     pub fn is_mouse_down(&self, button: event::MouseButton) -> bool {
         self.mouse.read().unwrap().is_button_down(button)
     }
 
     /// Checks if a mouse button has been pressed during last frame.
-    #[inline(always)]
+    #[inline]
     pub fn is_mouse_press(&self, button: event::MouseButton) -> bool {
         self.mouse.read().unwrap().is_button_press(button)
     }
 
     /// Checks if a mouse button has been released during last frame.
-    #[inline(always)]
+    #[inline]
     pub fn is_mouse_release(&self, button: event::MouseButton) -> bool {
         self.mouse.read().unwrap().is_button_release(button)
     }
 
     /// Checks if a mouse button has been clicked during last frame.
-    #[inline(always)]
+    #[inline]
     pub fn is_mouse_click(&self, button: event::MouseButton) -> bool {
         self.mouse.read().unwrap().is_button_click(button)
     }
 
     /// Checks if a mouse button has been double clicked during last frame.
-    #[inline(always)]
+    #[inline]
     pub fn is_mouse_double_click(&self, button: event::MouseButton) -> bool {
         self.mouse.read().unwrap().is_button_double_click(button)
     }
 
     /// Gets the mouse position relative to the top-left hand corner of the window.
-    #[inline(always)]
+    #[inline]
     pub fn mouse_position(&self) -> math::Vector2<f32> {
         self.mouse.read().unwrap().position()
     }
 
     /// Gets mouse movement in pixels since last frame.
-    #[inline(always)]
+    #[inline]
     pub fn mouse_movement(&self) -> math::Vector2<f32> {
         self.mouse.read().unwrap().movement()
     }
 
     /// Gets the scroll movement of mouse in pixels, usually provided by mouse wheel.
-    #[inline(always)]
+    #[inline]
     pub fn mouse_scroll(&self) -> math::Vector2<f32> {
         self.mouse.read().unwrap().scroll()
     }
@@ -252,38 +252,38 @@ impl InputSystemShared {
 
 impl InputSystemShared {
     /// Returns true if a touchpad is attached
-    #[inline(always)]
+    #[inline]
     pub fn has_touchpad_attached(&self) -> bool {
         // TODO
         true
     }
 
     /// Checks if the `n`th finger is touched during last frame.
-    #[inline(always)]
+    #[inline]
     pub fn is_finger_touched(&self, n: usize) -> bool {
         self.touchpad.read().unwrap().is_touched(n)
     }
 
     /// Gets the position of the `n`th touched finger.
-    #[inline(always)]
+    #[inline]
     pub fn finger_position(&self, n: usize) -> Option<math::Vector2<f32>> {
         self.touchpad.read().unwrap().position(n)
     }
 
     /// Gets the tap gesture.
-    #[inline(always)]
+    #[inline]
     pub fn finger_tap(&self) -> touchpad::GestureTap {
         self.touchpad.read().unwrap().tap()
     }
 
     /// Gets the double tap gesture.
-    #[inline(always)]
+    #[inline]
     pub fn finger_double_tap(&self) -> touchpad::GestureTap {
         self.touchpad.read().unwrap().double_tap()
     }
 
     /// Gets the panning gesture.
-    #[inline(always)]
+    #[inline]
     pub fn finger_pan(&self) -> touchpad::GesturePan {
         self.touchpad.read().unwrap().pan()
     }

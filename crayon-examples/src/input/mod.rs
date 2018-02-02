@@ -17,7 +17,7 @@ struct Window {
 impl Window {
     fn new(engine: &mut Engine) -> errors::Result<Self> {
         let ctx = engine.context();
-        let canvas = Canvas::new(&ctx).unwrap();
+        let canvas = Canvas::new(ctx).unwrap();
 
         let mut setup = graphics::SurfaceSetup::default();
         setup.set_clear(Color::white(), None, None);
@@ -54,7 +54,7 @@ impl Application for Window {
             self.double_click_count += 1;
         }
 
-        let ui = self.canvas.frame(self.surface, &ctx);
+        let ui = self.canvas.frame(self.surface, ctx);
         let info = self.info;
         let text = &self.text;
         let rc = self.repeat_count;
@@ -148,7 +148,7 @@ pub fn main(mut settings: Settings) {
     settings.window.width = 500;
     settings.window.height = 500;
 
-    let mut engine = Engine::new_with(settings).unwrap();
+    let mut engine = Engine::new_with(&settings).unwrap();
     let window = Window::new(&mut engine).unwrap();
     engine.run(window).unwrap();
 }

@@ -21,7 +21,7 @@ impl Drop for ConsoleCanvas {
 impl ConsoleCanvas {
     pub fn new(order: u64, ctx: &Context) -> errors::Result<Self> {
         let video = ctx.shared::<GraphicsSystem>().clone();
-        let canvas = Canvas::new(&ctx).unwrap();
+        let canvas = Canvas::new(ctx).unwrap();
 
         let mut setup = graphics::SurfaceSetup::default();
         setup.set_clear(None, None, None);
@@ -42,7 +42,7 @@ impl ConsoleCanvas {
     }
 
     pub fn render<'a>(&'a mut self, ctx: &Context) -> crayon_imgui::canvas::FrameGuard<'a> {
-        let ui = self.canvas.frame(self.surface, &ctx);
+        let ui = self.canvas.frame(self.surface, ctx);
         let info = self.info;
         ui.window(im_str!("ImGui & Crayon"))
             .movable(false)

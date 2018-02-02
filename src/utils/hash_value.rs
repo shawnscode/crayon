@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 
 use utils::hash;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Eq)]
 pub struct HashValue<T>(u64, PhantomData<T>)
 where
     T: Hash + ?Sized;
@@ -42,6 +42,15 @@ where
         H: Hasher,
     {
         self.0.hash(state);
+    }
+}
+
+impl<T> PartialEq<HashValue<T>> for HashValue<T>
+where
+    T: Hash + ?Sized,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq(&other.0)
     }
 }
 

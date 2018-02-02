@@ -22,6 +22,7 @@ impl Ord for InverseHandleIndex {
 /// `HandlePool` manages the manipulations of a `Handle` collection, which are
 /// created with a continuous `index` field. It also have the ability to find
 /// out the current status of a specified `Handle`.
+#[derive(Default)]
 pub struct HandlePool {
     versions: Vec<HandleIndex>,
     frees: BinaryHeap<InverseHandleIndex>,
@@ -30,10 +31,7 @@ pub struct HandlePool {
 impl HandlePool {
     /// Constructs a new, empty `HandlePool`.
     pub fn new() -> HandlePool {
-        HandlePool {
-            versions: Vec::new(),
-            frees: BinaryHeap::new(),
-        }
+        HandlePool::default()
     }
 
     /// Constructs a new `HandlePool` with the specified capacity.
@@ -52,7 +50,7 @@ impl HandlePool {
 
     /// Creates a unused `Handle`.
     pub fn create(&mut self) -> Handle {
-        if self.frees.len() > 0 {
+        if !self.frees.is_empty() {
             // If we have available free slots.
             let index = self.frees.pop().unwrap().0 as usize;
             self.versions[index] += 1;
@@ -75,7 +73,7 @@ impl HandlePool {
         self.is_alive_at(index) && (self.versions[index] == handle.version())
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_alive_at(&self, index: usize) -> bool {
         (index < self.versions.len()) && ((self.versions[index] & 0x1) == 1)
     }
@@ -110,6 +108,12 @@ impl HandlePool {
     #[inline]
     pub fn len(&self) -> usize {
         self.versions.len() - self.frees.len()
+    }
+
+    /// Checks if the pool is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Returns an iterator over the `HandlePool`.
@@ -167,6 +171,12 @@ impl<'a> HandleIter<'a> {
     /// Returns the size of indices this iterator could reachs.
     pub fn len(&self) -> usize {
         (self.end - self.start) as usize
+    }
+
+    /// Checks if the iterator is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
