@@ -102,7 +102,7 @@ where
         }
 
         unsafe {
-            let has_reference = {
+            let free = {
                 let entry = self.entries
                     .get_unchecked_mut(handle.index() as usize)
                     .as_mut()
@@ -111,13 +111,15 @@ where
                 entry.rc == 0
             };
 
-            if has_reference {
+            if free {
                 let mut v = None;
                 let block = self.entries.get_unchecked_mut(handle.index() as usize);
                 ::std::mem::swap(&mut v, block);
 
                 let v = v.unwrap();
-                self.locations.remove(&v.location);
+                if v.location.is_shared() {
+                    self.locations.remove(&v.location);
+                }
 
                 if delay {
                     self.delay_free.push(handle);

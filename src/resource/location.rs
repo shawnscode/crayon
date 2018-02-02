@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::hash::{Hash, Hasher};
 use utils::HashValue;
 
 /// A `Location` describes where the source data for a resource is located. It
@@ -34,16 +33,19 @@ impl<'a> Location<'a> {
     }
 
     /// Returns true if this location is shared.
+    #[inline]
     pub fn is_shared(&self) -> bool {
-        self.code != Signature::Unique
+        self.code.is_shared()
     }
 
     /// Gets the uniform resource identifier.
+    #[inline]
     pub fn uri(&self) -> &Path {
         self.location
     }
 
     /// Gets hash object of `Location`.
+    #[inline]
     pub fn hash(&self) -> LocationAtom {
         LocationAtom {
             code: self.code,
@@ -52,32 +54,19 @@ impl<'a> Location<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum Signature {
     Unique,
     Shared(u8),
 }
 
-impl Hash for Signature {
-    fn hash<H>(&self, state: &mut H)
-    where
-        H: Hasher,
-    {
-        match *self {
-            Signature::Unique => unreachable!(),
-            Signature::Shared(lhs) => lhs.hash(state),
-        }
-    }
-}
-
-impl PartialEq<Signature> for Signature {
-    fn eq(&self, other: &Signature) -> bool {
-        match *self {
-            Signature::Unique => false,
-            Signature::Shared(lhs) => match *other {
-                Signature::Shared(rhs) => lhs == rhs,
-                _ => false,
-            },
+impl Signature {
+    #[inline]
+    pub fn is_shared(&self) -> bool {
+        if let Signature::Shared(_) = *self {
+            true
+        } else {
+            false
         }
     }
 }
@@ -100,8 +89,9 @@ impl<'a> From<Location<'a>> for LocationAtom {
 
 impl LocationAtom {
     /// Returns true if this location is shared.
+    #[inline]
     pub fn is_shared(&self) -> bool {
-        self.code != Signature::Unique
+        self.code.is_shared()
     }
 }
 
@@ -114,7 +104,7 @@ mod test {
     fn basic() {
         let l1 = Location::unique("1");
         let l2 = Location::unique("1");
-        assert!(l1 != l2);
+        assert!(l1 == l2);
 
         let l1 = Location::shared(0, "1");
         let l2 = Location::shared(1, "1");
@@ -140,14 +130,5 @@ mod test {
         assert_eq!(map.contains(&l2), true);
 
         assert_eq!(map.insert(l1), false);
-    }
-
-    #[test]
-    fn unique_container() {
-        let l1 = Location::unique("1").hash();
-
-        let mut map = HashSet::new();
-        assert_eq!(map.insert(l1), true);
-        assert_eq!(map.contains(&l1), false);
     }
 }
