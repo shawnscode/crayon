@@ -57,13 +57,19 @@ impl Default for VariantStr {
 }
 
 impl VariantStr {
+    /// Gets the len of str.
     pub fn len(&self) -> usize {
         match self.0 {
-            _VariantStr::Size8(len, _) => len as usize,
-            _VariantStr::Size16(len, _) => len as usize,
-            _VariantStr::Size32(len, _) => len as usize,
+            _VariantStr::Size8(len, _)
+            | _VariantStr::Size16(len, _)
+            | _VariantStr::Size32(len, _) => len as usize,
             _VariantStr::Unconstraint(ref v) => v.len(),
         }
+    }
+
+    /// Checks if the `VariantStr` is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Converts a slice of bytes to a string slice without checking that the
@@ -96,7 +102,7 @@ const TAG_THREE_B: u8 = 0b1110_0000;
 const TAG_FOUR_B: u8 = 0b1111_0000;
 const MAX_ONE_B: u32 = 0x80;
 const MAX_TWO_B: u32 = 0x800;
-const MAX_THREE_B: u32 = 0x10000;
+const MAX_THREE_B: u32 = 0x1_0000;
 
 pub struct VariantChar {
     buf: [u8; 4],

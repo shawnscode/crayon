@@ -50,7 +50,7 @@ impl Keyboard {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn reset(&mut self) {
         self.downs.clear();
         self.presses.clear();
@@ -58,20 +58,19 @@ impl Keyboard {
         self.chars.clear();
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn advance(&mut self) {
         self.presses.clear();
         self.releases.clear();
         self.chars.clear();
 
         let last_frame_ts = self.now;
-        for (_, v) in &mut self.downs {
-            match v {
-                &mut KeyDownState::Start(ts) => if (last_frame_ts - ts) > self.setup.repeat_timeout
-                {
+        for v in self.downs.values_mut() {
+            match *v {
+                KeyDownState::Start(ts) => if (last_frame_ts - ts) > self.setup.repeat_timeout {
                     *v = KeyDownState::Press(ts);
                 },
-                &mut KeyDownState::Press(ts) => {
+                KeyDownState::Press(ts) => {
                     if (last_frame_ts - ts) > self.setup.repeat_interval_timeout {
                         *v = KeyDownState::Press(last_frame_ts);
                     }
@@ -82,38 +81,38 @@ impl Keyboard {
         self.now = Instant::now();
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn on_key_pressed(&mut self, key: event::KeyboardButton) {
         if !self.downs.contains_key(&key) {
-            self.downs.insert(key, KeyDownState::Start(self.now));
             self.presses.insert(key);
+            self.downs.insert(key, KeyDownState::Start(self.now));
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn on_key_released(&mut self, key: event::KeyboardButton) {
         self.downs.remove(&key);
         self.releases.insert(key);
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn on_char(&mut self, c: char) {
         if self.chars.len() < self.setup.max_chars {
             self.chars.push(c);
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn is_key_down(&self, key: event::KeyboardButton) -> bool {
         self.downs.contains_key(&key)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn is_key_press(&self, key: event::KeyboardButton) -> bool {
         self.presses.contains(&key)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn is_key_release(&self, key: event::KeyboardButton) -> bool {
         self.releases.contains(&key)
     }
@@ -129,7 +128,7 @@ impl Keyboard {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn captured_chars(&self) -> &[char] {
         &self.chars
     }

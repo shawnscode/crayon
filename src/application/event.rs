@@ -75,6 +75,12 @@ pub struct EventsLoop {
     frame_events: Vec<Event>,
 }
 
+impl Default for EventsLoop {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EventsLoop {
     /// Creates a new `EventsLoop`.
     pub fn new() -> Self {
@@ -112,10 +118,7 @@ impl EventsLoop {
 
 fn from_event(source: glutin::Event) -> Option<Event> {
     match source {
-        glutin::Event::WindowEvent {
-            window_id: _,
-            event: v,
-        } => from_window_event(v),
+        glutin::Event::WindowEvent { event, .. } => from_window_event(&event),
 
         glutin::Event::Awakened => Some(Event::Application(ApplicationEvent::Awakened)),
 
@@ -125,15 +128,12 @@ fn from_event(source: glutin::Event) -> Option<Event> {
             Some(Event::Application(ApplicationEvent::Resumed))
         },
 
-        glutin::Event::DeviceEvent {
-            device_id: _,
-            event: _,
-        } => None,
+        glutin::Event::DeviceEvent { .. } => None,
     }
 }
 
-fn from_window_event(source: glutin::WindowEvent) -> Option<Event> {
-    match source {
+fn from_window_event(source: &glutin::WindowEvent) -> Option<Event> {
+    match *source {
         glutin::WindowEvent::Closed => Some(Event::Application(ApplicationEvent::Closed)),
 
         glutin::WindowEvent::Focused(v) => if v {
@@ -142,25 +142,14 @@ fn from_window_event(source: glutin::WindowEvent) -> Option<Event> {
             Some(Event::Application(ApplicationEvent::LostFocus))
         },
 
-        glutin::WindowEvent::CursorMoved {
-            device_id: _,
-            position,
-            modifiers: _,
-        } => Some(Event::InputDevice(InputDeviceEvent::MouseMoved {
-            position: (position.0 as f32, position.1 as f32),
-        })),
+        glutin::WindowEvent::CursorMoved { position, .. } => {
+            Some(Event::InputDevice(InputDeviceEvent::MouseMoved {
+                position: (position.0 as f32, position.1 as f32),
+            }))
+        }
 
-        glutin::WindowEvent::MouseWheel {
-            device_id: _,
-            delta,
-            phase: _,
-            modifiers: _,
-        } => match delta {
-            glutin::MouseScrollDelta::LineDelta(x, y) => {
-                Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
-                    delta: (x as f32, y as f32),
-                }))
-            }
+        glutin::WindowEvent::MouseWheel { delta, .. } => match delta {
+            glutin::MouseScrollDelta::LineDelta(x, y) |
             glutin::MouseScrollDelta::PixelDelta(x, y) => {
                 Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
                     delta: (x as f32, y as f32),
@@ -169,45 +158,41 @@ fn from_window_event(source: glutin::WindowEvent) -> Option<Event> {
         },
 
         glutin::WindowEvent::MouseInput {
-            device_id: _,
             state: glutin::ElementState::Pressed,
             button,
-            modifiers: _,
+            ..
         } => Some(Event::InputDevice(
             InputDeviceEvent::MousePressed { button },
         )),
 
         glutin::WindowEvent::MouseInput {
-            device_id: _,
             state: glutin::ElementState::Released,
             button,
-            modifiers: _,
+            ..
         } => Some(Event::InputDevice(
             InputDeviceEvent::MouseReleased { button },
         )),
 
         glutin::WindowEvent::KeyboardInput {
-            device_id: _,
             input:
                 glutin::KeyboardInput {
-                    scancode: _,
                     state: glutin::ElementState::Pressed,
                     virtual_keycode: Some(key),
-                    modifiers: _,
+                    ..
                 },
+            ..
         } => Some(Event::InputDevice(
             InputDeviceEvent::KeyboardPressed { key },
         )),
 
         glutin::WindowEvent::KeyboardInput {
-            device_id: _,
             input:
                 glutin::KeyboardInput {
-                    scancode: _,
                     state: glutin::ElementState::Released,
                     virtual_keycode: Some(key),
-                    modifiers: _,
+                    ..
                 },
+            ..
         } => Some(Event::InputDevice(
             InputDeviceEvent::KeyboardReleased { key },
         )),

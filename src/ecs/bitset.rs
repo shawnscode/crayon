@@ -5,7 +5,7 @@ use std::borrow::Borrow;
 const MAX_COMPONENTS: usize = 1;
 
 /// Fixed size bit-set;
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BitSet {
     bits: [u64; MAX_COMPONENTS],
 }
@@ -19,40 +19,40 @@ impl BitSet {
     }
 
     /// Adds a value to the set.
-    #[inline(always)]
+    #[inline]
     pub fn insert(&mut self, index: usize) {
         let (index, bit_index) = Self::split(index);
         self.bits[index] |= 1 << bit_index;
     }
 
     /// Removes a value from the set.
-    #[inline(always)]
+    #[inline]
     pub fn remove(&mut self, index: usize) {
         let (index, bit_index) = Self::split(index);
         self.bits[index] &= !(1 << bit_index);
     }
 
     /// Returns `true` if this set contains the specified integer.
-    #[inline(always)]
+    #[inline]
     pub fn contains(&self, index: usize) -> bool {
         let (index, bit_index) = Self::split(index);
         ((1 << bit_index) & self.bits[index]) > 0
     }
 
     /// Clears all bits in this set.
-    #[inline(always)]
+    #[inline]
     pub fn clear(&mut self) {
         *self = Self::new();
     }
 
     /// Returns whether there are no bits set in this set.
-    #[inline(always)]
+    #[inline]
     pub fn is_empty(&self) -> bool {
         *self == Self::new()
     }
 
     /// Returns an bit-set that intersect self with `rhs`.
-    #[inline(always)]
+    #[inline]
     pub fn intersect_with<T>(&self, rhs: T) -> Self
     where
         T: Borrow<Self>,
@@ -66,7 +66,7 @@ impl BitSet {
     }
 
     /// Returns an bit-set that union self with `rhs`.
-    #[inline(always)]
+    #[inline]
     pub fn union_with<T>(&self, rhs: T) -> Self
     where
         T: Borrow<Self>,
@@ -80,7 +80,7 @@ impl BitSet {
     }
 
     /// Returns an iterator into this bit-set.
-    #[inline(always)]
+    #[inline]
     pub fn iter(&self) -> BitSetIter {
         BitSetIter {
             bitset: *self,
@@ -88,7 +88,7 @@ impl BitSet {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn split(index: usize) -> (usize, usize) {
         let len = MAX_COMPONENTS * 64;
         assert!(
@@ -131,7 +131,7 @@ impl DynamicBitSet {
         DynamicBitSet { bits: Vec::new() }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn insert(&mut self, index: usize) {
         let (index, bit_index) = Self::split(index);
 
@@ -146,7 +146,7 @@ impl DynamicBitSet {
         self.bits[index] |= 1 << bit_index;
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn remove(&mut self, index: usize) {
         let (index, bit_index) = Self::split(index);
 
@@ -157,7 +157,7 @@ impl DynamicBitSet {
         self.bits[index] &= !(1 << bit_index);
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn contains(&self, index: usize) -> bool {
         let (index, bit_index) = Self::split(index);
 
@@ -168,12 +168,12 @@ impl DynamicBitSet {
         ((1 << bit_index) & self.bits[index]) > 0
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn clear(&mut self) {
         self.bits.clear();
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn iter(&self) -> DynamicBitSetIter {
         DynamicBitSetIter {
             bitset: self,
@@ -181,7 +181,7 @@ impl DynamicBitSet {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn split(index: usize) -> (usize, usize) {
         let len = MAX_COMPONENTS * 64;
         (index / len, index % len)

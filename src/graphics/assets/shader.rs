@@ -1,9 +1,11 @@
 //! Pipeline state object that containing immutable render state and vertex-layout.
 
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use math;
 use graphics::{RenderTextureHandle, TextureHandle, MAX_VERTEX_ATTRIBUTES};
+use graphics::errors::*;
 use utils::HashValue;
 
 use super::mesh::VertexLayout;
@@ -42,7 +44,7 @@ impl ShaderStateObject {
     where
         T: Into<HashValue<str>>,
     {
-        self.uniform_variables.get(&field.into()).map(|v| *v)
+        self.uniform_variables.get(&field.into()).cloned()
     }
 
     pub fn uniform_variable_name<T>(&self, field: T) -> Option<&str>
@@ -92,31 +94,25 @@ impl Into<&'static str> for Attribute {
     }
 }
 
-impl Attribute {
-    pub fn from_str(v: &str) -> Option<Attribute> {
-        let attributes = [
-            Attribute::Position,
-            Attribute::Normal,
-            Attribute::Tangent,
-            Attribute::Bitangent,
-            Attribute::Color0,
-            Attribute::Color1,
-            Attribute::Indices,
-            Attribute::Weight,
-            Attribute::Texcoord0,
-            Attribute::Texcoord1,
-            Attribute::Texcoord2,
-            Attribute::Texcoord3,
-        ];
+impl FromStr for Attribute {
+    type Err = Error;
 
-        for at in &attributes {
-            let w: &'static str = (*at).into();
-            if v == w {
-                return Some(*at);
-            }
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "Position" => Ok(Attribute::Position),
+            "Normal" => Ok(Attribute::Normal),
+            "Tangent" => Ok(Attribute::Tangent),
+            "Bitangent" => Ok(Attribute::Bitangent),
+            "Color0" => Ok(Attribute::Color0),
+            "Color1" => Ok(Attribute::Color1),
+            "Indices" => Ok(Attribute::Indices),
+            "Weight" => Ok(Attribute::Weight),
+            "Texcoord0" => Ok(Attribute::Texcoord0),
+            "Texcoord1" => Ok(Attribute::Texcoord1),
+            "Texcoord2" => Ok(Attribute::Texcoord2),
+            "Texcoord3" => Ok(Attribute::Texcoord3),
+            _ => bail!(format!("Can not parse attribute from &str `{0}`.", s)),
         }
-
-        None
     }
 }
 
@@ -144,7 +140,7 @@ impl AttributeLayout {
     pub fn iter(&self) -> AttributeLayoutIter {
         AttributeLayoutIter {
             pos: 0,
-            layout: &self,
+            layout: self,
         }
     }
 
@@ -333,17 +329,17 @@ pub enum UniformVariable {
 
 impl UniformVariable {
     pub fn variable_type(&self) -> UniformVariableType {
-        match self {
-            &UniformVariable::RenderTexture(_) => UniformVariableType::RenderTexture,
-            &UniformVariable::Texture(_) => UniformVariableType::Texture,
-            &UniformVariable::I32(_) => UniformVariableType::I32,
-            &UniformVariable::F32(_) => UniformVariableType::F32,
-            &UniformVariable::Vector2f(_) => UniformVariableType::Vector2f,
-            &UniformVariable::Vector3f(_) => UniformVariableType::Vector3f,
-            &UniformVariable::Vector4f(_) => UniformVariableType::Vector4f,
-            &UniformVariable::Matrix2f(_, _) => UniformVariableType::Matrix2f,
-            &UniformVariable::Matrix3f(_, _) => UniformVariableType::Matrix3f,
-            &UniformVariable::Matrix4f(_, _) => UniformVariableType::Matrix4f,
+        match *self {
+            UniformVariable::RenderTexture(_) => UniformVariableType::RenderTexture,
+            UniformVariable::Texture(_) => UniformVariableType::Texture,
+            UniformVariable::I32(_) => UniformVariableType::I32,
+            UniformVariable::F32(_) => UniformVariableType::F32,
+            UniformVariable::Vector2f(_) => UniformVariableType::Vector2f,
+            UniformVariable::Vector3f(_) => UniformVariableType::Vector3f,
+            UniformVariable::Vector4f(_) => UniformVariableType::Vector4f,
+            UniformVariable::Matrix2f(_, _) => UniformVariableType::Matrix2f,
+            UniformVariable::Matrix3f(_, _) => UniformVariableType::Matrix3f,
+            UniformVariable::Matrix4f(_, _) => UniformVariableType::Matrix4f,
         }
     }
 }

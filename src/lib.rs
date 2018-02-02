@@ -9,7 +9,7 @@
 //! and [molecular](https://blog.molecular-matters.com). Some goals include:
 //!
 //! - Extensible through external code modules;
-//! - Run on [x]macOS, [x]Windows, iOS, Android, WebAssembly from the same source;
+//! - Run on [x]`macOS`, [x]`Windows`, `iOS`, `Android`, `WebAssembly` from the same source;
 //! - Stateless, layered, multithread render system with OpenGL(ES) 2.0+ backends;
 //! - Entity component system with a data-driven designs;
 //! - Unified access to input devices across platforms;

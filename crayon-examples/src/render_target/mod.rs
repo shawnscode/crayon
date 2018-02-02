@@ -48,8 +48,8 @@ impl Window {
             let mesh = label.create_mesh(
                 Location::unique(""),
                 setup,
-                Vertex::as_bytes(&verts[..]),
-                graphics::IndexFormat::as_bytes(&idxes),
+                Vertex::encode(&verts[..]),
+                graphics::IndexFormat::encode(&idxes),
             )?;
 
             // Create render texture for post effect.
@@ -104,8 +104,8 @@ impl Window {
             let mesh = label.create_mesh(
                 Location::unique(""),
                 setup,
-                Vertex::as_bytes(&verts[..]),
-                graphics::IndexFormat::as_bytes(&idxes),
+                Vertex::encode(&verts[..]),
+                graphics::IndexFormat::encode(&idxes),
             )?;
 
             let mut setup = graphics::SurfaceSetup::default();
@@ -168,7 +168,7 @@ pub fn main(mut settings: Settings) {
     settings.window.width = 568;
     settings.window.height = 320;
 
-    let mut engine = Engine::new_with(settings).unwrap();
+    let mut engine = Engine::new_with(&settings).unwrap();
     let window = Window::new(&mut engine).unwrap();
     engine.run(window).unwrap();
 }

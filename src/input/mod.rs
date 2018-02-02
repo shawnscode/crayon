@@ -23,7 +23,7 @@
 //! input.is_key_repeat(KeyboardButton::A);
 //! ```
 //!
-//! A list of all key codes can be found in the KeyboardButton enumeration. Notes
+//! A list of all key codes can be found in the `KeyboardButton` enumeration. Notes
 //! that the key code used here, are virtual keycode of physical keys, they don't
 //! necessarily represent what's actually printed on the key cap.
 //!
@@ -53,7 +53,7 @@
 //! input.is_mouse_release(MouseButton::Left);
 //! ```
 //!
-//! A list of all mouse buttons can be found in the KeyboardButton enumeration. To get
+//! A list of all mouse buttons can be found in the `KeyboardButton` enumeration. To get
 //! the current mouse position and the last frame's mouse movement in pixels:
 //!
 //! ```rust,ignore
@@ -86,7 +86,7 @@
 //! input.is_mouse_double_click();
 //! ```
 //!
-//! # TouchPad Inputs
+//! # `TouchPad` Inputs
 //!
 //! The touch input functions provides access to basic touch- and multi-touch-input,
 //! and is currently only implemented on mobile platforms and not for notebook
@@ -133,7 +133,7 @@
 //! Somethings that nice to have, but not implemented right now:
 //!
 //! 1. Device sensor inputs;
-//! 2. GamePad inputs;
+//! 2. Game pad inputs;
 //! 3. More touch gesture like `Pinching`.
 
 mod keyboard;

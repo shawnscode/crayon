@@ -11,6 +11,7 @@ use super::cell::{Ref, RefCell, RefMut};
 /// The `World` struct are used to manage the whole entity-component system, It keeps
 /// tracks of the state of every created `Entity`s. All memthods are supposed to be
 /// valid for any context they are available in.
+#[derive(Default)]
 pub struct World {
     masks: Vec<BitSet>,
     entities: HandlePool,
@@ -80,6 +81,12 @@ impl World {
     #[inline]
     pub fn len(&self) -> usize {
         self.entities.len()
+    }
+
+    /// Checks if the world is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.entities.is_empty()
     }
 
     /// Recycles the `Entity` handle, free corresponding components. and mark
@@ -391,7 +398,7 @@ fn next_item<'a>(view: &View<'a>, iterator: &mut HandleIter<'a>) -> Option<Entit
     loop {
         match iterator.next() {
             Some(ent) => {
-                let mask = unsafe { view.world.masks.get_unchecked(ent.index() as usize).clone() };
+                let mask = unsafe { *view.world.masks.get_unchecked(ent.index() as usize) };
 
                 if mask.intersect_with(&view.mask) == view.mask {
                     return Some(ent);

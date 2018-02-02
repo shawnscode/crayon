@@ -12,7 +12,7 @@ struct Window {
 impl Window {
     fn new(engine: &mut Engine) -> errors::Result<Self> {
         let ctx = engine.context();
-        let canvas = Canvas::new(&ctx).unwrap();
+        let canvas = Canvas::new(ctx).unwrap();
 
         let mut setup = graphics::SurfaceSetup::default();
         setup.set_clear(Color::white(), None, None);
@@ -29,7 +29,7 @@ impl Window {
 
 impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
-        let ui = self.canvas.frame(self.surface, &ctx);
+        let ui = self.canvas.frame(self.surface, ctx);
         let info = self.info;
         ui.window(im_str!("ImGui & Crayon"))
             .movable(false)
@@ -72,7 +72,7 @@ pub fn main(mut settings: Settings) {
     settings.window.width = 1024;
     settings.window.height = 768;
 
-    let mut engine = Engine::new_with(settings).unwrap();
+    let mut engine = Engine::new_with(&settings).unwrap();
     let window = Window::new(&mut engine).unwrap();
     engine.run(window).unwrap();
 }

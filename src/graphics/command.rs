@@ -50,6 +50,7 @@ impl<'a> Command<'a> {
 }
 
 /// Draw.
+#[derive(Debug, Copy, Clone)]
 pub struct SliceDrawCall<'a> {
     pub(crate) shader: ShaderHandle,
     pub(crate) uniforms: &'a [(HashValue<str>, UniformVariable)],
@@ -64,6 +65,7 @@ impl<'a> Into<Command<'a>> for SliceDrawCall<'a> {
 }
 
 /// Vertex buffer object update.
+#[derive(Debug, Copy, Clone)]
 pub struct VertexBufferUpdate<'a> {
     pub(crate) mesh: MeshHandle,
     pub(crate) offset: usize,
@@ -71,6 +73,7 @@ pub struct VertexBufferUpdate<'a> {
 }
 
 /// Index buffer object update.
+#[derive(Debug, Copy, Clone)]
 pub struct IndexBufferUpdate<'a> {
     pub(crate) mesh: MeshHandle,
     pub(crate) offset: usize,
@@ -78,6 +81,7 @@ pub struct IndexBufferUpdate<'a> {
 }
 
 /// Texture object update.
+#[derive(Debug, Copy, Clone)]
 pub struct TextureUpdate<'a> {
     pub(crate) texture: TextureHandle,
     pub(crate) rect: Rect,

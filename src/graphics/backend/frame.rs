@@ -132,7 +132,7 @@ impl Frame {
 
                     // Update framebuffer's attachments.
                     for (i, attachment) in setup.attachments().iter().enumerate() {
-                        if let &Some(v) = attachment {
+                        if let Some(v) = *attachment {
                             let i = i as u32;
                             match v {
                                 FrameBufferAttachment::RenderBuffer(rb) => {

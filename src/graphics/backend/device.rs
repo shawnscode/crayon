@@ -187,22 +187,26 @@ impl Device {
             let variable = buf.as_ref(ptr);
             let location = shader.uniform_locations[&field];
 
-            if let &UniformVariable::Texture(handle) = variable {
-                if let Some(texture) = self.textures.get(handle) {
-                    let v = UniformVariable::I32(texture_idx);
-                    self.visitor.bind_uniform(location, &v)?;
-                    self.visitor.bind_texture(texture_idx as u32, texture.id)?;
-                    texture_idx += 1;
+            match *variable {
+                UniformVariable::Texture(handle) => {
+                    if let Some(texture) = self.textures.get(handle) {
+                        let v = UniformVariable::I32(texture_idx);
+                        self.visitor.bind_uniform(location, &v)?;
+                        self.visitor.bind_texture(texture_idx as u32, texture.id)?;
+                        texture_idx += 1;
+                    }
                 }
-            } else if let &UniformVariable::RenderTexture(handle) = variable {
-                if let Some(texture) = self.render_textures.get(handle) {
-                    let v = UniformVariable::I32(texture_idx);
-                    self.visitor.bind_uniform(location, &v)?;
-                    self.visitor.bind_texture(texture_idx as u32, texture.id)?;
-                    texture_idx += 1;
+                UniformVariable::RenderTexture(handle) => {
+                    if let Some(texture) = self.render_textures.get(handle) {
+                        let v = UniformVariable::I32(texture_idx);
+                        self.visitor.bind_uniform(location, &v)?;
+                        self.visitor.bind_texture(texture_idx as u32, texture.id)?;
+                        texture_idx += 1;
+                    }
                 }
-            } else {
-                self.visitor.bind_uniform(location, &variable)?;
+                _ => {
+                    self.visitor.bind_uniform(location, variable)?;
+                }
             }
         }
 
@@ -223,7 +227,7 @@ impl Device {
                 }
 
                 (
-                    (from * mesh.setup.index_format.len()) as u32,
+                    (from * mesh.setup.index_format.stride()) as u32,
                     len as GLsizei,
                 )
             }
@@ -241,7 +245,7 @@ impl Device {
                 };
 
                 (
-                    (from * mesh.setup.index_format.len()) as u32,
+                    (from * mesh.setup.index_format.stride()) as u32,
                     (to - from) as GLsizei,
                 )
             }
@@ -272,8 +276,8 @@ impl Device {
     ) -> Result<()> {
         let surface = self.surfaces.get(handle).ok_or(ErrorKind::InvalidHandle)?;
         let dimensions = (
-            (dimensions.0 as f32 * hidpi) as u16,
-            (dimensions.1 as f32 * hidpi) as u16,
+            (f32::from(dimensions.0) * hidpi) as u16,
+            (f32::from(dimensions.1) * hidpi) as u16,
         );
 
         // Bind frame buffer.
@@ -291,12 +295,12 @@ impl Device {
 
         let vp = surface.setup.viewport;
         let position = (
-            ((vp.0).0 * dimensions.0 as f32) as u16,
-            ((vp.0).1 * dimensions.1 as f32) as u16,
+            ((vp.0).0 * f32::from(dimensions.0)) as u16,
+            ((vp.0).1 * f32::from(dimensions.1)) as u16,
         );
         let dimensions = (
-            ((vp.1).0 * dimensions.0 as f32) as u16,
-            ((vp.1).1 * dimensions.1 as f32) as u16,
+            ((vp.1).0 * f32::from(dimensions.0)) as u16,
+            ((vp.1).1 * f32::from(dimensions.1)) as u16,
         );
 
         // Binds the viewport and scissor box.
@@ -320,7 +324,7 @@ impl Device {
 
         if let Some(v) = self.active_shader.get() {
             if v == handle {
-                return Ok(&shader);
+                return Ok(shader);
             }
         }
 
@@ -338,14 +342,14 @@ impl Device {
         self.visitor.set_color_write(c.0, c.1, c.2, c.3)?;
 
         for (name, variable) in &shader.uniforms {
-            let location = self.visitor.get_uniform_location(shader.id, &name)?;
+            let location = self.visitor.get_uniform_location(shader.id, name)?;
             if location != -1 {
-                self.visitor.bind_uniform(location, &variable)?;
+                self.visitor.bind_uniform(location, variable)?;
             }
         }
 
         self.active_shader.set(Some(handle));
-        Ok(&shader)
+        Ok(shader)
     }
 }
 
@@ -667,7 +671,7 @@ impl Device {
     }
 
     pub fn delete_surface(&mut self, handle: SurfaceHandle) -> Result<()> {
-        if let Some(_) = self.surfaces.remove(handle) {
+        if self.surfaces.remove(handle).is_some() {
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);

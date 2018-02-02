@@ -158,11 +158,11 @@ impl Renderer {
     ) -> Result<graphics::MeshHandle> {
         if let Some((nv, ni, handle)) = self.mesh {
             if nv >= verts.len() && ni >= idxes.len() {
-                let slice = CanvasVertex::as_bytes(verts);
+                let slice = CanvasVertex::encode(verts);
                 let cmd = graphics::Command::update_vertex_buffer(handle, 0, slice);
                 self.video.submit(surface, 0u64, cmd)?;
 
-                let slice = graphics::IndexFormat::as_bytes(idxes);
+                let slice = graphics::IndexFormat::encode(idxes);
                 let cmd = graphics::Command::update_index_buffer(handle, 0, slice);
                 self.video.submit(surface, 0u64, cmd)?;
 
@@ -190,8 +190,8 @@ impl Renderer {
         setup.num_verts = nv;
         setup.num_idxes = ni;
 
-        let verts_slice = CanvasVertex::as_bytes(verts);
-        let idxes_slice = graphics::IndexFormat::as_bytes(idxes);
+        let verts_slice = CanvasVertex::encode(verts);
+        let idxes_slice = graphics::IndexFormat::encode(idxes);
         let mesh = self.video.create_mesh(
             resource::Location::unique(""),
             setup,

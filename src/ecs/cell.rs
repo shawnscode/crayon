@@ -4,8 +4,8 @@ use std::cell::UnsafeCell;
 use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// Wraps a borrowed reference to a value in a RefCell box. A wrapper
-/// type for an immutably borrowed value from a RefCell<T>.
+/// Wraps a borrowed reference to a value in a `RefCell<T>` box. A wrapper
+/// type for an immutably borrowed value from a `RefCell<T>`.
 #[derive(Debug)]
 pub struct Ref<'a, T: 'a> {
     flag: &'a AtomicUsize,
@@ -26,7 +26,7 @@ impl<'a, T> Drop for Ref<'a, T> {
     }
 }
 
-/// A wrapper type for a mutably borrowed value from a RefCell<T>.
+/// A wrapper type for a mutably borrowed value from a `RefCell<T>`.
 #[derive(Debug)]
 pub struct RefMut<'a, T: 'a> {
     flag: &'a AtomicUsize,
@@ -109,9 +109,9 @@ impl<T> RefCell<T> {
         let val = self.flag.compare_and_swap(0, !0, Ordering::AcqRel);
         assert!(val == 0, "Already borrowed");
 
-        return RefMut {
+        RefMut {
             flag: &self.flag,
             value: unsafe { &mut *self.inner.get() },
-        };
+        }
     }
 }

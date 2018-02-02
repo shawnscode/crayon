@@ -18,7 +18,7 @@ impl graphics::TextureParser for TextureParser {
     type Error = image::ImageError;
 
     fn parse(bytes: &[u8]) -> image::ImageResult<graphics::TextureData> {
-        let dynamic = image::load_from_memory(&bytes)?.flipv();
+        let dynamic = image::load_from_memory(bytes)?.flipv();
         Ok(graphics::TextureData {
             format: graphics::TextureFormat::U8U8U8U8,
             dimensions: dynamic.dimensions(),
@@ -110,8 +110,8 @@ impl graphics::MeshParser for OBJParser {
             num_verts: verts.len(),
             num_idxes: idxes.len(),
             sub_mesh_offsets: meshes,
-            verts: Vec::from(OBJVertex::as_bytes(&verts)),
-            idxes: Vec::from(graphics::IndexFormat::as_bytes(&idxes)),
+            verts: Vec::from(OBJVertex::encode(&verts)),
+            idxes: Vec::from(graphics::IndexFormat::encode(&idxes)),
         })
     }
 }

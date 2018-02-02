@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::hash::{Hash, Hasher};
 use utils::HashValue;
 
 /// A `Location` describes where the source data for a resource is located. It
@@ -39,7 +40,7 @@ impl<'a> Location<'a> {
 
     /// Gets the uniform resource identifier.
     pub fn uri(&self) -> &Path {
-        &self.location
+        self.location
     }
 
     /// Gets hash object of `Location`.
@@ -51,10 +52,22 @@ impl<'a> Location<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Eq)]
 enum Signature {
     Unique,
     Shared(u8),
+}
+
+impl Hash for Signature {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        match *self {
+            Signature::Unique => unreachable!(),
+            Signature::Shared(lhs) => lhs.hash(state),
+        }
+    }
 }
 
 impl PartialEq<Signature> for Signature {

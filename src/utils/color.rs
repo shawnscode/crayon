@@ -1,3 +1,5 @@
+use std::f32;
+
 /// A RGBA `Color`. Each color component is a floating point value
 /// with a range from 0 to 1.
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
@@ -9,7 +11,7 @@ impl Into<u32> for Color {
         let mut encoded = ((color.0 / 1.0 * 255.0) as u32) << 24;
         encoded |= ((color.1 / 1.0 * 255.0) as u32) << 16;
         encoded |= ((color.2 / 1.0 * 255.0) as u32) << 8;
-        encoded |= ((color.3 / 1.0 * 255.0) as u32) << 0;
+        encoded |= (color.3 / 1.0 * 255.0) as u32;
         encoded
     }
 }
@@ -20,7 +22,7 @@ impl From<u32> for Color {
             ((encoded >> 24) & 0xFF) as f32 / 255.0,
             ((encoded >> 16) & 0xFF) as f32 / 255.0,
             ((encoded >> 8) & 0xFF) as f32 / 255.0,
-            ((encoded >> 0) & 0xFF) as f32 / 255.0,
+            (encoded & 0xFF) as f32 / 255.0,
         )
     }
 }
@@ -39,10 +41,10 @@ impl Into<[u8; 4]> for Color {
 impl From<[u8; 4]> for Color {
     fn from(v: [u8; 4]) -> Self {
         Color(
-            v[0] as f32 / 255.0,
-            v[1] as f32 / 255.0,
-            v[2] as f32 / 255.0,
-            v[3] as f32 / 255.0,
+            f32::from(v[0]) / 255.0,
+            f32::from(v[1]) / 255.0,
+            f32::from(v[2]) / 255.0,
+            f32::from(v[3]) / 255.0,
         )
     }
 }
@@ -59,7 +61,7 @@ impl Color {
         Color(
             ((encoded >> 16) & 0xFF) as f32 / 255.0,
             ((encoded >> 8) & 0xFF) as f32 / 255.0,
-            ((encoded >> 0) & 0xFF) as f32 / 255.0,
+            (encoded & 0xFF) as f32 / 255.0,
             ((encoded >> 24) & 0xFF) as f32 / 255.0,
         )
     }
@@ -67,7 +69,7 @@ impl Color {
     /// Creates `Color` from a u32 encoded `ABGR`.
     pub fn from_abgr_u32(encoded: u32) -> Self {
         Color(
-            ((encoded >> 0) & 0xFF) as f32 / 255.0,
+            (encoded & 0xFF) as f32 / 255.0,
             ((encoded >> 8) & 0xFF) as f32 / 255.0,
             ((encoded >> 16) & 0xFF) as f32 / 255.0,
             ((encoded >> 24) & 0xFF) as f32 / 255.0,

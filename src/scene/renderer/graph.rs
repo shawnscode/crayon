@@ -106,7 +106,7 @@ impl<'a, 'b> System<'a> for UpdateRenderGraph<'b> {
 
         unsafe {
             for v in view {
-                if let &SceneNode::Light(lit) = data.2.get_unchecked(v) {
+                if let SceneNode::Light(lit) = *data.2.get_unchecked(v) {
                     match lit.source {
                         LitSrc::Dir => {
                             let dir = Transform::forward(&data.0, &data.1, v).unwrap();
@@ -162,7 +162,7 @@ impl<'a> DrawRenderGraph<'a> {
             }
         }
 
-        &self.fallback
+        self.fallback
     }
 
     fn bind_render_uniform<T>(dc: &mut DrawCall, m: &Material, uniform: RenderUniform, v: T)
@@ -185,7 +185,7 @@ impl<'a, 'b> System<'a> for DrawRenderGraph<'b> {
 
         unsafe {
             for v in view {
-                if let &SceneNode::Mesh(mesh) = data.2.get_unchecked(v) {
+                if let SceneNode::Mesh(mesh) = *data.2.get_unchecked(v) {
                     let mat = self.material(mesh.material);
 
                     let p = Transform::world_position(&data.0, &data.1, v).unwrap();
@@ -215,20 +215,20 @@ impl<'a, 'b> System<'a> for DrawRenderGraph<'b> {
                     let n = mv.invert().and_then(|v| Some(v.transpose())).unwrap_or(mv);
 
                     // Model matrix.
-                    Self::bind_render_uniform(&mut dc, &mat, RU::ModelMatrix, m);
+                    Self::bind_render_uniform(&mut dc, mat, RU::ModelMatrix, m);
                     // Model view matrix.
-                    Self::bind_render_uniform(&mut dc, &mat, RU::ModelViewMatrix, mv);
+                    Self::bind_render_uniform(&mut dc, mat, RU::ModelViewMatrix, mv);
                     // Mode view projection matrix.
-                    Self::bind_render_uniform(&mut dc, &mat, RU::ModelViewProjectionMatrix, mvp);
+                    Self::bind_render_uniform(&mut dc, mat, RU::ModelViewProjectionMatrix, mvp);
                     // Normal matrix.
-                    Self::bind_render_uniform(&mut dc, &mat, RU::ViewNormalMatrix, n);
+                    Self::bind_render_uniform(&mut dc, mat, RU::ViewNormalMatrix, n);
 
-                    if self.env.dirs.len() > 0 {
+                    if !self.env.dirs.is_empty() {
                         let v = self.env.dirs[0];
                         // The direction of directional light in view space.
-                        Self::bind_render_uniform(&mut dc, &mat, RU::DirLightViewDir, v.dir);
+                        Self::bind_render_uniform(&mut dc, mat, RU::DirLightViewDir, v.dir);
                         // The color of directional light.
-                        Self::bind_render_uniform(&mut dc, &mat, RU::DirLightColor, v.color);
+                        Self::bind_render_uniform(&mut dc, mat, RU::DirLightColor, v.color);
                     }
 
                     let len = ::std::cmp::min(self.env.points.len(), RU::POINT_LIT_UNIFORMS.len());
@@ -237,11 +237,11 @@ impl<'a, 'b> System<'a> for DrawRenderGraph<'b> {
                         let v = &self.env.points[i];
                         let uniforms = RU::POINT_LIT_UNIFORMS[i];
                         // The position of point light in view space.
-                        Self::bind_render_uniform(&mut dc, &mat, uniforms[0], v.position);
+                        Self::bind_render_uniform(&mut dc, mat, uniforms[0], v.position);
                         // The color of point light in view space.
-                        Self::bind_render_uniform(&mut dc, &mat, uniforms[1], v.color);
+                        Self::bind_render_uniform(&mut dc, mat, uniforms[1], v.color);
                         // The attenuation of point light in view space.
-                        Self::bind_render_uniform(&mut dc, &mat, uniforms[2], v.attenuation);
+                        Self::bind_render_uniform(&mut dc, mat, uniforms[2], v.attenuation);
                     }
 
                     // Submit.
@@ -271,6 +271,6 @@ impl Into<u64> for DrawOrder {
         };
 
         let suffix = self.shader.index();
-        ((prefix as u64) << 32) | (suffix as u64)
+        (u64::from(prefix) << 32) | u64::from(suffix)
     }
 }

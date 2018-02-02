@@ -26,8 +26,8 @@ impl Default for TextureSetup {
     }
 }
 
-/// A RenderTexture object is basicly texture object with special format. It can be
-/// the source of a texture access from a Shader, or it can be used as a render
+/// A `RenderTexture` object is basicly texture object with special format. It can
+/// be the source of a texture access from a Shader, or it can be used as a render
 /// target.
 #[derive(Debug, Copy, Clone)]
 pub struct RenderTextureSetup {
@@ -121,22 +121,18 @@ impl TextureFormat {
     /// Returns the number of components of this client format.
     pub fn components(&self) -> u8 {
         match *self {
-            TextureFormat::U8 => 1,
-            TextureFormat::U8U8 => 2,
-            TextureFormat::U8U8U8 => 3,
-            TextureFormat::U8U8U8U8 => 4,
-            TextureFormat::U5U6U5 => 3,
-            TextureFormat::U4U4U4U4 => 4,
-            TextureFormat::U5U5U5U1 => 4,
-            TextureFormat::U10U10U10U2 => 4,
-            TextureFormat::F16 => 1,
-            TextureFormat::F16F16 => 2,
-            TextureFormat::F16F16F16 => 3,
-            TextureFormat::F16F16F16F16 => 4,
-            TextureFormat::F32 => 1,
-            TextureFormat::F32F32 => 2,
-            TextureFormat::F32F32F32 => 3,
-            TextureFormat::F32F32F32F32 => 4,
+            TextureFormat::F32 | TextureFormat::F16 | TextureFormat::U8 => 1,
+            TextureFormat::U8U8 | TextureFormat::F16F16 | TextureFormat::F32F32 => 2,
+            TextureFormat::U5U6U5
+            | TextureFormat::U8U8U8
+            | TextureFormat::F16F16F16
+            | TextureFormat::F32F32F32 => 3,
+            TextureFormat::U8U8U8U8
+            | TextureFormat::U4U4U4U4
+            | TextureFormat::U5U5U5U1
+            | TextureFormat::U10U10U10U2
+            | TextureFormat::F16F16F16F16
+            | TextureFormat::F32F32F32F32 => 4,
         }
     }
 
@@ -144,19 +140,18 @@ impl TextureFormat {
     pub fn size(&self) -> u8 {
         match *self {
             TextureFormat::U8 => 1,
-            TextureFormat::U8U8 => 2,
+            TextureFormat::U8U8
+            | TextureFormat::U5U6U5
+            | TextureFormat::U4U4U4U4
+            | TextureFormat::U5U5U5U1
+            | TextureFormat::F16 => 2,
             TextureFormat::U8U8U8 => 3,
-            TextureFormat::U8U8U8U8 => 4,
-            TextureFormat::U5U6U5 => 2,
-            TextureFormat::U4U4U4U4 => 2,
-            TextureFormat::U5U5U5U1 => 2,
-            TextureFormat::U10U10U10U2 => 4,
-            TextureFormat::F16 => 2,
-            TextureFormat::F16F16 => 4,
+            TextureFormat::U8U8U8U8
+            | TextureFormat::U10U10U10U2
+            | TextureFormat::F16F16
+            | TextureFormat::F32 => 4,
             TextureFormat::F16F16F16 => 6,
-            TextureFormat::F16F16F16F16 => 8,
-            TextureFormat::F32 => 4,
-            TextureFormat::F32F32 => 8,
+            TextureFormat::F16F16F16F16 | TextureFormat::F32F32 => 8,
             TextureFormat::F32F32F32 => 12,
             TextureFormat::F32F32F32F32 => 16,
         }

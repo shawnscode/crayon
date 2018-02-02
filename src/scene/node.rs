@@ -253,7 +253,7 @@ impl<'a> Iterator for Descendants<'a> {
                 }
             }
 
-            return ::std::mem::replace(&mut self.cursor, None);
+            ::std::mem::replace(&mut self.cursor, None)
         }
     }
 }

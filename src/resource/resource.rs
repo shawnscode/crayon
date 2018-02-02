@@ -32,8 +32,8 @@ impl ResourceSystem {
             let driver = driver.clone();
             thread::Builder::new()
                 .name("RESOURCE".into())
-                .spawn(|| {
-                    ResourceSystem::run(rx, driver);
+                .spawn(move || {
+                    ResourceSystem::run(&rx, &driver);
                 })
                 .unwrap();
         }
@@ -70,7 +70,7 @@ impl ResourceSystem {
         self.filesystems.write().unwrap().unmount(ident);
     }
 
-    fn run(chan: two_lock_queue::Receiver<ResourceTask>, driver: Arc<RwLock<FilesystemDriver>>) {
+    fn run(chan: &two_lock_queue::Receiver<ResourceTask>, driver: &RwLock<FilesystemDriver>) {
         let mut buf = Vec::new();
 
         loop {
@@ -92,8 +92,8 @@ impl ResourceSystem {
         let from = buf.len();
 
         match driver.load_into(&path, buf) {
-            Ok(_) => slave.on_finished(&path, Ok(&buf[from..])),
-            Err(err) => slave.on_finished(&path, Err(err)),
+            Ok(_) => slave.on_finished(path, Ok(&buf[from..])),
+            Err(err) => slave.on_finished(path, Err(err)),
         };
     }
 }

@@ -125,8 +125,8 @@ fn free() {
     }
 
     assert_eq!(*rc.read().unwrap(), 0);
-    for i in 0..10 {
-        world.free(entities[i]);
+    for (i, e) in entities.iter().enumerate().take(10) {
+        world.free(*e);
         assert_eq!(*rc.read().unwrap(), i + 1);
     }
     assert_eq!(*rc.read().unwrap(), 10);

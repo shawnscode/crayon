@@ -18,13 +18,13 @@ impl RAIIGuard {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn create_surface(&mut self, setup: SurfaceSetup) -> Result<SurfaceHandle> {
         let v = self.video.create_surface(setup)?;
         Ok(self.push(v))
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn create_shader(
         &mut self,
         location: Location,
@@ -34,19 +34,19 @@ impl RAIIGuard {
         Ok(self.push(v))
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn create_framebuffer(&mut self, setup: FrameBufferSetup) -> Result<FrameBufferHandle> {
         let v = self.video.create_framebuffer(setup)?;
         Ok(self.push(v))
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn create_render_buffer(&mut self, setup: RenderBufferSetup) -> Result<RenderBufferHandle> {
         let v = self.video.create_render_buffer(setup)?;
         Ok(self.push(v))
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn create_mesh_from<T>(
         &mut self,
         location: Location,
@@ -59,7 +59,7 @@ impl RAIIGuard {
         Ok(self.push(v))
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn create_mesh<'a, 'b, T1, T2>(
         &mut self,
         location: Location,
@@ -75,7 +75,7 @@ impl RAIIGuard {
         Ok(self.push(v))
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn create_texture_from<T>(
         &mut self,
         location: Location,
@@ -88,7 +88,7 @@ impl RAIIGuard {
         Ok(self.push(v))
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn create_render_texture(
         &mut self,
         setup: RenderTextureSetup,
@@ -97,7 +97,7 @@ impl RAIIGuard {
         Ok(self.push(v))
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn create_texture<'a, T>(
         &mut self,
         location: Location,
