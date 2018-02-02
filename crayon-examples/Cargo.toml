@@ -1,14 +1,14 @@
 [package]
 name = "crayon-examples"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Jingkai Mao <oammix@gmail.com>"]
 
 [badges]
 travis-ci = { repository = "shawnscode/crayon", branch = "master" }
 
 [dependencies]
-crayon = { path = "..", version = "0.2.0" }
-crayon-imgui = { path = "../modules/imgui", version = "0.2.0" }
+crayon = { path = "..", version = "0.2.1" }
+crayon-imgui = { path = "../modules/imgui", version = "0.2.1" }
 image = "0.18.0"
 obj = "0.8.1"
 rand = "0.4.2"
