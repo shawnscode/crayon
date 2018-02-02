@@ -38,6 +38,7 @@ pub struct Engine {
     pub time: time::TimeSystem,
 
     context: Arc<Context>,
+    headless: bool,
 }
 
 impl Engine {
@@ -82,6 +83,7 @@ impl Engine {
             time: time,
 
             context: Arc::new(context),
+            headless: settings.headless,
         })
     }
 
@@ -165,7 +167,7 @@ impl Engine {
                 application.on_post_update(&self.context, &info)?;
             }
 
-            alive = alive && !self.context.is_shutdown();
+            alive = alive && !self.context.is_shutdown() && !self.headless;
         }
 
         {

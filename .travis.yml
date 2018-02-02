@@ -21,14 +21,7 @@ matrix:
 # needed.
 cache: cargo
 
-# Generate documentation, compile the engine, run tests.
-script:
-    - cargo build --all --verbose
-    - cargo test --all --verbose
-    - cargo build --all --verbose --no-default-features
-    - cargo test --all --verbose --no-default-features
-
-# Install codecov addonns.
+# Install addonns.
 addons:
   apt:
     packages:
@@ -39,6 +32,27 @@ addons:
       - gcc
       - binutils-dev
       - libiberty-dev
+      - xvfb
+
+# Start Xvfb so that we could have a virtual graphics driver.
+before_script:
+  - |
+    if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+      export DISPLAY=:99.0 &&
+      sh -e /etc/init.d/xvfb start &&
+      sleep 3; # give xvfb some time to start
+    fi
+
+# Generate documentation, compile the engine, run tests/examples.
+script:
+    - cargo build --all --verbose
+    - cargo test --all --verbose
+    - cargo build --all --verbose --no-default-features
+    - cargo test --all --verbose --no-default-features
+    - |
+      if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+        for file in crayon-examples/src/*; do if [[ -d $file ]]; then target/debug/crayon-examples $(basename $file) headless; fi done;
+      fi
 
 # Perform coverage test based on kcov, and upload it.
 after_success: |
@@ -53,6 +67,7 @@ after_success: |
     make install DESTDIR=../../kcov-build &&
     cd ../.. &&
     rm -rf kcov-master &&
-    for file in target/debug/*-*[^\.d]; do mkdir -p "target/cov/$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
+    for file in target/debug/*-*[^\.d]; do mkdir -p "target/cov/tests_$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/tests_$(basename $file)" "$file"; done &&
+    for file in crayon-examples/src/*; do if [[ -d $file ]]; then mkdir -p "target/cov/examples_$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/examples_$(basename $file)" "target/debug/crayon-examples" "$(basename $file)" "headless"; fi done &&
     bash <(curl -s https://codecov.io/bash);
   fi

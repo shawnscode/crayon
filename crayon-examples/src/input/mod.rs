@@ -144,11 +144,9 @@ impl Application for Window {
     }
 }
 
-pub fn main(title: String, _: &[String]) {
-    let mut settings = Settings::default();
+pub fn main(mut settings: Settings) {
     settings.window.width = 500;
     settings.window.height = 500;
-    settings.window.title = title;
 
     let mut engine = Engine::new_with(settings).unwrap();
     let window = Window::new(&mut engine).unwrap();

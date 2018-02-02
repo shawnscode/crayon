@@ -21,7 +21,7 @@ const USAGE: &'static str = "";
 
 fn usage() -> ! {
     let _ = writeln!(&mut io::stderr(), "{}", USAGE);
-    exit(1);
+    exit(0);
 }
 
 fn main() {
@@ -31,13 +31,19 @@ fn main() {
         usage();
     }
 
-    let name = args[1].clone();
+    let mut setup = crayon::application::Settings::default();
+    setup.window.title = args[1].clone();
+
+    if args.len() > 2 && "headless" == args[2] {
+        setup.headless = true;
+    }
+
     match args[1].as_str() {
-        "texture" => texture::main(name, &args[1..]),
-        "render_target" => render_target::main(name, &args[1..]),
-        "imgui" => imgui::main(name, &args[1..]),
-        "input" => input::main(name, &args[1..]),
-        "mesh" => mesh::main(name, &args[1..]),
+        "texture" => texture::main(setup),
+        "render_target" => render_target::main(setup),
+        "imgui" => imgui::main(setup),
+        "input" => input::main(setup),
+        "mesh" => mesh::main(setup),
         _ => usage(),
     }
 }
