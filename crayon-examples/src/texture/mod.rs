@@ -18,9 +18,8 @@ struct Window {
 
 impl Window {
     fn new(engine: &mut Engine) -> errors::Result<Self> {
-        engine
-            .resource
-            .mount("std", resource::filesystem::DirectoryFS::new("assets")?)?;
+        let assets = format!("{0}/assets", env!("CARGO_MANIFEST_DIR"));
+        engine.resource.mount("std", DirectoryFS::new(assets)?)?;
 
         let ctx = engine.context();
         let video = ctx.shared::<GraphicsSystem>().clone();
@@ -93,11 +92,9 @@ impl Application for Window {
     }
 }
 
-pub fn main(title: String, _: &[String]) {
-    let mut settings = Settings::default();
+pub fn main(mut settings: Settings) {
     settings.window.width = 232;
     settings.window.height = 217;
-    settings.window.title = title;
 
     let mut engine = Engine::new_with(settings).unwrap();
     let window = Window::new(&mut engine).unwrap();

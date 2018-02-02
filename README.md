@@ -1,6 +1,7 @@
 # What is This?
-[![Build](https://travis-ci.org/shawnscode/crayon.svg?branch=master)](https://travis-ci.org/shawnscode/crayon)
+[![Build status](https://travis-ci.org/shawnscode/crayon.svg?branch=master)](https://travis-ci.org/shawnscode/crayon)
 [![Build status](https://ci.appveyor.com/api/projects/status/ced1ds3ud2h8u4ut?svg=true)](https://ci.appveyor.com/project/shawnscode/crayon)
+[![Codecov](https://codecov.io/gh/shawnscode/crayon/branch/master/graph/badge.svg)](https://codecov.io/gh/shawnscode/crayon)
 [![Documentation](https://docs.rs/crayon/badge.svg)](https://docs.rs/crayon)
 [![Crate](https://img.shields.io/crates/v/crayon.svg)](https://crates.io/crates/crayon)
 [![Downloads](https://img.shields.io/crates/d/crayon.svg)](https://crates.io/crates/crayon)

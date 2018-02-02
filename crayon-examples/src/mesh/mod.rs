@@ -17,9 +17,11 @@ struct Window {
     specular: [f32; 3],
 }
 
+
 impl Window {
     fn new(engine: &mut Engine) -> errors::Result<Self> {
-        engine.resource.mount("std", DirectoryFS::new("assets")?)?;
+        let assets = format!("{0}/assets", env!("CARGO_MANIFEST_DIR"));
+        engine.resource.mount("std", DirectoryFS::new(assets)?)?;
         engine.input.set_touch_emulation(true);
 
         let ctx = engine.context();
@@ -259,11 +261,9 @@ impl Application for Window {
     }
 }
 
-pub fn main(title: String, _: &[String]) {
-    let mut settings = Settings::default();
+pub fn main(mut settings: Settings) {
     settings.window.width = 640;
     settings.window.height = 480;
-    settings.window.title = title;
 
     let mut engine = Engine::new_with(settings).unwrap();
     let window = Window::new(&mut engine).unwrap();

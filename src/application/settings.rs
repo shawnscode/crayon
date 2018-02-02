@@ -10,6 +10,7 @@ pub struct Settings {
     pub engine: EngineSettings,
     pub window: WindowSettings,
     pub input: InputSettings,
+    pub headless: bool,
 }
 
 #[derive(Debug, Clone, Copy)]

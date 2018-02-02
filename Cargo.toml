@@ -2,7 +2,6 @@
 name = "crayon"
 version = "0.2.0"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
-
 description = "An experimental entity-component-based multithread game engine."
 repository = "https://github.com/shawnscode/crayon"
 documentation = "http://docs.rs/crayon"
@@ -14,6 +13,8 @@ categories = ["game-engines", "multimedia"]
 
 [badges]
 travis-ci = { repository = "shawnscode/crayon", branch = "master" }
+appveyor = { repository = "shawnscode/crayon", branch = "master", service = "github" }
+codecov = { repository = "shawnscode/crayon", branch = "master", service = "github" }
 
 [workspace]
 members = [ "crayon-examples", "modules/imgui" ]
