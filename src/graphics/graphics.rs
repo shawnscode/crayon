@@ -85,7 +85,7 @@ impl GraphicsSystem {
 
             // Resize the window, which would recreate the underlying framebuffer.
             if dimensions != self.last_dimensions
-                || (self.last_hidpi - hidpi).abs() < ::std::f32::EPSILON
+                || (self.last_hidpi - hidpi).abs() > ::std::f32::EPSILON
             {
                 self.last_dimensions = dimensions;
                 self.last_hidpi = hidpi;
