@@ -25,6 +25,7 @@ pub(crate) struct OpenGLVisitor {
     cull_face: Cell<CullFace>,
     front_face_order: Cell<FrontFaceOrder>,
     depth_test: Cell<Comparison>,
+    depth_test_enable: Cell<bool>,
     depth_write: Cell<bool>,
     depth_write_offset: Cell<Option<(f32, f32)>>,
     color_blend: Cell<Option<(Equation, BlendFactor, BlendFactor)>>,
@@ -61,6 +62,7 @@ impl OpenGLVisitor {
             cull_face: Cell::new(CullFace::Nothing),
             front_face_order: Cell::new(FrontFaceOrder::CounterClockwise),
             depth_test: Cell::new(Comparison::Always),
+            depth_test_enable: Cell::new(false),
             depth_write: Cell::new(false),
             depth_write_offset: Cell::new(None),
             color_blend: Cell::new(None),
@@ -349,36 +351,41 @@ impl OpenGLVisitor {
         }
     }
 
-    /// Specify the value used for depth buffer comparisons.
-    pub unsafe fn set_depth_test(&self, comparsion: Comparison) -> Result<()> {
-        if self.depth_test.get() != comparsion {
-            if comparsion != Comparison::Always {
+    /// Enable or disable writing into the depth buffer and specify the value used for depth
+    /// buffer comparisons.
+    pub unsafe fn set_depth_test(&self, write: bool, comparsion: Comparison) -> Result<()> {
+        // Note that even if the depth buffer exists and the depth mask is non-zero,
+        // the depth buffer is not updated if the depth test is disabled.
+        let enable = comparsion != Comparison::Always || write;
+        if self.depth_test_enable.get() != enable {
+            if enable {
                 gl::Enable(gl::DEPTH_TEST);
-                gl::DepthFunc(comparsion.into());
             } else {
                 gl::Disable(gl::DEPTH_TEST);
             }
 
-            self.depth_test.set(comparsion);
-            check()
-        } else {
-            Ok(())
+            self.depth_test_enable.set(enable);
         }
-    }
 
-    /// Enable or disable writing into the depth buffer.
-    ///
-    /// Optional `offset` to address the scale and units used to calculate depth values.
-    pub unsafe fn set_depth_write(&self, enable: bool, offset: Option<(f32, f32)>) -> Result<()> {
-        if self.depth_write.get() != enable {
-            if enable {
+        if self.depth_write.get() != write {
+            if write {
                 gl::DepthMask(gl::TRUE);
             } else {
                 gl::DepthMask(gl::FALSE);
             }
-            self.depth_write.set(enable);
+            self.depth_write.set(write);
         }
 
+        if self.depth_test.get() != comparsion {
+            gl::DepthFunc(comparsion.into());
+            self.depth_test.set(comparsion);
+        }
+
+        check()
+    }
+
+    /// Set `offset` to address the scale and units used to calculate depth values.
+    pub unsafe fn set_depth_write_offset(&self, offset: Option<(f32, f32)>) -> Result<()> {
         if self.depth_write_offset.get() != offset {
             if let Some(v) = offset {
                 if v.0 != 0.0 || v.1 != 0.0 {
@@ -407,7 +414,6 @@ impl OpenGLVisitor {
 
                 gl::BlendFunc(src.into(), dst.into());
                 gl::BlendEquation(equation.into());
-
             } else if self.color_blend.get() != None {
                 gl::Disable(gl::BLEND);
             }
@@ -758,7 +764,7 @@ impl OpenGLVisitor {
             buf.into(),
             offset as isize,
             data.len() as isize,
-            &data[0] as *const u8 as *const ::std::os::raw::c_void
+            &data[0] as *const u8 as *const ::std::os::raw::c_void,
         );
         check()
     }
@@ -1000,21 +1006,9 @@ impl From<RenderTextureFormat> for (GLenum, GLenum, GLenum) {
             RenderTextureFormat::RGB8 => (gl::RGB8, gl::RGB, gl::UNSIGNED_BYTE),
             RenderTextureFormat::RGBA4 => (gl::RGBA4, gl::RGBA, gl::UNSIGNED_SHORT_4_4_4_4),
             RenderTextureFormat::RGBA8 => (gl::RGBA8, gl::RGBA, gl::UNSIGNED_BYTE),
-            RenderTextureFormat::Depth16 => (
-                gl::DEPTH_COMPONENT16,
-                gl::DEPTH_COMPONENT,
-                gl::UNSIGNED_BYTE,
-            ),
-            RenderTextureFormat::Depth24 => (
-                gl::DEPTH_COMPONENT24,
-                gl::DEPTH_COMPONENT,
-                gl::UNSIGNED_BYTE,
-            ),
-            RenderTextureFormat::Depth32 => (
-                gl::DEPTH_COMPONENT32,
-                gl::DEPTH_COMPONENT,
-                gl::UNSIGNED_BYTE,
-            ),
+            RenderTextureFormat::Depth16 => (gl::DEPTH_COMPONENT16, gl::DEPTH_COMPONENT, gl::FLOAT),
+            RenderTextureFormat::Depth24 => (gl::DEPTH_COMPONENT24, gl::DEPTH_COMPONENT, gl::FLOAT),
+            RenderTextureFormat::Depth32 => (gl::DEPTH_COMPONENT32, gl::DEPTH_COMPONENT, gl::FLOAT),
             RenderTextureFormat::Depth24Stencil8 => {
                 (gl::DEPTH24_STENCIL8, gl::DEPTH_STENCIL, gl::UNSIGNED_BYTE)
             }

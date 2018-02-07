@@ -75,20 +75,16 @@ impl Version {
             (false, &desc[..])
         };
 
-        let desc = desc.split(' ').next().ok_or_else(|| ErrorKind::Msg(
-            "glGetString(GL_VERSION) returned an empty string".to_string(),
-        ))?;
+        let desc = desc.split(' ').next().ok_or_else(|| {
+            ErrorKind::Msg("glGetString(GL_VERSION) returned an empty string".to_string())
+        })?;
 
         let mut iter = desc.split(move |c: char| c == '.');
         let major = iter.next().unwrap();
         let minor = iter.next().unwrap();
 
-        let major = major
-            .parse()
-            .expect("failed to parse GL major version");
-        let minor = minor
-            .parse()
-            .expect("failed to parse GL minor version");
+        let major = major.parse().expect("failed to parse GL major version");
+        let minor = minor.parse().expect("failed to parse GL minor version");
 
         if es {
             Ok(Version::ES(major, minor))

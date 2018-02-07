@@ -114,9 +114,7 @@ impl Primitive {
 
     pub fn assemble_triangles(&self, indices: u32) -> u32 {
         match *self {
-            Primitive::Points |
-            Primitive::Lines |
-            Primitive::LineStrip => 0,
+            Primitive::Points | Primitive::Lines | Primitive::LineStrip => 0,
             Primitive::Triangles => indices / 3,
             Primitive::TriangleStrip => indices - 2,
         }

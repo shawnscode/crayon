@@ -306,8 +306,11 @@ impl Device {
         // Binds the viewport and scissor box.
         self.visitor.set_viewport(position, dimensions)?;
         self.visitor.set_scissor(Scissor::Disable)?;
-        // Sets depth write enable to make sure that we can clear depth buffer properly.
-        self.visitor.set_depth_write(true, None)?;
+
+        if surface.setup.clear_depth.is_some() {
+            // Sets depth write enable to make sure that we can clear depth buffer properly.
+            self.visitor.set_depth_test(true, Comparison::Always)?;
+        }
 
         // Clears frame buffer.
         self.visitor.clear(
@@ -330,15 +333,14 @@ impl Device {
 
         self.visitor.bind_program(shader.id)?;
 
-        let state = &shader.render_state;
-        self.visitor.set_cull_face(state.cull_face)?;
-        self.visitor.set_front_face_order(state.front_face_order)?;
-        self.visitor.set_depth_test(state.depth_test)?;
-        self.visitor
-            .set_depth_write(state.depth_write, state.depth_write_offset)?;
-        self.visitor.set_color_blend(state.color_blend)?;
+        let s = &shader.render_state;
+        self.visitor.set_cull_face(s.cull_face)?;
+        self.visitor.set_front_face_order(s.front_face_order)?;
+        self.visitor.set_depth_test(s.depth_write, s.depth_test)?;
+        self.visitor.set_depth_write_offset(s.depth_write_offset)?;
+        self.visitor.set_color_blend(s.color_blend)?;
 
-        let c = &state.color_write;
+        let c = &s.color_write;
         self.visitor.set_color_write(c.0, c.1, c.2, c.3)?;
 
         for (name, variable) in &shader.uniforms {
@@ -572,12 +574,13 @@ impl Device {
         setup: RenderTextureSetup,
     ) -> Result<()> {
         let (internal_format, in_format, pixel_type) = setup.format.into();
+
         let id = self.visitor.create_texture(
             internal_format,
             in_format,
             pixel_type,
-            TextureAddress::Repeat,
-            TextureFilter::Linear,
+            TextureAddress::Clamp,
+            TextureFilter::Nearest,
             false,
             setup.dimensions.0,
             setup.dimensions.1,
