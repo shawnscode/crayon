@@ -5,7 +5,7 @@ macro_rules! impl_scene_uniforms {
     ($name: ident { $head: ident => [$tt_head: ident, $field_head: tt], $($tails: ident => [$uvt: ident, $field: tt], )* }) => {
         /// A list of supported build-in uniform variables that would be filled when
         /// drawing `Scene`.
-        /// 
+        ///
         /// Space coordinate system related variables like `LitPosition`, `LitDir` are
         /// defined in _View_ space (or _Eye_ space) for conveninent.
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -55,6 +55,8 @@ impl_scene_uniforms!(
         ModelViewMatrix => [Matrix4f, "scn_ModelViewMatrix"],
         ModelViewProjectionMatrix => [Matrix4f, "scn_MVPMatrix"],
         ViewNormalMatrix => [Matrix4f, "scn_ViewNormalMatrix"],
+        ShadowCasterSpaceMatrix => [Matrix4f, "scn_ShadowCasterSpaceMatrix"],
+        ShadowTexture => [RenderTexture, "scn_ShadowTexture"],
         DirLightViewDir => [Vector3f, "scn_DirLightViewDir"],
         DirLightColor => [Vector3f, "scn_DirLightColor"],
         PointLightViewPos0 => [Vector3f, "scn_PointLightViewPos[0]"],

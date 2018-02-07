@@ -111,7 +111,8 @@ impl Camera {
         }
     }
 
-    fn ortho_matrix(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) -> math::Matrix4<f32> {
+    /// Gets the orthographic projection matrix.
+    pub fn ortho_matrix(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) -> math::Matrix4<f32> {
         let c0 = [2.0 / (r - l), 0.0, 0.0, 0.0];
         let c1 = [0.0, 2.0 / (t - b), 0.0, 0.0];
         let c2 = [0.0, 0.0, 2.0 / (f - n), 0.0];
@@ -119,7 +120,13 @@ impl Camera {
         math::Matrix4::from_cols(c0.into(), c1.into(), c2.into(), c3.into())
     }
 
-    fn perspective_matrix(fovy: math::Rad<f32>, aspect: f32, n: f32, f: f32) -> math::Matrix4<f32> {
+    /// Gets the perspective projection matrix.
+    pub fn perspective_matrix(
+        fovy: math::Rad<f32>,
+        aspect: f32,
+        n: f32,
+        f: f32,
+    ) -> math::Matrix4<f32> {
         let fc = math::Rad::cot(fovy / 2.0);
         let c0 = [fc / aspect, 0.0, 0.0, 0.0];
         let c1 = [0.0, fc, 0.0, 0.0];

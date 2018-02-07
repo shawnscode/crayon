@@ -182,6 +182,12 @@ impl Scene {
         Ok(())
     }
 
+    /// Draws the underlaying depth buffer of shadow mapping pass. This is used for
+    /// debugging.
+    pub fn render_shadow(&mut self, surface: SurfaceHandle, camera: Entity) -> Result<()> {
+        self.render_env.render_shadow(&self.world, surface, camera)
+    }
+
     /// Renders objects into `Surface` from `Camera`.
     pub fn render(&mut self, surface: SurfaceHandle, camera: Entity) -> Result<()> {
         if self.fallback.is_none() {

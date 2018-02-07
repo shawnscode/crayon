@@ -5,17 +5,26 @@ use application::Context;
 
 use math;
 use math::{Matrix, SquareMatrix};
+
 use graphics::{DrawCall, GraphicsSystem, GraphicsSystemShared, ShaderHandle, SurfaceHandle,
                UniformVariable};
 
+use scene::renderer::shadow::RenderShadow;
 use scene::{LitSrc, Material, MaterialHandle, Node, RenderUniform, SceneNode, Transform};
 use scene::errors::*;
 
 use utils::HandleObjectPool;
 
+// pub struct RenderGraphSetup {
+//     pub shadow_dimensions: (usize, usize) ,
+//     pub shadow_clips: (f32, f32, f32), // w, h, d
+// }
+
 /// A trivial `RenderGraph` with brutal force iteration.
 pub struct RenderGraph {
     video: Arc<GraphicsSystemShared>,
+    shadow: RenderShadow,
+
     pub dirs: Vec<EnvDirLit>,
     pub points: Vec<EnvPointLit>,
 }
@@ -25,9 +34,41 @@ impl RenderGraph {
         let video = ctx.shared::<GraphicsSystem>().clone();
         Ok(RenderGraph {
             video: video,
+            shadow: RenderShadow::new(ctx)?,
             dirs: Vec::new(),
             points: Vec::new(),
         })
+    }
+
+    /// Draws the underlaying depth buffer of shadow mapping pass. This is used for
+    /// debugging.
+    pub fn render_shadow(
+        &mut self,
+        world: &World,
+        surface: SurfaceHandle,
+        camera: Entity,
+    ) -> Result<()> {
+        let (view, projection) = {
+            if let Some(SceneNode::Camera(v)) = world.get::<SceneNode>(camera) {
+                let tree = world.arena::<Node>();
+                let arena = world.arena::<Transform>();
+                let view = Transform::world_view_matrix(&tree, &arena, camera)?;
+                let projection = v.matrix();
+                (view, projection)
+            } else {
+                bail!(ErrorKind::NonCameraFound);
+            }
+        };
+
+        UpdateRenderGraph::new(self, view).run_mut_at(world)?;
+
+        if !self.dirs.is_empty() {
+            self.shadow
+                .build_shadow_texture(world, self.dirs[0].handle)?;
+            self.shadow.draw(surface);
+        }
+
+        Ok(())
     }
 
     /// Renders `RenderGraph`.
@@ -53,10 +94,20 @@ impl RenderGraph {
 
         UpdateRenderGraph::new(self, view).run_mut_at(world)?;
 
+        let ssm = {
+            if !self.dirs.is_empty() {
+                self.shadow
+                    .build_shadow_texture(world, self.dirs[0].handle)?
+            } else {
+                math::Matrix4::identity()
+            }
+        };
+
         DrawRenderGraph {
             surface: surface,
             view_matrix: view,
             projection_matrix: projection,
+            shadow_space_matrix: ssm,
             fallback: fallback,
 
             video: &self.video,
@@ -68,6 +119,7 @@ impl RenderGraph {
 
 #[derive(Debug, Copy, Clone)]
 pub struct EnvDirLit {
+    pub handle: Entity,
     pub dir: math::Vector3<f32>,
     pub color: math::Vector3<f32>,
 }
@@ -114,6 +166,7 @@ impl<'a, 'b> System<'a> for UpdateRenderGraph<'b> {
                             let color: [f32; 4] = lit.color.into();
 
                             self.env.dirs.push(EnvDirLit {
+                                handle: v,
                                 dir: vdir,
                                 color: math::Vector4::from(color).truncate(),
                             });
@@ -147,6 +200,7 @@ struct DrawRenderGraph<'a> {
     surface: SurfaceHandle,
     projection_matrix: math::Matrix4<f32>,
     view_matrix: math::Matrix4<f32>,
+    shadow_space_matrix: math::Matrix4<f32>,
 
     video: &'a GraphicsSystemShared,
     materials: &'a HandleObjectPool<Material>,
@@ -222,6 +276,11 @@ impl<'a, 'b> System<'a> for DrawRenderGraph<'b> {
                     Self::bind_render_uniform(&mut dc, mat, RU::ModelViewProjectionMatrix, mvp);
                     // Normal matrix.
                     Self::bind_render_uniform(&mut dc, mat, RU::ViewNormalMatrix, n);
+                    // Shadow space matrix.
+                    let ssm = self.shadow_space_matrix * m;
+                    Self::bind_render_uniform(&mut dc, mat, RU::ShadowCasterSpaceMatrix, ssm);
+                    let st = self.env.shadow.texture();
+                    Self::bind_render_uniform(&mut dc, mat, RU::ShadowTexture, st);
 
                     if !self.env.dirs.is_empty() {
                         let v = self.env.dirs[0];

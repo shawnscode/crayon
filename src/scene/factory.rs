@@ -86,6 +86,8 @@ pub mod shader {
             ("scn_MVPMatrix", UVT::Matrix4f),
             ("scn_ModelViewMatrix", UVT::Matrix4f),
             ("scn_ViewNormalMatrix", UVT::Matrix4f),
+            ("scn_ShadowCasterSpaceMatrix", UVT::Matrix4f),
+            ("scn_ShadowTexture", UVT::RenderTexture),
             ("scn_DirLightViewDir", UVT::Vector3f),
             ("scn_DirLightColor", UVT::Vector3f),
             ("scn_PointLightViewPos[0]", UVT::Vector3f),
@@ -188,7 +190,46 @@ pub mod mesh {
         }
     }
 
+    pub const QUAD: &str = "__Core/Scene/Mesh/QUAD";
     pub const CUBE: &str = "__Core/Scene/Mesh/CUBE";
+
+    pub fn quad(video: &GraphicsSystemShared) -> Result<MeshHandle> {
+        let location = Location::shared(0, QUAD);
+        if let Some(quad) = video.lookup_mesh_from(location) {
+            return Ok(quad);
+        }
+
+        let color = [155, 155, 155, 255];
+        let texcoords = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
+
+        let points = [
+            [-1.0, -1.0, 0.0],
+            [1.0, -1.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [-1.0, 1.0, 0.0],
+        ];
+
+        let normals = [[0.0, 0.0, -1.0]];
+
+        let verts = [
+            PrimitiveVertex::new(points[0], color, texcoords[0], normals[0]),
+            PrimitiveVertex::new(points[1], color, texcoords[1], normals[0]),
+            PrimitiveVertex::new(points[2], color, texcoords[2], normals[0]),
+            PrimitiveVertex::new(points[3], color, texcoords[3], normals[0]),
+        ];
+
+        let idxes = [0, 1, 2, 2, 3, 0];
+
+        let mut setup = MeshSetup::default();
+        setup.layout = PrimitiveVertex::layout();
+        setup.num_verts = verts.len();
+        setup.num_idxes = idxes.len();
+        setup.sub_mesh_offsets.push(0);
+
+        let vbytes = PrimitiveVertex::encode(&verts);
+        let ibytes = IndexFormat::encode::<u16>(&idxes);
+        video.create_mesh(location, setup, vbytes, ibytes)
+    }
 
     pub fn cube(video: &GraphicsSystemShared) -> Result<MeshHandle> {
         let location = Location::shared(0, CUBE);
