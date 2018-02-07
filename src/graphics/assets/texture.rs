@@ -85,6 +85,10 @@ pub enum TextureAddress {
 
 /// List of all the possible formats of renderable texture which could be use as
 /// attachment of framebuffer.
+///
+/// Each element of `Depth` is a single depth value. The `Graphics` converts it to
+/// floating point, multiplies by the signed scale factor, adds the signed bias, and
+/// clamps to the range [0,1].
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum RenderTextureFormat {
     RGB8,

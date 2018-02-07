@@ -149,8 +149,8 @@ fn from_window_event(source: &glutin::WindowEvent) -> Option<Event> {
         }
 
         glutin::WindowEvent::MouseWheel { delta, .. } => match delta {
-            glutin::MouseScrollDelta::LineDelta(x, y) |
-            glutin::MouseScrollDelta::PixelDelta(x, y) => {
+            glutin::MouseScrollDelta::LineDelta(x, y)
+            | glutin::MouseScrollDelta::PixelDelta(x, y) => {
                 Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
                     delta: (x as f32, y as f32),
                 }))

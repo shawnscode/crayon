@@ -242,7 +242,7 @@ impl GraphicsSystemShared {
                                 pack.push((n, frame.buf.extend(&v)));
                             } else {
                                 let name = sso.uniform_variable_name(n).unwrap();
-                                bail!(format!("Unmatched uniform variable: {:?}.", name));
+                                bail!(format!("Unmatched uniform variable: [{:?}]{:?} ({:?} required).", v.variable_type(), name, tt));
                             }
                         } else {
                             bail!(format!("Undefined uniform variable: {:?}.", n));

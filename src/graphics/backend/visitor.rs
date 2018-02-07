@@ -51,6 +51,7 @@ impl OpenGLVisitor {
         gl::FrontFace(gl::CCW);
         gl::Disable(gl::DEPTH_TEST);
         gl::DepthMask(gl::FALSE);
+        gl::DepthFunc(gl::ALWAYS);
         gl::Disable(gl::POLYGON_OFFSET_FILL);
         gl::Disable(gl::BLEND);
         gl::Disable(gl::SCISSOR_TEST);
