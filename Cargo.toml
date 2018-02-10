@@ -1,6 +1,6 @@
 [package]
 name = "crayon"
-version = "0.2.1"
+version = "0.3.0"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 description = "An experimental entity-component-based multithread game engine."
 repository = "https://github.com/shawnscode/crayon"
