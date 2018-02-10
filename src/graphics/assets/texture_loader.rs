@@ -11,7 +11,7 @@ use graphics::backend::frame::{DoubleFrame, PreFrameTask};
 /// Parsed texture from `TextureParser`.
 pub struct TextureData {
     pub format: TextureFormat,
-    pub dimensions: (u32, u32),
+    pub dimensions: (u16, u16),
     pub data: Vec<u8>,
 }
 

@@ -517,24 +517,43 @@ impl OpenGLVisitor {
         check()
     }
 
-    pub unsafe fn create_render_buffer(
+    pub unsafe fn create_render_texture(
         &self,
-        format: GLenum,
-        width: u32,
-        height: u32,
+        setup: RenderTextureSetup
     ) -> Result<GLuint> {
-        let mut id = 0;
-        gl::GenRenderbuffers(1, &mut id);
-        assert!(id != 0);
+        let (internal_format, in_format, pixel_type) = setup.format.into();
+        let id = if setup.sampler {
+            self.create_texture(
+                internal_format,
+                in_format,
+                pixel_type,
+                TextureAddress::Clamp,
+                TextureFilter::Nearest,
+                false,
+                setup.dimensions.0,
+                setup.dimensions.1,
+                None,
+            )?
+        } else {
+            let mut id = 0;
+            gl::GenRenderbuffers(1, &mut id);
+            assert!(id != 0);
 
-        self.bind_render_buffer(id)?;
-        gl::RenderbufferStorage(gl::RENDERBUFFER, format, width as GLint, height as GLint);
+            self.bind_render_buffer(id)?;
+            gl::RenderbufferStorage(gl::RENDERBUFFER, internal_format, setup.dimensions.0 as GLint, setup.dimensions.1 as GLint);
+            id
+        };
+
         check()?;
         Ok(id)
     }
 
-    pub unsafe fn delete_render_buffer(&self, id: GLuint) -> Result<()> {
-        gl::DeleteRenderbuffers(1, &id);
+    pub unsafe fn delete_render_texture(&self, setup: RenderTextureSetup, id: GLuint) -> Result<()> {
+        if setup.sampler {
+            self.delete_texture(id)?;
+        } else {
+            gl::DeleteRenderbuffers(1, &id);
+        }
         check()
     }
 
@@ -566,8 +585,8 @@ impl OpenGLVisitor {
         address: TextureAddress,
         filter: TextureFilter,
         mipmap: bool,
-        width: u32,
-        height: u32,
+        width: u16,
+        height: u16,
         data: Option<&[u8]>,
     ) -> Result<(GLuint)> {
         let mut id = 0;
@@ -689,24 +708,6 @@ impl OpenGLVisitor {
         check()
     }
 
-    pub unsafe fn bind_framebuffer_with_texture(&self, tp: GLenum, id: GLuint) -> Result<()> {
-        if self.active_framebuffer.get() == 0 {
-            bail!("cann't attach texture to default framebuffer.");
-        }
-
-        gl::FramebufferTexture2D(gl::FRAMEBUFFER, tp, gl::TEXTURE_2D, id, 0);
-        check()
-    }
-
-    pub unsafe fn bind_framebuffer_with_renderbuffer(&self, tp: GLenum, id: GLuint) -> Result<()> {
-        if self.active_framebuffer.get() == 0 {
-            bail!("cann't attach render buffer to default framebuffer.");
-        }
-
-        gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, tp, gl::RENDERBUFFER, id);
-        check()
-    }
-
     pub unsafe fn create_framebuffer(&self) -> Result<GLuint> {
         let mut id = 0;
         gl::GenFramebuffers(1, &mut id);
@@ -715,6 +716,42 @@ impl OpenGLVisitor {
         self.bind_framebuffer(id, false)?;
         check()?;
         Ok(id)
+    }
+    
+    pub unsafe fn update_framebuffer_render_texture(&self, id: GLuint, setup: RenderTextureSetup, slot: u32) -> Result<()> {
+        if self.active_framebuffer.get() == 0 {
+            bail!("cann't attach texture to default framebuffer.");
+        }
+
+        match setup.format {
+            RenderTextureFormat::RGB8 | RenderTextureFormat::RGBA4 | RenderTextureFormat::RGBA8 => {
+                let location = gl::COLOR_ATTACHMENT0 + slot;
+
+                if setup.sampler {
+                    gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, id, 0);
+                } else {
+                    gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, location, gl::RENDERBUFFER, id);
+                }
+            }
+            RenderTextureFormat::Depth16
+            | RenderTextureFormat::Depth24
+            | RenderTextureFormat::Depth32 => {
+                if setup.sampler {
+                    gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, id, 0);
+                } else {
+                    gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::RENDERBUFFER, id);
+                }
+            }
+            RenderTextureFormat::Depth24Stencil8 => {
+                if setup.sampler {
+                    gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::DEPTH_STENCIL_ATTACHMENT, gl::TEXTURE_2D, id, 0);
+                } else {
+                    gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_STENCIL_ATTACHMENT, gl::RENDERBUFFER, id);
+                }
+            }
+        }
+
+        check()
     }
 
     pub unsafe fn delete_framebuffer(&self, id: GLuint) -> Result<()> {

@@ -10,11 +10,9 @@ use utils::{DataBuffer, DataBufferPtr, HashValue, Rect};
 pub(crate) enum PreFrameTask {
     CreateSurface(SurfaceHandle, SurfaceSetup),
     CreatePipeline(ShaderHandle, ShaderSetup),
-    CreateFrameBuffer(FrameBufferHandle, FrameBufferSetup),
     CreateTexture(TextureHandle, TextureSetup, Option<DataBufferPtr<[u8]>>),
     UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),
     CreateRenderTexture(RenderTextureHandle, RenderTextureSetup),
-    CreateRenderBuffer(RenderBufferHandle, RenderBufferSetup),
     CreateMesh(
         MeshHandle,
         MeshSetup,
@@ -28,7 +26,8 @@ pub(crate) enum PreFrameTask {
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum FrameTask {
     DrawCall(FrameDrawCall),
-    UpdateSurface(Scissor),
+    UpdateSurfaceScissor(Scissor),
+    UpdateSurfaceViewport(Viewport),
     UpdateVertexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
     UpdateIndexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
     UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),
@@ -49,8 +48,6 @@ pub(crate) enum PostFrameTask {
     DeleteMesh(MeshHandle),
     DeleteTexture(TextureHandle),
     DeleteRenderTexture(RenderTextureHandle),
-    DeleteRenderBuffer(RenderBufferHandle),
-    DeleteFrameBuffer(FrameBufferHandle),
 }
 
 #[derive(Debug, Clone)]
@@ -124,27 +121,6 @@ impl Frame {
                 PreFrameTask::CreateRenderTexture(handle, setup) => {
                     device.create_render_texture(handle, setup)?;
                 }
-                PreFrameTask::CreateRenderBuffer(handle, setup) => {
-                    device.create_render_buffer(handle, setup)?;
-                }
-                PreFrameTask::CreateFrameBuffer(handle, setup) => {
-                    device.create_framebuffer(handle)?;
-
-                    // Update framebuffer's attachments.
-                    for (i, attachment) in setup.attachments().iter().enumerate() {
-                        if let Some(v) = *attachment {
-                            let i = i as u32;
-                            match v {
-                                FrameBufferAttachment::RenderBuffer(rb) => {
-                                    device.update_framebuffer_with_renderbuffer(handle, rb, i)?;
-                                }
-                                FrameBufferAttachment::Texture(texture) => {
-                                    device.update_framebuffer_with_texture(handle, texture, i)?;
-                                }
-                            };
-                        }
-                    }
-                }
             }
         }
 
@@ -166,12 +142,6 @@ impl Frame {
                 }
                 PostFrameTask::DeleteRenderTexture(handle) => {
                     device.delete_render_texture(handle)?;
-                }
-                PostFrameTask::DeleteRenderBuffer(handle) => {
-                    device.delete_render_buffer(handle)?;
-                }
-                PostFrameTask::DeleteFrameBuffer(handle) => {
-                    device.delete_framebuffer(handle)?;
                 }
             }
         }

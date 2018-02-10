@@ -57,7 +57,7 @@ impl Renderer {
 
         let texture = imgui.prepare_texture(|v| {
             let mut setup = graphics::TextureSetup::default();
-            setup.dimensions = (v.width, v.height);
+            setup.dimensions = (v.width as u16, v.height as u16);
             setup.filter = graphics::TextureFilter::Nearest;
             setup.format = graphics::TextureFormat::U8U8U8U8;
             video.create_texture(resource::Location::unique(""), setup, Some(v.pixels))
@@ -97,7 +97,6 @@ impl Renderer {
 
         let mesh = self.update_mesh(surface, &verts, &tasks.idx_buffer)?;
         let (width, height) = ui.imgui().display_size();
-        let (scale_width, scale_height) = ui.imgui().display_framebuffer_scale();
 
         if width == 0.0 || height == 0.0 {
             return Ok(());
@@ -118,13 +117,10 @@ impl Renderer {
         for cmd in tasks.cmd_buffer {
             assert!(font_texture_id == cmd.texture_id as usize);
 
-            let scissor_pos = (
-                (cmd.clip_rect.x * scale_width) as u16,
-                ((height - cmd.clip_rect.w) * scale_height) as u16,
-            );
+            let scissor_pos = (cmd.clip_rect.x as u16, (height - cmd.clip_rect.w) as u16);
             let scissor_size = (
-                ((cmd.clip_rect.z - cmd.clip_rect.x) * scale_width) as u16,
-                ((cmd.clip_rect.w - cmd.clip_rect.y) * scale_height) as u16,
+                (cmd.clip_rect.z - cmd.clip_rect.x) as u16,
+                (cmd.clip_rect.w - cmd.clip_rect.y) as u16,
             );
 
             {

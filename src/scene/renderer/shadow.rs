@@ -20,7 +20,6 @@ pub struct RenderShadow {
     video: Arc<graphics::GraphicsSystemShared>,
 
     depth_shadow_texture: graphics::RenderTextureHandle,
-    depth_frame_buffer: graphics::FrameBufferHandle,
     depth_surface: graphics::SurfaceHandle,
     depth_shader: graphics::ShaderHandle,
     draw_shader: graphics::ShaderHandle,
@@ -38,15 +37,9 @@ impl RenderShadow {
             video.create_render_texture(setup)?
         };
 
-        let framebuffer = {
-            let mut setup = graphics::FrameBufferSetup::default();
-            setup.set_attachment(render_depth_buffer, 0)?;
-            video.create_framebuffer(setup)?
-        };
-
         let surface = {
             let mut setup = graphics::SurfaceSetup::default();
-            setup.set_framebuffer(framebuffer);
+            setup.set_attachments(&[], render_depth_buffer)?;
             setup.set_clear(None, 1.0, None);
             setup.set_order(SceneDrawOrder::Shadow as u64);
             video.create_surface(setup)?
@@ -89,7 +82,6 @@ impl RenderShadow {
             video: video,
 
             depth_shadow_texture: render_depth_buffer,
-            depth_frame_buffer: framebuffer,
             depth_surface: surface,
             depth_shader: shader,
             draw_shader: draw_shader,
@@ -129,7 +121,6 @@ impl RenderShadow {
 impl Drop for RenderShadow {
     fn drop(&mut self) {
         self.video.delete_render_texture(self.depth_shadow_texture);
-        self.video.delete_framebuffer(self.depth_frame_buffer);
         self.video.delete_surface(self.depth_surface);
         self.video.delete_shader(self.depth_shader);
         self.video.delete_shader(self.draw_shader);

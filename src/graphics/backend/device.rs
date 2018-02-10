@@ -36,6 +36,13 @@ struct ShaderObject {
 #[derive(Debug, Clone)]
 struct SurfaceObject {
     setup: SurfaceSetup,
+    framebuffer: Option<FrameBufferObject>,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct FrameBufferObject {
+    id: ResourceID,
+    dimensions: (u16, u16),
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -48,18 +55,6 @@ struct TextureObject {
 struct RenderTextureObject {
     id: ResourceID,
     setup: RenderTextureSetup,
-}
-
-#[derive(Debug, Copy, Clone)]
-struct RenderBufferObject {
-    id: ResourceID,
-    setup: RenderBufferSetup,
-}
-
-#[derive(Debug, Copy, Clone)]
-struct FrameBufferObject {
-    id: ResourceID,
-    dimensions: Option<(u16, u16)>,
 }
 
 #[derive(Debug, Copy, Clone, Default)]
@@ -76,8 +71,6 @@ pub(crate) struct Device {
     surfaces: DataVec<SurfaceObject>,
     textures: DataVec<TextureObject>,
     render_textures: DataVec<RenderTextureObject>,
-    render_buffers: DataVec<RenderBufferObject>,
-    framebuffers: DataVec<FrameBufferObject>,
 
     active_shader: Cell<Option<ShaderHandle>>,
     frame_info: RefCell<FrameInfo>,
@@ -94,9 +87,7 @@ impl Device {
             shaders: DataVec::new(),
             surfaces: DataVec::new(),
             textures: DataVec::new(),
-            render_buffers: DataVec::new(),
             render_textures: DataVec::new(),
-            framebuffers: DataVec::new(),
             active_shader: Cell::new(None),
             frame_info: RefCell::new(FrameInfo::default()),
         }
@@ -147,13 +138,19 @@ impl Device {
             for v in tasks {
                 if surface != Some(v.0) {
                     surface = Some(v.0);
-                    self.rebind_surface(v.0, dimensions, hidpi)?;
+                    self.bind_surface(v.0, dimensions, hidpi)?;
                 }
 
                 match v.2 {
                     FrameTask::DrawCall(dc) => self.draw(dc, buf)?,
 
-                    FrameTask::UpdateSurface(scissor) => self.visitor.set_scissor(scissor)?,
+                    FrameTask::UpdateSurfaceScissor(scissor) => {
+                        self.update_surface_scissor(scissor, hidpi)?
+                    }
+
+                    FrameTask::UpdateSurfaceViewport(viewport) => {
+                        self.update_surface_viewport(viewport, hidpi)?
+                    }
 
                     FrameTask::UpdateVertexBuffer(vbo, offset, ptr) => {
                         let data = buf.as_slice(ptr);
@@ -198,6 +195,10 @@ impl Device {
                 }
                 UniformVariable::RenderTexture(handle) => {
                     if let Some(texture) = self.render_textures.get(handle) {
+                        if !texture.setup.sampler {
+                            bail!("Sampler must be TRUE if you want access RenderTexture from a shader.");
+                        }
+
                         let v = UniformVariable::I32(texture_idx);
                         self.visitor.bind_uniform(location, &v)?;
                         self.visitor.bind_texture(texture_idx as u32, texture.id)?;
@@ -268,47 +269,67 @@ impl Device {
         check()
     }
 
-    unsafe fn rebind_surface(
+    unsafe fn update_surface_scissor(&self, scissor: Scissor, hidpi: f32) -> Result<()> {
+        match scissor {
+            Scissor::Enable(position, size) => {
+                let position = (
+                    (f32::from(position.0) * hidpi) as u16,
+                    (f32::from(position.1) * hidpi) as u16,
+                );
+
+                let size = (
+                    (f32::from(size.0) * hidpi) as u16,
+                    (f32::from(size.1) * hidpi) as u16,
+                );
+
+                self.visitor.set_scissor(Scissor::Enable(position, size))
+            }
+            Scissor::Disable => self.visitor.set_scissor(Scissor::Disable),
+        }
+    }
+
+    unsafe fn update_surface_viewport(&self, viewport: Viewport, hidpi: f32) -> Result<()> {
+        let position = (
+            (f32::from(viewport.position.0) * hidpi) as u16,
+            (f32::from(viewport.position.1) * hidpi) as u16,
+        );
+
+        let size = (
+            (f32::from(viewport.size.0) * hidpi) as u16,
+            (f32::from(viewport.size.1) * hidpi) as u16,
+        );
+
+        self.visitor.set_viewport(position, size)
+    }
+
+    unsafe fn bind_surface(
         &self,
         handle: SurfaceHandle,
         dimensions: (u16, u16),
         hidpi: f32,
     ) -> Result<()> {
         let surface = self.surfaces.get(handle).ok_or(ErrorKind::InvalidHandle)?;
+
+        // Bind frame buffer.
+        let (dimensions, hidpi) = if let Some(fbo) = surface.framebuffer {
+            self.visitor.bind_framebuffer(fbo.id, true)?;
+            (fbo.dimensions, 1.0)
+        } else {
+            self.visitor.bind_framebuffer(0, false)?;
+            (dimensions, hidpi)
+        };
+
         let dimensions = (
             (f32::from(dimensions.0) * hidpi) as u16,
             (f32::from(dimensions.1) * hidpi) as u16,
         );
 
-        // Bind frame buffer.
-        let dimensions = if let Some(fbo) = surface.setup.framebuffer {
-            if let Some(fbo) = self.framebuffers.get(fbo) {
-                self.visitor.bind_framebuffer(fbo.id, true)?;
-                fbo.dimensions.unwrap_or(dimensions)
-            } else {
-                bail!(ErrorKind::InvalidHandle);
-            }
-        } else {
-            self.visitor.bind_framebuffer(0, false)?;
-            dimensions
-        };
-
-        let vp = surface.setup.viewport;
-        let position = (
-            ((vp.0).0 * f32::from(dimensions.0)) as u16,
-            ((vp.0).1 * f32::from(dimensions.1)) as u16,
-        );
-        let dimensions = (
-            ((vp.1).0 * f32::from(dimensions.0)) as u16,
-            ((vp.1).1 * f32::from(dimensions.1)) as u16,
-        );
-
-        // Binds the viewport and scissor box.
-        self.visitor.set_viewport(position, dimensions)?;
+        // Reset the viewport and scissor box.
+        self.visitor.set_viewport((0, 0), dimensions)?;
         self.visitor.set_scissor(Scissor::Disable)?;
 
+        // Sets depth write enable to make sure that we can clear depth buffer properly.
         if surface.setup.clear_depth.is_some() {
-            // Sets depth write enable to make sure that we can clear depth buffer properly.
             self.visitor.set_depth_test(true, Comparison::Always)?;
         }
 
@@ -445,148 +466,12 @@ impl Device {
         }
     }
 
-    pub unsafe fn create_render_buffer(
-        &mut self,
-        handle: RenderBufferHandle,
-        setup: RenderBufferSetup,
-    ) -> Result<()> {
-        let (internal_format, _, _) = setup.format.into();
-        let id = self.visitor.create_render_buffer(
-            internal_format,
-            setup.dimensions.0,
-            setup.dimensions.1,
-        )?;
-
-        self.render_buffers.set(
-            handle,
-            RenderBufferObject {
-                id: id,
-                setup: setup,
-            },
-        );
-        Ok(())
-    }
-
-    pub unsafe fn delete_render_buffer(&mut self, handle: RenderBufferHandle) -> Result<()> {
-        if let Some(rto) = self.render_buffers.remove(handle) {
-            self.visitor.delete_render_buffer(rto.id)
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
-    }
-
-    pub unsafe fn create_framebuffer(&mut self, handle: FrameBufferHandle) -> Result<()> {
-        if self.framebuffers.get(handle).is_some() {
-            bail!(ErrorKind::DuplicatedHandle)
-        }
-
-        let fbo = FrameBufferObject {
-            id: self.visitor.create_framebuffer()?,
-            dimensions: None,
-        };
-
-        self.framebuffers.set(handle, fbo);
-        Ok(())
-    }
-
-    pub unsafe fn update_framebuffer_with_texture(
-        &mut self,
-        handle: FrameBufferHandle,
-        texture: RenderTextureHandle,
-        slot: u32,
-    ) -> Result<()> {
-        let fbo = self.framebuffers
-            .get_mut(handle)
-            .ok_or(ErrorKind::InvalidHandle)?;
-
-        let rt = self.render_textures
-            .get(texture)
-            .ok_or(ErrorKind::InvalidHandle)?;
-
-        self.visitor.bind_framebuffer(fbo.id, false)?;
-
-        let attached_dimensions = (rt.setup.dimensions.0 as u16, rt.setup.dimensions.1 as u16);
-        if let Some(dimensions) = fbo.dimensions {
-            if attached_dimensions != dimensions {
-                bail!(
-                    "Incompitable(mismatch dimensions) attachment of frame-buffer {:?}",
-                    handle
-                );
-            }
-        } else {
-            fbo.dimensions = Some(attached_dimensions);
-        }
-
-        match rt.setup.format {
-            RenderTextureFormat::RGB8 | RenderTextureFormat::RGBA4 | RenderTextureFormat::RGBA8 => {
-                let location = gl::COLOR_ATTACHMENT0 + slot;
-                self.visitor.bind_framebuffer_with_texture(location, rt.id)
-            }
-            RenderTextureFormat::Depth16
-            | RenderTextureFormat::Depth24
-            | RenderTextureFormat::Depth32 => self.visitor
-                .bind_framebuffer_with_texture(gl::DEPTH_ATTACHMENT, rt.id),
-            RenderTextureFormat::Depth24Stencil8 => self.visitor
-                .bind_framebuffer_with_texture(gl::DEPTH_STENCIL_ATTACHMENT, rt.id),
-        }
-    }
-
-    pub unsafe fn update_framebuffer_with_renderbuffer(
-        &mut self,
-        handle: FrameBufferHandle,
-        buf: RenderBufferHandle,
-        slot: u32,
-    ) -> Result<()> {
-        let fbo = self.framebuffers
-            .get(handle)
-            .ok_or(ErrorKind::InvalidHandle)?;
-        let buf = self.render_buffers
-            .get(buf)
-            .ok_or(ErrorKind::InvalidHandle)?;
-
-        self.visitor.bind_framebuffer(fbo.id, false)?;
-        match buf.setup.format {
-            RenderTextureFormat::RGB8 | RenderTextureFormat::RGBA4 | RenderTextureFormat::RGBA8 => {
-                let location = gl::COLOR_ATTACHMENT0 + slot;
-                self.visitor
-                    .bind_framebuffer_with_renderbuffer(location, buf.id)
-            }
-            RenderTextureFormat::Depth16
-            | RenderTextureFormat::Depth24
-            | RenderTextureFormat::Depth32 => self.visitor
-                .bind_framebuffer_with_renderbuffer(gl::DEPTH_ATTACHMENT, buf.id),
-            RenderTextureFormat::Depth24Stencil8 => self.visitor
-                .bind_framebuffer_with_renderbuffer(gl::DEPTH_STENCIL_ATTACHMENT, buf.id),
-        }
-    }
-
-    pub unsafe fn delete_framebuffer(&mut self, handle: FrameBufferHandle) -> Result<()> {
-        if let Some(fbo) = self.framebuffers.remove(handle) {
-            self.visitor.delete_framebuffer(fbo.id)
-        } else {
-            bail!(ErrorKind::InvalidHandle);
-        }
-    }
-
     pub unsafe fn create_render_texture(
         &mut self,
         handle: RenderTextureHandle,
         setup: RenderTextureSetup,
     ) -> Result<()> {
-        let (internal_format, in_format, pixel_type) = setup.format.into();
-
-        let id = self.visitor.create_texture(
-            internal_format,
-            in_format,
-            pixel_type,
-            TextureAddress::Clamp,
-            TextureFilter::Nearest,
-            false,
-            setup.dimensions.0,
-            setup.dimensions.1,
-            None,
-        )?;
-
+        let id = self.visitor.create_render_texture(setup)?;
         self.render_textures.set(
             handle,
             RenderTextureObject {
@@ -599,7 +484,7 @@ impl Device {
 
     pub unsafe fn delete_render_texture(&mut self, handle: RenderTextureHandle) -> Result<()> {
         if let Some(texture) = self.render_textures.remove(handle) {
-            self.visitor.delete_texture(texture.id)?;
+            self.visitor.delete_render_texture(texture.setup, texture.id)?;
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -642,8 +527,8 @@ impl Device {
         data: &[u8],
     ) -> Result<()> {
         if let Some(texture) = self.textures.get(handle) {
-            if data.len() > rect.size() as usize || rect.min.x as u32 >= texture.setup.dimensions.0
-                || rect.min.y as u32 >= texture.setup.dimensions.1 || rect.max.x < 0
+            if data.len() > rect.size() as usize || rect.min.x < 0 || rect.min.x as u16 >= texture.setup.dimensions.0
+                || rect.min.y < 0 || rect.min.y as u16 >= texture.setup.dimensions.1 || rect.max.x < 0
                 || rect.max.y < 0
             {
                 bail!(ErrorKind::OutOfBounds);
@@ -667,14 +552,74 @@ impl Device {
         }
     }
 
-    pub fn create_surface(&mut self, handle: SurfaceHandle, setup: SurfaceSetup) -> Result<()> {
-        let view = SurfaceObject { setup: setup };
+    pub unsafe fn create_surface(&mut self, handle: SurfaceHandle, setup: SurfaceSetup) -> Result<()> {
+        if self.surfaces.get(handle).is_some() {
+            bail!(ErrorKind::DuplicatedHandle);
+        }
+
+        let fbo = if setup.colors[0].is_some() || setup.depth_stencil.is_some() {
+            let fbo = self.visitor.create_framebuffer()?;
+            let mut dimensions = None;
+
+            for (i, attachment) in setup.colors.iter().enumerate() {
+                if let Some(v) = *attachment {
+                    let i = i as u32;
+
+                    let rt = self.render_textures
+                        .get(v)
+                        .ok_or(ErrorKind::InvalidHandle)?;
+
+                    if let Some(v) = dimensions {
+                        if v != rt.setup.dimensions {
+                            bail!(
+                                "Incompitable(mismatch dimensions) attachments of SurfaceObject {:?}",
+                                handle
+                            );
+                        }
+                    }
+
+                    dimensions = Some(rt.setup.dimensions);
+                    self.visitor.update_framebuffer_render_texture(rt.id, rt.setup, i)?;
+                }
+            }
+
+            if let Some(v) = setup.depth_stencil {
+                let rt = self.render_textures
+                    .get(v)
+                    .ok_or(ErrorKind::InvalidHandle)?;
+
+                if let Some(v) = dimensions {
+                    if v != rt.setup.dimensions {
+                        bail!(
+                            "Incompitable(mismatch dimensions) attachments of SurfaceObject {:?}",
+                            handle
+                        );
+                    }
+                }
+
+                dimensions = Some(rt.setup.dimensions);
+                self.visitor.update_framebuffer_render_texture(rt.id, rt.setup, 0)?;
+            }
+
+            Some(FrameBufferObject {
+                id: fbo,
+                dimensions: dimensions.unwrap(),
+            })
+        } else {
+            None
+        };
+
+        let view = SurfaceObject { setup: setup, framebuffer: fbo };
         self.surfaces.set(handle, view);
         Ok(())
     }
 
-    pub fn delete_surface(&mut self, handle: SurfaceHandle) -> Result<()> {
-        if self.surfaces.remove(handle).is_some() {
+    pub unsafe fn delete_surface(&mut self, handle: SurfaceHandle) -> Result<()> {
+        if let Some(surface) = self.surfaces.remove(handle) {
+            if let Some(fbo) = surface.framebuffer {
+                self.visitor.delete_framebuffer(fbo.id)?;
+            }
+
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);

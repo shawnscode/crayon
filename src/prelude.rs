@@ -13,8 +13,7 @@ pub use application::{errors, event, time};
 
 pub use graphics;
 pub use graphics::{GraphicsSystem, GraphicsSystemShared, MeshIndex};
-pub use graphics::{FrameBufferHandle, MeshHandle, RenderBufferHandle, ShaderHandle, SurfaceHandle,
-                   TextureHandle};
+pub use graphics::{MeshHandle, ShaderHandle, SurfaceHandle, TextureHandle};
 
 pub use input;
 pub use input::InputSystem;

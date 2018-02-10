@@ -35,18 +35,6 @@ impl RAIIGuard {
     }
 
     #[inline]
-    pub fn create_framebuffer(&mut self, setup: FrameBufferSetup) -> Result<FrameBufferHandle> {
-        let v = self.video.create_framebuffer(setup)?;
-        Ok(self.push(v))
-    }
-
-    #[inline]
-    pub fn create_render_buffer(&mut self, setup: RenderBufferSetup) -> Result<RenderBufferHandle> {
-        let v = self.video.create_render_buffer(setup)?;
-        Ok(self.push(v))
-    }
-
-    #[inline]
     pub fn create_mesh_from<T>(
         &mut self,
         location: Location,
@@ -119,8 +107,6 @@ impl RAIIGuard {
                 Resource::Mesh(handle) => self.video.delete_mesh(handle),
                 Resource::Surface(handle) => self.video.delete_surface(handle),
                 Resource::ShaderState(handle) => self.video.delete_shader(handle),
-                Resource::FrameBuffer(handle) => self.video.delete_framebuffer(handle),
-                Resource::RenderBuffer(handle) => self.video.delete_render_buffer(handle),
             }
         }
     }
@@ -146,8 +132,6 @@ enum Resource {
     Mesh(MeshHandle),
     Surface(SurfaceHandle),
     ShaderState(ShaderHandle),
-    FrameBuffer(FrameBufferHandle),
-    RenderBuffer(RenderBufferHandle),
 }
 
 impl From<TextureHandle> for Resource {
@@ -177,17 +161,5 @@ impl From<SurfaceHandle> for Resource {
 impl From<ShaderHandle> for Resource {
     fn from(handle: ShaderHandle) -> Resource {
         Resource::ShaderState(handle)
-    }
-}
-
-impl From<FrameBufferHandle> for Resource {
-    fn from(handle: FrameBufferHandle) -> Resource {
-        Resource::FrameBuffer(handle)
-    }
-}
-
-impl From<RenderBufferHandle> for Resource {
-    fn from(handle: RenderBufferHandle) -> Resource {
-        Resource::RenderBuffer(handle)
     }
 }

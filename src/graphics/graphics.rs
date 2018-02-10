@@ -210,6 +210,7 @@ impl GraphicsSystemShared {
             Command::IndexBufferUpdate(ibu) => self.submit_update_index_buffer(s, o, &ibu),
             Command::TextureUpdate(tu) => self.submit_update_texture(s, o, &tu),
             Command::SetScissor(sc) => self.submit_set_scissor(s, o, &sc),
+            Command::SetViewport(vp) => self.submit_set_viewport(s, o, &vp),
         }
     }
 
@@ -279,7 +280,23 @@ impl GraphicsSystemShared {
         }
 
         let mut frame = self.frames.front();
-        let task = FrameTask::UpdateSurface(su.scissor);
+        let task = FrameTask::UpdateSurfaceScissor(*su);
+        frame.tasks.push((surface, order, task));
+        Ok(())
+    }
+
+    fn submit_set_viewport(
+        &self,
+        surface: SurfaceHandle,
+        order: u64,
+        vp: &command::ViewportUpdate,
+    ) -> Result<()> {
+        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+            bail!(ErrorKind::InvalidSurfaceHandle);
+        }
+
+        let mut frame = self.frames.front();
+        let task = FrameTask::UpdateSurfaceViewport(*vp);
         frame.tasks.push((surface, order, task));
         Ok(())
     }
@@ -384,69 +401,6 @@ impl GraphicsSystemShared {
             .is_some()
         {
             let task = PostFrameTask::DeleteSurface(handle);
-            self.frames.front().post.push(task);
-        }
-    }
-
-    /// Create a framebuffer object. A framebuffer allows you to render primitives directly to a texture,
-    /// which can then be used in other rendering operations.
-    ///
-    /// At least one color attachment has been attached before you can use it.
-    pub fn create_framebuffer(&self, setup: FrameBufferSetup) -> Result<FrameBufferHandle> {
-        let location = Location::unique("");
-        let handle = self.framebuffers
-            .write()
-            .unwrap()
-            .create(location, ())
-            .into();
-
-        {
-            let task = PreFrameTask::CreateFrameBuffer(handle, setup);
-            self.frames.front().pre.push(task);
-        }
-
-        Ok(handle)
-    }
-
-    /// Delete frame buffer object.
-    pub fn delete_framebuffer(&self, handle: FrameBufferHandle) {
-        if self.framebuffers
-            .write()
-            .unwrap()
-            .dec_rc(handle.into(), true)
-            .is_some()
-        {
-            let task = PostFrameTask::DeleteFrameBuffer(handle);
-            self.frames.front().post.push(task);
-        }
-    }
-
-    /// Create a render buffer object, which could be attached to framebuffer.
-    pub fn create_render_buffer(&self, setup: RenderBufferSetup) -> Result<RenderBufferHandle> {
-        let location = Location::unique("");
-        let handle = self.render_buffers
-            .write()
-            .unwrap()
-            .create(location, ())
-            .into();
-
-        {
-            let task = PreFrameTask::CreateRenderBuffer(handle, setup);
-            self.frames.front().pre.push(task);
-        }
-
-        Ok(handle)
-    }
-
-    /// Delete frame buffer object.
-    pub fn delete_render_buffer(&self, handle: RenderBufferHandle) {
-        if self.render_buffers
-            .write()
-            .unwrap()
-            .dec_rc(handle.into(), true)
-            .is_some()
-        {
-            let task = PostFrameTask::DeleteRenderBuffer(handle);
             self.frames.front().post.push(task);
         }
     }

@@ -8,7 +8,7 @@ pub struct TextureSetup {
     pub address: TextureAddress,
     pub filter: TextureFilter,
     pub mipmap: bool,
-    pub dimensions: (u32, u32),
+    pub dimensions: (u16, u16),
 }
 
 pub type TextureStateObject = TextureSetup;
@@ -27,12 +27,14 @@ impl Default for TextureSetup {
 }
 
 /// A `RenderTexture` object is basicly texture object with special format. It can
-/// be the source of a texture access from a Shader, or it can be used as a render
-/// target.
+/// be used as a render target. If the `sampler` field is true, it can also be ther
+/// source of a texture access from a __shader__.
+///
 #[derive(Debug, Copy, Clone)]
 pub struct RenderTextureSetup {
     pub format: RenderTextureFormat,
-    pub dimensions: (u32, u32),
+    pub dimensions: (u16, u16),
+    pub sampler: bool,
 }
 
 impl Default for RenderTextureSetup {
@@ -40,24 +42,13 @@ impl Default for RenderTextureSetup {
         RenderTextureSetup {
             format: RenderTextureFormat::RGB8,
             dimensions: (0, 0),
+            sampler: true,
         }
     }
 }
 
 pub type RenderTextureStateObject = RenderTextureSetup;
 impl_handle!(RenderTextureHandle);
-
-/// RBOs are like a texture with a hint - that you won't expect some functionality
-/// from them. The driver can speedup rendering to them. Yet, on most modern cards,
-/// the performance difference is almost zero.
-#[derive(Debug, Copy, Clone)]
-pub struct RenderBufferSetup {
-    pub format: RenderTextureFormat,
-    pub dimensions: (u32, u32),
-}
-
-pub type RenderBufferStateObject = RenderBufferSetup;
-impl_handle!(RenderBufferHandle);
 
 /// Specify how the texture is used whenever the pixel being sampled.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

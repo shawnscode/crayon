@@ -19,9 +19,10 @@ impl graphics::TextureParser for TextureParser {
 
     fn parse(bytes: &[u8]) -> image::ImageResult<graphics::TextureData> {
         let dynamic = image::load_from_memory(bytes)?.flipv();
+        let dimensions = dynamic.dimensions();
         Ok(graphics::TextureData {
             format: graphics::TextureFormat::U8U8U8U8,
-            dimensions: dynamic.dimensions(),
+            dimensions: (dimensions.0 as u16, dimensions.1 as u16),
             data: dynamic.to_rgba().into_raw(),
         })
     }

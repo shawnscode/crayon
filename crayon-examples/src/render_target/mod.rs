@@ -58,15 +58,10 @@ impl Window {
             setup.dimensions = (568, 320);
             let rendered_texture = label.create_render_texture(setup)?;
 
-            // Create custom frame buffer.
-            let mut setup = graphics::FrameBufferSetup::default();
-            setup.set_attachment(rendered_texture, 0)?;
-            let fbo = label.create_framebuffer(setup)?;
-
             // Create the surface state for pass 1.
             let mut setup = graphics::SurfaceSetup::default();
+            setup.set_attachments(&[rendered_texture], None)?;
             setup.set_order(0);
-            setup.set_framebuffer(fbo);
             setup.set_clear(Color::gray(), None, None);
             let surface = label.create_surface(setup)?;
 

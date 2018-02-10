@@ -11,6 +11,7 @@ pub enum Command<'a> {
     IndexBufferUpdate(IndexBufferUpdate<'a>),
     TextureUpdate(TextureUpdate<'a>),
     SetScissor(ScissorUpdate),
+    SetViewport(ViewportUpdate),
 }
 
 impl<'a> Command<'a> {
@@ -45,7 +46,11 @@ impl<'a> Command<'a> {
     }
 
     pub fn set_scissor(scissor: Scissor) -> Command<'a> {
-        Command::SetScissor(ScissorUpdate { scissor: scissor })
+        Command::SetScissor(scissor)
+    }
+
+    pub fn set_viewport(viewport: Viewport) -> Command<'a> {
+        Command::SetViewport(viewport)
     }
 }
 
@@ -95,9 +100,10 @@ pub struct TextureUpdate<'a> {
 // }
 
 /// Scissor update.
-pub struct ScissorUpdate {
-    pub(crate) scissor: Scissor,
-}
+pub type ScissorUpdate = Scissor;
+
+/// Viewport update.
+pub type ViewportUpdate = Viewport;
 
 /// A draw call.
 #[derive(Debug, Copy, Clone)]
