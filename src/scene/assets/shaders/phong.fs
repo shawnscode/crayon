@@ -43,7 +43,6 @@ void main()
     vec3 normal = normalize(v_EyeNormal);
     vec3 viewDir = normalize(v_EyeFragPos);
 
-
     // directional light
     float bias = max(0.005 * (1.0 - dot(normal, scn_DirLightViewDir)), 0.0005);  
     float shadow = CalculateShadow(v_ShadowFragPos, bias);

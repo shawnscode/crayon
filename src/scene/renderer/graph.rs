@@ -10,7 +10,7 @@ use graphics::{DrawCall, GraphicsSystem, GraphicsSystemShared, ShaderHandle, Sur
                UniformVariable};
 
 use scene::renderer::shadow::RenderShadow;
-use scene::{LitSrc, Material, MaterialHandle, Node, RenderUniform, SceneNode, Transform};
+use scene::{Element, LitSrc, Material, MaterialHandle, Node, RenderUniform, Transform};
 use scene::errors::*;
 
 use utils::HandleObjectPool;
@@ -49,7 +49,7 @@ impl RenderGraph {
         camera: Entity,
     ) -> Result<()> {
         let (view, projection) = {
-            if let Some(SceneNode::Camera(v)) = world.get::<SceneNode>(camera) {
+            if let Some(Element::Camera(v)) = world.get::<Element>(camera) {
                 let tree = world.arena::<Node>();
                 let arena = world.arena::<Transform>();
                 let view = Transform::world_view_matrix(&tree, &arena, camera)?;
@@ -81,7 +81,7 @@ impl RenderGraph {
         camera: Entity,
     ) -> Result<()> {
         let (view, projection) = {
-            if let Some(SceneNode::Camera(v)) = world.get::<SceneNode>(camera) {
+            if let Some(Element::Camera(v)) = world.get::<Element>(camera) {
                 let tree = world.arena::<Node>();
                 let arena = world.arena::<Transform>();
                 let view = Transform::world_view_matrix(&tree, &arena, camera)?;
@@ -146,7 +146,7 @@ impl<'a> UpdateRenderGraph<'a> {
 }
 
 impl<'a, 'b> System<'a> for UpdateRenderGraph<'b> {
-    type ViewWith = (Fetch<'a, Node>, Fetch<'a, Transform>, Fetch<'a, SceneNode>);
+    type ViewWith = (Fetch<'a, Node>, Fetch<'a, Transform>, Fetch<'a, Element>);
     type Result = Result<()>;
 
     fn run_mut(&mut self, view: View, data: Self::ViewWith) -> Self::Result {
@@ -158,7 +158,7 @@ impl<'a, 'b> System<'a> for UpdateRenderGraph<'b> {
 
         unsafe {
             for v in view {
-                if let SceneNode::Light(lit) = *data.2.get_unchecked(v) {
+                if let Element::Light(lit) = *data.2.get_unchecked(v) {
                     match lit.source {
                         LitSrc::Dir => {
                             let dir = Transform::forward(&data.0, &data.1, v).unwrap();
@@ -231,7 +231,7 @@ impl<'a> DrawRenderGraph<'a> {
 }
 
 impl<'a, 'b> System<'a> for DrawRenderGraph<'b> {
-    type ViewWith = (Fetch<'a, Node>, Fetch<'a, Transform>, Fetch<'a, SceneNode>);
+    type ViewWith = (Fetch<'a, Node>, Fetch<'a, Transform>, Fetch<'a, Element>);
     type Result = Result<()>;
 
     fn run_mut(&mut self, view: View, data: Self::ViewWith) -> Self::Result {
@@ -239,7 +239,7 @@ impl<'a, 'b> System<'a> for DrawRenderGraph<'b> {
 
         unsafe {
             for v in view {
-                if let SceneNode::Mesh(mesh) = *data.2.get_unchecked(v) {
+                if let Element::Mesh(mesh) = *data.2.get_unchecked(v) {
                     let mat = self.material(mesh.material);
 
                     let p = Transform::world_position(&data.0, &data.1, v).unwrap();

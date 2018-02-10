@@ -2,16 +2,16 @@ use std::sync::Arc;
 use std::collections::HashMap;
 
 use application::Context;
-use ecs::{ArenaMut, Component, Entity, Fetch, FetchMut, VecArena, World};
+use ecs::{ArenaMut, Component, Entity, Fetch, FetchMut, World};
 use graphics::{GraphicsSystem, GraphicsSystemShared, ShaderHandle, ShaderStateObject,
                SurfaceHandle};
 use utils::{HandleObjectPool, HashValue};
 
-use scene::{Camera, Light, MeshRenderer, Node, Transform};
+use scene::{Camera, Element, Light, MeshRenderer, Node, Transform};
 use scene::material::{Material, MaterialHandle};
 use scene::renderer::{RenderGraph, RenderUniform};
+use scene::assets::factory;
 use scene::errors::*;
-use scene::factory;
 
 /// `Scene`s contain the environments of your game. Its relative easy to think of each
 /// unique scene as a unique level. In each `Scene`, you place your envrionments,
@@ -28,8 +28,8 @@ use scene::factory;
 /// Transform::set_world_position(&tree, &mut transforms, child, [1.0, 0.0, 0.0])?;
 /// ```
 ///
-/// And besides the spatial representation, `SceneNode` is used to provide graphical data
-/// that could be used to render on the screen. A `SceneNode` could be one of `Camera`
+/// And besides the spatial representation, `Element` is used to provide graphical data
+/// that could be used to render on the screen. A `Element` could be one of `Camera`
 /// `Lit` or `MeshRenderer`. Everytime you call the `Scene::render` with proper defined
 /// scene, a list of drawcalls will be generated and submitted to `GraphicsSystem`.
 ///
@@ -59,7 +59,7 @@ impl Scene {
         let mut world = World::new();
         world.register::<Node>();
         world.register::<Transform>();
-        world.register::<SceneNode>();
+        world.register::<Element>();
 
         let materials = HandleObjectPool::new();
         let mut scene = Scene {
@@ -108,10 +108,11 @@ impl Scene {
         self.world.arena_mut::<T>()
     }
 
+    /// Creates a `Element`.
     #[inline]
     pub fn create_node<T1>(&mut self, node: T1) -> Entity
     where
-        T1: Into<SceneNode>,
+        T1: Into<Element>,
     {
         self.world
             .build()
@@ -121,27 +122,33 @@ impl Scene {
             .finish()
     }
 
+    /// Updates a `Element`.
     #[inline]
     pub fn update_node<T1>(&mut self, handle: Entity, node: T1) -> Result<()>
     where
-        T1: Into<SceneNode>,
+        T1: Into<Element>,
     {
         if !self.world.is_alive(handle) {
             bail!(ErrorKind::HandleInvalid);
         }
 
         unsafe {
-            *self.world
-                .arena_mut::<SceneNode>()
-                .get_unchecked_mut(handle) = node.into();
+            *self.world.arena_mut::<Element>().get_unchecked_mut(handle) = node.into();
             Ok(())
         }
     }
 
+    /// Deletes a node and its descendants from the `Scene`.
     #[inline]
     pub fn delete_node(&mut self, handle: Entity) -> Result<()> {
+        let descendants: Vec<_> = Node::descendants(&self.arena::<Node>(), handle).collect();
+        for v in descendants {
+            self.world.free(v);
+        }
+
         Node::remove_from_parent(&mut self.arena_mut::<Node>(), handle)?;
         self.world.free(handle);
+
         Ok(())
     }
 
@@ -263,41 +270,4 @@ pub struct RenderShader {
     pub sso: Arc<ShaderStateObject>,
     pub render_uniforms: HashMap<RenderUniform, HashValue<str>>,
     pub handle: ShaderHandle,
-}
-
-/// The contrainer of components that supported in `Scene`.
-#[derive(Debug, Clone, Copy)]
-pub enum SceneNode {
-    None,
-    Light(Light),
-    Camera(Camera),
-    Mesh(MeshRenderer),
-}
-
-impl Component for SceneNode {
-    type Arena = VecArena<SceneNode>;
-}
-
-impl Into<SceneNode> for Light {
-    fn into(self) -> SceneNode {
-        SceneNode::Light(self)
-    }
-}
-
-impl Into<SceneNode> for Camera {
-    fn into(self) -> SceneNode {
-        SceneNode::Camera(self)
-    }
-}
-
-impl Into<SceneNode> for MeshRenderer {
-    fn into(self) -> SceneNode {
-        SceneNode::Mesh(self)
-    }
-}
-
-impl Into<SceneNode> for () {
-    fn into(self) -> SceneNode {
-        SceneNode::None
-    }
 }

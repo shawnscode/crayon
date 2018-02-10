@@ -6,8 +6,8 @@ use graphics;
 use resource;
 use math;
 
-use scene::{Camera, Node, SceneNode, Transform};
-use scene::factory;
+use scene::{Camera, Element, Node, Transform};
+use scene::assets::factory;
 use scene::errors::*;
 
 pub enum SceneDrawOrder {
@@ -62,8 +62,8 @@ impl RenderShadow {
             setup.render_state.depth_test = graphics::Comparison::Less;
             setup.render_state.cull_face = graphics::CullFace::Back;
             setup.layout = attributes;
-            setup.vs = include_str!("../assets/shadow.vs").to_owned();
-            setup.fs = include_str!("../assets/shadow.fs").to_owned();
+            setup.vs = include_str!("../assets/shaders/shadow.vs").to_owned();
+            setup.fs = include_str!("../assets/shaders/shadow.fs").to_owned();
 
             let tt = graphics::UniformVariableType::Matrix4f;
             setup.uniform_variables.insert("u_MVPMatrix".into(), tt);
@@ -77,8 +77,8 @@ impl RenderShadow {
 
             let mut setup = graphics::ShaderSetup::default();
             setup.layout = attributes;
-            setup.vs = include_str!("../assets/shadow_texture.vs").to_owned();
-            setup.fs = include_str!("../assets/shadow_texture.fs").to_owned();
+            setup.vs = include_str!("../assets/shaders/shadow_texture.vs").to_owned();
+            setup.fs = include_str!("../assets/shaders/shadow_texture.fs").to_owned();
 
             let tt = graphics::UniformVariableType::RenderTexture;
             setup.uniform_variables.insert("u_ShadowTexture".into(), tt);
@@ -142,7 +142,7 @@ struct GenerateRenderShadow<'a> {
 }
 
 impl<'a, 'b> System<'a> for GenerateRenderShadow<'b> {
-    type ViewWith = (Fetch<'a, Node>, Fetch<'a, Transform>, Fetch<'a, SceneNode>);
+    type ViewWith = (Fetch<'a, Node>, Fetch<'a, Transform>, Fetch<'a, Element>);
     type Result = Result<math::Matrix4<f32>>;
 
     fn run(&self, view: View, data: Self::ViewWith) -> Self::Result {
@@ -152,7 +152,7 @@ impl<'a, 'b> System<'a> for GenerateRenderShadow<'b> {
 
         unsafe {
             for handle in view {
-                if let SceneNode::Mesh(mesh) = *data.2.get_unchecked(handle) {
+                if let Element::Mesh(mesh) = *data.2.get_unchecked(handle) {
                     let point = Transform::world_position(&data.0, &data.1, handle).unwrap();
                     let mut csp = v * math::Vector4::new(point.x, point.y, point.z, 1.0);
                     csp /= csp.w;

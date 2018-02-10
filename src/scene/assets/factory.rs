@@ -43,8 +43,8 @@ pub mod shader {
         let mut setup = ShaderSetup::default();
         setup.render_state = render_state;
         setup.layout = attributes;
-        setup.vs = include_str!("assets/pbr.vs").to_owned();
-        setup.fs = include_str!("assets/pbr.fs").to_owned();
+        setup.vs = include_str!("shaders/pbr.vs").to_owned();
+        setup.fs = include_str!("shaders/pbr.fs").to_owned();
 
         let uvs = [
             ("scn_MVPMatrix", UVT::Matrix4f),
@@ -79,8 +79,8 @@ pub mod shader {
         let mut setup = ShaderSetup::default();
         setup.render_state = render_state;
         setup.layout = attributes;
-        setup.vs = include_str!("assets/phong.vs").to_owned();
-        setup.fs = include_str!("assets/phong.fs").to_owned();
+        setup.vs = include_str!("shaders/phong.vs").to_owned();
+        setup.fs = include_str!("shaders/phong.fs").to_owned();
 
         let uvs = [
             ("scn_MVPMatrix", UVT::Matrix4f),
@@ -133,8 +133,8 @@ pub mod shader {
         let mut setup = ShaderSetup::default();
         setup.render_state = render_state;
         setup.layout = attributes;
-        setup.vs = include_str!("assets/color.vs").to_owned();
-        setup.fs = include_str!("assets/color.fs").to_owned();
+        setup.vs = include_str!("shaders/color.vs").to_owned();
+        setup.fs = include_str!("shaders/color.fs").to_owned();
 
         let uvs = [("scn_MVPMatrix", UVT::Matrix4f), ("u_Color", UVT::Vector4f)];
 
@@ -163,8 +163,8 @@ pub mod shader {
         let mut setup = ShaderSetup::default();
         setup.render_state = render_state;
         setup.layout = attributes;
-        setup.vs = include_str!("assets/undefined.vs").to_owned();
-        setup.fs = include_str!("assets/undefined.fs").to_owned();
+        setup.vs = include_str!("shaders/undefined.vs").to_owned();
+        setup.fs = include_str!("shaders/undefined.fs").to_owned();
 
         let uvs = [("scn_MVPMatrix", UVT::Matrix4f)];
 
