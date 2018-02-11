@@ -34,6 +34,7 @@ pub struct Mouse {
     downs: HashSet<event::MouseButton>,
     presses: HashSet<event::MouseButton>,
     releases: HashSet<event::MouseButton>,
+    inv_hidpi: f32,
     last_position: math::Vector2<f32>,
     position: math::Vector2<f32>,
     scrol: math::Vector2<f32>,
@@ -47,6 +48,7 @@ impl Mouse {
             downs: HashSet::new(),
             presses: HashSet::new(),
             releases: HashSet::new(),
+            inv_hidpi: 1.0,
             last_position: math::Vector2::new(0.0, 0.0),
             position: math::Vector2::new(0.0, 0.0),
             scrol: math::Vector2::new(0.0, 0.0),
@@ -60,6 +62,7 @@ impl Mouse {
         self.downs.clear();
         self.presses.clear();
         self.releases.clear();
+        self.inv_hidpi = 1.0;
         self.last_position = math::Vector2::new(0.0, 0.0);
         self.position = math::Vector2::new(0.0, 0.0);
         self.scrol = math::Vector2::new(0.0, 0.0);
@@ -73,6 +76,7 @@ impl Mouse {
     pub fn advance(&mut self, hidpi: f32) {
         self.presses.clear();
         self.releases.clear();
+        self.inv_hidpi = 1.0 / hidpi;
         self.scrol = math::Vector2::new(0.0, 0.0);
         self.last_position = self.position;
 
@@ -158,12 +162,17 @@ impl Mouse {
 
     #[inline]
     pub fn position(&self) -> math::Vector2<f32> {
+        self.position * self.inv_hidpi
+    }
+
+    #[inline]
+    pub fn position_in_pixel(&self) -> math::Vector2<f32> {
         self.position
     }
 
     #[inline]
     pub fn movement(&self) -> math::Vector2<f32> {
-        self.position - self.last_position
+        (self.position - self.last_position) * self.inv_hidpi
     }
 
     #[inline]

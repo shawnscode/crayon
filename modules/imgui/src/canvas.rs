@@ -145,11 +145,8 @@ impl Canvas {
     fn update_mouse_state(imgui: &mut imgui::ImGui, input: &input::InputSystemShared) {
         use self::application::event::MouseButton;
 
-        let scale = imgui.display_framebuffer_scale();
-
         let pos = input.mouse_position();
-        let pos = (pos.x / scale.0, pos.y / scale.1);
-        imgui.set_mouse_pos(pos.0, pos.1);
+        imgui.set_mouse_pos(pos.x, pos.y);
 
         let l = input.is_mouse_down(MouseButton::Left);
         let r = input.is_mouse_down(MouseButton::Right);
