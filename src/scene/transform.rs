@@ -325,7 +325,7 @@ impl Transform {
     {
         let eye = math::Point3::from_vec(Transform::world_position(tree, arena, handle)?);
         let center = math::Point3::from_vec(dst.into());
-        let rotation = math::Quaternion::look_at(center - eye, up.into());
+        let rotation = math::Quaternion::look_at(center - eye, -up.into());
         Transform::set_world_rotation(tree, arena, handle, rotation)
     }
 

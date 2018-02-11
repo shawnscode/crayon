@@ -234,11 +234,11 @@ impl Device {
             }
             MeshIndex::SubMesh(index) => {
                 let num = mesh.setup.sub_mesh_offsets.len();
-                if index >= num || num == 0 {
-                    bail!("Invalid index of sub-mesh!");
-                }
+                let from = mesh.setup
+                    .sub_mesh_offsets
+                    .get(index)
+                    .ok_or_else(|| Error::from(ErrorKind::OutOfBounds))?;
 
-                let from = mesh.setup.sub_mesh_offsets[index];
                 let to = if index == (num - 1) {
                     mesh.setup.num_idxes
                 } else {
@@ -484,7 +484,8 @@ impl Device {
 
     pub unsafe fn delete_render_texture(&mut self, handle: RenderTextureHandle) -> Result<()> {
         if let Some(texture) = self.render_textures.remove(handle) {
-            self.visitor.delete_render_texture(texture.setup, texture.id)?;
+            self.visitor
+                .delete_render_texture(texture.setup, texture.id)?;
             Ok(())
         } else {
             bail!(ErrorKind::InvalidHandle);
@@ -527,8 +528,9 @@ impl Device {
         data: &[u8],
     ) -> Result<()> {
         if let Some(texture) = self.textures.get(handle) {
-            if data.len() > rect.size() as usize || rect.min.x < 0 || rect.min.x as u16 >= texture.setup.dimensions.0
-                || rect.min.y < 0 || rect.min.y as u16 >= texture.setup.dimensions.1 || rect.max.x < 0
+            if data.len() > rect.size() as usize || rect.min.x < 0
+                || rect.min.x as u16 >= texture.setup.dimensions.0 || rect.min.y < 0
+                || rect.min.y as u16 >= texture.setup.dimensions.1 || rect.max.x < 0
                 || rect.max.y < 0
             {
                 bail!(ErrorKind::OutOfBounds);
@@ -552,7 +554,11 @@ impl Device {
         }
     }
 
-    pub unsafe fn create_surface(&mut self, handle: SurfaceHandle, setup: SurfaceSetup) -> Result<()> {
+    pub unsafe fn create_surface(
+        &mut self,
+        handle: SurfaceHandle,
+        setup: SurfaceSetup,
+    ) -> Result<()> {
         if self.surfaces.get(handle).is_some() {
             bail!(ErrorKind::DuplicatedHandle);
         }
@@ -565,9 +571,7 @@ impl Device {
                 if let Some(v) = *attachment {
                     let i = i as u32;
 
-                    let rt = self.render_textures
-                        .get(v)
-                        .ok_or(ErrorKind::InvalidHandle)?;
+                    let rt = self.render_textures.get(v).ok_or(ErrorKind::InvalidHandle)?;
 
                     if let Some(v) = dimensions {
                         if v != rt.setup.dimensions {
@@ -579,14 +583,13 @@ impl Device {
                     }
 
                     dimensions = Some(rt.setup.dimensions);
-                    self.visitor.update_framebuffer_render_texture(rt.id, rt.setup, i)?;
+                    self.visitor
+                        .update_framebuffer_render_texture(rt.id, rt.setup, i)?;
                 }
             }
 
             if let Some(v) = setup.depth_stencil {
-                let rt = self.render_textures
-                    .get(v)
-                    .ok_or(ErrorKind::InvalidHandle)?;
+                let rt = self.render_textures.get(v).ok_or(ErrorKind::InvalidHandle)?;
 
                 if let Some(v) = dimensions {
                     if v != rt.setup.dimensions {
@@ -598,7 +601,8 @@ impl Device {
                 }
 
                 dimensions = Some(rt.setup.dimensions);
-                self.visitor.update_framebuffer_render_texture(rt.id, rt.setup, 0)?;
+                self.visitor
+                    .update_framebuffer_render_texture(rt.id, rt.setup, 0)?;
             }
 
             Some(FrameBufferObject {
@@ -609,7 +613,10 @@ impl Device {
             None
         };
 
-        let view = SurfaceObject { setup: setup, framebuffer: fbo };
+        let view = SurfaceObject {
+            setup: setup,
+            framebuffer: fbo,
+        };
         self.surfaces.set(handle, view);
         Ok(())
     }
@@ -710,14 +717,14 @@ where
             .and_then(|v| v.as_ref())
     }
 
-    pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
-    where
-        H: Borrow<Handle>,
-    {
-        self.buf
-            .get_mut(handle.borrow().index() as usize)
-            .and_then(|v| v.as_mut())
-    }
+    // pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
+    // where
+    //     H: Borrow<Handle>,
+    // {
+    //     self.buf
+    //         .get_mut(handle.borrow().index() as usize)
+    //         .and_then(|v| v.as_mut())
+    // }
 
     pub fn set<H>(&mut self, handle: H, value: T)
     where

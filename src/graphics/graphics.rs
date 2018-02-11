@@ -233,30 +233,33 @@ impl GraphicsSystemShared {
         }
 
         let mut frame = self.frames.front();
-        let uniforms = {
-            let mut pack = Vec::new();
-            if let Some(state) = self.shaders.read().unwrap().get(dc.shader.into()) {
-                match *state {
-                    AssetState::Ready(ref sso) => for &(n, v) in dc.uniforms {
-                        if let Some(tt) = sso.uniform_variable(n) {
-                            if tt == v.variable_type() {
-                                pack.push((n, frame.buf.extend(&v)));
-                            } else {
-                                let name = sso.uniform_variable_name(n).unwrap();
-                                bail!(format!("Unmatched uniform variable: [{:?}]{:?} ({:?} required).", v.variable_type(), name, tt));
+        let uniforms =
+            {
+                let mut pack = Vec::new();
+                if let Some(state) = self.shaders.read().unwrap().get(dc.shader.into()) {
+                    match *state {
+                        AssetState::Ready(ref sso) => {
+                            for &(n, v) in dc.uniforms {
+                                if let Some(tt) = sso.uniform_variable(n) {
+                                    if tt == v.variable_type() {
+                                        pack.push((n, frame.buf.extend(&v)));
+                                    } else {
+                                        let name = sso.uniform_variable_name(n).unwrap();
+                                        bail!(format!("Unmatched uniform variable: [{:?}]{:?} ({:?} required).", v.variable_type(), name, tt));
+                                    }
+                                } else {
+                                    bail!(format!("Undefined uniform variable: {:?}.", n));
+                                }
                             }
-                        } else {
-                            bail!(format!("Undefined uniform variable: {:?}.", n));
                         }
-                    },
-                    _ => return Ok(()),
-                };
-            } else {
-                bail!("Undefined shader state handle.");
-            }
+                        _ => return Ok(()),
+                    };
+                } else {
+                    bail!("Undefined shader state handle.");
+                }
 
-            frame.buf.extend_from_slice(&pack)
-        };
+                frame.buf.extend_from_slice(&pack)
+            };
 
         let dc = FrameDrawCall {
             shader: dc.shader,

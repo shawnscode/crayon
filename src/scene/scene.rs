@@ -1,16 +1,18 @@
 use std::sync::Arc;
-use std::collections::HashMap;
 
 use application::Context;
 use ecs::{ArenaMut, Component, Entity, Fetch, FetchMut, World};
-use graphics::{GraphicsSystem, GraphicsSystemShared, ShaderHandle, ShaderStateObject,
-               SurfaceHandle};
+use graphics::{GraphicsSystem, GraphicsSystemShared, SurfaceHandle, UniformVariable};
 use utils::{HandleObjectPool, HashValue};
 
-use scene::{Camera, Element, Light, MeshRenderer, Node, Transform};
-use scene::material::{Material, MaterialHandle};
-use scene::renderer::{RenderGraph, RenderUniform};
+use resource::{Location, Registery};
+
+use scene::{Element, Node, Transform};
+use scene::renderer::Renderer;
+
 use scene::assets::factory;
+use scene::assets::material::{Material, MaterialHandle};
+use scene::assets::pipeline::{PipelineHandle, PipelineObject, PipelineSetup};
 use scene::errors::*;
 
 /// `Scene`s contain the environments of your game. Its relative easy to think of each
@@ -42,13 +44,14 @@ use scene::errors::*;
 /// ```
 ///
 pub struct Scene {
-    world: World,
-    video: Arc<GraphicsSystemShared>,
+    pub(crate) world: World,
 
-    materials: HandleObjectPool<Material>,
-    render_shaders: HashMap<ShaderHandle, Arc<RenderShader>>,
-    render_env: RenderGraph,
-    fallback: Option<MaterialHandle>,
+    pub(crate) video: Arc<GraphicsSystemShared>,
+    pub(crate) materials: HandleObjectPool<Material>,
+    pub(crate) pipelines: Registery<PipelineObject>,
+
+    pub(crate) renderer: Renderer,
+    pub(crate) fallback: Option<MaterialHandle>,
 }
 
 impl Scene {
@@ -62,17 +65,17 @@ impl Scene {
         world.register::<Element>();
 
         let materials = HandleObjectPool::new();
-        let mut scene = Scene {
+        let scene = Scene {
             world: world,
-            materials: materials,
-            fallback: None,
             video: video.clone(),
 
-            render_shaders: HashMap::new(),
-            render_env: RenderGraph::new(ctx)?,
+            pipelines: Registery::new(),
+            materials: materials,
+            fallback: None,
+
+            renderer: Renderer::new(ctx)?,
         };
 
-        factory::shader::setup(&mut scene, video)?;
         Ok(scene)
     }
 
@@ -109,7 +112,6 @@ impl Scene {
     }
 
     /// Creates a `Element`.
-    #[inline]
     pub fn create_node<T1>(&mut self, node: T1) -> Entity
     where
         T1: Into<Element>,
@@ -123,7 +125,6 @@ impl Scene {
     }
 
     /// Updates a `Element`.
-    #[inline]
     pub fn update_node<T1>(&mut self, handle: Entity, node: T1) -> Result<()>
     where
         T1: Into<Element>,
@@ -139,7 +140,6 @@ impl Scene {
     }
 
     /// Deletes a node and its descendants from the `Scene`.
-    #[inline]
     pub fn delete_node(&mut self, handle: Entity) -> Result<()> {
         let descendants: Vec<_> = Node::descendants(&self.arena::<Node>(), handle).collect();
         for v in descendants {
@@ -152,29 +152,65 @@ impl Scene {
         Ok(())
     }
 
-    /// Creates a new material instance from shader.
-    #[inline]
-    pub fn create_material(&mut self, shader: ShaderHandle) -> Result<MaterialHandle> {
-        if let Some(render_shader) = self.render_shaders.get(&shader) {
-            let m = self.materials.create(Material::new(render_shader.clone()));
-            Ok(m.into())
+    /// Lookups pipeline object from location.
+    pub fn lookup_pipeline_from(&self, location: Location) -> Option<PipelineHandle> {
+        self.pipelines.lookup(location).map(|v| v.into())
+    }
+
+    /// Creates a new pipeline object that indicates the whole render pipeline of `Scene`.
+    pub fn create_pipeline(
+        &mut self,
+        location: Location,
+        setup: PipelineSetup,
+    ) -> Result<PipelineHandle> {
+        if let Some(sso) = self.video.shader(setup.shader) {
+            for (uniform, field) in &setup.link_uniforms {
+                if let Some(tt) = sso.uniform_variable(*field) {
+                    if tt != (*uniform).into() {
+                        bail!(ErrorKind::UniformTypeInvalid);
+                    }
+                } else {
+                    bail!(ErrorKind::UniformUndefined);
+                }
+            }
+
+            let po = PipelineObject {
+                shader: setup.shader,
+                link_uniforms: setup.link_uniforms,
+                sso: sso,
+            };
+
+            Ok(self.pipelines.create(location, po).into())
         } else {
-            bail!(
-                "Shader can NOT be used before initialization with `Scene::setup_render_shader`."
-            );
+            bail!("Undefined shader handle.");
         }
     }
 
-    /// Gets a reference to the material.
-    #[inline]
-    pub fn material(&self, handle: MaterialHandle) -> Option<&Material> {
-        self.materials.get(*handle)
+    /// Creates a new material instance from shader.
+    pub fn create_material(&mut self, pipeline: PipelineHandle) -> Result<MaterialHandle> {
+        if self.pipelines.get(*pipeline).is_some() {
+            let m = self.materials.create(Material::new(pipeline));
+            Ok(m.into())
+        } else {
+            bail!("Undefined pipeline handle.");
+        }
     }
 
-    /// Gets a mutable reference to the material.
-    #[inline]
-    pub fn material_mut(&mut self, handle: MaterialHandle) -> Option<&mut Material> {
-        self.materials.get_mut(*handle)
+    /// Updates the uniform variable of material.
+    pub fn update_material<T1, T2>(&mut self, h: MaterialHandle, f: T1, v: T2) -> Result<()>
+    where
+        T1: Into<HashValue<str>>,
+        T2: Into<UniformVariable>,
+    {
+        if let Some(m) = self.materials.get_mut(*h) {
+            if let Some(pipeline) = self.pipelines.get(*m.pipeline) {
+                m.set_uniform_variable(pipeline, f, v)?;
+            }
+
+            Ok(())
+        } else {
+            bail!("Undefined material handle");
+        }
     }
 
     /// Deletes the material instance from `Scene`. Any meshes that associated with a
@@ -189,85 +225,24 @@ impl Scene {
         Ok(())
     }
 
+    pub fn advance(&mut self, camera: Entity) -> Result<()> {
+        self.renderer.advance(&self.world, camera)
+    }
+
     /// Draws the underlaying depth buffer of shadow mapping pass. This is used for
     /// debugging.
-    pub fn render_shadow(&mut self, surface: SurfaceHandle, camera: Entity) -> Result<()> {
-        self.render_env.render_shadow(&self.world, surface, camera)
+    pub fn draw_shadow(&mut self, surface: SurfaceHandle) -> Result<()> {
+        self.renderer.draw_shadow(surface)
     }
 
     /// Renders objects into `Surface` from `Camera`.
-    pub fn render(&mut self, surface: SurfaceHandle, camera: Entity) -> Result<()> {
+    pub fn draw(&mut self, surface: SurfaceHandle, camera: Entity) -> Result<()> {
         if self.fallback.is_none() {
-            let undefined = factory::shader::undefined(&self.video)?;
+            let undefined = factory::pipeline::undefined(self)?;
             self.fallback = Some(self.create_material(undefined)?);
         }
 
-        let fallback = self.materials.get(self.fallback.unwrap()).unwrap();
-        self.render_env
-            .render(&self.world, &self.materials, fallback, surface, camera)?;
-
+        self.renderer.draw(self, surface, camera)?;
         Ok(())
     }
-
-    /// `Shader`s that used in `Scene` could be filled with some build-in uniform variables
-    /// for convenient, such likes `scn_ModelMatrix`, `scn_MVPMatrix` etc.. You can find the
-    /// complete supported uniforms and corresponding information in enumeration
-    /// `RenderUniform`.
-    ///
-    /// But you can also choose your own field definition for custom shader.
-    ///
-    /// ```rust,ignore
-    /// scene.setup_render_shader(custom_shader, [
-    ///     (RenderUniform::ModelMatrix, "u_ModelMatrix"),
-    ///     (RenderUniform::ViewNormalMatrix, "u_NormalViewMatrix"),
-    /// ]).unwrap();
-    /// ```
-    pub fn setup_render_shader<T1>(
-        &mut self,
-        shader: ShaderHandle,
-        pairs: &[(RenderUniform, T1)],
-    ) -> Result<()>
-    where
-        T1: Into<HashValue<str>> + Copy,
-    {
-        if self.render_shaders.get(&shader).is_some() {
-            bail!("Duplicated initialization of `RenderShader`.");
-        }
-
-        if let Some(sso) = self.video.shader(shader) {
-            let mut render_uniforms = HashMap::new();
-
-            for &(uniform, field) in pairs {
-                let field = field.into();
-                if let Some(tt) = sso.uniform_variable(field) {
-                    if tt == uniform.into() {
-                        render_uniforms.insert(uniform, field);
-                    } else {
-                        bail!(ErrorKind::UniformTypeInvalid);
-                    }
-                } else {
-                    bail!(ErrorKind::UniformUndefined);
-                }
-            }
-
-            let rs = RenderShader {
-                sso: sso,
-                render_uniforms: render_uniforms,
-                handle: shader,
-            };
-
-            self.render_shaders.insert(shader, Arc::new(rs));
-            Ok(())
-        } else {
-            bail!("Undefined shader handle.");
-        }
-    }
-}
-
-///
-#[derive(Debug, Clone)]
-pub struct RenderShader {
-    pub sso: Arc<ShaderStateObject>,
-    pub render_uniforms: HashMap<RenderUniform, HashValue<str>>,
-    pub handle: ShaderHandle,
 }

@@ -1,7 +1,42 @@
-use graphics::UniformVariableType;
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use graphics::{ShaderHandle, ShaderStateObject, UniformVariableType};
 use utils::HashValue;
 
-macro_rules! impl_scene_uniforms {
+impl_handle!(PipelineHandle);
+
+pub struct PipelineSetup {
+    pub shader: ShaderHandle,
+    pub link_uniforms: HashMap<PipelineUniformVariable, HashValue<str>>,
+}
+
+impl PipelineSetup {
+    pub fn new(shader: ShaderHandle) -> PipelineSetup {
+        PipelineSetup {
+            shader: shader,
+            link_uniforms: HashMap::new(),
+        }
+    }
+}
+
+pub(crate) struct PipelineObject {
+    pub shader: ShaderHandle,
+    pub link_uniforms: HashMap<PipelineUniformVariable, HashValue<str>>,
+    pub sso: Arc<ShaderStateObject>,
+}
+
+impl PipelineObject {
+    #[inline]
+    pub fn uniform_field(&self, uv: PipelineUniformVariable) -> HashValue<str> {
+        self.link_uniforms
+            .get(&uv)
+            .cloned()
+            .unwrap_or_else(|| PipelineUniformVariable::FIELDS[uv as usize].into())
+    }
+}
+
+macro_rules! impl_pipeline_uniforms {
     ($name: ident { $head: ident => [$tt_head: ident, $field_head: tt], $($tails: ident => [$uvt: ident, $field: tt], )* }) => {
         /// A list of supported build-in uniform variables that would be filled when
         /// drawing `Scene`.
@@ -49,8 +84,8 @@ macro_rules! impl_scene_uniforms {
     };
 }
 
-impl_scene_uniforms!(
-    RenderUniform {
+impl_pipeline_uniforms!(
+    PipelineUniformVariable {
         ModelMatrix => [Matrix4f, "scn_ModelMatrix"],
         ModelViewMatrix => [Matrix4f, "scn_ModelViewMatrix"],
         ModelViewProjectionMatrix => [Matrix4f, "scn_MVPMatrix"],
@@ -74,27 +109,27 @@ impl_scene_uniforms!(
     }
 );
 
-impl RenderUniform {
-    pub const POINT_LIT_UNIFORMS: [[RenderUniform; 3]; 4] = [
+impl PipelineUniformVariable {
+    pub const POINT_LIT_UNIFORMS: [[PipelineUniformVariable; 3]; 4] = [
         [
-            RenderUniform::PointLightViewPos0,
-            RenderUniform::PointLightColor0,
-            RenderUniform::PointLightAttenuation0,
+            PipelineUniformVariable::PointLightViewPos0,
+            PipelineUniformVariable::PointLightColor0,
+            PipelineUniformVariable::PointLightAttenuation0,
         ],
         [
-            RenderUniform::PointLightViewPos1,
-            RenderUniform::PointLightColor1,
-            RenderUniform::PointLightAttenuation1,
+            PipelineUniformVariable::PointLightViewPos1,
+            PipelineUniformVariable::PointLightColor1,
+            PipelineUniformVariable::PointLightAttenuation1,
         ],
         [
-            RenderUniform::PointLightViewPos2,
-            RenderUniform::PointLightColor2,
-            RenderUniform::PointLightAttenuation2,
+            PipelineUniformVariable::PointLightViewPos2,
+            PipelineUniformVariable::PointLightColor2,
+            PipelineUniformVariable::PointLightAttenuation2,
         ],
         [
-            RenderUniform::PointLightViewPos3,
-            RenderUniform::PointLightColor3,
-            RenderUniform::PointLightAttenuation3,
+            PipelineUniformVariable::PointLightViewPos3,
+            PipelineUniformVariable::PointLightColor3,
+            PipelineUniformVariable::PointLightAttenuation3,
         ],
     ];
 }

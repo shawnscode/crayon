@@ -12,7 +12,7 @@ use scene::errors::*;
 
 pub enum SceneDrawOrder {
     Shadow = 0,
-    Camera,
+    // Camera,
 }
 
 /// A shadow mapping builder.

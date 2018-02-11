@@ -517,10 +517,7 @@ impl OpenGLVisitor {
         check()
     }
 
-    pub unsafe fn create_render_texture(
-        &self,
-        setup: RenderTextureSetup
-    ) -> Result<GLuint> {
+    pub unsafe fn create_render_texture(&self, setup: RenderTextureSetup) -> Result<GLuint> {
         let (internal_format, in_format, pixel_type) = setup.format.into();
         let id = if setup.sampler {
             self.create_texture(
@@ -540,7 +537,12 @@ impl OpenGLVisitor {
             assert!(id != 0);
 
             self.bind_render_buffer(id)?;
-            gl::RenderbufferStorage(gl::RENDERBUFFER, internal_format, setup.dimensions.0 as GLint, setup.dimensions.1 as GLint);
+            gl::RenderbufferStorage(
+                gl::RENDERBUFFER,
+                internal_format,
+                setup.dimensions.0 as GLint,
+                setup.dimensions.1 as GLint,
+            );
             id
         };
 
@@ -548,7 +550,11 @@ impl OpenGLVisitor {
         Ok(id)
     }
 
-    pub unsafe fn delete_render_texture(&self, setup: RenderTextureSetup, id: GLuint) -> Result<()> {
+    pub unsafe fn delete_render_texture(
+        &self,
+        setup: RenderTextureSetup,
+        id: GLuint,
+    ) -> Result<()> {
         if setup.sampler {
             self.delete_texture(id)?;
         } else {
@@ -717,8 +723,13 @@ impl OpenGLVisitor {
         check()?;
         Ok(id)
     }
-    
-    pub unsafe fn update_framebuffer_render_texture(&self, id: GLuint, setup: RenderTextureSetup, slot: u32) -> Result<()> {
+
+    pub unsafe fn update_framebuffer_render_texture(
+        &self,
+        id: GLuint,
+        setup: RenderTextureSetup,
+        slot: u32,
+    ) -> Result<()> {
         if self.active_framebuffer.get() == 0 {
             bail!("cann't attach texture to default framebuffer.");
         }
@@ -728,27 +739,51 @@ impl OpenGLVisitor {
                 let location = gl::COLOR_ATTACHMENT0 + slot;
 
                 if setup.sampler {
-                    gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, id, 0);
+                    gl::FramebufferTexture2D(
+                        gl::FRAMEBUFFER,
+                        gl::COLOR_ATTACHMENT0,
+                        gl::TEXTURE_2D,
+                        id,
+                        0,
+                    );
                 } else {
                     gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, location, gl::RENDERBUFFER, id);
                 }
             }
             RenderTextureFormat::Depth16
             | RenderTextureFormat::Depth24
-            | RenderTextureFormat::Depth32 => {
-                if setup.sampler {
-                    gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, id, 0);
-                } else {
-                    gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::RENDERBUFFER, id);
-                }
-            }
-            RenderTextureFormat::Depth24Stencil8 => {
-                if setup.sampler {
-                    gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::DEPTH_STENCIL_ATTACHMENT, gl::TEXTURE_2D, id, 0);
-                } else {
-                    gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_STENCIL_ATTACHMENT, gl::RENDERBUFFER, id);
-                }
-            }
+            | RenderTextureFormat::Depth32 => if setup.sampler {
+                gl::FramebufferTexture2D(
+                    gl::FRAMEBUFFER,
+                    gl::DEPTH_ATTACHMENT,
+                    gl::TEXTURE_2D,
+                    id,
+                    0,
+                );
+            } else {
+                gl::FramebufferRenderbuffer(
+                    gl::FRAMEBUFFER,
+                    gl::DEPTH_ATTACHMENT,
+                    gl::RENDERBUFFER,
+                    id,
+                );
+            },
+            RenderTextureFormat::Depth24Stencil8 => if setup.sampler {
+                gl::FramebufferTexture2D(
+                    gl::FRAMEBUFFER,
+                    gl::DEPTH_STENCIL_ATTACHMENT,
+                    gl::TEXTURE_2D,
+                    id,
+                    0,
+                );
+            } else {
+                gl::FramebufferRenderbuffer(
+                    gl::FRAMEBUFFER,
+                    gl::DEPTH_STENCIL_ATTACHMENT,
+                    gl::RENDERBUFFER,
+                    id,
+                );
+            },
         }
 
         check()

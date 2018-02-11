@@ -15,8 +15,9 @@ struct Window {
     ambient: [f32; 3],
     diffuse: [f32; 3],
     specular: [f32; 3],
-}
 
+    draw_shadow: bool,
+}
 
 impl Window {
     fn new(engine: &mut Engine) -> errors::Result<Self> {
@@ -42,7 +43,11 @@ impl Window {
         let (room, mat_block) = Window::create_room(&mut scene, &video)?;
         Window::create_lits(&mut scene, &video)?;
 
-        let light = scene.create_node(Light::default());
+        let light = {
+            let mut dir = Light::default();
+            dir.shadow_caster = true;
+            scene.create_node(dir)
+        };
 
         {
             let tree = scene.arena::<Node>();
@@ -51,9 +56,9 @@ impl Window {
             let zero = [0.0, 0.0, 0.0];
             let up = [0.0, 1.0, 0.0];
             Transform::set_world_position(&tree, &mut transforms, camera, [0.0, 0.0, -500.0])?;
-            Transform::look_at(&tree, &mut transforms, camera, zero, up)?;
+            // Transform::look_at(&tree, &mut transforms, camera, zero, up)?;
 
-            Transform::set_world_position(&tree, &mut transforms, light, [0.0, 500.0, -500.0])?;
+            Transform::set_world_position(&tree, &mut transforms, light, [200.0, 200.0, -200.0])?;
             Transform::look_at(&tree, &mut transforms, light, zero, up)?;
         }
 
@@ -68,12 +73,12 @@ impl Window {
             ambient: [1.0, 1.0, 1.0],
             diffuse: [1.0, 1.0, 1.0],
             specular: [1.0, 1.0, 1.0],
+            draw_shadow: false,
         })
     }
 
     fn create_lits(scene: &mut Scene, video: &GraphicsSystemShared) -> errors::Result<[Entity; 4]> {
-        // Create shader state.
-        let shader = scene::factory::shader::color(video)?;
+        let shader = scene::factory::pipeline::color(scene)?;
         let mesh = scene::factory::mesh::cube(video)?;
 
         let mut lits = [Entity::nil(); 4];
@@ -92,6 +97,7 @@ impl Window {
                 enable: true,
                 color: colors[i],
                 intensity: 1.0,
+                shadow_caster: false,
                 source: LitSrc::Point {
                     radius: 100.0,
                     smoothness: 0.001,
@@ -100,10 +106,7 @@ impl Window {
 
             let color: [f32; 4] = colors[i].into();
             let mat = scene.create_material(shader)?;
-            scene
-                .material_mut(mat)
-                .unwrap()
-                .set_uniform_variable("u_Color", color)?;
+            scene.update_material(mat, "u_Color", color)?;
 
             let cube = scene.create_node(MeshRenderer {
                 mesh: mesh,
@@ -130,30 +133,23 @@ impl Window {
         scene: &mut Scene,
         video: &graphics::GraphicsSystemShared,
     ) -> errors::Result<(Entity, MaterialHandle)> {
-        // Create shader state.
-        let shader = scene::factory::shader::phong(video)?;
+        let shader = scene::factory::pipeline::phong(scene)?;
 
         let setup = graphics::MeshSetup::default();
         let mesh = video
             .create_mesh_from::<OBJParser>(Location::shared(0, "/std/cornell_box.obj"), setup)?;
 
         let mat_wall = scene.create_material(shader)?;
-        {
-            let mat = scene.material_mut(mat_wall).unwrap();
-            mat.set_uniform_variable("u_Ambient", [1.0, 1.0, 1.0])?;
-            mat.set_uniform_variable("u_Diffuse", [1.0, 1.0, 1.0])?;
-            mat.set_uniform_variable("u_Specular", [0.0, 0.0, 0.0])?;
-            mat.set_uniform_variable("u_Shininess", 0.0)?;
-        }
+        scene.update_material(mat_wall, "u_Ambient", [1.0, 1.0, 1.0])?;
+        scene.update_material(mat_wall, "u_Diffuse", [1.0, 1.0, 1.0])?;
+        scene.update_material(mat_wall, "u_Specular", [0.0, 0.0, 0.0])?;
+        scene.update_material(mat_wall, "u_Shininess", 0.0)?;
 
         let mat_block = scene.create_material(shader)?;
-        {
-            let mat = scene.material_mut(mat_block).unwrap();
-            mat.set_uniform_variable("u_Ambient", [1.0, 1.0, 1.0])?;
-            mat.set_uniform_variable("u_Diffuse", [1.0, 1.0, 1.0])?;
-            mat.set_uniform_variable("u_Specular", [1.0, 1.0, 1.0])?;
-            mat.set_uniform_variable("u_Shininess", 0.5)?;
-        }
+        scene.update_material(mat_block, "u_Ambient", [1.0, 1.0, 1.0])?;
+        scene.update_material(mat_block, "u_Diffuse", [1.0, 1.0, 1.0])?;
+        scene.update_material(mat_block, "u_Specular", [1.0, 1.0, 1.0])?;
+        scene.update_material(mat_block, "u_Shininess", 0.5)?;
 
         let room = scene.create_node(());
         let anchor = [-278.0, -274.0, 280.0];
@@ -198,6 +194,7 @@ impl Application for Window {
         let specular = &mut self.specular;
 
         let capture = {
+            let draw_shadow = &mut self.draw_shadow;
             let canvas = self.console.render(ctx);
             canvas
                 .window(im_str!("Materials"))
@@ -215,6 +212,14 @@ impl Application for Window {
                     canvas
                         .slider_float3(im_str!("u_Specular"), specular, 0.0, 1.0)
                         .build();
+
+                    if canvas.button(im_str!("Draw Scene"), (100.0, 20.0)) {
+                        *draw_shadow = false;
+                    }
+
+                    if canvas.button(im_str!("Draw Shadow"), (100.0, 20.0)) {
+                        *draw_shadow = true;
+                    }
                 });
 
             canvas.want_capture_mouse()
@@ -237,14 +242,20 @@ impl Application for Window {
             }
         }
 
-        {
-            let mat = self.scene.material_mut(self.material).unwrap();
-            mat.set_uniform_variable("u_Ambient", *ambient)?;
-            mat.set_uniform_variable("u_Diffuse", *diffuse)?;
-            mat.set_uniform_variable("u_Specular", *specular)?;
-        }
+        self.scene
+            .update_material(self.material, "u_Ambient", *ambient)?;
+        self.scene
+            .update_material(self.material, "u_Diffuse", *diffuse)?;
+        self.scene
+            .update_material(self.material, "u_Specular", *specular)?;
 
-        self.scene.render(self.surface, self.camera)?;
+        self.scene.advance(self.camera)?;
+
+        if !self.draw_shadow {
+        self.scene.draw(self.surface, self.camera)?;
+        } else {
+        self.scene.draw_shadow(self.surface)?;
+        }
         Ok(())
     }
 
