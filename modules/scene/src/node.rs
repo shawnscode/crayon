@@ -1,5 +1,6 @@
-use ecs;
-use scene::errors::*;
+use crayon::ecs;
+
+use errors::*;
 
 /// `Node` is used to store and manipulate the postiion, rotation and scale
 /// of the object. Every `Node` can have a parent, which allows you to apply
@@ -145,7 +146,6 @@ impl Node {
             cursor: arena.get(handle).and_then(|v| v.first_child),
         }
     }
-
 
     /// Returns an iterator of references to this transform's descendants in tree order.
     pub fn descendants<T1>(arena: &T1, handle: ecs::Entity) -> Descendants

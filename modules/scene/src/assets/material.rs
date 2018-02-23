@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use graphics::UniformVariable;
-use utils::HashValue;
+use crayon::graphics::UniformVariable;
+use crayon::utils::HashValue;
 
-use scene::errors::*;
-use scene::assets::pipeline::{PipelineHandle, PipelineObject};
+use errors::*;
+use assets::pipeline::{PipelineHandle, PipelineObject};
 
 impl_handle!(MaterialHandle);
 

@@ -1,10 +1,11 @@
 pub mod pipeline {
-    use graphics::*;
-    use graphics::UniformVariableType as UVT;
-    use resource::Location;
+    use crayon::graphics::*;
+    use crayon::graphics::UniformVariableType as UVT;
+    use crayon::resource::Location;
 
-    use scene::{PipelineHandle, PipelineSetup, Scene};
-    use scene::errors::*;
+    use scene::Scene;
+    use assets::{PipelineHandle, PipelineSetup};
+    use errors::*;
 
     pub const PBR: &str = "__Core/Scene/Shader/PBR";
     pub const PHONG: &str = "__Core/Scene/Shader/PHONG";
@@ -33,8 +34,8 @@ pub mod pipeline {
             let mut setup = ShaderSetup::default();
             setup.render_state = render_state;
             setup.layout = attributes;
-            setup.vs = include_str!("shaders/pbr.vs").to_owned();
-            setup.fs = include_str!("shaders/pbr.fs").to_owned();
+            setup.vs = include_str!("../../assets/pbr.vs").to_owned();
+            setup.fs = include_str!("../../assets/pbr.fs").to_owned();
 
             let uvs = [
                 ("scn_MVPMatrix", UVT::Matrix4f),
@@ -76,8 +77,8 @@ pub mod pipeline {
             let mut setup = ShaderSetup::default();
             setup.render_state = render_state;
             setup.layout = attributes;
-            setup.vs = include_str!("shaders/phong.vs").to_owned();
-            setup.fs = include_str!("shaders/phong.fs").to_owned();
+            setup.vs = include_str!("../../assets/phong.vs").to_owned();
+            setup.fs = include_str!("../../assets/phong.fs").to_owned();
 
             let uvs = [
                 ("scn_MVPMatrix", UVT::Matrix4f),
@@ -137,8 +138,8 @@ pub mod pipeline {
             let mut setup = ShaderSetup::default();
             setup.render_state = render_state;
             setup.layout = attributes;
-            setup.vs = include_str!("shaders/color.vs").to_owned();
-            setup.fs = include_str!("shaders/color.fs").to_owned();
+            setup.vs = include_str!("../../assets/color.vs").to_owned();
+            setup.fs = include_str!("../../assets/color.fs").to_owned();
 
             let uvs = [("scn_MVPMatrix", UVT::Matrix4f), ("u_Color", UVT::Vector4f)];
 
@@ -174,8 +175,8 @@ pub mod pipeline {
             let mut setup = ShaderSetup::default();
             setup.render_state = render_state;
             setup.layout = attributes;
-            setup.vs = include_str!("shaders/undefined.vs").to_owned();
-            setup.fs = include_str!("shaders/undefined.fs").to_owned();
+            setup.vs = include_str!("../../assets/undefined.vs").to_owned();
+            setup.fs = include_str!("../../assets/undefined.fs").to_owned();
 
             let uvs = [("scn_MVPMatrix", UVT::Matrix4f)];
 
@@ -192,9 +193,9 @@ pub mod pipeline {
 }
 
 pub mod mesh {
-    use graphics::errors::*;
-    use graphics::*;
-    use resource::Location;
+    use crayon::graphics::errors::*;
+    use crayon::graphics::*;
+    use crayon::resource::Location;
 
     impl_vertex! {
         PrimitiveVertex {

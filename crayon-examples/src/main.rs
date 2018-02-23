@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate crayon;
 extern crate crayon_imgui;
+extern crate crayon_scene;
 extern crate image;
 extern crate obj;
 extern crate rand;

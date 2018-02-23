@@ -1,5 +1,6 @@
-use graphics::{MeshHandle, MeshIndex};
-use scene::MaterialHandle;
+use crayon::graphics::{MeshHandle, MeshIndex};
+
+use assets::MaterialHandle;
 
 #[derive(Debug, Copy, Clone)]
 pub struct MeshRenderer {

@@ -1,7 +1,7 @@
 //! A device through which the player views the world.
 
-use math;
-use math::{Angle, Zero};
+use crayon::math;
+use crayon::math::{Angle, Zero};
 
 /// The projection funcs used when take primitives into camera.
 #[derive(Debug, Clone, Copy)]
@@ -148,31 +148,31 @@ impl Camera {
                 "The vertical field of view cannot be greater than a half turn, found: {:?}",
                 fovy
             );
-
-            assert!(
-                self.aspect > 0.0,
-                "The aspect ratio cannot be below zero, found: {:?}",
-                self.aspect
-            );
-
-            assert!(
-                self.clip.x > 0.0,
-                "The near plane distance cannot be below zero, found: {:?}",
-                self.clip.x
-            );
-
-            assert!(
-                self.clip.y > 0.0,
-                "The far plane distance cannot be below zero, found: {:?}",
-                self.clip.y
-            );
-
-            assert!(
-                self.clip.y > self.clip.x,
-                "The far plane cannot be closer than the near plane, found: far: {:?}, near: {:?}",
-                self.clip.y,
-                self.clip.x
-            );
         }
+
+        assert!(
+            self.aspect > 0.0,
+            "The aspect ratio cannot be below zero, found: {:?}",
+            self.aspect
+        );
+
+        assert!(
+            self.clip.x > 0.0,
+            "The near plane distance cannot be below zero, found: {:?}",
+            self.clip.x
+        );
+
+        assert!(
+            self.clip.y > 0.0,
+            "The far plane distance cannot be below zero, found: {:?}",
+            self.clip.y
+        );
+
+        assert!(
+            self.clip.y > self.clip.x,
+            "The far plane cannot be closer than the near plane, found: far: {:?}, near: {:?}",
+            self.clip.y,
+            self.clip.x
+        );
     }
 }

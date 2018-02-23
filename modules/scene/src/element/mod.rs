@@ -6,7 +6,7 @@ pub use self::light::{Light, LitSrc};
 pub use self::camera::{Camera, Projection};
 pub use self::mesh_renderer::MeshRenderer;
 
-use ecs::{Component, VecArena};
+use crayon::ecs::{Component, VecArena};
 
 /// The contrainer of elements that supported in `Scene`.
 #[derive(Debug, Clone, Copy)]

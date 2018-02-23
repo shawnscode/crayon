@@ -17,7 +17,7 @@ appveyor = { repository = "shawnscode/crayon", branch = "master", service = "git
 codecov = { repository = "shawnscode/crayon", branch = "master", service = "github" }
 
 [workspace]
-members = [ "crayon-examples", "modules/imgui" ]
+members = [ "crayon-examples", "modules/imgui", "modules/scene" ]
 
 [dependencies]
 libc = "0.2.36"

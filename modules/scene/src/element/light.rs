@@ -1,4 +1,4 @@
-use utils::Color;
+use crayon::utils::Color;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Light {

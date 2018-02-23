@@ -1,10 +1,13 @@
-use ecs::{Arena, Entity, Fetch, System, View, World};
-use application::Context;
+use crayon::ecs::{Arena, Entity, Fetch, System, View, World};
+use crayon::application::Context;
 
-use math;
-use math::SquareMatrix;
-use scene::{Element, LitSrc, Node, Transform};
-use scene::errors::*;
+use crayon::math;
+use crayon::math::SquareMatrix;
+
+use element::{Element, LitSrc};
+use node::Node;
+use transform::Transform;
+use errors::*;
 
 #[derive(Debug, Copy, Clone)]
 pub struct EnvDirLit {
@@ -50,7 +53,6 @@ impl RenderEnvironment {
         self.view_matrix = view_matrix;
         UpdateRenderGraph::new(self).run_mut_at(world)
     }
-
 
     /// Gets the shadow caster.
     pub fn shadow_caster(&self) -> Option<Entity> {

@@ -4,17 +4,26 @@ use self::environment::RenderEnvironment;
 mod shadow;
 use self::shadow::RenderShadow;
 
-use application::Context;
-use ecs::{Arena, Entity, Fetch, System, View, World};
-use graphics;
+use crayon::application::Context;
+use crayon::ecs::{Arena, Entity, Fetch, System, View, World};
+use crayon::{graphics, math};
+use crayon::math::{Matrix, SquareMatrix};
 
-use math;
-use math::{Matrix, SquareMatrix};
+use assets::*;
+use errors::*;
+use element::*;
 
-use scene::assets::material::Material;
-use scene::assets::pipeline::{PipelineObject, PipelineUniformVariable};
-use scene::{Element, MaterialHandle, Node, Scene, Transform};
-use scene::errors::*;
+use node::Node;
+use transform::Transform;
+use scene::Scene;
+use assets::pipeline::PipelineObject;
+use assets::material::Material;
+
+pub struct RendererSetup {
+    pub max_dir_lits: usize,
+    pub max_point_lits: usize,
+    pub max_shadow_casters: usize,
+}
 
 pub struct Renderer {
     graph: RenderEnvironment,
@@ -53,7 +62,7 @@ impl Renderer {
         surface: graphics::SurfaceHandle,
         camera: Entity,
     ) -> Result<()> {
-        DrawRenderGraph {
+        DrawTask {
             surface: surface,
             camera: camera,
             shadow_space_matrix: self.ssm,
@@ -64,7 +73,7 @@ impl Renderer {
     }
 }
 
-struct DrawRenderGraph<'a> {
+struct DrawTask<'a> {
     surface: graphics::SurfaceHandle,
     camera: Entity,
 
@@ -75,7 +84,7 @@ struct DrawRenderGraph<'a> {
     env: &'a RenderEnvironment,
 }
 
-impl<'a> DrawRenderGraph<'a> {
+impl<'a> DrawTask<'a> {
     fn material(&self, handle: MaterialHandle) -> (&PipelineObject, &Material) {
         if let Some(mat) = self.scene.materials.get(handle) {
             if let Some(pipeline) = self.scene.pipelines.get(*mat.pipeline) {
@@ -108,12 +117,12 @@ impl<'a> DrawRenderGraph<'a> {
     }
 }
 
-impl<'a, 'b> System<'a> for DrawRenderGraph<'b> {
+impl<'a, 'b> System<'a> for DrawTask<'b> {
     type ViewWith = (Fetch<'a, Node>, Fetch<'a, Transform>, Fetch<'a, Element>);
     type Result = Result<()>;
 
     fn run(&self, view: View, data: Self::ViewWith) -> Self::Result {
-        use scene::assets::PipelineUniformVariable as RU;
+        use assets::PipelineUniformVariable as RU;
 
         let (view_matrix, projection_matrix) = {
             if let Some(Element::Camera(v)) = self.scene.world.get::<Element>(self.camera) {
@@ -142,7 +151,7 @@ impl<'a, 'b> System<'a> for DrawRenderGraph<'b> {
 
                     // Generate packed draw order.
                     let order = DrawOrder {
-                        tranlucent: pipeline.sso.render_state.color_blend.is_some(),
+                        tranlucent: pipeline.sso.render_state().color_blend.is_some(),
                         zorder: (csp.z * 1000.0) as u32,
                         shader: pipeline.shader,
                     };

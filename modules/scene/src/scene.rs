@@ -1,19 +1,20 @@
 use std::sync::Arc;
 
-use application::Context;
-use ecs::{ArenaMut, Component, Entity, Fetch, FetchMut, World};
-use graphics::{GraphicsSystem, GraphicsSystemShared, SurfaceHandle, UniformVariable};
-use utils::{HandleObjectPool, HashValue};
+use crayon::application::Context;
+use crayon::ecs::{ArenaMut, Component, Entity, Fetch, FetchMut, World};
+use crayon::graphics::{GraphicsSystem, GraphicsSystemShared, SurfaceHandle, UniformVariable};
+use crayon::resource::{Location, Registery};
+use crayon::utils::{HandleObjectPool, HashValue};
 
-use resource::{Location, Registery};
+use node::Node;
+use transform::Transform;
+use element::Element;
+use renderer::Renderer;
 
-use scene::{Element, Node, Transform};
-use scene::renderer::Renderer;
-
-use scene::assets::factory;
-use scene::assets::material::{Material, MaterialHandle};
-use scene::assets::pipeline::{PipelineHandle, PipelineObject, PipelineSetup};
-use scene::errors::*;
+use assets::*;
+use assets::material::Material;
+use assets::pipeline::PipelineObject;
+use errors::*;
 
 /// `Scene`s contain the environments of your game. Its relative easy to think of each
 /// unique scene as a unique level. In each `Scene`, you place your envrionments,

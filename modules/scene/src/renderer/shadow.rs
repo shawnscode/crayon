@@ -1,14 +1,15 @@
 use std::sync::Arc;
-use application::Context;
-use ecs::{Arena, Entity, Fetch, System, View, World};
 
-use graphics;
-use resource;
-use math;
+use crayon::{graphics, math, resource};
+use crayon::application::Context;
+use crayon::ecs::{Arena, Entity, Fetch, System, View, World};
 
-use scene::{Camera, Element, Node, Transform};
-use scene::assets::factory;
-use scene::errors::*;
+use node::Node;
+use transform::Transform;
+use element::{Camera, Element};
+
+use assets::factory;
+use errors::*;
 
 pub enum SceneDrawOrder {
     Shadow = 0,
@@ -55,8 +56,8 @@ impl RenderShadow {
             setup.render_state.depth_test = graphics::Comparison::Less;
             setup.render_state.cull_face = graphics::CullFace::Back;
             setup.layout = attributes;
-            setup.vs = include_str!("../assets/shaders/shadow.vs").to_owned();
-            setup.fs = include_str!("../assets/shaders/shadow.fs").to_owned();
+            setup.vs = include_str!("../../assets/shadow.vs").to_owned();
+            setup.fs = include_str!("../../assets/shadow.fs").to_owned();
 
             let tt = graphics::UniformVariableType::Matrix4f;
             setup.uniform_variables.insert("u_MVPMatrix".into(), tt);
@@ -70,8 +71,8 @@ impl RenderShadow {
 
             let mut setup = graphics::ShaderSetup::default();
             setup.layout = attributes;
-            setup.vs = include_str!("../assets/shaders/shadow_texture.vs").to_owned();
-            setup.fs = include_str!("../assets/shaders/shadow_texture.fs").to_owned();
+            setup.vs = include_str!("../../assets/shadow_texture.vs").to_owned();
+            setup.fs = include_str!("../../assets/shadow_texture.fs").to_owned();
 
             let tt = graphics::UniformVariableType::RenderTexture;
             setup.uniform_variables.insert("u_ShadowTexture".into(), tt);

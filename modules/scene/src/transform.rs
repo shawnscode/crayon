@@ -1,10 +1,9 @@
-use ecs;
-use math;
-use math::Transform as _Transform;
-use math::{EuclideanSpace, Matrix, One, Rotation};
+use crayon::{ecs, math};
+use crayon::math::Transform as _Transform;
+use crayon::math::{EuclideanSpace, Matrix, One, Rotation};
 
-use scene::node::Node;
-use scene::errors::*;
+use node::Node;
+use errors::*;
 
 /// `Transform` is used to store and manipulate the postiion, rotation and scale
 /// of the object. We use a left handed, y-up world coordinate system.

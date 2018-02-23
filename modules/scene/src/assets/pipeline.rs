@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use graphics::{ShaderHandle, ShaderStateObject, UniformVariableType};
-use utils::HashValue;
+use crayon::graphics::{ShaderHandle, ShaderStateObject, UniformVariableType};
+use crayon::utils::HashValue;
 
 impl_handle!(PipelineHandle);
 
