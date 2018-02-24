@@ -85,7 +85,7 @@ impl<'a> DrawTask<'a> {
     fn material(&self, handle: MaterialHandle) -> (&PipelineObject, &Material) {
         if let Some(mat) = self.scene.materials.get(handle) {
             if let Some(pipeline) = self.scene.pipelines.get(*mat.pipeline) {
-                if self.scene.video.shader_alive(pipeline.shader) {
+                if self.scene.video.is_shader_alive(pipeline.shader) {
                     return (pipeline, mat);
                 }
             }

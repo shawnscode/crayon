@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::ops::Deref;
 
 use resource::prelude::*;
 
@@ -8,14 +9,22 @@ use graphics::assets::prelude::*;
 use graphics::assets::texture_loader::TextureParser;
 use graphics::assets::mesh_loader::MeshParser;
 
-pub struct RAIIGuard {
+pub struct GraphicsSystemGuard {
     stack: Vec<Resource>,
     video: Arc<GraphicsSystemShared>,
 }
 
-impl RAIIGuard {
+impl Deref for GraphicsSystemGuard {
+    type Target = GraphicsSystemShared;
+
+    fn deref(&self) -> &Self::Target {
+        &self.video
+    }
+}
+
+impl GraphicsSystemGuard {
     pub fn new(video: Arc<GraphicsSystemShared>) -> Self {
-        RAIIGuard {
+        GraphicsSystemGuard {
             stack: Vec::new(),
             video: video,
         }
@@ -123,7 +132,7 @@ impl RAIIGuard {
     }
 }
 
-impl Drop for RAIIGuard {
+impl Drop for GraphicsSystemGuard {
     fn drop(&mut self) {
         self.clear();
     }

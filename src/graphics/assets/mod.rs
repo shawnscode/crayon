@@ -55,7 +55,7 @@ pub mod prelude {
 
     pub use super::texture::{RenderTextureFormat, RenderTextureHandle, RenderTextureSetup,
                              TextureAddress, TextureFilter, TextureFormat, TextureHandle,
-                             TextureSetup};
+                             TextureHint, TextureSetup};
 
     pub use super::mesh::{IndexFormat, MeshHandle, MeshHint, MeshIndex, MeshPrimitive, MeshSetup,
                           VertexFormat, VertexLayout};

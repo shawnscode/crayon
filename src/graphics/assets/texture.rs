@@ -7,6 +7,7 @@ pub struct TextureSetup {
     pub format: TextureFormat,
     pub address: TextureAddress,
     pub filter: TextureFilter,
+    pub hint: TextureHint,
     pub mipmap: bool,
     pub dimensions: (u16, u16),
 }
@@ -20,6 +21,7 @@ impl Default for TextureSetup {
             format: TextureFormat::U8U8U8U8,
             address: TextureAddress::Clamp,
             filter: TextureFilter::Linear,
+            hint: TextureHint::Immutable,
             mipmap: false,
             dimensions: (0, 0),
         }
@@ -49,6 +51,21 @@ impl Default for RenderTextureSetup {
 
 pub type RenderTextureStateObject = RenderTextureSetup;
 impl_handle!(RenderTextureHandle);
+
+/// Hint abouts the intended update strategy of the data.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum TextureHint {
+    /// The resource is initialized with data and cannot be changed later, this
+    /// is the most common and most efficient usage. Optimal for render targets
+    /// and resourced memory.
+    Immutable,
+    /// The resource is initialized without data, but will be be updated by the
+    /// CPU in each frame.
+    Stream,
+    /// The resource is initialized without data and will be written by the CPU
+    /// before use, updates will be infrequent.
+    Dynamic,
+}
 
 /// Specify how the texture is used whenever the pixel being sampled.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

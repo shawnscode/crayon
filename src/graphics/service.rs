@@ -181,13 +181,13 @@ impl GraphicsSystemShared {
             frames: frames,
             dimensions: RwLock::new((dimensions, dimensions_in_pixels)),
 
-            surfaces: RwLock::new(Registery::new()),
-            shaders: RwLock::new(Registery::new()),
-            framebuffers: RwLock::new(Registery::new()),
-            render_buffers: RwLock::new(Registery::new()),
-            meshes: RwLock::new(Registery::new()),
-            textures: RwLock::new(Registery::new()),
-            render_textures: RwLock::new(Registery::new()),
+            surfaces: RwLock::new(Registery::passive()),
+            shaders: RwLock::new(Registery::passive()),
+            framebuffers: RwLock::new(Registery::passive()),
+            render_buffers: RwLock::new(Registery::passive()),
+            meshes: RwLock::new(Registery::passive()),
+            textures: RwLock::new(Registery::passive()),
+            render_textures: RwLock::new(Registery::passive()),
         }
     }
 
@@ -339,7 +339,7 @@ impl GraphicsSystemShared {
 
         if let Some(state) = self.meshes.read().unwrap().get(vbu.mesh.into()) {
             if !state.read().unwrap().is_ready() {
-                return Err(Error::AssetNotReady);
+                unreachable!();
             } else {
                 let mut frame = self.frames.front();
                 let ptr = frame.buf.extend_from_slice(vbu.data);
@@ -364,7 +364,7 @@ impl GraphicsSystemShared {
 
         if let Some(state) = self.meshes.read().unwrap().get(ibu.mesh.into()) {
             if !state.read().unwrap().is_ready() {
-                Err(Error::AssetNotReady)
+                unreachable!();
             } else {
                 let mut frame = self.frames.front();
                 let ptr = frame.buf.extend_from_slice(ibu.data);
@@ -389,7 +389,7 @@ impl GraphicsSystemShared {
 
         if let Some(state) = self.textures.read().unwrap().get(tu.texture.into()) {
             if !state.read().unwrap().is_ready() {
-                Err(Error::AssetNotReady)
+                unreachable!();
             } else {
                 let mut frame = self.frames.front();
                 let ptr = frame.buf.extend_from_slice(tu.data);
@@ -422,7 +422,7 @@ impl GraphicsSystemShared {
         if self.surfaces
             .write()
             .unwrap()
-            .dec_rc(handle.into(), true)
+            .dec_rc(handle.into())
             .is_some()
         {
             let task = PostFrameTask::DeleteSurface(handle);
@@ -503,7 +503,7 @@ impl GraphicsSystemShared {
     }
 
     /// Returns true if shader is exists.
-    pub fn shader_alive(&self, handle: ShaderHandle) -> bool {
+    pub fn is_shader_alive(&self, handle: ShaderHandle) -> bool {
         self.shaders.read().unwrap().is_alive(handle.into())
     }
 
@@ -512,7 +512,7 @@ impl GraphicsSystemShared {
         if self.shaders
             .write()
             .unwrap()
-            .dec_rc(handle.into(), true)
+            .dec_rc(handle.into())
             .is_some()
         {
             let task = PostFrameTask::DeletePipeline(handle);
@@ -536,6 +536,10 @@ impl GraphicsSystemShared {
     where
         T: MeshParser + Send + Sync + 'static,
     {
+        if setup.hint != MeshHint::Immutable {
+            return Err(Error::CreateMutableRemoteObject);
+        }
+
         let (handle, state) = {
             let mut meshes = self.meshes.write().unwrap();
             if let Some(handle) = meshes.lookup(location) {
@@ -565,6 +569,12 @@ impl GraphicsSystemShared {
         T1: Into<Option<&'a [u8]>>,
         T2: Into<Option<&'b [u8]>>,
     {
+        if location.is_shared() {
+            if setup.hint != MeshHint::Immutable {
+                return Err(Error::CreateMutableSharedObject);
+            }
+        }
+
         let verts = verts.into();
         let idxes = idxes.into();
 
@@ -611,16 +621,13 @@ impl GraphicsSystemShared {
     }
 
     /// Returns true if shader is exists.
-    pub fn mesh_alive(&self, handle: MeshHandle) -> bool {
+    pub fn is_mesh_alive(&self, handle: MeshHandle) -> bool {
         self.meshes.read().unwrap().is_alive(handle.into())
     }
 
     /// Update a subset of dynamic vertex buffer. Use `offset` specifies the offset
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
-    ///
-    /// Notes that this method might fails without any error when the mesh is not
-    /// ready for operating.
     pub fn update_vertex_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
         if let Some(state) = self.meshes.read().unwrap().get(mesh.into()) {
             if let AssetState::Ready(ref mso) = *state.read().unwrap() {
@@ -632,6 +639,8 @@ impl GraphicsSystemShared {
                 let ptr = frame.buf.extend_from_slice(data);
                 let task = PreFrameTask::UpdateVertexBuffer(mesh, offset, ptr);
                 frame.pre.push(task);
+            } else {
+                unreachable!();
             }
 
             Ok(())
@@ -643,9 +652,6 @@ impl GraphicsSystemShared {
     /// Update a subset of dynamic index buffer. Use `offset` specifies the offset
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
-    ///
-    /// Notes that this method might fails without any error when the mesh is not
-    /// ready for operating.
     pub fn update_index_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
         if let Some(state) = self.meshes.read().unwrap().get(mesh.into()) {
             if let AssetState::Ready(ref mso) = *state.read().unwrap() {
@@ -657,6 +663,8 @@ impl GraphicsSystemShared {
                 let ptr = frame.buf.extend_from_slice(data);
                 let task = PreFrameTask::UpdateIndexBuffer(mesh, offset, ptr);
                 frame.pre.push(task);
+            } else {
+                unreachable!();
             }
 
             Ok(())
@@ -667,12 +675,7 @@ impl GraphicsSystemShared {
 
     /// Delete mesh object.
     pub fn delete_mesh(&self, mesh: MeshHandle) {
-        if self.meshes
-            .write()
-            .unwrap()
-            .dec_rc(mesh.into(), true)
-            .is_some()
-        {
+        if self.meshes.write().unwrap().dec_rc(mesh.into()).is_some() {
             let task = PostFrameTask::DeleteMesh(mesh);
             self.frames.front().post.push(task);
         }
@@ -698,6 +701,10 @@ impl GraphicsSystemShared {
     where
         T: TextureParser + Send + Sync + 'static,
     {
+        if setup.hint != TextureHint::Immutable {
+            return Err(Error::CreateMutableRemoteObject);
+        }
+
         let (handle, state) = {
             let mut textures = self.textures.write().unwrap();
             if let Some(handle) = textures.lookup(location) {
@@ -726,6 +733,12 @@ impl GraphicsSystemShared {
     where
         T: Into<Option<&'a [u8]>>,
     {
+        if location.is_shared() {
+            if setup.hint != TextureHint::Immutable {
+                return Err(Error::CreateMutableSharedObject);
+            }
+        }
+
         let handle = {
             let mut textures = self.textures.write().unwrap();
             if let Some(handle) = textures.lookup(location) {
@@ -758,22 +771,25 @@ impl GraphicsSystemShared {
         self.textures.read().unwrap().is_alive(handle.into())
     }
 
-    /// Update the texture object.
-    ///
-    /// Notes that this method might fails without any error when the texture is not
-    /// ready for operating.
-    pub fn update_texture(&self, texture: TextureHandle, rect: Rect, data: &[u8]) -> Result<()> {
-        if let Some(state) = self.textures.read().unwrap().get(texture.into()) {
-            if state.read().unwrap().is_ready() {
+    /// Update a contiguous subregion of an existing two-dimensional texture object.
+    pub fn update_texture(&self, handle: TextureHandle, rect: Rect, data: &[u8]) -> Result<()> {
+        if let Some(state) = self.textures.read().unwrap().get(handle.into()) {
+            if let AssetState::Ready(ref texture) = *state.read().unwrap() {
+                if texture.hint == TextureHint::Immutable {
+                    return Err(Error::UpdateImmutableBuffer);
+                }
+
                 let mut frame = self.frames.front();
                 let ptr = frame.buf.extend_from_slice(data);
-                let task = PreFrameTask::UpdateTexture(texture, rect, ptr);
+                let task = PreFrameTask::UpdateTexture(handle, rect, ptr);
                 frame.pre.push(task);
+            } else {
+                unreachable!()
             }
 
             Ok(())
         } else {
-            Err(Error::TextureHandleInvalid(texture))
+            Err(Error::TextureHandleInvalid(handle))
         }
     }
 
@@ -782,7 +798,7 @@ impl GraphicsSystemShared {
         if self.textures
             .write()
             .unwrap()
-            .dec_rc(handle.into(), true)
+            .dec_rc(handle.into())
             .is_some()
         {
             let task = PostFrameTask::DeleteTexture(handle);
@@ -815,7 +831,7 @@ impl GraphicsSystemShared {
         if self.render_textures
             .write()
             .unwrap()
-            .dec_rc(handle.into(), true)
+            .dec_rc(handle.into())
             .is_some()
         {
             let task = PostFrameTask::DeleteRenderTexture(handle);

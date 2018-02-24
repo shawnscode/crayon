@@ -1,6 +1,6 @@
 use crayon::prelude::*;
 use crayon::graphics::assets::prelude::*;
-use crayon::graphics::RAIIGuard;
+use crayon::graphics::GraphicsSystemGuard;
 
 use utils::*;
 use errors::*;
@@ -12,12 +12,11 @@ impl_vertex!{
 }
 
 struct Window {
-    _label: RAIIGuard,
-
     surface: SurfaceHandle,
     shader: ShaderHandle,
     mesh: MeshHandle,
     texture: TextureHandle,
+    video: GraphicsSystemGuard,
 }
 
 impl Window {
@@ -26,8 +25,7 @@ impl Window {
         engine.resource.mount("std", DirectoryFS::new(assets)?)?;
 
         let ctx = engine.context();
-        let video = ctx.shared::<GraphicsSystem>().clone();
-        let mut label = RAIIGuard::new(video);
+        let mut video = GraphicsSystemGuard::new(ctx.shared::<GraphicsSystem>().clone());
 
         let verts: [Vertex; 4] = [
             Vertex::new([-1.0, -1.0]),
@@ -47,7 +45,7 @@ impl Window {
         setup.num_idxes = 6;
         setup.layout = Vertex::layout();
 
-        let mesh = label.create_mesh(
+        let mesh = video.create_mesh(
             Location::unique(""),
             setup,
             Vertex::encode(&verts[..]),
@@ -56,7 +54,7 @@ impl Window {
 
         // Create the view state.
         let setup = SurfaceSetup::default();
-        let surface = label.create_surface(setup)?;
+        let surface = video.create_surface(setup)?;
 
         // Create shader state.
         let mut setup = ShaderSetup::default();
@@ -65,11 +63,11 @@ impl Window {
         setup.fs = include_str!("../../assets/texture.fs").to_owned();
         let tt = UniformVariableType::Texture;
         setup.uniform_variables.insert("renderedTexture".into(), tt);
-        let shader = label.create_shader(Location::unique(""), setup)?;
+        let shader = video.create_shader(Location::unique(""), setup)?;
 
         let setup = TextureSetup::default();
         let location = Location::unique("/std/texture.png");
-        let texture = label
+        let texture = video
             .create_texture_from::<TextureParser>(location, setup)
             .unwrap();
 
@@ -78,7 +76,7 @@ impl Window {
             shader: shader,
             mesh: mesh,
             texture: texture,
-            _label: label,
+            video: video,
         })
     }
 }
@@ -86,14 +84,11 @@ impl Window {
 impl Application for Window {
     type Error = Error;
 
-    fn on_update(&mut self, ctx: &Context) -> Result<()> {
-        let video = ctx.shared::<GraphicsSystem>();
-
+    fn on_update(&mut self, _: &Context) -> Result<()> {
         let mut dc = DrawCall::new(self.shader, self.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
         let cmd = dc.build_from(0, 6)?;
-        video.submit(self.surface, 0u64, cmd)?;
-
+        self.video.submit(self.surface, 0u64, cmd)?;
         Ok(())
     }
 }
