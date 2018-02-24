@@ -10,7 +10,7 @@ categories = ["multimedia", "game-engines"]
 
 [dependencies]
 crayon = { path = "../../", version = "0.3.0" }
-error-chain = "0.11.0"
+failure = "0.1.1"
 
 [dev-dependencies]
 rand = "0.4.2"

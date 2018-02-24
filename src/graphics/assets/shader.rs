@@ -111,7 +111,7 @@ impl FromStr for Attribute {
             "Texcoord1" => Ok(Attribute::Texcoord1),
             "Texcoord2" => Ok(Attribute::Texcoord2),
             "Texcoord3" => Ok(Attribute::Texcoord3),
-            _ => bail!(format!("Can not parse attribute from &str `{0}`.", s)),
+            _ => Err(Error::AttributeParseFailure(s.into())),
         }
     }
 }

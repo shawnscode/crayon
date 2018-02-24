@@ -122,11 +122,11 @@ impl OpenGLVisitor {
         attributes: &AttributeLayout,
         layout: &VertexLayout,
     ) -> Result<()> {
-        let pid = self.active_program.get().ok_or(ErrorKind::InvalidHandle)?;
+        let pid = self.active_program.get().ok_or(Error::HandleInvalid)?;
         let vid = *self.active_bufs
             .borrow()
             .get(&gl::ARRAY_BUFFER)
-            .ok_or(ErrorKind::InvalidHandle)?;
+            .ok_or(Error::HandleInvalid)?;
 
         if let Some(vao) = self.vertex_array_objects.borrow().get(&VAOPair(pid, vid)) {
             if let Some(v) = self.active_vao.get() {
@@ -148,12 +148,10 @@ impl OpenGLVisitor {
         for (name, size) in attributes.iter() {
             if let Some(element) = layout.element(name) {
                 if element.size < size {
-                    bail!(format!(
+                    return Err(Error::DrawFailure(format!(
                         "vertex buffer has incompatible attribute `{:?}` [{:?} - {:?}].",
-                        name,
-                        element.size,
-                        size
-                    ));
+                        name, element.size, size
+                    )));
                 }
 
                 let offset = layout.offset(name).unwrap() as *const u8 as *const c_void;
@@ -169,10 +167,10 @@ impl OpenGLVisitor {
                     offset,
                 );
             } else {
-                bail!(format!(
+                return Err(Error::DrawFailure(format!(
                     "can't find attribute {:?} description in vertex buffer.",
                     name
-                ));
+                )));
             }
         }
 
@@ -224,7 +222,7 @@ impl OpenGLVisitor {
                 }
             }
         } else {
-            bail!(ErrorKind::InvalidHandle)
+            Err(Error::UniformUndefined(name.into()))
         }
     }
 
@@ -243,7 +241,7 @@ impl OpenGLVisitor {
                 }
             }
         } else {
-            bail!(ErrorKind::InvalidHandle)
+            Err(Error::AttributeUndefined(name.into()))
         }
     }
 
@@ -503,7 +501,7 @@ impl OpenGLVisitor {
 
     pub unsafe fn bind_render_buffer(&self, id: GLuint) -> Result<()> {
         if id == 0 {
-            bail!("failed to bind render buffer with 0.");
+            panic!("failed to bind render buffer with 0.");
         }
 
         if let Some(v) = self.active_renderbuffer.get() {
@@ -565,11 +563,11 @@ impl OpenGLVisitor {
 
     pub unsafe fn bind_texture(&self, slot: GLuint, id: GLuint) -> Result<()> {
         if id == 0 {
-            bail!("failed to bind texture with 0.");
+            panic!("failed to bind texture with 0.");
         }
 
         if slot as usize >= MAX_UNIFORM_TEXTURE_SLOTS {
-            bail!("out of max texture slots.");
+            return Err(Error::OutOfBounds);
         }
 
         let cache = &mut self.active_textures.borrow_mut();
@@ -706,7 +704,7 @@ impl OpenGLVisitor {
         if check_status && gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
             self.active_framebuffer.set(0);
-            bail!("framebuffer is not complete, fallback the to default framebuffer.");
+            return Err(Error::GLFrameBufferIncomplete);
         } else {
             self.active_framebuffer.set(id);
         }
@@ -731,7 +729,7 @@ impl OpenGLVisitor {
         slot: u32,
     ) -> Result<()> {
         if self.active_framebuffer.get() == 0 {
-            bail!("cann't attach texture to default framebuffer.");
+            panic!("can't attach texture to default framebuffer.");
         }
 
         match setup.format {
@@ -791,7 +789,7 @@ impl OpenGLVisitor {
 
     pub unsafe fn delete_framebuffer(&self, id: GLuint) -> Result<()> {
         if id == 0 {
-            bail!("try to delete default frame buffer with id 0.");
+            panic!("try to delete default frame buffer with id 0.");
         }
 
         if self.active_framebuffer.get() == id {
@@ -897,10 +895,13 @@ impl OpenGLVisitor {
                 buf.as_mut_ptr() as *mut GLchar,
             );
 
-            let error = format!("{}. with source:\n{}\n", str::from_utf8(&buf).unwrap(), src);
-            bail!(ErrorKind::FailedCompilePipeline(error));
+            Err(Error::GLShaderCompileFailure {
+                source: src.into(),
+                errors: str::from_utf8(&buf).unwrap().into(),
+            })
+        } else {
+            Ok(shader)
         }
-        Ok(shader)
     }
 
     pub unsafe fn link(&self, vs: GLuint, fs: GLuint) -> Result<GLuint> {
@@ -926,22 +927,24 @@ impl OpenGLVisitor {
                 buf.as_mut_ptr() as *mut GLchar,
             );
 
-            let error = format!("{}. ", str::from_utf8(&buf).unwrap());
-            bail!(ErrorKind::FailedCompilePipeline(error));
+            Err(Error::GLPipelineCompileFailure(
+                str::from_utf8(&buf).unwrap().into(),
+            ))
+        } else {
+            Ok(program)
         }
-        Ok(program)
     }
 }
 
 pub unsafe fn check() -> Result<()> {
     match gl::GetError() {
         gl::NO_ERROR => Ok(()),
-        gl::INVALID_ENUM => Err(ErrorKind::InvalidEnum.into()),
-        gl::INVALID_VALUE => Err(ErrorKind::InvalidValue.into()),
-        gl::INVALID_OPERATION => Err(ErrorKind::InvalidOperation.into()),
-        gl::INVALID_FRAMEBUFFER_OPERATION => Err(ErrorKind::InvalidFramebufferOperation.into()),
-        gl::OUT_OF_MEMORY => Err(ErrorKind::OutOfBounds.into()),
-        _ => Err(ErrorKind::Unknown.into()),
+        gl::INVALID_ENUM => Err(Error::GLEnumInvalid),
+        gl::INVALID_VALUE => Err(Error::GLValueInvalid),
+        gl::INVALID_OPERATION => Err(Error::GLOperationInvalid),
+        gl::INVALID_FRAMEBUFFER_OPERATION => Err(Error::GLFrameBufferOperationInvalid),
+        gl::OUT_OF_MEMORY => Err(Error::GLOutOfMemory),
+        _ => Err(Error::GLUnknown),
     }
 }
 

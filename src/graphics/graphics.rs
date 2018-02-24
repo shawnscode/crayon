@@ -6,8 +6,9 @@ use std::collections::HashMap;
 use utils::{HashValue, Rect};
 use resource::{Location, Registery, ResourceSystemShared};
 
+use graphics::errors::{Error, Result};
+
 use super::*;
-use super::errors::*;
 use super::backend::frame::*;
 use super::backend::device::Device;
 use super::command::Command;
@@ -34,11 +35,8 @@ impl GraphicsSystem {
         let device = unsafe { Device::new() };
         let frames = Arc::new(DoubleFrame::with_capacity(64 * 1024));
 
-        let err = ErrorKind::WindowNotExist;
-        let dimensions = window.dimensions().ok_or(err)?;
-
-        let err = ErrorKind::WindowNotExist;
-        let dimensions_in_pixels = window.dimensions_in_pixels().ok_or(err)?;
+        let dimensions = window.dimensions().ok_or(Error::WindowNotExists)?;
+        let dimensions_in_pixels = window.dimensions_in_pixels().ok_or(Error::WindowNotExists)?;
 
         let shared =
             GraphicsSystemShared::new(resource, frames.clone(), dimensions, dimensions_in_pixels);
@@ -75,11 +73,10 @@ impl GraphicsSystem {
         unsafe {
             let ts = time::Instant::now();
 
-            let err = ErrorKind::WindowNotExist;
-            let dimensions = self.window.dimensions().ok_or(err)?;
-
-            let err = ErrorKind::WindowNotExist;
-            let dimensions_in_pixels = self.window.dimensions_in_pixels().ok_or(err)?;
+            let dimensions = self.window.dimensions().ok_or(Error::WindowNotExists)?;
+            let dimensions_in_pixels = self.window
+                .dimensions_in_pixels()
+                .ok_or(Error::WindowNotExists)?;
 
             let hidpi = self.window.hidpi_factor();
 
@@ -200,7 +197,7 @@ impl GraphicsSystemShared {
         T2: Into<Command<'a>>,
     {
         if !self.surfaces.read().unwrap().is_alive(s.into()) {
-            bail!("Undefined surface handle.");
+            return Err(Error::SurfaceHandleInvalid(s));
         }
 
         let o = o.into();
@@ -221,7 +218,7 @@ impl GraphicsSystemShared {
         dc: &command::SliceDrawCall<'a>,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
-            bail!("Undefined surface handle.");
+            return Err(Error::SurfaceHandleInvalid(surface));
         }
 
         if let Some(state) = self.meshes.read().unwrap().get(dc.mesh.into()) {
@@ -229,37 +226,43 @@ impl GraphicsSystemShared {
                 return Ok(());
             }
         } else {
-            bail!("Undefined mesh handle.");
+            return Err(Error::MeshHandleInvalid(dc.mesh));
         }
 
         let mut frame = self.frames.front();
-        let uniforms =
-            {
-                let mut pack = Vec::new();
-                if let Some(state) = self.shaders.read().unwrap().get(dc.shader.into()) {
-                    match *state {
-                        AssetState::Ready(ref sso) => {
-                            for &(n, v) in dc.uniforms {
-                                if let Some(tt) = sso.uniform_variable(n) {
-                                    if tt == v.variable_type() {
-                                        pack.push((n, frame.buf.extend(&v)));
-                                    } else {
-                                        let name = sso.uniform_variable_name(n).unwrap();
-                                        bail!(format!("Unmatched uniform variable: [{:?}]{:?} ({:?} required).", v.variable_type(), name, tt));
-                                    }
-                                } else {
-                                    bail!(format!("Undefined uniform variable: {:?}.", n));
-                                }
-                            }
-                        }
-                        _ => return Ok(()),
-                    };
-                } else {
-                    bail!("Undefined shader state handle.");
-                }
+        let uniforms = {
+            let mut pack = Vec::new();
+            if let Some(state) = self.shaders.read().unwrap().get(dc.shader.into()) {
+                match *state {
+                    AssetState::Ready(ref sso) => for &(n, v) in dc.uniforms {
+                        if let Some(tt) = sso.uniform_variable(n) {
+                            if tt == v.variable_type() {
+                                pack.push((n, frame.buf.extend(&v)));
+                            } else {
+                                let name = sso.uniform_variable_name(n).unwrap();
 
-                frame.buf.extend_from_slice(&pack)
-            };
+                                return Err(Error::DrawFailure(format!(
+                                    "Unmatched uniform variable: [{:?}]{:?} ({:?} required).",
+                                    v.variable_type(),
+                                    name,
+                                    tt
+                                )));
+                            }
+                        } else {
+                            return Err(Error::DrawFailure(format!(
+                                "Undefined uniform variable: {:?}.",
+                                n
+                            )));
+                        }
+                    },
+                    _ => return Ok(()),
+                };
+            } else {
+                return Err(Error::ShaderHandleInvalid(dc.shader));
+            }
+
+            frame.buf.extend_from_slice(&pack)
+        };
 
         let dc = FrameDrawCall {
             shader: dc.shader,
@@ -279,7 +282,7 @@ impl GraphicsSystemShared {
         su: &command::ScissorUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
-            bail!(ErrorKind::InvalidSurfaceHandle);
+            return Err(Error::SurfaceHandleInvalid(surface));
         }
 
         let mut frame = self.frames.front();
@@ -295,7 +298,7 @@ impl GraphicsSystemShared {
         vp: &command::ViewportUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
-            bail!(ErrorKind::InvalidSurfaceHandle);
+            return Err(Error::SurfaceHandleInvalid(surface));
         }
 
         let mut frame = self.frames.front();
@@ -311,12 +314,12 @@ impl GraphicsSystemShared {
         vbu: &command::VertexBufferUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
-            bail!(ErrorKind::InvalidSurfaceHandle);
+            return Err(Error::SurfaceHandleInvalid(surface));
         }
 
         if let Some(state) = self.meshes.read().unwrap().get(vbu.mesh.into()) {
             if !state.read().unwrap().is_ready() {
-                bail!(ErrorKind::AssetNotReady);
+                return Err(Error::AssetNotReady);
             } else {
                 let mut frame = self.frames.front();
                 let ptr = frame.buf.extend_from_slice(vbu.data);
@@ -325,7 +328,7 @@ impl GraphicsSystemShared {
                 Ok(())
             }
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::MeshHandleInvalid(vbu.mesh))
         }
     }
 
@@ -336,12 +339,12 @@ impl GraphicsSystemShared {
         ibu: &command::IndexBufferUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
-            bail!(ErrorKind::InvalidSurfaceHandle);
+            return Err(Error::SurfaceHandleInvalid(surface));
         }
 
         if let Some(state) = self.meshes.read().unwrap().get(ibu.mesh.into()) {
             if !state.read().unwrap().is_ready() {
-                bail!(ErrorKind::AssetNotReady);
+                Err(Error::AssetNotReady)
             } else {
                 let mut frame = self.frames.front();
                 let ptr = frame.buf.extend_from_slice(ibu.data);
@@ -350,7 +353,7 @@ impl GraphicsSystemShared {
                 Ok(())
             }
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::MeshHandleInvalid(ibu.mesh))
         }
     }
 
@@ -361,22 +364,21 @@ impl GraphicsSystemShared {
         tu: &command::TextureUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
-            bail!(ErrorKind::InvalidSurfaceHandle);
+            return Err(Error::SurfaceHandleInvalid(surface));
         }
 
         if let Some(state) = self.textures.read().unwrap().get(tu.texture.into()) {
             if !state.read().unwrap().is_ready() {
-                bail!(ErrorKind::AssetNotReady);
+                Err(Error::AssetNotReady)
             } else {
                 let mut frame = self.frames.front();
                 let ptr = frame.buf.extend_from_slice(tu.data);
                 let task = FrameTask::UpdateTexture(tu.texture, tu.rect, ptr);
                 frame.tasks.push((surface, order, task));
+                Ok(())
             }
-
-            Ok(())
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::TextureHandleInvalid(tu.texture))
         }
     }
 }
@@ -423,18 +425,22 @@ impl GraphicsSystemShared {
     /// all the informations we need to configurate OpenGL before real drawing.
     pub fn create_shader(&self, location: Location, setup: ShaderSetup) -> Result<ShaderHandle> {
         if setup.uniform_variables.len() > MAX_UNIFORM_VARIABLES {
-            bail!(
+            return Err(Error::ShaderCreationFailure(format!(
                 "Too many uniform variables (>= {:?}).",
                 MAX_UNIFORM_VARIABLES
-            );
+            )));
         }
 
         if setup.vs.is_empty() {
-            bail!("Vertex shader is required to describe a proper render pipeline.");
+            return Err(Error::ShaderCreationFailure(
+                "Vertex shader is required to describe a proper render pipeline.".into(),
+            ));
         }
 
         if setup.fs.is_empty() {
-            bail!("Fragment shader is required to describe a proper render pipeline.");
+            return Err(Error::ShaderCreationFailure(
+                "Fragment shader is required to describe a proper render pipeline.".into(),
+            ));
         }
 
         let handle = {
@@ -544,13 +550,13 @@ impl GraphicsSystemShared {
 
         if let Some(buf) = verts.as_ref() {
             if buf.len() > setup.vertex_buffer_len() {
-                bail!("Out of bounds!");
+                return Err(Error::OutOfBounds);
             }
         }
 
         if let Some(buf) = idxes.as_ref() {
             if buf.len() > setup.index_buffer_len() {
-                bail!("Out of bounds!");
+                return Err(Error::OutOfBounds);
             }
         }
 
@@ -599,8 +605,9 @@ impl GraphicsSystemShared {
         if let Some(state) = self.meshes.read().unwrap().get(mesh.into()) {
             if let AssetState::Ready(ref mso) = *state.read().unwrap() {
                 if mso.hint == BufferHint::Immutable {
-                    bail!(ErrorKind::CanNotUpdateImmutableBuffer);
+                    return Err(Error::UpdateImmutableBuffer);
                 }
+
                 let mut frame = self.frames.front();
                 let ptr = frame.buf.extend_from_slice(data);
                 let task = PreFrameTask::UpdateVertexBuffer(mesh, offset, ptr);
@@ -609,7 +616,7 @@ impl GraphicsSystemShared {
 
             Ok(())
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::MeshHandleInvalid(mesh))
         }
     }
 
@@ -623,7 +630,7 @@ impl GraphicsSystemShared {
         if let Some(state) = self.meshes.read().unwrap().get(mesh.into()) {
             if let AssetState::Ready(ref mso) = *state.read().unwrap() {
                 if mso.hint == BufferHint::Immutable {
-                    bail!(ErrorKind::CanNotUpdateImmutableBuffer);
+                    return Err(Error::UpdateImmutableBuffer);
                 }
 
                 let mut frame = self.frames.front();
@@ -634,7 +641,7 @@ impl GraphicsSystemShared {
 
             Ok(())
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::MeshHandleInvalid(mesh))
         }
     }
 
@@ -746,7 +753,7 @@ impl GraphicsSystemShared {
 
             Ok(())
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::TextureHandleInvalid(texture))
         }
     }
 

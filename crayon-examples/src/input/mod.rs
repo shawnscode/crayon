@@ -2,6 +2,7 @@ use crayon::prelude::*;
 use crayon_imgui::prelude::*;
 
 use utils;
+use errors::*;
 
 struct Window {
     canvas: Canvas,
@@ -15,7 +16,7 @@ struct Window {
 }
 
 impl Window {
-    fn new(engine: &mut Engine) -> errors::Result<Self> {
+    fn new(engine: &mut Engine) -> Result<Self> {
         let ctx = engine.context();
         let canvas = Canvas::new(ctx).unwrap();
 
@@ -37,7 +38,9 @@ impl Window {
 }
 
 impl Application for Window {
-    fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
+    type Error = Error;
+
+    fn on_update(&mut self, ctx: &Context) -> Result<()> {
         let input = ctx.shared::<InputSystem>().clone();
 
         self.text += &input.text();
@@ -138,7 +141,7 @@ impl Application for Window {
         Ok(())
     }
 
-    fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> errors::Result<()> {
+    fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> Result<()> {
         self.info = *info;
         Ok(())
     }

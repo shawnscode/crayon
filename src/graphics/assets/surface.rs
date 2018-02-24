@@ -60,7 +60,7 @@ impl SurfaceSetup {
         T1: Into<Option<RenderTextureHandle>>,
     {
         if colors.len() >= MAX_FRAMEBUFFER_ATTACHMENTS {
-            bail!("Too many color attachments.");
+            return Err(Error::TooManyColorAttachments);
         }
 
         for (i, v) in self.colors.iter_mut().enumerate() {
@@ -118,7 +118,6 @@ pub enum Scissor {
     Enable((u16, u16), (u16, u16)),
     Disable,
 }
-
 
 /// Sets the viewport of surface. This specifies the affine transformation of (x, y),
 /// in window coordinates to normalized window coordinates.

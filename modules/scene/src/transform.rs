@@ -127,7 +127,7 @@ impl Transform {
         if let Some(inverse) = decomposed.inverse_transform() {
             Ok(math::Matrix4::from(inverse))
         } else {
-            bail!(ErrorKind::CanNotInverseTransform);
+            Err(Error::CanNotInverseTransform)
         }
     }
 
@@ -144,7 +144,7 @@ impl Transform {
         T3: Into<math::Vector3<f32>>,
     {
         if arena.get(handle).is_none() {
-            bail!(ErrorKind::NonTransformFound);
+            return Err(Error::NonTransformFound);
         }
 
         let disp = disp.into();
@@ -187,7 +187,7 @@ impl Transform {
             }
             Ok(disp)
         } else {
-            bail!(ErrorKind::NonTransformFound);
+            Err(Error::NonTransformFound)
         }
     }
 
@@ -203,7 +203,7 @@ impl Transform {
         T2: ecs::ArenaMut<Transform>,
     {
         if arena.get(handle).is_none() {
-            bail!(ErrorKind::NonTransformFound);
+            return Err(Error::NonTransformFound);
         }
 
         unsafe {
@@ -245,7 +245,7 @@ impl Transform {
             }
             Ok(scale)
         } else {
-            bail!(ErrorKind::NonTransformFound);
+            Err(Error::NonTransformFound)
         }
     }
 
@@ -262,7 +262,7 @@ impl Transform {
         T3: Into<math::Quaternion<f32>>,
     {
         if arena.get(handle).is_none() {
-            bail!(ErrorKind::NonTransformFound);
+            return Err(Error::NonTransformFound);
         }
 
         unsafe {
@@ -304,7 +304,7 @@ impl Transform {
             }
             Ok(rotation)
         } else {
-            bail!(ErrorKind::NonTransformFound);
+            Err(Error::NonTransformFound)
         }
     }
 
@@ -347,7 +347,7 @@ impl Transform {
             }
             Ok(())
         } else {
-            bail!(ErrorKind::CanNotInverseTransform);
+            Err(Error::CanNotInverseTransform)
         }
     }
 
@@ -369,7 +369,7 @@ impl Transform {
             }
             Ok(decomposed)
         } else {
-            bail!(ErrorKind::NonTransformFound);
+            Err(Error::NonTransformFound)
         }
     }
 }

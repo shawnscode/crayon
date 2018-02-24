@@ -1,19 +1,23 @@
-use std::io;
-use zip;
+#[derive(Debug, Fail)]
+pub enum Error {
+    #[fail(display = "{}", _0)] IO(::std::io::Error),
+    #[fail(display = "{}", _0)] Zip(::zip::result::ZipError),
+    #[fail(display = "Drive identifier is duplicated.")] DriveIdentDuplicated,
+    #[fail(display = "Failed to find drive with identifier \'{}\'", _0)] DriveNotFound(String),
+    #[fail(display = "Failed to find filesystem at {}", _0)] FilesystemNotFound(String),
+    #[fail(display = "Failed to find file at {}", _0)] FileNotFound(String),
+}
 
-error_chain!{
-    types {
-        Error, ErrorKind, ResultExt, Result;
+pub type Result<T> = ::std::result::Result<T, Error>;
+
+impl From<::std::io::Error> for Error {
+    fn from(err: ::std::io::Error) -> Self {
+        Error::IO(err)
     }
+}
 
-    foreign_links {
-        IO(io::Error);
-        Zip(zip::result::ZipError);
-    }
-
-    errors {
-        DriveWithSameIdentFound
-        DriveNotFound
-        NotFound
+impl From<::zip::result::ZipError> for Error {
+    fn from(err: ::zip::result::ZipError) -> Self {
+        Error::Zip(err)
     }
 }

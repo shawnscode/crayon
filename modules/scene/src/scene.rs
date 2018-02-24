@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crayon;
 use crayon::application::Context;
 use crayon::ecs::{ArenaMut, Component, Entity, Fetch, FetchMut, World};
 use crayon::graphics::{GraphicsSystem, GraphicsSystemShared, SurfaceHandle, UniformVariable};
@@ -131,7 +132,7 @@ impl Scene {
         T1: Into<Element>,
     {
         if !self.world.is_alive(handle) {
-            bail!(ErrorKind::HandleInvalid);
+            return Err(Error::NonNodeFound);
         }
 
         unsafe {
@@ -168,10 +169,10 @@ impl Scene {
             for (uniform, field) in &setup.link_uniforms {
                 if let Some(tt) = sso.uniform_variable(*field) {
                     if tt != (*uniform).into() {
-                        bail!(ErrorKind::UniformTypeInvalid);
+                        return Err(Error::UniformMismatch);
                     }
                 } else {
-                    bail!(ErrorKind::UniformUndefined);
+                    return Err(Error::UniformMismatch);
                 }
             }
 
@@ -183,7 +184,7 @@ impl Scene {
 
             Ok(self.pipelines.create(location, po).into())
         } else {
-            bail!("Undefined shader handle.");
+            Err(crayon::graphics::errors::Error::ShaderHandleInvalid(setup.shader).into())
         }
     }
 
@@ -193,7 +194,7 @@ impl Scene {
             let m = self.materials.create(Material::new(pipeline));
             Ok(m.into())
         } else {
-            bail!("Undefined pipeline handle.");
+            Err(Error::PipelineHandleInvalid(pipeline))
         }
     }
 
@@ -210,7 +211,7 @@ impl Scene {
 
             Ok(())
         } else {
-            bail!("Undefined material handle");
+            Err(Error::MaterialHandleInvalid(h))
         }
     }
 
@@ -220,10 +221,10 @@ impl Scene {
     #[inline]
     pub fn delete_material(&mut self, handle: MaterialHandle) -> Result<()> {
         if self.materials.free(handle).is_none() {
-            bail!("Undefined material handle");
+            Err(Error::MaterialHandleInvalid(handle))
+        } else {
+            Ok(())
         }
-
-        Ok(())
     }
 
     pub fn advance(&mut self, camera: Entity) -> Result<()> {

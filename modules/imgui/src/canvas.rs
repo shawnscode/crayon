@@ -2,7 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use imgui;
 use crayon::{application, graphics, input};
-use crayon::application::errors::*;
+use crayon::application::Result;
 use renderer::Renderer;
 
 pub struct FrameGuard<'a> {

@@ -62,10 +62,7 @@ impl Version {
     pub unsafe fn parse() -> Result<Version> {
         let desc = gl::GetString(gl::VERSION);
         let desc = String::from_utf8(ffi::CStr::from_ptr(desc as *const _).to_bytes().to_vec())
-            .map_err(|_| {
-                let tips = "glGetString(GL_VERSION) returned an unfomaled string.".to_string();
-                ErrorKind::Msg(tips)
-            })?;
+            .map_err(|_| Error::GLGetStrFailure("String is unformaled.".into()))?;
 
         let (es, desc) = if desc.starts_with("OpenGL ES ") {
             (true, &desc[10..])
@@ -75,9 +72,9 @@ impl Version {
             (false, &desc[..])
         };
 
-        let desc = desc.split(' ').next().ok_or_else(|| {
-            ErrorKind::Msg("glGetString(GL_VERSION) returned an empty string".to_string())
-        })?;
+        let desc = desc.split(' ')
+            .next()
+            .ok_or_else(|| Error::GLGetStrFailure("String is unformaled.".into()))?;
 
         let mut iter = desc.split(move |c: char| c == '.');
         let major = iter.next().unwrap();
@@ -253,12 +250,11 @@ impl Capabilities {
     unsafe fn parse_str(id: GLenum) -> Result<String> {
         let s = gl::GetString(gl::RENDERER);
         if s.is_null() {
-            bail!(format!("glGetString({}) returned a invalid string.", id));
+            return Err(Error::GLGetStrFailure(format!("String of {} is null.", id)));
         }
 
-        String::from_utf8(ffi::CStr::from_ptr(s as *const _).to_bytes().to_vec()).map_err(|_| {
-            ErrorKind::Msg(format!("glGetString({}) returned a invalid string.", id)).into()
-        })
+        String::from_utf8(ffi::CStr::from_ptr(s as *const _).to_bytes().to_vec())
+            .map_err(|_| Error::GLGetStrFailure(format!("String of {} is unformaled.", id)))
     }
 
     #[inline]

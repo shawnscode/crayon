@@ -1,4 +1,5 @@
 use crayon::prelude::*;
+use errors::*;
 
 impl_vertex!{
     Vertex {
@@ -21,7 +22,7 @@ struct Window {
 }
 
 impl Window {
-    pub fn new(engine: &mut Engine) -> errors::Result<Self> {
+    pub fn new(engine: &mut Engine) -> Result<Self> {
         let ctx = engine.context();
         let video = ctx.shared::<GraphicsSystem>().clone();
         let mut label = graphics::RAIIGuard::new(video);
@@ -137,7 +138,9 @@ impl Window {
 }
 
 impl Application for Window {
-    fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
+    type Error = Error;
+
+    fn on_update(&mut self, ctx: &Context) -> Result<()> {
         let video = ctx.shared::<GraphicsSystem>();
 
         {

@@ -132,7 +132,7 @@ impl<'a, 'b> System<'a> for DrawTask<'b> {
                 let projection = v.matrix();
                 (view, projection)
             } else {
-                bail!(ErrorKind::NonCameraFound);
+                return Err(Error::NonCameraFound);
             }
         };
 

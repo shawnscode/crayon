@@ -39,10 +39,10 @@ impl Material {
 
         if let Some(tt) = pipeline.sso.uniform_variable(field) {
             if tt != variable.variable_type() {
-                bail!(ErrorKind::UniformTypeInvalid);
+                return Err(Error::UniformMismatch);
             }
         } else {
-            bail!(ErrorKind::UniformUndefined);
+            return Err(Error::UniformMismatch);
         }
 
         self.variables.insert(field, variable);

@@ -196,7 +196,7 @@ impl Device {
                 UniformVariable::RenderTexture(handle) => {
                     if let Some(texture) = self.render_textures.get(handle) {
                         if !texture.setup.sampler {
-                            bail!("Sampler must be TRUE if you want access RenderTexture from a shader.");
+                            return Err(Error::SampleRenderBuffer);
                         }
 
                         let v = UniformVariable::I32(texture_idx);
@@ -212,7 +212,8 @@ impl Device {
         }
 
         // Bind vertex buffer and vertex array object.
-        let mesh = self.meshes.get(dc.mesh).ok_or(ErrorKind::InvalidHandle)?;
+        let mesh = self.meshes.get(dc.mesh).ok_or(Error::HandleInvalid)?;
+
         self.visitor.bind_buffer(gl::ARRAY_BUFFER, mesh.vbo)?;
         self.visitor
             .bind_attribute_layout(&shader.layout, &mesh.setup.layout)?;
@@ -224,7 +225,7 @@ impl Device {
         let (from, len) = match dc.index {
             MeshIndex::Ptr(from, len) => {
                 if (from + len) > mesh.setup.num_idxes {
-                    bail!("Invalid index of sub-mesh!");
+                    return Err(Error::OutOfBounds);
                 }
 
                 (
@@ -237,7 +238,7 @@ impl Device {
                 let from = mesh.setup
                     .sub_mesh_offsets
                     .get(index)
-                    .ok_or_else(|| Error::from(ErrorKind::OutOfBounds))?;
+                    .ok_or(Error::OutOfBounds)?;
 
                 let to = if index == (num - 1) {
                     mesh.setup.num_idxes
@@ -308,7 +309,7 @@ impl Device {
         dimensions: (u16, u16),
         hidpi: f32,
     ) -> Result<()> {
-        let surface = self.surfaces.get(handle).ok_or(ErrorKind::InvalidHandle)?;
+        let surface = self.surfaces.get(handle).ok_or(Error::HandleInvalid)?;
 
         // Bind frame buffer.
         let (dimensions, hidpi) = if let Some(fbo) = surface.framebuffer {
@@ -344,7 +345,7 @@ impl Device {
     }
 
     unsafe fn bind_shader(&self, handle: ShaderHandle) -> Result<&ShaderObject> {
-        let shader = self.shaders.get(handle).ok_or(ErrorKind::InvalidHandle)?;
+        let shader = self.shaders.get(handle).ok_or(Error::HandleInvalid)?;
 
         if let Some(v) = self.active_shader.get() {
             if v == handle {
@@ -385,7 +386,7 @@ impl Device {
         idxes: Option<&[u8]>,
     ) -> Result<()> {
         if self.meshes.get(handle).is_some() {
-            bail!(ErrorKind::DuplicatedHandle)
+            return Err(Error::HandleDuplicated);
         }
 
         let vbo = self.visitor.create_buffer(
@@ -420,17 +421,17 @@ impl Device {
     ) -> Result<()> {
         if let Some(mesh) = self.meshes.get(handle) {
             if mesh.setup.hint == BufferHint::Immutable {
-                bail!(ErrorKind::InvalidUpdateStaticResource);
+                return Err(Error::UpdateImmutableBuffer);
             }
 
             if data.len() + offset > mesh.setup.vertex_buffer_len() {
-                bail!(ErrorKind::OutOfBounds);
+                return Err(Error::OutOfBounds);
             }
 
             self.visitor
                 .update_buffer(mesh.vbo, OpenGLBuffer::Vertex, offset as u32, data)
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::HandleInvalid)
         }
     }
 
@@ -442,17 +443,17 @@ impl Device {
     ) -> Result<()> {
         if let Some(mesh) = self.meshes.get(handle) {
             if mesh.setup.hint == BufferHint::Immutable {
-                bail!(ErrorKind::InvalidUpdateStaticResource);
+                return Err(Error::UpdateImmutableBuffer);
             }
 
             if data.len() + offset > mesh.setup.index_buffer_len() {
-                bail!(ErrorKind::OutOfBounds);
+                return Err(Error::OutOfBounds);
             }
 
             self.visitor
                 .update_buffer(mesh.ibo, OpenGLBuffer::Index, offset as u32, data)
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::HandleInvalid)
         }
     }
 
@@ -462,7 +463,7 @@ impl Device {
             self.visitor.delete_buffer(mesh.ibo)?;
             Ok(())
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::HandleInvalid)
         }
     }
 
@@ -488,7 +489,7 @@ impl Device {
                 .delete_render_texture(texture.setup, texture.id)?;
             Ok(())
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::HandleInvalid)
         }
     }
 
@@ -533,7 +534,7 @@ impl Device {
                 || rect.min.y as u16 >= texture.setup.dimensions.1 || rect.max.x < 0
                 || rect.max.y < 0
             {
-                bail!(ErrorKind::OutOfBounds);
+                return Err(Error::OutOfBounds);
             }
 
             let (_, format, tt) = texture.setup.format.into();
@@ -541,7 +542,7 @@ impl Device {
                 .update_texture(texture.id, format, tt, rect, data)?;
             Ok(())
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::HandleInvalid)
         }
     }
 
@@ -550,7 +551,7 @@ impl Device {
             self.visitor.delete_texture(texture.id)?;
             Ok(())
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::HandleInvalid)
         }
     }
 
@@ -560,7 +561,7 @@ impl Device {
         setup: SurfaceSetup,
     ) -> Result<()> {
         if self.surfaces.get(handle).is_some() {
-            bail!(ErrorKind::DuplicatedHandle);
+            return Err(Error::HandleDuplicated);
         }
 
         let fbo = if setup.colors[0].is_some() || setup.depth_stencil.is_some() {
@@ -571,14 +572,14 @@ impl Device {
                 if let Some(v) = *attachment {
                     let i = i as u32;
 
-                    let rt = self.render_textures.get(v).ok_or(ErrorKind::InvalidHandle)?;
+                    let rt = self.render_textures.get(v).ok_or(Error::HandleInvalid)?;
 
                     if let Some(v) = dimensions {
                         if v != rt.setup.dimensions {
-                            bail!(
+                            return Err(Error::SurfaceCreationFailure(format!(
                                 "Incompitable(mismatch dimensions) attachments of SurfaceObject {:?}",
                                 handle
-                            );
+                            )));
                         }
                     }
 
@@ -589,14 +590,14 @@ impl Device {
             }
 
             if let Some(v) = setup.depth_stencil {
-                let rt = self.render_textures.get(v).ok_or(ErrorKind::InvalidHandle)?;
+                let rt = self.render_textures.get(v).ok_or(Error::HandleInvalid)?;
 
                 if let Some(v) = dimensions {
                     if v != rt.setup.dimensions {
-                        bail!(
+                        return Err(Error::SurfaceCreationFailure(format!(
                             "Incompitable(mismatch dimensions) attachments of SurfaceObject {:?}",
                             handle
-                        );
+                        )));
                     }
                 }
 
@@ -629,7 +630,7 @@ impl Device {
 
             Ok(())
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::HandleInvalid)
         }
     }
 
@@ -643,7 +644,7 @@ impl Device {
             let name: &'static str = name.into();
             let location = self.visitor.get_attribute_location(pid, name)?;
             if location == -1 {
-                bail!(format!("failed to locate attribute {:?}", name));
+                return Err(Error::AttributeUndefined(name.into()));
             }
         }
 
@@ -651,7 +652,7 @@ impl Device {
         for (name, _) in setup.uniform_variables {
             let location = self.visitor.get_uniform_location(pid, &name)?;
             if location == -1 {
-                bail!(format!("failed to locate uniform {:?}", name));
+                return Err(Error::UniformUndefined(name.into()));
             }
 
             uniform_locations.insert(name.into(), location);
@@ -670,25 +671,12 @@ impl Device {
         check()
     }
 
-    // pub fn update_shader_uniform(&mut self,
-    //                                handle: ShaderHandle,
-    //                                name: &str,
-    //                                variable: &UniformVariable)
-    //                                -> Result<()> {
-    //     if let Some(shader) = self.shaders.get_mut(handle) {
-    //         shader.uniforms.insert(name.to_string(), *variable);
-    //         Ok(())
-    //     } else {
-    //         bail!(ErrorKind::InvalidHandle);
-    //     }
-    // }
-
     /// Free named program object.
     pub unsafe fn delete_shader(&mut self, handle: ShaderHandle) -> Result<()> {
         if let Some(shader) = self.shaders.remove(handle) {
             self.visitor.delete_program(shader.id)
         } else {
-            bail!(ErrorKind::InvalidHandle);
+            Err(Error::HandleInvalid)
         }
     }
 }

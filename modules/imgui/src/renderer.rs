@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crayon::{application, graphics, resource, utils};
-use crayon::application::errors::*;
+use crayon::graphics::errors::*;
 
 use imgui::{DrawList, ImGui, Ui};
 

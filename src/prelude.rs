@@ -10,7 +10,7 @@ pub use resource::filesystem::{DirectoryFS, ZipFS};
 
 pub use application;
 pub use application::{Application, Context, Engine, FrameInfo, Settings, TimeSystem};
-pub use application::{errors, event, time};
+pub use application::{event, time};
 
 pub use graphics;
 pub use graphics::{GraphicsSystem, GraphicsSystemShared, MeshIndex};

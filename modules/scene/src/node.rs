@@ -65,13 +65,13 @@ impl Node {
 
         unsafe {
             if arena.get(child).is_none() {
-                bail!(ErrorKind::NonTransformFound);
+                return Err(Error::NonTransformFound);
             }
 
             // Can not append a transform to it self.
             if let Some(parent) = parent {
                 if parent == child || arena.get(parent).is_none() {
-                    bail!(ErrorKind::CanNotAttachSelfAsParent);
+                    return Err(Error::CanNotAttachSelfAsParent);
                 }
             }
 
@@ -106,7 +106,7 @@ impl Node {
                         node.prev_sib.take(),
                     )
                 } else {
-                    bail!(ErrorKind::NonTransformFound);
+                    return Err(Error::NonTransformFound);
                 }
             };
 

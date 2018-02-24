@@ -55,7 +55,7 @@ impl MeshSetup {
     pub fn validate(&self) -> Result<()> {
         for v in &self.sub_mesh_offsets {
             if *v >= self.num_idxes {
-                bail!("The start index of SubMesh is out of bounds!");
+                return Err(Error::OutOfBounds);
             }
         }
 

@@ -26,13 +26,12 @@
 //! cargo run imgui
 //! ```
 
+#[macro_use]
+extern crate failure;
 extern crate gl;
 extern crate glutin;
 extern crate libc;
 pub extern crate cgmath as math;
-
-#[macro_use]
-extern crate error_chain;
 
 extern crate two_lock_queue;
 extern crate zip;

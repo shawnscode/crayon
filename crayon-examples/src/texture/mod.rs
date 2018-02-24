@@ -1,5 +1,6 @@
 use crayon::prelude::*;
 use utils::*;
+use errors::*;
 
 impl_vertex!{
     Vertex {
@@ -17,7 +18,7 @@ struct Window {
 }
 
 impl Window {
-    fn new(engine: &mut Engine) -> errors::Result<Self> {
+    fn new(engine: &mut Engine) -> Result<Self> {
         let assets = format!("{0}/assets", env!("CARGO_MANIFEST_DIR"));
         engine.resource.mount("std", DirectoryFS::new(assets)?)?;
 
@@ -80,7 +81,9 @@ impl Window {
 }
 
 impl Application for Window {
-    fn on_update(&mut self, ctx: &Context) -> errors::Result<()> {
+    type Error = Error;
+
+    fn on_update(&mut self, ctx: &Context) -> Result<()> {
         let video = ctx.shared::<GraphicsSystem>();
 
         let mut dc = graphics::DrawCall::new(self.shader, self.mesh);
