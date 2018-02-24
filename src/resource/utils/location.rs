@@ -24,13 +24,23 @@ impl<'a> Location<'a> {
         }
     }
 
-    pub fn shared<P>(code: u8, location: &'a P) -> Self
+    pub fn shared<P>(location: &'a P) -> Self
     where
         P: ?Sized + AsRef<Path>,
     {
         Location {
             location: location.as_ref(),
-            code: Signature::Shared(code),
+            code: Signature::Shared,
+        }
+    }
+
+    pub fn token<P>(code: u8, location: &'a P) -> Self
+    where
+        P: ?Sized + AsRef<Path>,
+    {
+        Location {
+            location: location.as_ref(),
+            code: Signature::TokenShared(code),
         }
     }
 
@@ -59,16 +69,17 @@ impl<'a> Location<'a> {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum Signature {
     Unique,
-    Shared(u8),
+    Shared,
+    TokenShared(u8),
 }
 
 impl Signature {
     #[inline]
     pub fn is_shared(&self) -> bool {
-        if let Signature::Shared(_) = *self {
-            true
-        } else {
+        if let Signature::Unique = *self {
             false
+        } else {
+            true
         }
     }
 }
@@ -160,19 +171,23 @@ mod test {
         let l2 = Location::unique("1");
         assert!(l1 != l2);
 
-        let l1 = Location::shared(0, "1");
-        let l2 = Location::shared(1, "1");
+        let l1 = Location::token(0, "1");
+        let l2 = Location::token(1, "1");
         assert!(l1 != l2);
 
-        let l1 = Location::shared(0, "1");
-        let l2 = Location::shared(0, "1");
+        let l1 = Location::token(0, "1");
+        let l2 = Location::token(0, "1");
+        assert!(l1 == l2);
+
+        let l1 = Location::shared("1");
+        let l2 = Location::shared("1");
         assert!(l1 == l2);
     }
 
     #[test]
     fn shared_container() {
-        let l1 = Location::shared(0, "1").hash();
-        let l2 = Location::shared(0, "2").hash();
+        let l1 = Location::token(0, "1").hash();
+        let l2 = Location::token(0, "2").hash();
 
         let mut map = HashSet::new();
         assert_eq!(map.insert(l1), true);

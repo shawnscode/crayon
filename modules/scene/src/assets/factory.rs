@@ -13,7 +13,7 @@ pub mod pipeline {
     pub const COLOR: &str = "__Core/Scene/Shader/COLOR";
 
     pub fn pbr(scene: &mut Scene) -> Result<PipelineHandle> {
-        let location = Location::shared(0, PBR);
+        let location = Location::shared(PBR);
         if let Some(pipeline) = scene.lookup_pipeline_from(location) {
             return Ok(pipeline);
         }
@@ -55,7 +55,7 @@ pub mod pipeline {
     }
 
     pub fn phong(scene: &mut Scene) -> Result<PipelineHandle> {
-        let location = Location::shared(0, PHONG);
+        let location = Location::shared(PHONG);
         if let Some(pipeline) = scene.lookup_pipeline_from(location) {
             return Ok(pipeline);
         }
@@ -118,7 +118,7 @@ pub mod pipeline {
     }
 
     pub fn color(scene: &mut Scene) -> Result<PipelineHandle> {
-        let location = Location::shared(0, COLOR);
+        let location = Location::shared(COLOR);
         if let Some(pipeline) = scene.lookup_pipeline_from(location) {
             return Ok(pipeline);
         }
@@ -155,7 +155,7 @@ pub mod pipeline {
     }
 
     pub fn undefined(scene: &mut Scene) -> Result<PipelineHandle> {
-        let location = Location::shared(0, UNDEFINED);
+        let location = Location::shared(UNDEFINED);
         if let Some(pipeline) = scene.lookup_pipeline_from(location) {
             return Ok(pipeline);
         }
@@ -211,7 +211,7 @@ pub mod mesh {
     pub const CUBE: &str = "__Core/Scene/Mesh/CUBE";
 
     pub fn quad(video: &GraphicsSystemShared) -> Result<MeshHandle> {
-        let location = Location::shared(0, QUAD);
+        let location = Location::shared(QUAD);
         if let Some(quad) = video.lookup_mesh_from(location) {
             return Ok(quad);
         }
@@ -249,7 +249,7 @@ pub mod mesh {
     }
 
     pub fn cube(video: &GraphicsSystemShared) -> Result<MeshHandle> {
-        let location = Location::shared(0, CUBE);
+        let location = Location::shared(CUBE);
         if let Some(cube) = video.lookup_mesh_from(location) {
             return Ok(cube);
         }
