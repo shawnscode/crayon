@@ -1,11 +1,13 @@
 use std::path::Path;
+use std::hash::{Hash, Hasher};
+
 use utils::HashValue;
 
 /// A `Location` describes where the source data for a resource is located. It
 /// usually contains a Path that can be resolved to an URI. `Location`s are also
 /// used for sharing. If 2 `Location`s are completely identical, they identify
 /// the same resource.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy)]
 pub struct Location<'a> {
     code: Signature,
     location: &'a Path,
@@ -71,8 +73,34 @@ impl Signature {
     }
 }
 
+impl<'a> PartialEq for Location<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.code.is_shared() {
+            self.code == other.code && self.location == other.location
+        } else {
+            false
+        }
+    }
+}
+
+impl<'a> Eq for Location<'a> {}
+
+impl<'a> Hash for Location<'a> {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        if self.code.is_shared() {
+            self.code.hash(state);
+            self.location.hash(state);
+        } else {
+            panic!("Trying to hash unique location.");
+        }
+    }
+}
+
 /// Hash object of `Location`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy)]
 pub struct LocationAtom {
     code: Signature,
     location: HashValue<Path>,
@@ -95,6 +123,32 @@ impl LocationAtom {
     }
 }
 
+impl PartialEq for LocationAtom {
+    fn eq(&self, other: &Self) -> bool {
+        if self.code.is_shared() {
+            self.code == other.code && self.location == other.location
+        } else {
+            false
+        }
+    }
+}
+
+impl Eq for LocationAtom {}
+
+impl Hash for LocationAtom {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        if self.code.is_shared() {
+            self.code.hash(state);
+            self.location.hash(state);
+        } else {
+            panic!("Trying to hash unique location.");
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::collections::HashSet;
@@ -104,7 +158,7 @@ mod test {
     fn basic() {
         let l1 = Location::unique("1");
         let l2 = Location::unique("1");
-        assert!(l1 == l2);
+        assert!(l1 != l2);
 
         let l1 = Location::shared(0, "1");
         let l2 = Location::shared(1, "1");
