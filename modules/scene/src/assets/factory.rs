@@ -1,10 +1,10 @@
 pub mod pipeline {
-    use crayon::graphics::*;
-    use crayon::graphics::UniformVariableType as UVT;
-    use crayon::resource::Location;
+    use crayon::graphics::assets::prelude::*;
+    use crayon::resource::prelude::*;
+    use self::UniformVariableType as UVT;
 
     use scene::Scene;
-    use assets::{PipelineHandle, PipelineSetup};
+    use assets::pipeline::{PipelineHandle, PipelineSetup};
     use errors::*;
 
     pub const PBR: &str = "__Core/Scene/Shader/PBR";
@@ -194,8 +194,9 @@ pub mod pipeline {
 
 pub mod mesh {
     use crayon::graphics::errors::*;
-    use crayon::graphics::*;
-    use crayon::resource::Location;
+    use crayon::graphics::prelude::*;
+    use crayon::graphics::assets::prelude::*;
+    use crayon::resource::prelude::*;
 
     impl_vertex! {
         PrimitiveVertex {

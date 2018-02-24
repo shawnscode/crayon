@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use crayon;
 use crayon::application::Context;
-use crayon::ecs::{ArenaMut, Component, Entity, Fetch, FetchMut, World};
-use crayon::graphics::{GraphicsSystem, GraphicsSystemShared, SurfaceHandle, UniformVariable};
-use crayon::resource::{Location, Registery};
+use crayon::ecs::prelude::*;
+use crayon::graphics::prelude::*;
+use crayon::graphics::assets::prelude::*;
+use crayon::resource::utils::prelude::*;
 use crayon::utils::{HandleObjectPool, HashValue};
 
 use node::Node;
@@ -12,7 +13,7 @@ use transform::Transform;
 use element::Element;
 use renderer::Renderer;
 
-use assets::*;
+use assets::prelude::*;
 use assets::material::Material;
 use assets::pipeline::PipelineObject;
 use errors::*;

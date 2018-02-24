@@ -8,7 +8,7 @@ use gl;
 use gl::types::*;
 
 use utils::{Color, DataBuffer, Handle, HashValue, Rect};
-use graphics::*;
+use graphics::assets::prelude::*;
 
 use super::errors::*;
 use super::visitor::*;
@@ -99,7 +99,7 @@ impl Device {
         self.active_shader.set(None);
         self.visitor.bind_framebuffer(0, false)?;
         self.visitor.clear(Color::black(), None, None)?;
-        self.visitor.set_scissor(Scissor::Disable)?;
+        self.visitor.set_scissor(SurfaceScissor::Disable)?;
 
         *self.frame_info.borrow_mut() = FrameInfo::default();
         Ok(())
@@ -270,9 +270,9 @@ impl Device {
         check()
     }
 
-    unsafe fn update_surface_scissor(&self, scissor: Scissor, hidpi: f32) -> Result<()> {
+    unsafe fn update_surface_scissor(&self, scissor: SurfaceScissor, hidpi: f32) -> Result<()> {
         match scissor {
-            Scissor::Enable(position, size) => {
+            SurfaceScissor::Enable(position, size) => {
                 let position = (
                     (f32::from(position.0) * hidpi) as u16,
                     (f32::from(position.1) * hidpi) as u16,
@@ -283,13 +283,14 @@ impl Device {
                     (f32::from(size.1) * hidpi) as u16,
                 );
 
-                self.visitor.set_scissor(Scissor::Enable(position, size))
+                self.visitor
+                    .set_scissor(SurfaceScissor::Enable(position, size))
             }
-            Scissor::Disable => self.visitor.set_scissor(Scissor::Disable),
+            SurfaceScissor::Disable => self.visitor.set_scissor(SurfaceScissor::Disable),
         }
     }
 
-    unsafe fn update_surface_viewport(&self, viewport: Viewport, hidpi: f32) -> Result<()> {
+    unsafe fn update_surface_viewport(&self, viewport: SurfaceViewport, hidpi: f32) -> Result<()> {
         let position = (
             (f32::from(viewport.position.0) * hidpi) as u16,
             (f32::from(viewport.position.1) * hidpi) as u16,
@@ -327,7 +328,7 @@ impl Device {
 
         // Reset the viewport and scissor box.
         self.visitor.set_viewport((0, 0), dimensions)?;
-        self.visitor.set_scissor(Scissor::Disable)?;
+        self.visitor.set_scissor(SurfaceScissor::Disable)?;
 
         // Sets depth write enable to make sure that we can clear depth buffer properly.
         if surface.setup.clear_depth.is_some() {
@@ -420,7 +421,7 @@ impl Device {
         data: &[u8],
     ) -> Result<()> {
         if let Some(mesh) = self.meshes.get(handle) {
-            if mesh.setup.hint == BufferHint::Immutable {
+            if mesh.setup.hint == MeshHint::Immutable {
                 return Err(Error::UpdateImmutableBuffer);
             }
 
@@ -442,7 +443,7 @@ impl Device {
         data: &[u8],
     ) -> Result<()> {
         if let Some(mesh) = self.meshes.get(handle) {
-            if mesh.setup.hint == BufferHint::Immutable {
+            if mesh.setup.hint == MeshHint::Immutable {
                 return Err(Error::UpdateImmutableBuffer);
             }
 

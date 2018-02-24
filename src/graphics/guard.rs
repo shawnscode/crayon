@@ -1,9 +1,12 @@
 use std::sync::Arc;
 
-use resource::Location;
-use super::*;
-use super::errors::*;
-use super::assets::texture_loader::TextureParser;
+use resource::prelude::*;
+
+use graphics::GraphicsSystemShared;
+use graphics::errors::Result;
+use graphics::assets::prelude::*;
+use graphics::assets::texture_loader::TextureParser;
+use graphics::assets::mesh_loader::MeshParser;
 
 pub struct RAIIGuard {
     stack: Vec<Resource>,

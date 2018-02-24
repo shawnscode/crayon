@@ -1,4 +1,6 @@
 use crayon::prelude::*;
+use crayon::graphics::assets::prelude::*;
+use crayon::graphics::RAIIGuard;
 use errors::*;
 
 impl_vertex!{
@@ -8,16 +10,16 @@ impl_vertex!{
 }
 
 struct Pass {
-    surface: graphics::SurfaceHandle,
-    shader: graphics::ShaderHandle,
-    mesh: graphics::MeshHandle,
+    surface: SurfaceHandle,
+    shader: ShaderHandle,
+    mesh: MeshHandle,
 }
 
 struct Window {
-    _label: graphics::RAIIGuard,
+    _label: RAIIGuard,
     pass: Pass,
     post_effect: Pass,
-    texture: graphics::RenderTextureHandle,
+    texture: RenderTextureHandle,
     time: f32,
 }
 
@@ -25,10 +27,10 @@ impl Window {
     pub fn new(engine: &mut Engine) -> Result<Self> {
         let ctx = engine.context();
         let video = ctx.shared::<GraphicsSystem>().clone();
-        let mut label = graphics::RAIIGuard::new(video);
+        let mut label = RAIIGuard::new(video);
 
-        let attributes = graphics::AttributeLayoutBuilder::new()
-            .with(graphics::Attribute::Position, 2)
+        let attributes = AttributeLayoutBuilder::new()
+            .with(Attribute::Position, 2)
             .finish();
 
         //
@@ -41,7 +43,7 @@ impl Window {
             let idxes: [u16; 3] = [0, 1, 2];
 
             // Create vertex buffer object.
-            let mut setup = graphics::MeshSetup::default();
+            let mut setup = MeshSetup::default();
             setup.num_verts = 3;
             setup.num_idxes = 3;
             setup.layout = Vertex::layout();
@@ -50,24 +52,24 @@ impl Window {
                 Location::unique(""),
                 setup,
                 Vertex::encode(&verts[..]),
-                graphics::IndexFormat::encode(&idxes),
+                IndexFormat::encode(&idxes),
             )?;
 
             // Create render texture for post effect.
-            let mut setup = graphics::RenderTextureSetup::default();
-            setup.format = graphics::RenderTextureFormat::RGBA8;
+            let mut setup = RenderTextureSetup::default();
+            setup.format = RenderTextureFormat::RGBA8;
             setup.dimensions = (568, 320);
             let rendered_texture = label.create_render_texture(setup)?;
 
             // Create the surface state for pass 1.
-            let mut setup = graphics::SurfaceSetup::default();
+            let mut setup = SurfaceSetup::default();
             setup.set_attachments(&[rendered_texture], None)?;
             setup.set_order(0);
             setup.set_clear(Color::gray(), None, None);
             let surface = label.create_surface(setup)?;
 
             // Create shader state.
-            let mut setup = graphics::ShaderSetup::default();
+            let mut setup = ShaderSetup::default();
             setup.layout = attributes;
             setup.vs = include_str!("../../assets/render_target_p1.vs").to_owned();
             setup.fs = include_str!("../../assets/render_target_p1.fs").to_owned();
@@ -92,7 +94,7 @@ impl Window {
             ];
             let idxes: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
-            let mut setup = graphics::MeshSetup::default();
+            let mut setup = MeshSetup::default();
             setup.num_verts = 4;
             setup.num_idxes = 6;
             setup.layout = Vertex::layout();
@@ -101,20 +103,20 @@ impl Window {
                 Location::unique(""),
                 setup,
                 Vertex::encode(&verts[..]),
-                graphics::IndexFormat::encode(&idxes),
+                IndexFormat::encode(&idxes),
             )?;
 
-            let mut setup = graphics::SurfaceSetup::default();
+            let mut setup = SurfaceSetup::default();
             setup.set_order(1);
             let surface = label.create_surface(setup)?;
 
-            let mut setup = graphics::ShaderSetup::default();
+            let mut setup = ShaderSetup::default();
             setup.layout = attributes;
             setup.vs = include_str!("../../assets/render_target_p2.vs").to_owned();
             setup.fs = include_str!("../../assets/render_target_p2.fs").to_owned();
-            let tt = graphics::UniformVariableType::RenderTexture;
+            let tt = UniformVariableType::RenderTexture;
             setup.uniform_variables.insert("renderedTexture".into(), tt);
-            let tt = graphics::UniformVariableType::F32;
+            let tt = UniformVariableType::F32;
             setup.uniform_variables.insert("time".into(), tt);
             let shader = label.create_shader(Location::unique(""), setup)?;
 
@@ -144,13 +146,13 @@ impl Application for Window {
         let video = ctx.shared::<GraphicsSystem>();
 
         {
-            let mut dc = graphics::DrawCall::new(self.pass.shader, self.pass.mesh);
+            let mut dc = DrawCall::new(self.pass.shader, self.pass.mesh);
             let cmd = dc.build_from(0, 3)?;
             video.submit(self.pass.surface, 0u64, cmd)?;
         }
 
         {
-            let mut dc = graphics::DrawCall::new(self.post_effect.shader, self.post_effect.mesh);
+            let mut dc = DrawCall::new(self.post_effect.shader, self.post_effect.mesh);
             dc.set_uniform_variable("renderedTexture", self.texture);
             dc.set_uniform_variable("time", self.time);
             let cmd = dc.build_from(0, 6)?;

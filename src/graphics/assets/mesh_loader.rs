@@ -12,7 +12,7 @@ use graphics::backend::frame::{DoubleFrame, PreFrameTask};
 pub struct MeshData {
     pub layout: VertexLayout,
     pub index_format: IndexFormat,
-    pub primitive: Primitive,
+    pub primitive: MeshPrimitive,
     pub num_verts: usize,
     pub num_idxes: usize,
     pub sub_mesh_offsets: Vec<usize>,

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crayon::graphics::{ShaderHandle, ShaderStateObject, UniformVariableType};
+use crayon::graphics::assets::shader::*;
 use crayon::utils::HashValue;
 
 impl_handle!(PipelineHandle);

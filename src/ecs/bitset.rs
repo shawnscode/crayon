@@ -265,7 +265,6 @@ mod test {
         rhs.insert(3);
         rhs.insert(10);
 
-
         let v = lhs.intersect_with(&rhs);
         assert!(!v.contains(1));
         assert!(!v.contains(2));

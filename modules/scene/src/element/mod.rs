@@ -2,11 +2,11 @@ pub mod light;
 pub mod camera;
 pub mod mesh_renderer;
 
-pub use self::light::{Light, LitSrc};
-pub use self::camera::{Camera, Projection};
-pub use self::mesh_renderer::MeshRenderer;
+use self::light::Light;
+use self::camera::Camera;
+use self::mesh_renderer::MeshRenderer;
 
-use crayon::ecs::{Component, VecArena};
+use crayon::ecs::prelude::*;
 
 /// The contrainer of elements that supported in `Scene`.
 #[derive(Debug, Clone, Copy)]
@@ -43,4 +43,11 @@ impl Into<Element> for () {
     fn into(self) -> Element {
         Element::None
     }
+}
+
+pub mod prelude {
+    pub use element::Element;
+    pub use element::light::{Light, LitSrc};
+    pub use element::camera::{Camera, Projection};
+    pub use element::mesh_renderer::MeshRenderer;
 }

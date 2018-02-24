@@ -1,4 +1,5 @@
 use crayon::prelude::*;
+use crayon::graphics::assets::prelude::*;
 use crayon_imgui::prelude::*;
 
 use utils;
@@ -20,7 +21,7 @@ impl Window {
         let ctx = engine.context();
         let canvas = Canvas::new(ctx).unwrap();
 
-        let mut setup = graphics::SurfaceSetup::default();
+        let mut setup = SurfaceSetup::default();
         setup.set_clear(Color::white(), None, None);
         setup.set_sequence(true);
         let surface = ctx.shared::<GraphicsSystem>().create_surface(setup)?;

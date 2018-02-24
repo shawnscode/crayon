@@ -4,11 +4,13 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use math;
-use graphics::{RenderTextureHandle, TextureHandle, MAX_VERTEX_ATTRIBUTES};
-use graphics::errors::*;
-use utils::HashValue;
 
-use super::mesh::VertexLayout;
+use graphics::MAX_VERTEX_ATTRIBUTES;
+use graphics::errors::{Error, Result};
+use graphics::assets::texture::{RenderTextureHandle, TextureHandle};
+use graphics::assets::mesh::VertexLayout;
+
+use utils::HashValue;
 
 impl_handle!(ShaderHandle);
 

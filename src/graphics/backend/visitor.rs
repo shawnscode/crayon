@@ -6,7 +6,9 @@ use gl;
 use gl::types::*;
 
 use utils::{Color, Rect};
-use graphics::*;
+
+use graphics::MAX_UNIFORM_TEXTURE_SLOTS;
+use graphics::assets::prelude::*;
 
 use super::errors::*;
 
@@ -31,7 +33,7 @@ pub(crate) struct OpenGLVisitor {
     color_blend: Cell<Option<(Equation, BlendFactor, BlendFactor)>>,
     color_write: Cell<(bool, bool, bool, bool)>,
     viewport: Cell<((u16, u16), (u16, u16))>,
-    scissor: Cell<Scissor>,
+    scissor: Cell<SurfaceScissor>,
 
     active_bufs: RefCell<HashMap<GLenum, GLuint>>,
     active_program: Cell<Option<GLuint>>,
@@ -69,7 +71,7 @@ impl OpenGLVisitor {
             color_blend: Cell::new(None),
             color_write: Cell::new((true, true, true, true)),
             viewport: Cell::new(((0, 0), (128, 128))),
-            scissor: Cell::new(Scissor::Disable),
+            scissor: Cell::new(SurfaceScissor::Disable),
 
             active_bufs: RefCell::new(HashMap::new()),
             active_program: Cell::new(None),
@@ -292,13 +294,13 @@ impl OpenGLVisitor {
     }
 
     /// Set the scissor box relative to the top-lef corner of th window, in pixels.
-    pub unsafe fn set_scissor(&self, scissor: Scissor) -> Result<()> {
+    pub unsafe fn set_scissor(&self, scissor: SurfaceScissor) -> Result<()> {
         match scissor {
-            Scissor::Disable => if self.scissor.get() != Scissor::Disable {
+            SurfaceScissor::Disable => if self.scissor.get() != SurfaceScissor::Disable {
                 gl::Disable(gl::SCISSOR_TEST);
             },
-            Scissor::Enable(position, size) => {
-                if self.scissor.get() == Scissor::Disable {
+            SurfaceScissor::Enable(position, size) => {
+                if self.scissor.get() == SurfaceScissor::Disable {
                     gl::Enable(gl::SCISSOR_TEST);
                 }
 
@@ -803,7 +805,7 @@ impl OpenGLVisitor {
     pub unsafe fn create_buffer(
         &self,
         buf: OpenGLBuffer,
-        hint: BufferHint,
+        hint: MeshHint,
         size: u32,
         data: Option<&[u8]>,
     ) -> Result<GLuint> {
@@ -948,12 +950,12 @@ pub unsafe fn check() -> Result<()> {
     }
 }
 
-impl From<BufferHint> for GLenum {
-    fn from(hint: BufferHint) -> Self {
+impl From<MeshHint> for GLenum {
+    fn from(hint: MeshHint) -> Self {
         match hint {
-            BufferHint::Immutable => gl::STATIC_DRAW,
-            BufferHint::Stream => gl::STREAM_DRAW,
-            BufferHint::Dynamic => gl::DYNAMIC_DRAW,
+            MeshHint::Immutable => gl::STATIC_DRAW,
+            MeshHint::Stream => gl::STREAM_DRAW,
+            MeshHint::Dynamic => gl::DYNAMIC_DRAW,
         }
     }
 }
@@ -1021,14 +1023,14 @@ impl From<VertexFormat> for GLenum {
     }
 }
 
-impl From<Primitive> for GLenum {
-    fn from(primitive: Primitive) -> Self {
+impl From<MeshPrimitive> for GLenum {
+    fn from(primitive: MeshPrimitive) -> Self {
         match primitive {
-            Primitive::Points => gl::POINTS,
-            Primitive::Lines => gl::LINES,
-            Primitive::LineStrip => gl::LINE_STRIP,
-            Primitive::Triangles => gl::TRIANGLES,
-            Primitive::TriangleStrip => gl::TRIANGLE_STRIP,
+            MeshPrimitive::Points => gl::POINTS,
+            MeshPrimitive::Lines => gl::LINES,
+            MeshPrimitive::LineStrip => gl::LINE_STRIP,
+            MeshPrimitive::Triangles => gl::TRIANGLES,
+            MeshPrimitive::TriangleStrip => gl::TRIANGLE_STRIP,
         }
     }
 }

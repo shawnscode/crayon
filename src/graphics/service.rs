@@ -2,21 +2,41 @@
 
 use std::sync::{Arc, RwLock};
 use std::collections::HashMap;
+use std::time::Duration;
 
 use utils::{HashValue, Rect};
-use resource::{Location, Registery, ResourceSystemShared};
 
+use resource::prelude::*;
+use resource::utils::prelude::*;
+
+use graphics::MAX_UNIFORM_VARIABLES;
 use graphics::errors::{Error, Result};
+use graphics::assets::prelude::*;
 
-use super::*;
+use super::assets::mesh::MeshStateObject;
+use super::assets::shader::ShaderStateObject;
+use super::assets::texture::TextureStateObject;
+use super::assets::mesh_loader::{MeshLoader, MeshParser};
+use super::assets::texture_loader::{TextureLoader, TextureParser};
+
 use super::backend::frame::*;
 use super::backend::device::Device;
-use super::command::Command;
+use super::command::*;
 use super::window::Window;
 
-use super::assets::texture_loader::{TextureLoader, TextureParser};
-use super::assets::mesh_loader::{MeshLoader, MeshParser};
-use super::assets::*;
+/// The information of graphics module during last frame.
+#[derive(Debug, Copy, Clone, Default)]
+pub struct GraphicsFrameInfo {
+    pub duration: Duration,
+    pub drawcall: u32,
+    pub triangles: u32,
+    pub alive_surfaces: u32,
+    pub alive_shaders: u32,
+    pub alive_frame_buffers: u32,
+    pub alive_meshes: u32,
+    pub alive_textures: u32,
+    pub alive_render_buffers: u32,
+}
 
 /// The centralized management of video sub-system.
 pub struct GraphicsSystem {
@@ -31,7 +51,7 @@ pub struct GraphicsSystem {
 
 impl GraphicsSystem {
     /// Create a new `GraphicsSystem` with one `Window` context.
-    pub fn new(window: Arc<window::Window>, resource: Arc<ResourceSystemShared>) -> Result<Self> {
+    pub fn new(window: Arc<Window>, resource: Arc<ResourceSystemShared>) -> Result<Self> {
         let device = unsafe { Device::new() };
         let frames = Arc::new(DoubleFrame::with_capacity(64 * 1024));
 
@@ -215,7 +235,7 @@ impl GraphicsSystemShared {
         &self,
         surface: SurfaceHandle,
         order: u64,
-        dc: &command::SliceDrawCall<'a>,
+        dc: &SliceDrawCall<'a>,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             return Err(Error::SurfaceHandleInvalid(surface));
@@ -279,7 +299,7 @@ impl GraphicsSystemShared {
         &self,
         surface: SurfaceHandle,
         order: u64,
-        su: &command::ScissorUpdate,
+        su: &ScissorUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             return Err(Error::SurfaceHandleInvalid(surface));
@@ -295,7 +315,7 @@ impl GraphicsSystemShared {
         &self,
         surface: SurfaceHandle,
         order: u64,
-        vp: &command::ViewportUpdate,
+        vp: &ViewportUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             return Err(Error::SurfaceHandleInvalid(surface));
@@ -311,7 +331,7 @@ impl GraphicsSystemShared {
         &self,
         surface: SurfaceHandle,
         order: u64,
-        vbu: &command::VertexBufferUpdate,
+        vbu: &VertexBufferUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             return Err(Error::SurfaceHandleInvalid(surface));
@@ -336,7 +356,7 @@ impl GraphicsSystemShared {
         &self,
         surface: SurfaceHandle,
         order: u64,
-        ibu: &command::IndexBufferUpdate,
+        ibu: &IndexBufferUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             return Err(Error::SurfaceHandleInvalid(surface));
@@ -361,7 +381,7 @@ impl GraphicsSystemShared {
         &self,
         surface: SurfaceHandle,
         order: u64,
-        tu: &command::TextureUpdate,
+        tu: &TextureUpdate,
     ) -> Result<()> {
         if !self.surfaces.read().unwrap().is_alive(surface.into()) {
             return Err(Error::SurfaceHandleInvalid(surface));
@@ -604,7 +624,7 @@ impl GraphicsSystemShared {
     pub fn update_vertex_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
         if let Some(state) = self.meshes.read().unwrap().get(mesh.into()) {
             if let AssetState::Ready(ref mso) = *state.read().unwrap() {
-                if mso.hint == BufferHint::Immutable {
+                if mso.hint == MeshHint::Immutable {
                     return Err(Error::UpdateImmutableBuffer);
                 }
 
@@ -629,7 +649,7 @@ impl GraphicsSystemShared {
     pub fn update_index_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
         if let Some(state) = self.meshes.read().unwrap().get(mesh.into()) {
             if let AssetState::Ready(ref mso) = *state.read().unwrap() {
-                if mso.hint == BufferHint::Immutable {
+                if mso.hint == MeshHint::Immutable {
                     return Err(Error::UpdateImmutableBuffer);
                 }
 

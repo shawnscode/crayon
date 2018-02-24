@@ -1,4 +1,7 @@
 use crayon::prelude::*;
+use crayon::graphics::assets::prelude::*;
+use crayon::graphics::RAIIGuard;
+
 use utils::*;
 use errors::*;
 
@@ -9,12 +12,12 @@ impl_vertex!{
 }
 
 struct Window {
-    _label: graphics::RAIIGuard,
+    _label: RAIIGuard,
 
-    surface: graphics::SurfaceHandle,
-    shader: graphics::ShaderHandle,
-    mesh: graphics::MeshHandle,
-    texture: graphics::TextureHandle,
+    surface: SurfaceHandle,
+    shader: ShaderHandle,
+    mesh: MeshHandle,
+    texture: TextureHandle,
 }
 
 impl Window {
@@ -24,7 +27,7 @@ impl Window {
 
         let ctx = engine.context();
         let video = ctx.shared::<GraphicsSystem>().clone();
-        let mut label = graphics::RAIIGuard::new(video);
+        let mut label = RAIIGuard::new(video);
 
         let verts: [Vertex; 4] = [
             Vertex::new([-1.0, -1.0]),
@@ -34,12 +37,12 @@ impl Window {
         ];
         let idxes: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
-        let attributes = graphics::AttributeLayoutBuilder::new()
-            .with(graphics::Attribute::Position, 2)
+        let attributes = AttributeLayoutBuilder::new()
+            .with(Attribute::Position, 2)
             .finish();
 
         // Create vertex buffer object.
-        let mut setup = graphics::MeshSetup::default();
+        let mut setup = MeshSetup::default();
         setup.num_verts = 4;
         setup.num_idxes = 6;
         setup.layout = Vertex::layout();
@@ -48,23 +51,23 @@ impl Window {
             Location::unique(""),
             setup,
             Vertex::encode(&verts[..]),
-            graphics::IndexFormat::encode(&idxes),
+            IndexFormat::encode(&idxes),
         )?;
 
         // Create the view state.
-        let setup = graphics::SurfaceSetup::default();
+        let setup = SurfaceSetup::default();
         let surface = label.create_surface(setup)?;
 
         // Create shader state.
-        let mut setup = graphics::ShaderSetup::default();
+        let mut setup = ShaderSetup::default();
         setup.layout = attributes;
         setup.vs = include_str!("../../assets/texture.vs").to_owned();
         setup.fs = include_str!("../../assets/texture.fs").to_owned();
-        let tt = graphics::UniformVariableType::Texture;
+        let tt = UniformVariableType::Texture;
         setup.uniform_variables.insert("renderedTexture".into(), tt);
         let shader = label.create_shader(Location::unique(""), setup)?;
 
-        let setup = graphics::TextureSetup::default();
+        let setup = TextureSetup::default();
         let location = Location::unique("/std/texture.png");
         let texture = label
             .create_texture_from::<TextureParser>(location, setup)
@@ -86,7 +89,7 @@ impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> Result<()> {
         let video = ctx.shared::<GraphicsSystem>();
 
-        let mut dc = graphics::DrawCall::new(self.shader, self.mesh);
+        let mut dc = DrawCall::new(self.shader, self.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
         let cmd = dc.build_from(0, 6)?;
         video.submit(self.surface, 0u64, cmd)?;

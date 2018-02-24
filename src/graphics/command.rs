@@ -1,6 +1,8 @@
 use super::*;
 use super::errors::*;
 
+use graphics::assets::prelude::*;
+
 use utils::{HashValue, Rect};
 
 /// `Command` will be executed in sequential order.
@@ -45,11 +47,11 @@ impl<'a> Command<'a> {
         Command::TextureUpdate(task)
     }
 
-    pub fn set_scissor(scissor: Scissor) -> Command<'a> {
+    pub fn set_scissor(scissor: SurfaceScissor) -> Command<'a> {
         Command::SetScissor(scissor)
     }
 
-    pub fn set_viewport(viewport: Viewport) -> Command<'a> {
+    pub fn set_viewport(viewport: SurfaceViewport) -> Command<'a> {
         Command::SetViewport(viewport)
     }
 }
@@ -100,10 +102,10 @@ pub struct TextureUpdate<'a> {
 // }
 
 /// Scissor update.
-pub type ScissorUpdate = Scissor;
+pub type ScissorUpdate = SurfaceScissor;
 
 /// Viewport update.
-pub type ViewportUpdate = Viewport;
+pub type ViewportUpdate = SurfaceViewport;
 
 /// A draw call.
 #[derive(Debug, Copy, Clone)]

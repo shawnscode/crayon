@@ -1,6 +1,5 @@
-use crayon::graphics::{MeshHandle, MeshIndex};
-
-use assets::MaterialHandle;
+use crayon::graphics::prelude::*;
+use assets::prelude::*;
 
 #[derive(Debug, Copy, Clone)]
 pub struct MeshRenderer {

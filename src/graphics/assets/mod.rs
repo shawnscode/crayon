@@ -44,3 +44,22 @@ pub(crate) type AssetShaderState = AssetState<self::shader::ShaderStateObject>;
 pub(crate) type AssetMeshState = AssetState<self::mesh::MeshStateObject>;
 pub(crate) type AssetTextureState = AssetState<self::texture::TextureStateObject>;
 pub(crate) type AssetRenderTextureState = AssetState<self::texture::RenderTextureStateObject>;
+
+pub mod prelude {
+    pub use super::surface::{SurfaceHandle, SurfaceScissor, SurfaceSetup, SurfaceViewport};
+
+    pub use super::shader::{Attribute, AttributeLayout, AttributeLayoutBuilder, BlendFactor,
+                            BlendValue, Comparison, CullFace, Equation, FrontFaceOrder,
+                            RenderState, ShaderHandle, ShaderSetup, UniformVariable,
+                            UniformVariableType};
+
+    pub use super::texture::{RenderTextureFormat, RenderTextureHandle, RenderTextureSetup,
+                             TextureAddress, TextureFilter, TextureFormat, TextureHandle,
+                             TextureSetup};
+
+    pub use super::mesh::{IndexFormat, MeshHandle, MeshHint, MeshIndex, MeshPrimitive, MeshSetup,
+                          VertexFormat, VertexLayout};
+
+    pub(crate) use super::{AssetMeshState, AssetRenderTextureState, AssetShaderState, AssetState,
+                           AssetTextureState};
+}

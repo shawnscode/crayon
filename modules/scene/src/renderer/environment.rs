@@ -1,10 +1,10 @@
-use crayon::ecs::{Arena, Entity, Fetch, System, View, World};
 use crayon::application::Context;
 
+use crayon::ecs::prelude::*;
 use crayon::math;
 use crayon::math::SquareMatrix;
 
-use element::{Element, LitSrc};
+use element::prelude::*;
 use node::Node;
 use transform::Transform;
 use errors::*;

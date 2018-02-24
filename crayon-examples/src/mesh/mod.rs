@@ -1,4 +1,6 @@
 use crayon::prelude::*;
+use crayon::graphics::assets::prelude::*;
+
 use crayon_imgui::prelude::*;
 use crayon_scene::prelude::*;
 
@@ -31,7 +33,7 @@ impl Window {
         let video = ctx.shared::<GraphicsSystem>().clone();
 
         // Create the view state.
-        let setup = graphics::SurfaceSetup::default();
+        let setup = SurfaceSetup::default();
         let surface = video.create_surface(setup)?;
 
         // Create scene.
@@ -133,11 +135,11 @@ impl Window {
 
     fn create_room(
         scene: &mut Scene,
-        video: &graphics::GraphicsSystemShared,
+        video: &GraphicsSystemShared,
     ) -> Result<(Entity, MaterialHandle)> {
         let shader = factory::pipeline::phong(scene)?;
 
-        let setup = graphics::MeshSetup::default();
+        let setup = MeshSetup::default();
         let mesh = video
             .create_mesh_from::<OBJParser>(Location::shared(0, "/std/cornell_box.obj"), setup)?;
 
@@ -231,7 +233,7 @@ impl Application for Window {
 
         if !capture {
             let input = ctx.shared::<InputSystem>();
-            if let input::GesturePan::Move { movement, .. } = input.finger_pan() {
+            if let GesturePan::Move { movement, .. } = input.finger_pan() {
                 self.rotation.y -= movement.y;
                 self.rotation.x -= movement.x;
                 let euler = math::Euler::new(

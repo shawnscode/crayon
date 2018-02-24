@@ -1,6 +1,6 @@
 use std::sync::{Mutex, MutexGuard, RwLock};
 
-use super::super::*;
+use graphics::assets::prelude::*;
 use super::errors::*;
 use super::device::Device;
 
@@ -26,8 +26,8 @@ pub(crate) enum PreFrameTask {
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum FrameTask {
     DrawCall(FrameDrawCall),
-    UpdateSurfaceScissor(Scissor),
-    UpdateSurfaceViewport(Viewport),
+    UpdateSurfaceScissor(SurfaceScissor),
+    UpdateSurfaceViewport(SurfaceViewport),
     UpdateVertexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
     UpdateIndexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
     UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),

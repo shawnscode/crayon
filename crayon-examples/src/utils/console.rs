@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use crayon::prelude::*;
+use crayon::graphics::assets::prelude::*;
+
 use crayon_imgui;
 use crayon_imgui::prelude::*;
 
@@ -25,7 +27,7 @@ impl ConsoleCanvas {
         let video = ctx.shared::<GraphicsSystem>().clone();
         let canvas = Canvas::new(ctx).unwrap();
 
-        let mut setup = graphics::SurfaceSetup::default();
+        let mut setup = SurfaceSetup::default();
         setup.set_clear(None, None, None);
         setup.set_sequence(true);
         setup.set_order(order);

@@ -1,8 +1,8 @@
 //! Immutable or dynamic vertex and index data.
 
 use graphics::MAX_VERTEX_ATTRIBUTES;
+use graphics::errors::{Error, Result};
 use graphics::assets::shader::Attribute;
-use graphics::errors::*;
 
 impl_handle!(MeshHandle);
 
@@ -10,13 +10,13 @@ impl_handle!(MeshHandle);
 #[derive(Debug, Clone)]
 pub struct MeshSetup {
     /// Usage hints.
-    pub hint: BufferHint,
+    pub hint: MeshHint,
     /// How a single vertex structure looks like.
     pub layout: VertexLayout,
     /// Index format
     pub index_format: IndexFormat,
     /// How the input vertex data is used to assemble primitives.
-    pub primitive: Primitive,
+    pub primitive: MeshPrimitive,
     /// The number of vertices in this mesh.
     pub num_verts: usize,
     /// The number of indices in this mesh.
@@ -30,10 +30,10 @@ pub type MeshStateObject = MeshSetup;
 impl Default for MeshSetup {
     fn default() -> Self {
         MeshSetup {
-            hint: BufferHint::Immutable,
+            hint: MeshHint::Immutable,
             layout: VertexLayout::default(),
             index_format: IndexFormat::U16,
-            primitive: Primitive::Triangles,
+            primitive: MeshPrimitive::Triangles,
             num_verts: 0,
             num_idxes: 0,
             sub_mesh_offsets: Vec::new(),
@@ -73,7 +73,7 @@ pub enum MeshIndex {
 
 /// Hint abouts the intended update strategy of the data.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum BufferHint {
+pub enum MeshHint {
     /// The resource is initialized with data and cannot be changed later, this
     /// is the most common and most efficient usage. Optimal for render targets
     /// and resourced memory.
@@ -88,7 +88,7 @@ pub enum BufferHint {
 
 /// Defines how the input vertex data is used to assemble primitives.
 #[derive(Debug, Clone, Copy)]
-pub enum Primitive {
+pub enum MeshPrimitive {
     /// Separate points.
     Points,
     /// Separate lines.
@@ -101,22 +101,22 @@ pub enum Primitive {
     TriangleStrip,
 }
 
-impl Primitive {
+impl MeshPrimitive {
     pub fn assemble(&self, indices: u32) -> u32 {
         match *self {
-            Primitive::Points => indices,
-            Primitive::Lines => indices / 2,
-            Primitive::LineStrip => indices - 1,
-            Primitive::Triangles => indices / 3,
-            Primitive::TriangleStrip => indices - 2,
+            MeshPrimitive::Points => indices,
+            MeshPrimitive::Lines => indices / 2,
+            MeshPrimitive::LineStrip => indices - 1,
+            MeshPrimitive::Triangles => indices / 3,
+            MeshPrimitive::TriangleStrip => indices - 2,
         }
     }
 
     pub fn assemble_triangles(&self, indices: u32) -> u32 {
         match *self {
-            Primitive::Points | Primitive::Lines | Primitive::LineStrip => 0,
-            Primitive::Triangles => indices / 3,
-            Primitive::TriangleStrip => indices - 2,
+            MeshPrimitive::Points | MeshPrimitive::Lines | MeshPrimitive::LineStrip => 0,
+            MeshPrimitive::Triangles => indices / 3,
+            MeshPrimitive::TriangleStrip => indices - 2,
         }
     }
 }

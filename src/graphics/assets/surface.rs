@@ -3,8 +3,8 @@
 
 use utils::Color;
 use graphics::MAX_FRAMEBUFFER_ATTACHMENTS;
+use graphics::errors::{Error, Result};
 use graphics::assets::texture::RenderTextureHandle;
-use graphics::errors::*;
 
 /// The setup data of `Surface` which wraps common rendering operations to a render-target.
 /// Likes clearing, MSAA resolves, etc.. The `RenderTarget` is the window framebuffer as
@@ -114,7 +114,7 @@ impl SurfaceSetup {
 /// initially disabled. While the test is enabled, only pixels that lie within the
 /// scissor box can be modified by drawing commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Scissor {
+pub enum SurfaceScissor {
     Enable((u16, u16), (u16, u16)),
     Disable,
 }
@@ -123,7 +123,7 @@ pub enum Scissor {
 /// in window coordinates to normalized window coordinates.
 /// NDC(normalized device coordinates) to normalized window coordinates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Viewport {
+pub struct SurfaceViewport {
     pub position: (u16, u16),
     pub size: (u16, u16),
 }

@@ -1,4 +1,5 @@
-use crayon::{ecs, math};
+use crayon::ecs::prelude::*;
+use crayon::math;
 use crayon::math::Transform as _Transform;
 use crayon::math::{EuclideanSpace, Matrix, One, Rotation};
 
@@ -13,8 +14,8 @@ pub struct Transform {
 }
 
 /// Declare `Transform` as component with compact vec storage.
-impl ecs::Component for Transform {
-    type Arena = ecs::VecArena<Transform>;
+impl Component for Transform {
+    type Arena = VecArena<Transform>;
 }
 
 impl Default for Transform {
@@ -83,14 +84,10 @@ impl Transform {
 
 impl Transform {
     /// Get the transform matrix from local space to world space.
-    pub fn world_matrix<T1, T2>(
-        tree: &T1,
-        arena: &T2,
-        handle: ecs::Entity,
-    ) -> Result<math::Matrix4<f32>>
+    pub fn world_matrix<T1, T2>(tree: &T1, arena: &T2, handle: Entity) -> Result<math::Matrix4<f32>>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::Arena<Transform>,
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
     {
         let decomposed = Transform::world_decomposed(tree, arena, handle)?;
         Ok(math::Matrix4::from(decomposed))
@@ -100,11 +97,11 @@ impl Transform {
     pub fn world_view_matrix<T1, T2>(
         tree: &T1,
         arena: &T2,
-        handle: ecs::Entity,
+        handle: Entity,
     ) -> Result<math::Matrix4<f32>>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::Arena<Transform>,
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
     {
         let decomposed = Transform::world_decomposed(tree, arena, handle)?;
         let it = math::Matrix4::from_translation(-decomposed.disp);
@@ -117,11 +114,11 @@ impl Transform {
     pub fn inverse_world_matrix<T1, T2>(
         tree: &T1,
         arena: &T2,
-        handle: ecs::Entity,
+        handle: Entity,
     ) -> Result<math::Matrix4<f32>>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::Arena<Transform>,
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
     {
         let decomposed = Transform::world_decomposed(tree, arena, handle)?;
         if let Some(inverse) = decomposed.inverse_transform() {
@@ -135,12 +132,12 @@ impl Transform {
     pub fn set_world_position<T1, T2, T3>(
         tree: &T1,
         arena: &mut T2,
-        handle: ecs::Entity,
+        handle: Entity,
         disp: T3,
     ) -> Result<()>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::ArenaMut<Transform>,
+        T1: Arena<Node>,
+        T2: ArenaMut<Transform>,
         T3: Into<math::Vector3<f32>>,
     {
         if arena.get(handle).is_none() {
@@ -172,11 +169,11 @@ impl Transform {
     pub fn world_position<T1, T2>(
         tree: &T1,
         arena: &T2,
-        handle: ecs::Entity,
+        handle: Entity,
     ) -> Result<math::Vector3<f32>>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::Arena<Transform>,
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
     {
         if let Some(transform) = arena.get(handle) {
             let mut disp = transform.position();
@@ -195,12 +192,12 @@ impl Transform {
     pub fn set_world_scale<T1, T2>(
         tree: &T1,
         arena: &mut T2,
-        handle: ecs::Entity,
+        handle: Entity,
         scale: f32,
     ) -> Result<()>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::ArenaMut<Transform>,
+        T1: Arena<Node>,
+        T2: ArenaMut<Transform>,
     {
         if arena.get(handle).is_none() {
             return Err(Error::NonTransformFound);
@@ -231,10 +228,10 @@ impl Transform {
     }
 
     /// Get the scale of `Transform` in world space.
-    pub fn world_scale<T1, T2>(tree: &T1, arena: &mut T2, handle: ecs::Entity) -> Result<f32>
+    pub fn world_scale<T1, T2>(tree: &T1, arena: &mut T2, handle: Entity) -> Result<f32>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::ArenaMut<Transform>,
+        T1: Arena<Node>,
+        T2: ArenaMut<Transform>,
     {
         if let Some(transform) = arena.get(handle) {
             let mut scale = transform.scale();
@@ -253,12 +250,12 @@ impl Transform {
     pub fn set_world_rotation<T1, T2, T3>(
         tree: &T1,
         arena: &mut T2,
-        handle: ecs::Entity,
+        handle: Entity,
         rotation: T3,
     ) -> Result<()>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::ArenaMut<Transform>,
+        T1: Arena<Node>,
+        T2: ArenaMut<Transform>,
         T3: Into<math::Quaternion<f32>>,
     {
         if arena.get(handle).is_none() {
@@ -289,11 +286,11 @@ impl Transform {
     pub fn world_rotation<T1, T2>(
         tree: &T1,
         arena: &T2,
-        handle: ecs::Entity,
+        handle: Entity,
     ) -> Result<math::Quaternion<f32>>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::Arena<Transform>,
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
     {
         if let Some(transform) = arena.get(handle) {
             let mut rotation = transform.rotation();
@@ -312,13 +309,13 @@ impl Transform {
     pub fn look_at<T1, T2, T3, T4>(
         tree: &T1,
         arena: &mut T2,
-        handle: ecs::Entity,
+        handle: Entity,
         dst: T3,
         up: T4,
     ) -> Result<()>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::ArenaMut<Transform>,
+        T1: Arena<Node>,
+        T2: ArenaMut<Transform>,
         T3: Into<math::Vector3<f32>>,
         T4: Into<math::Vector3<f32>>,
     {
@@ -332,12 +329,12 @@ impl Transform {
     fn set_world_decomposed<T1, T2>(
         tree: &T1,
         arena: &mut T2,
-        handle: ecs::Entity,
+        handle: Entity,
         decomposed: math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>,
     ) -> Result<()>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::ArenaMut<Transform>,
+        T1: Arena<Node>,
+        T2: ArenaMut<Transform>,
     {
         let relative = Transform::world_decomposed(tree, arena, handle)?;
 
@@ -354,11 +351,11 @@ impl Transform {
     fn world_decomposed<T1, T2>(
         tree: &T1,
         arena: &T2,
-        handle: ecs::Entity,
+        handle: Entity,
     ) -> Result<math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::Arena<Transform>,
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
     {
         if let Some(transform) = arena.get(handle) {
             let mut decomposed = transform.decomposed;
@@ -379,12 +376,12 @@ impl Transform {
     pub fn transform_point<T1, T2, T3>(
         tree: &T1,
         arena: &T2,
-        handle: ecs::Entity,
+        handle: Entity,
         v: T3,
     ) -> Result<math::Vector3<f32>>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::Arena<Transform>,
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
         T3: Into<math::Vector3<f32>>,
     {
         let decomposed = Transform::world_decomposed(tree, arena, handle)?;
@@ -399,12 +396,12 @@ impl Transform {
     pub fn transform_vector<T1, T2, T3>(
         tree: &T1,
         arena: &T2,
-        handle: ecs::Entity,
+        handle: Entity,
         v: T3,
     ) -> Result<math::Vector3<f32>>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::Arena<Transform>,
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
         T3: Into<math::Vector3<f32>>,
     {
         let decomposed = Transform::world_decomposed(tree, arena, handle)?;
@@ -418,12 +415,12 @@ impl Transform {
     pub fn transform_direction<T1, T2, T3>(
         tree: &T1,
         arena: &T2,
-        handle: ecs::Entity,
+        handle: Entity,
         v: T3,
     ) -> Result<math::Vector3<f32>>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::Arena<Transform>,
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
         T3: Into<math::Vector3<f32>>,
     {
         let rotation = Transform::world_rotation(tree, arena, handle)?;
@@ -431,28 +428,28 @@ impl Transform {
     }
 
     /// Return the up direction in world space, which is looking down the positive y-axis.
-    pub fn up<T1, T2>(tree: &T1, arena: &T2, handle: ecs::Entity) -> Result<math::Vector3<f32>>
+    pub fn up<T1, T2>(tree: &T1, arena: &T2, handle: Entity) -> Result<math::Vector3<f32>>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::Arena<Transform>,
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
     {
         Transform::transform_direction(tree, arena, handle, math::Vector3::new(0.0, 1.0, 0.0))
     }
 
     /// Return the forward direction in world space, which is looking down the positive z-axis.
-    pub fn forward<T1, T2>(tree: &T1, arena: &T2, handle: ecs::Entity) -> Result<math::Vector3<f32>>
+    pub fn forward<T1, T2>(tree: &T1, arena: &T2, handle: Entity) -> Result<math::Vector3<f32>>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::Arena<Transform>,
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
     {
         Transform::transform_direction(tree, arena, handle, math::Vector3::new(0.0, 0.0, 1.0))
     }
 
     /// Return the right direction in world space, which is looking down the positive x-axis.
-    pub fn right<T1, T2>(tree: &T1, arena: &T2, handle: ecs::Entity) -> Result<math::Vector3<f32>>
+    pub fn right<T1, T2>(tree: &T1, arena: &T2, handle: Entity) -> Result<math::Vector3<f32>>
     where
-        T1: ecs::Arena<Node>,
-        T2: ecs::Arena<Transform>,
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
     {
         Transform::transform_direction(tree, arena, handle, math::Vector3::new(1.0, 0.0, 0.0))
     }

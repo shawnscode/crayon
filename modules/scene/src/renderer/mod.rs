@@ -5,13 +5,15 @@ mod shadow;
 use self::shadow::RenderShadow;
 
 use crayon::application::Context;
-use crayon::ecs::{Arena, Entity, Fetch, System, View, World};
-use crayon::{graphics, math};
+use crayon::ecs::prelude::*;
+use crayon::math;
 use crayon::math::{Matrix, SquareMatrix};
+use crayon::graphics::prelude::*;
+use crayon::graphics::assets::prelude::*;
 
-use assets::*;
+use assets::prelude::*;
+use element::prelude::*;
 use errors::*;
-use element::*;
 
 use node::Node;
 use transform::Transform;
@@ -52,16 +54,11 @@ impl Renderer {
         Ok(())
     }
 
-    pub fn draw_shadow(&self, surface: graphics::SurfaceHandle) -> Result<()> {
+    pub fn draw_shadow(&self, surface: SurfaceHandle) -> Result<()> {
         self.shadow.draw(surface)
     }
 
-    pub fn draw(
-        &self,
-        scene: &Scene,
-        surface: graphics::SurfaceHandle,
-        camera: Entity,
-    ) -> Result<()> {
+    pub fn draw(&self, scene: &Scene, surface: SurfaceHandle, camera: Entity) -> Result<()> {
         DrawTask {
             surface: surface,
             camera: camera,
@@ -74,11 +71,11 @@ impl Renderer {
 }
 
 struct DrawTask<'a> {
-    surface: graphics::SurfaceHandle,
+    surface: SurfaceHandle,
     camera: Entity,
 
     shadow_space_matrix: math::Matrix4<f32>,
-    shadow_texture: graphics::RenderTextureHandle,
+    shadow_texture: RenderTextureHandle,
 
     scene: &'a Scene,
     env: &'a RenderEnvironment,
@@ -102,13 +99,9 @@ impl<'a> DrawTask<'a> {
         (pipeline, mat)
     }
 
-    fn bind<T>(
-        dc: &mut graphics::DrawCall,
-        pipeline: &PipelineObject,
-        uniform: PipelineUniformVariable,
-        v: T,
-    ) where
-        T: Into<graphics::UniformVariable>,
+    fn bind<T>(dc: &mut DrawCall, pipeline: &PipelineObject, uniform: PipelineUniformVariable, v: T)
+    where
+        T: Into<UniformVariable>,
     {
         let field = pipeline.uniform_field(uniform);
         if pipeline.sso.uniform_variable(field).is_some() {
@@ -122,7 +115,7 @@ impl<'a, 'b> System<'a> for DrawTask<'b> {
     type Result = Result<()>;
 
     fn run(&self, view: View, data: Self::ViewWith) -> Self::Result {
-        use assets::PipelineUniformVariable as RU;
+        use self::PipelineUniformVariable as RU;
 
         let (view_matrix, projection_matrix) = {
             if let Some(Element::Camera(v)) = self.scene.world.get::<Element>(self.camera) {
@@ -157,7 +150,7 @@ impl<'a, 'b> System<'a> for DrawTask<'b> {
                     };
 
                     // Generate draw call and fill it with build-in uniforms.
-                    let mut dc = graphics::DrawCall::new(pipeline.shader, mesh.mesh);
+                    let mut dc = DrawCall::new(pipeline.shader, mesh.mesh);
                     for (k, v) in &mat.variables {
                         dc.set_uniform_variable(*k, *v);
                     }
@@ -219,7 +212,7 @@ impl<'a, 'b> System<'a> for DrawTask<'b> {
 struct DrawOrder {
     tranlucent: bool,
     zorder: u32,
-    shader: graphics::ShaderHandle,
+    shader: ShaderHandle,
 }
 
 impl Into<u64> for DrawOrder {

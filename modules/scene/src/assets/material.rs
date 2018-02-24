@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crayon::graphics::UniformVariable;
+use crayon::graphics::assets::prelude::*;
 use crayon::utils::HashValue;
 
 use errors::*;

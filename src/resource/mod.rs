@@ -67,13 +67,13 @@
 
 pub mod errors;
 pub mod filesystem;
-pub mod cache;
+pub mod utils;
 
-mod location;
-pub use self::location::Location;
+mod service;
+pub use self::service::{ResourceAsyncLoader, ResourceSystem, ResourceSystemShared};
 
-mod registery;
-pub use self::registery::Registery;
-
-mod resource;
-pub use self::resource::{ResourceAsyncLoader, ResourceSystem, ResourceSystemShared};
+pub mod prelude {
+    pub use super::{ResourceAsyncLoader, ResourceSystem, ResourceSystemShared};
+    pub use super::utils::location::Location;
+    pub use super::filesystem::{DirectoryFS, ZipFS};
+}

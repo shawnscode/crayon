@@ -1,12 +1,17 @@
 use std::sync::Arc;
 
-use crayon::{graphics, math, resource};
+use crayon::math;
+
 use crayon::application::Context;
-use crayon::ecs::{Arena, Entity, Fetch, System, View, World};
+
+use crayon::ecs::prelude::*;
+use crayon::graphics::prelude::*;
+use crayon::graphics::assets::prelude::*;
+use crayon::resource::prelude::*;
 
 use node::Node;
 use transform::Transform;
-use element::{Camera, Element};
+use element::prelude::*;
 
 use assets::factory;
 use errors::*;
@@ -18,28 +23,28 @@ pub enum SceneDrawOrder {
 
 /// A shadow mapping builder.
 pub struct RenderShadow {
-    video: Arc<graphics::GraphicsSystemShared>,
+    video: Arc<GraphicsSystemShared>,
 
-    depth_shadow_texture: graphics::RenderTextureHandle,
-    depth_surface: graphics::SurfaceHandle,
-    depth_shader: graphics::ShaderHandle,
-    draw_shader: graphics::ShaderHandle,
+    depth_shadow_texture: RenderTextureHandle,
+    depth_surface: SurfaceHandle,
+    depth_shader: ShaderHandle,
+    draw_shader: ShaderHandle,
 }
 
 impl RenderShadow {
     /// Craetes a new `RenderShadow`.
     pub fn new(ctx: &Context) -> Result<Self> {
-        let video = ctx.shared::<graphics::GraphicsSystem>().clone();
+        let video = ctx.shared::<GraphicsSystem>().clone();
 
         let render_depth_buffer = {
-            let mut setup = graphics::RenderTextureSetup::default();
-            setup.format = graphics::RenderTextureFormat::Depth16;
+            let mut setup = RenderTextureSetup::default();
+            setup.format = RenderTextureFormat::Depth16;
             setup.dimensions = (640, 480);
             video.create_render_texture(setup)?
         };
 
         let surface = {
-            let mut setup = graphics::SurfaceSetup::default();
+            let mut setup = SurfaceSetup::default();
             setup.set_attachments(&[], render_depth_buffer)?;
             setup.set_clear(None, 1.0, None);
             setup.set_order(SceneDrawOrder::Shadow as u64);
@@ -47,36 +52,36 @@ impl RenderShadow {
         };
 
         let shader = {
-            let attributes = graphics::AttributeLayoutBuilder::new()
-                .with(graphics::Attribute::Position, 3)
+            let attributes = AttributeLayoutBuilder::new()
+                .with(Attribute::Position, 3)
                 .finish();
 
-            let mut setup = graphics::ShaderSetup::default();
+            let mut setup = ShaderSetup::default();
             setup.render_state.depth_write = true;
-            setup.render_state.depth_test = graphics::Comparison::Less;
-            setup.render_state.cull_face = graphics::CullFace::Back;
+            setup.render_state.depth_test = Comparison::Less;
+            setup.render_state.cull_face = CullFace::Back;
             setup.layout = attributes;
             setup.vs = include_str!("../../assets/shadow.vs").to_owned();
             setup.fs = include_str!("../../assets/shadow.fs").to_owned();
 
-            let tt = graphics::UniformVariableType::Matrix4f;
+            let tt = UniformVariableType::Matrix4f;
             setup.uniform_variables.insert("u_MVPMatrix".into(), tt);
-            video.create_shader(resource::Location::unique(""), setup)?
+            video.create_shader(Location::unique(""), setup)?
         };
 
         let draw_shader = {
-            let attributes = graphics::AttributeLayoutBuilder::new()
-                .with(graphics::Attribute::Position, 3)
+            let attributes = AttributeLayoutBuilder::new()
+                .with(Attribute::Position, 3)
                 .finish();
 
-            let mut setup = graphics::ShaderSetup::default();
+            let mut setup = ShaderSetup::default();
             setup.layout = attributes;
             setup.vs = include_str!("../../assets/shadow_texture.vs").to_owned();
             setup.fs = include_str!("../../assets/shadow_texture.fs").to_owned();
 
-            let tt = graphics::UniformVariableType::RenderTexture;
+            let tt = UniformVariableType::RenderTexture;
             setup.uniform_variables.insert("u_ShadowTexture".into(), tt);
-            video.create_shader(resource::Location::unique(""), setup)?
+            video.create_shader(Location::unique(""), setup)?
         };
 
         Ok(RenderShadow {
@@ -90,7 +95,7 @@ impl RenderShadow {
     }
 
     /// Gets the handle of depth buffer.
-    pub fn texture(&self) -> graphics::RenderTextureHandle {
+    pub fn texture(&self) -> RenderTextureHandle {
         self.depth_shadow_texture
     }
 
@@ -108,9 +113,9 @@ impl RenderShadow {
     }
 
     /// Draw the underlying depth buffer into the `surface`.
-    pub fn draw(&self, surface: graphics::SurfaceHandle) -> Result<()> {
+    pub fn draw(&self, surface: SurfaceHandle) -> Result<()> {
         let mesh = factory::mesh::quad(&self.video)?;
-        let mut dc = graphics::DrawCall::new(self.draw_shader, mesh);
+        let mut dc = DrawCall::new(self.draw_shader, mesh);
         dc.set_uniform_variable("u_ShadowTexture", self.depth_shadow_texture);
         let sdc = dc.build_sub_mesh(0)?;
 
@@ -156,7 +161,7 @@ impl<'a, 'b> System<'a> for GenerateRenderShadow<'b> {
                     let m = Transform::world_matrix(&data.0, &data.1, handle)?;
                     let mvp = vp * m;
 
-                    let mut dc = graphics::DrawCall::new(self.shadow.depth_shader, mesh.mesh);
+                    let mut dc = DrawCall::new(self.shadow.depth_shader, mesh.mesh);
                     dc.set_uniform_variable("u_MVPMatrix", mvp);
                     let sdc = dc.build(mesh.index)?;
 

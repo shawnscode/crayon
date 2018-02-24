@@ -1,14 +1,16 @@
 use std::ops::{Deref, DerefMut};
 
 use imgui;
-use crayon::{application, graphics, input};
+use crayon::application;
 use crayon::application::Result;
+use crayon::graphics::prelude::*;
+use crayon::input::prelude::*;
 use renderer::Renderer;
 
 pub struct FrameGuard<'a> {
     renderer: &'a mut Renderer,
     frame: Option<imgui::Ui<'a>>,
-    surface: graphics::SurfaceHandle,
+    surface: SurfaceHandle,
 }
 
 impl<'a> Deref for FrameGuard<'a> {
@@ -54,16 +56,16 @@ impl Canvas {
 
     pub fn frame<'a>(
         &'a mut self,
-        surface: graphics::SurfaceHandle,
+        surface: SurfaceHandle,
         ctx: &application::Context,
     ) -> FrameGuard<'a> {
         // Update input device states.
-        let input = ctx.shared::<input::InputSystem>();
+        let input = ctx.shared::<InputSystem>();
         Self::update_mouse_state(&mut self.ctx, &input);
         Self::update_keycode_state(&mut self.ctx, &input);
 
         // Generates frame builder.
-        let v = ctx.shared::<graphics::GraphicsSystem>();
+        let v = ctx.shared::<GraphicsSystem>();
         let duration = ctx.shared::<application::TimeSystem>().frame_delta();
         let ts = duration.as_secs() as f32 + duration.subsec_nanos() as f32 / 1_000_000_000.0;
 
@@ -102,7 +104,7 @@ impl Canvas {
         imgui.set_imgui_key(ImGuiKey::Z, 18);
     }
 
-    fn update_keycode_state(imgui: &mut imgui::ImGui, input: &input::InputSystemShared) {
+    fn update_keycode_state(imgui: &mut imgui::ImGui, input: &InputSystemShared) {
         use self::application::event::KeyboardButton;
 
         imgui.set_key(0, input.is_key_down(KeyboardButton::Tab));
@@ -142,7 +144,7 @@ impl Canvas {
         imgui.set_key_super(lwin || rwin);
     }
 
-    fn update_mouse_state(imgui: &mut imgui::ImGui, input: &input::InputSystemShared) {
+    fn update_mouse_state(imgui: &mut imgui::ImGui, input: &InputSystemShared) {
         use self::application::event::MouseButton;
 
         let pos = input.mouse_position();
