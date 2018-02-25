@@ -9,6 +9,18 @@ The format is based on [Keep a Changelog][kc], and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+* Fixed write failures on depth buffer. ([#47])
+* Fixed input detection under HiDPI environments. ([#47])
+
+### Changed
+* Removed `scene` from core module. ([#47])
+* Use [failure](https://github.com/withoutboats/failure) instead of `error-chain` as the default error manangement crate. ([#47])
+* Refined `RAIIGuard` into `GraphicsSystemGuard`. ([#47])
+* Unified the interface of setup data in `graphics` module.
+
+[#47]: https://github.com/shawnscode/crayon/pull/47
+
 ## [0.2.1] - 2018-02-02
 
 ### Added
