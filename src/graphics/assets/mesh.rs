@@ -1,22 +1,61 @@
 //! Immutable or dynamic vertex and index data.
 
 use graphics::MAX_VERTEX_ATTRIBUTES;
+use graphics::errors::{Error, Result};
 use graphics::assets::shader::Attribute;
-use graphics::errors::*;
+use resource::utils::location::Location;
 
 impl_handle!(MeshHandle);
 
+#[derive(Debug, Clone, Default)]
+pub struct MeshSetup<'a> {
+    pub location: Location<'a>,
+    pub params: MeshParams,
+    pub verts: Option<&'a [u8]>,
+    pub idxes: Option<&'a [u8]>,
+}
+
+impl<'a> MeshSetup<'a> {
+    pub fn validate(&self) -> Result<()> {
+        if self.location.is_shared() {
+            if self.params.hint != MeshHint::Immutable {
+                return Err(Error::CreateMutableSharedObject);
+            }
+        }
+
+        if let Some(buf) = self.verts.as_ref() {
+            if buf.len() > self.params.vertex_buffer_len() {
+                return Err(Error::OutOfBounds);
+            }
+        }
+
+        if let Some(buf) = self.idxes.as_ref() {
+            if buf.len() > self.params.index_buffer_len() {
+                return Err(Error::OutOfBounds);
+            }
+        }
+
+        for v in &self.params.sub_mesh_offsets {
+            if *v >= self.params.num_idxes {
+                return Err(Error::OutOfBounds);
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// The setup parameters of mesh object.
 #[derive(Debug, Clone)]
-pub struct MeshSetup {
+pub struct MeshParams {
     /// Usage hints.
-    pub hint: BufferHint,
+    pub hint: MeshHint,
     /// How a single vertex structure looks like.
     pub layout: VertexLayout,
     /// Index format
     pub index_format: IndexFormat,
     /// How the input vertex data is used to assemble primitives.
-    pub primitive: Primitive,
+    pub primitive: MeshPrimitive,
     /// The number of vertices in this mesh.
     pub num_verts: usize,
     /// The number of indices in this mesh.
@@ -25,15 +64,13 @@ pub struct MeshSetup {
     pub sub_mesh_offsets: Vec<usize>,
 }
 
-pub type MeshStateObject = MeshSetup;
-
-impl Default for MeshSetup {
+impl Default for MeshParams {
     fn default() -> Self {
-        MeshSetup {
-            hint: BufferHint::Immutable,
+        MeshParams {
+            hint: MeshHint::Immutable,
             layout: VertexLayout::default(),
             index_format: IndexFormat::U16,
-            primitive: Primitive::Triangles,
+            primitive: MeshPrimitive::Triangles,
             num_verts: 0,
             num_idxes: 0,
             sub_mesh_offsets: Vec::new(),
@@ -41,7 +78,7 @@ impl Default for MeshSetup {
     }
 }
 
-impl MeshSetup {
+impl MeshParams {
     #[inline]
     pub fn vertex_buffer_len(&self) -> usize {
         self.num_verts * self.layout.stride() as usize
@@ -50,16 +87,6 @@ impl MeshSetup {
     #[inline]
     pub fn index_buffer_len(&self) -> usize {
         self.num_idxes * self.index_format.stride() as usize
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        for v in &self.sub_mesh_offsets {
-            if *v >= self.num_idxes {
-                bail!("The start index of SubMesh is out of bounds!");
-            }
-        }
-
-        Ok(())
     }
 }
 
@@ -73,7 +100,7 @@ pub enum MeshIndex {
 
 /// Hint abouts the intended update strategy of the data.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum BufferHint {
+pub enum MeshHint {
     /// The resource is initialized with data and cannot be changed later, this
     /// is the most common and most efficient usage. Optimal for render targets
     /// and resourced memory.
@@ -88,7 +115,7 @@ pub enum BufferHint {
 
 /// Defines how the input vertex data is used to assemble primitives.
 #[derive(Debug, Clone, Copy)]
-pub enum Primitive {
+pub enum MeshPrimitive {
     /// Separate points.
     Points,
     /// Separate lines.
@@ -101,24 +128,22 @@ pub enum Primitive {
     TriangleStrip,
 }
 
-impl Primitive {
+impl MeshPrimitive {
     pub fn assemble(&self, indices: u32) -> u32 {
         match *self {
-            Primitive::Points => indices,
-            Primitive::Lines => indices / 2,
-            Primitive::LineStrip => indices - 1,
-            Primitive::Triangles => indices / 3,
-            Primitive::TriangleStrip => indices - 2,
+            MeshPrimitive::Points => indices,
+            MeshPrimitive::Lines => indices / 2,
+            MeshPrimitive::LineStrip => indices - 1,
+            MeshPrimitive::Triangles => indices / 3,
+            MeshPrimitive::TriangleStrip => indices - 2,
         }
     }
 
     pub fn assemble_triangles(&self, indices: u32) -> u32 {
         match *self {
-            Primitive::Points |
-            Primitive::Lines |
-            Primitive::LineStrip => 0,
-            Primitive::Triangles => indices / 3,
-            Primitive::TriangleStrip => indices - 2,
+            MeshPrimitive::Points | MeshPrimitive::Lines | MeshPrimitive::LineStrip => 0,
+            MeshPrimitive::Triangles => indices / 3,
+            MeshPrimitive::TriangleStrip => indices - 2,
         }
     }
 }
@@ -255,12 +280,12 @@ impl VertexLayoutBuilder {
     }
 
     pub fn with(
-        &mut self,
+        mut self,
         attribute: Attribute,
         format: VertexFormat,
         size: u8,
         normalized: bool,
-    ) -> &mut Self {
+    ) -> Self {
         assert!(size > 0 && size <= 4);
 
         let desc = VertexAttribute {
@@ -286,7 +311,7 @@ impl VertexLayoutBuilder {
     }
 
     #[inline]
-    pub fn finish(&mut self) -> VertexLayout {
+    pub fn finish(mut self) -> VertexLayout {
         self.0.stride = 0;
         for i in 0..self.0.len {
             let i = i as usize;
@@ -447,11 +472,13 @@ pub mod macros {
 
                 #[allow(dead_code)]
                 pub fn attributes() -> $crate::graphics::assets::shader::AttributeLayout {
-                    let mut builder = $crate::graphics::assets::shader::AttributeLayoutBuilder::new();
+                    let builder = $crate::graphics::assets::shader::AttributeLayoutBuilder::new();
 
-                    $( builder.with(
-                        $crate::graphics::assets::shader::Attribute::$attribute,
-                        $size); ) *
+                    $(
+                        let builder = builder.with(
+                            $crate::graphics::assets::shader::Attribute::$attribute,
+                            $size);
+                    ) *
 
                     builder.finish()
                 }

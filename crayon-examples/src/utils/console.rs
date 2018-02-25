@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
 use crayon::prelude::*;
+use crayon::graphics::assets::prelude::*;
+
 use crayon_imgui;
 use crayon_imgui::prelude::*;
+
 use utils;
+use errors::*;
 
 pub struct ConsoleCanvas {
     canvas: Canvas,
@@ -19,11 +23,11 @@ impl Drop for ConsoleCanvas {
 }
 
 impl ConsoleCanvas {
-    pub fn new(order: u64, ctx: &Context) -> errors::Result<Self> {
+    pub fn new(order: u64, ctx: &Context) -> Result<Self> {
         let video = ctx.shared::<GraphicsSystem>().clone();
         let canvas = Canvas::new(ctx).unwrap();
 
-        let mut setup = graphics::SurfaceSetup::default();
+        let mut setup = SurfaceSetup::default();
         setup.set_clear(None, None, None);
         setup.set_sequence(true);
         setup.set_order(order);

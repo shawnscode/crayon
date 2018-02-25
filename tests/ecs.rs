@@ -1,7 +1,8 @@
 extern crate crayon;
 extern crate rand;
 
-use crayon::prelude::*;
+use crayon::ecs::prelude::*;
+
 use std::sync::{Arc, RwLock};
 use rand::{Rng, SeedableRng, XorShiftRng};
 
@@ -23,11 +24,11 @@ impl Drop for Reference {
 }
 
 impl Component for Position {
-    type Arena = ecs::VecArena<Position>;
+    type Arena = VecArena<Position>;
 }
 
 impl Component for Reference {
-    type Arena = ecs::HashMapArena<Reference>;
+    type Arena = HashMapArena<Reference>;
 }
 
 struct IncXSystem {}
@@ -301,5 +302,5 @@ fn system() {
     dec.run_at(&world);
     assert!(world.get::<Position>(e1).unwrap().x == 0);
 
-    assert!(!ecs::system::validate(&world, &[&inc, &dec]));
+    assert!(!validate(&world, &[&inc, &dec]));
 }

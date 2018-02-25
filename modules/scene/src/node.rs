@@ -1,5 +1,6 @@
-use ecs;
-use scene::errors::*;
+use crayon::ecs::prelude::*;
+
+use errors::*;
 
 /// `Node` is used to store and manipulate the postiion, rotation and scale
 /// of the object. Every `Node` can have a parent, which allows you to apply
@@ -11,15 +12,15 @@ use scene::errors::*;
 /// send or shared across threads safely. This enables e.g. parallel tree traversals.
 #[derive(Debug, Clone, Copy)]
 pub struct Node {
-    parent: Option<ecs::Entity>,
-    next_sib: Option<ecs::Entity>,
-    prev_sib: Option<ecs::Entity>,
-    first_child: Option<ecs::Entity>,
+    parent: Option<Entity>,
+    next_sib: Option<Entity>,
+    prev_sib: Option<Entity>,
+    first_child: Option<Entity>,
 }
 
 /// Declare `Node` as component with compact vec storage.
-impl ecs::Component for Node {
-    type Arena = ecs::VecArena<Node>;
+impl Component for Node {
+    type Arena = VecArena<Node>;
 }
 
 impl Default for Node {
@@ -36,7 +37,7 @@ impl Default for Node {
 impl Node {
     /// Returns the parent widget.
     #[inline]
-    pub fn parent(&self) -> Option<ecs::Entity> {
+    pub fn parent(&self) -> Option<Entity> {
         self.parent
     }
 
@@ -55,22 +56,22 @@ impl Node {
 
 impl Node {
     /// Attachs a new child to parent transform, before existing children.
-    pub fn set_parent<T1, T2>(arena: &mut T1, child: ecs::Entity, parent: T2) -> Result<()>
+    pub fn set_parent<T1, T2>(arena: &mut T1, child: Entity, parent: T2) -> Result<()>
     where
-        T1: ecs::ArenaMut<Node>,
-        T2: Into<Option<ecs::Entity>>,
+        T1: ArenaMut<Node>,
+        T2: Into<Option<Entity>>,
     {
         let parent = parent.into();
 
         unsafe {
             if arena.get(child).is_none() {
-                bail!(ErrorKind::NonTransformFound);
+                return Err(Error::NonTransformFound);
             }
 
             // Can not append a transform to it self.
             if let Some(parent) = parent {
                 if parent == child || arena.get(parent).is_none() {
-                    bail!(ErrorKind::CanNotAttachSelfAsParent);
+                    return Err(Error::CanNotAttachSelfAsParent);
                 }
             }
 
@@ -92,9 +93,9 @@ impl Node {
     }
 
     /// Detach a transform from its parent and siblings. Children are not affected.
-    pub fn remove_from_parent<T1>(arena: &mut T1, handle: ecs::Entity) -> Result<()>
+    pub fn remove_from_parent<T1>(arena: &mut T1, handle: Entity) -> Result<()>
     where
-        T1: ecs::ArenaMut<Node>,
+        T1: ArenaMut<Node>,
     {
         unsafe {
             let (parent, next_sib, prev_sib) = {
@@ -105,7 +106,7 @@ impl Node {
                         node.prev_sib.take(),
                     )
                 } else {
-                    bail!(ErrorKind::NonTransformFound);
+                    return Err(Error::NonTransformFound);
                 }
             };
 
@@ -125,9 +126,9 @@ impl Node {
     }
 
     /// Return an iterator of references to its ancestors.
-    pub fn ancestors<T1>(arena: &T1, handle: ecs::Entity) -> Ancestors
+    pub fn ancestors<T1>(arena: &T1, handle: Entity) -> Ancestors
     where
-        T1: ecs::Arena<Node>,
+        T1: Arena<Node>,
     {
         Ancestors {
             arena: arena,
@@ -136,9 +137,9 @@ impl Node {
     }
 
     /// Returns an iterator of references to this transform's children.
-    pub fn children<T1>(arena: &T1, handle: ecs::Entity) -> Children
+    pub fn children<T1>(arena: &T1, handle: Entity) -> Children
     where
-        T1: ecs::Arena<Node>,
+        T1: Arena<Node>,
     {
         Children {
             arena: arena,
@@ -146,11 +147,10 @@ impl Node {
         }
     }
 
-
     /// Returns an iterator of references to this transform's descendants in tree order.
-    pub fn descendants<T1>(arena: &T1, handle: ecs::Entity) -> Descendants
+    pub fn descendants<T1>(arena: &T1, handle: Entity) -> Descendants
     where
-        T1: ecs::Arena<Node>,
+        T1: Arena<Node>,
     {
         Descendants {
             arena: arena,
@@ -160,9 +160,9 @@ impl Node {
     }
 
     /// Return true if rhs is one of the ancestor of this `Node`.
-    pub fn is_ancestor<T1>(arena: &T1, lhs: ecs::Entity, rhs: ecs::Entity) -> bool
+    pub fn is_ancestor<T1>(arena: &T1, lhs: Entity, rhs: Entity) -> bool
     where
-        T1: ecs::Arena<Node>,
+        T1: Arena<Node>,
     {
         for v in Node::ancestors(arena, lhs) {
             if v == rhs {
@@ -176,12 +176,12 @@ impl Node {
 
 /// An iterator of references to its ancestors.
 pub struct Ancestors<'a> {
-    arena: &'a ecs::Arena<Node>,
-    cursor: Option<ecs::Entity>,
+    arena: &'a Arena<Node>,
+    cursor: Option<Entity>,
 }
 
 impl<'a> Iterator for Ancestors<'a> {
-    type Item = ecs::Entity;
+    type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
@@ -197,12 +197,12 @@ impl<'a> Iterator for Ancestors<'a> {
 
 /// An iterator of references to its children.
 pub struct Children<'a> {
-    arena: &'a ecs::Arena<Node>,
-    cursor: Option<ecs::Entity>,
+    arena: &'a Arena<Node>,
+    cursor: Option<Entity>,
 }
 
 impl<'a> Iterator for Children<'a> {
-    type Item = ecs::Entity;
+    type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
@@ -218,13 +218,13 @@ impl<'a> Iterator for Children<'a> {
 
 /// An iterator of references to its descendants, in tree order.
 pub struct Descendants<'a> {
-    arena: &'a ecs::Arena<Node>,
-    root: ecs::Entity,
-    cursor: Option<ecs::Entity>,
+    arena: &'a Arena<Node>,
+    root: Entity,
+    cursor: Option<Entity>,
 }
 
 impl<'a> Iterator for Descendants<'a> {
-    type Item = ecs::Entity;
+    type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {

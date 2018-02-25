@@ -63,7 +63,7 @@ impl InputSystem {
                     let touch = event::TouchEvent {
                         id: 255,
                         state: event::TouchState::Move,
-                        position: self.shared.mouse_position(),
+                        position: self.shared.mouse.read().unwrap().position_in_pixel(),
                     };
 
                     self.shared.touchpad.write().unwrap().on_touch(touch);
@@ -79,7 +79,7 @@ impl InputSystem {
                     let touch = event::TouchEvent {
                         id: 255,
                         state: event::TouchState::Start,
-                        position: self.shared.mouse_position(),
+                        position: self.shared.mouse.read().unwrap().position_in_pixel(),
                     };
 
                     self.shared.touchpad.write().unwrap().on_touch(touch);
@@ -95,7 +95,7 @@ impl InputSystem {
                     let touch = event::TouchEvent {
                         id: 255,
                         state: event::TouchState::End,
-                        position: self.shared.mouse_position(),
+                        position: self.shared.mouse.read().unwrap().position_in_pixel(),
                     };
 
                     self.shared.touchpad.write().unwrap().on_touch(touch);

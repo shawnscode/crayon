@@ -1,7 +1,8 @@
 //! Execution utilities based on `View` and `Arena`s.
 
-use super::{Component, Fetch, FetchMut, View, World};
-use super::bitset::BitSet;
+use ecs::component::Component;
+use ecs::world::{Fetch, FetchMut, View, World};
+use ecs::bitset::BitSet;
 
 /// A system that handles `Entities` with specified view.
 ///
@@ -67,7 +68,6 @@ pub trait System<'a> {
         r.union_with(w)
     }
 }
-
 
 /// Trait for validation system.
 #[doc(hidden)]

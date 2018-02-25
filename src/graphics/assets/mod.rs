@@ -31,16 +31,26 @@ where
             _ => false,
         }
     }
-
-    pub fn clone(&self) -> Option<Arc<T>> {
-        match *self {
-            AssetState::Ready(ref v) => Some(v.clone()),
-            _ => None,
-        }
-    }
 }
 
-pub(crate) type AssetShaderState = AssetState<self::shader::ShaderStateObject>;
-pub(crate) type AssetMeshState = AssetState<self::mesh::MeshStateObject>;
-pub(crate) type AssetTextureState = AssetState<self::texture::TextureStateObject>;
-pub(crate) type AssetRenderTextureState = AssetState<self::texture::RenderTextureStateObject>;
+pub(crate) type AssetMeshState = AssetState<self::mesh::MeshParams>;
+pub(crate) type AssetTextureState = AssetState<self::texture::TextureParams>;
+
+pub mod prelude {
+    pub use super::surface::{SurfaceHandle, SurfaceScissor, SurfaceSetup, SurfaceViewport};
+
+    pub use super::shader::{Attribute, AttributeLayout, AttributeLayoutBuilder, BlendFactor,
+                            BlendValue, Comparison, CullFace, Equation, FrontFaceOrder,
+                            RenderState, ShaderHandle, ShaderParams, ShaderSetup, UniformVariable,
+                            UniformVariableLayout, UniformVariableLayoutBuilder,
+                            UniformVariableType};
+
+    pub use super::texture::{RenderTextureFormat, RenderTextureHandle, RenderTextureSetup,
+                             TextureAddress, TextureFilter, TextureFormat, TextureHandle,
+                             TextureHint, TextureParams, TextureSetup};
+
+    pub use super::mesh::{IndexFormat, MeshHandle, MeshHint, MeshIndex, MeshParams, MeshPrimitive,
+                          MeshSetup, VertexFormat, VertexLayout};
+
+    pub(crate) use super::{AssetMeshState, AssetState, AssetTextureState};
+}

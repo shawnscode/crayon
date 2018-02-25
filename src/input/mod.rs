@@ -136,15 +136,19 @@
 //! 2. Game pad inputs;
 //! 3. More touch gesture like `Pinching`.
 
-mod keyboard;
-mod mouse;
-mod touchpad;
-mod input;
+pub mod keyboard;
+pub mod mouse;
+pub mod touchpad;
 
-pub use self::keyboard::KeyboardSetup;
-pub use self::mouse::MouseSetup;
-pub use self::touchpad::{GesturePan, GestureTap, TouchPadSetup};
-pub use self::input::{InputSetup, InputSystem, InputSystemShared};
+mod service;
+pub use self::service::{InputSetup, InputSystem, InputSystemShared};
 
 /// Maximum touches that would be tracked at sametime.
 pub const MAX_TOUCHES: usize = 4;
+
+pub mod prelude {
+    pub use super::{InputSetup, InputSystem, InputSystemShared};
+    pub use super::keyboard::KeyboardSetup;
+    pub use super::mouse::MouseSetup;
+    pub use super::touchpad::{GesturePan, GestureTap, TouchPadSetup};
+}

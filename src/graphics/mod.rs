@@ -162,7 +162,7 @@
 //! graphics.submit(surface, 0, cmd).unwrap();
 //!
 //! // Set the scissor state.
-//! let scissor = graphics::Scissor::Enable(scissor_pos, scissor_size);
+//! let scissor = graphics::SurfaceScissor::Enable(scissor_pos, scissor_size);
 //! let cmd = graphics::Command::set_scissor(scissor);
 //! self.video.submit(surface, 0, cmd).unwrap();
 //! ```
@@ -181,31 +181,6 @@
 //! self.video.submit(self.surface, 0, cmd).unwrap();
 //! ```
 
-mod backend;
-#[macro_use]
-pub mod assets;
-
-pub mod errors;
-pub mod graphics;
-pub mod window;
-pub mod guard;
-pub mod command;
-
-pub use self::assets::surface::*;
-pub use self::assets::shader::*;
-
-pub use self::assets::mesh::*;
-pub use self::assets::mesh_loader::{MeshData, MeshParser};
-
-pub use self::assets::texture::*;
-pub use self::assets::texture_loader::{TextureData, TextureParser};
-
-pub use self::graphics::{GraphicsSystem, GraphicsSystemShared};
-pub use self::window::{Window, WindowBuilder};
-
-pub use self::guard::RAIIGuard;
-pub use self::command::{Command, DrawCall};
-
 /// Maximum number of attributes in vertex layout.
 pub const MAX_VERTEX_ATTRIBUTES: usize = 12;
 /// Maximum number of attachments in framebuffer.
@@ -215,18 +190,26 @@ pub const MAX_UNIFORM_VARIABLES: usize = 32;
 /// Maximum number of textures in shader.
 pub const MAX_UNIFORM_TEXTURE_SLOTS: usize = 8;
 
-use std::time::Duration;
+#[macro_use]
+pub mod assets;
+pub mod errors;
+pub mod window;
+pub mod guard;
+pub mod command;
 
-/// The information of graphics module during last frame.
-#[derive(Debug, Copy, Clone, Default)]
-pub struct GraphicsFrameInfo {
-    pub duration: Duration,
-    pub drawcall: u32,
-    pub triangles: u32,
-    pub alive_surfaces: u32,
-    pub alive_shaders: u32,
-    pub alive_frame_buffers: u32,
-    pub alive_meshes: u32,
-    pub alive_textures: u32,
-    pub alive_render_buffers: u32,
+mod backend;
+mod service;
+
+pub use self::service::{GraphicsFrameInfo, GraphicsSystem, GraphicsSystemShared};
+
+pub use self::guard::GraphicsSystemGuard;
+
+pub mod prelude {
+    pub use super::{GraphicsFrameInfo, GraphicsSystem, GraphicsSystemShared};
+
+    pub use super::command::{Command, DrawCall};
+    pub use super::assets::mesh::{MeshHandle, MeshIndex};
+    pub use super::assets::shader::ShaderHandle;
+    pub use super::assets::surface::{SurfaceHandle, SurfaceScissor, SurfaceViewport};
+    pub use super::assets::texture::{RenderTextureHandle, TextureHandle};
 }

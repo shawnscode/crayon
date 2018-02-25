@@ -1,18 +1,28 @@
 use std::sync::Arc;
+use std::ops::Deref;
 
-use resource::Location;
-use super::*;
-use super::errors::*;
-use super::assets::texture_loader::TextureParser;
+use graphics::GraphicsSystemShared;
+use graphics::errors::Result;
+use graphics::assets::prelude::*;
+use graphics::assets::texture_loader::TextureParser;
+use graphics::assets::mesh_loader::MeshParser;
 
-pub struct RAIIGuard {
+pub struct GraphicsSystemGuard {
     stack: Vec<Resource>,
     video: Arc<GraphicsSystemShared>,
 }
 
-impl RAIIGuard {
+impl Deref for GraphicsSystemGuard {
+    type Target = GraphicsSystemShared;
+
+    fn deref(&self) -> &Self::Target {
+        &self.video
+    }
+}
+
+impl GraphicsSystemGuard {
     pub fn new(video: Arc<GraphicsSystemShared>) -> Self {
-        RAIIGuard {
+        GraphicsSystemGuard {
             stack: Vec::new(),
             video: video,
         }
@@ -25,66 +35,32 @@ impl RAIIGuard {
     }
 
     #[inline]
-    pub fn create_shader(
-        &mut self,
-        location: Location,
-        setup: ShaderSetup,
-    ) -> Result<ShaderHandle> {
-        let v = self.video.create_shader(location, setup)?;
+    pub fn create_shader(&mut self, setup: ShaderSetup) -> Result<ShaderHandle> {
+        let v = self.video.create_shader(setup)?;
         Ok(self.push(v))
     }
 
     #[inline]
-    pub fn create_framebuffer(&mut self, setup: FrameBufferSetup) -> Result<FrameBufferHandle> {
-        let v = self.video.create_framebuffer(setup)?;
-        Ok(self.push(v))
-    }
-
-    #[inline]
-    pub fn create_render_buffer(&mut self, setup: RenderBufferSetup) -> Result<RenderBufferHandle> {
-        let v = self.video.create_render_buffer(setup)?;
-        Ok(self.push(v))
-    }
-
-    #[inline]
-    pub fn create_mesh_from<T>(
-        &mut self,
-        location: Location,
-        setup: MeshSetup,
-    ) -> Result<MeshHandle>
+    pub fn create_mesh_from<T>(&mut self, setup: MeshSetup) -> Result<MeshHandle>
     where
         T: MeshParser + Send + Sync + 'static,
     {
-        let v = self.video.create_mesh_from::<T>(location, setup)?;
+        let v = self.video.create_mesh_from::<T>(setup)?;
         Ok(self.push(v))
     }
 
     #[inline]
-    pub fn create_mesh<'a, 'b, T1, T2>(
-        &mut self,
-        location: Location,
-        setup: MeshSetup,
-        verts: T1,
-        idxes: T2,
-    ) -> Result<MeshHandle>
-    where
-        T1: Into<Option<&'a [u8]>>,
-        T2: Into<Option<&'b [u8]>>,
-    {
-        let v = self.video.create_mesh(location, setup, verts, idxes)?;
+    pub fn create_mesh(&mut self, setup: MeshSetup) -> Result<MeshHandle> {
+        let v = self.video.create_mesh(setup)?;
         Ok(self.push(v))
     }
 
     #[inline]
-    pub fn create_texture_from<T>(
-        &mut self,
-        location: Location,
-        setup: TextureSetup,
-    ) -> Result<TextureHandle>
+    pub fn create_texture_from<T>(&mut self, setup: TextureSetup) -> Result<TextureHandle>
     where
         T: TextureParser + Send + Sync + 'static,
     {
-        let v = self.video.create_texture_from::<T>(location, setup)?;
+        let v = self.video.create_texture_from::<T>(setup)?;
         Ok(self.push(v))
     }
 
@@ -98,16 +74,8 @@ impl RAIIGuard {
     }
 
     #[inline]
-    pub fn create_texture<'a, T>(
-        &mut self,
-        location: Location,
-        setup: TextureSetup,
-        data: T,
-    ) -> Result<TextureHandle>
-    where
-        T: Into<Option<&'a [u8]>>,
-    {
-        let v = self.video.create_texture(location, setup, data)?;
+    pub fn create_texture(&mut self, setup: TextureSetup) -> Result<TextureHandle> {
+        let v = self.video.create_texture(setup)?;
         Ok(self.push(v))
     }
 
@@ -119,8 +87,6 @@ impl RAIIGuard {
                 Resource::Mesh(handle) => self.video.delete_mesh(handle),
                 Resource::Surface(handle) => self.video.delete_surface(handle),
                 Resource::ShaderState(handle) => self.video.delete_shader(handle),
-                Resource::FrameBuffer(handle) => self.video.delete_framebuffer(handle),
-                Resource::RenderBuffer(handle) => self.video.delete_render_buffer(handle),
             }
         }
     }
@@ -134,7 +100,7 @@ impl RAIIGuard {
     }
 }
 
-impl Drop for RAIIGuard {
+impl Drop for GraphicsSystemGuard {
     fn drop(&mut self) {
         self.clear();
     }
@@ -146,8 +112,6 @@ enum Resource {
     Mesh(MeshHandle),
     Surface(SurfaceHandle),
     ShaderState(ShaderHandle),
-    FrameBuffer(FrameBufferHandle),
-    RenderBuffer(RenderBufferHandle),
 }
 
 impl From<TextureHandle> for Resource {
@@ -177,17 +141,5 @@ impl From<SurfaceHandle> for Resource {
 impl From<ShaderHandle> for Resource {
     fn from(handle: ShaderHandle) -> Resource {
         Resource::ShaderState(handle)
-    }
-}
-
-impl From<FrameBufferHandle> for Resource {
-    fn from(handle: FrameBufferHandle) -> Resource {
-        Resource::FrameBuffer(handle)
-    }
-}
-
-impl From<RenderBufferHandle> for Resource {
-    fn from(handle: RenderBufferHandle) -> Resource {
-        Resource::RenderBuffer(handle)
     }
 }

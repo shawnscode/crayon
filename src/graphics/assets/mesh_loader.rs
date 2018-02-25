@@ -12,7 +12,7 @@ use graphics::backend::frame::{DoubleFrame, PreFrameTask};
 pub struct MeshData {
     pub layout: VertexLayout,
     pub index_format: IndexFormat,
-    pub primitive: Primitive,
+    pub primitive: MeshPrimitive,
     pub num_verts: usize,
     pub num_idxes: usize,
     pub sub_mesh_offsets: Vec<usize>,
@@ -33,7 +33,7 @@ where
     T: MeshParser,
 {
     handle: MeshHandle,
-    setup: MeshSetup,
+    params: MeshParams,
     state: Arc<RwLock<AssetMeshState>>,
     frames: Arc<DoubleFrame>,
     _phantom: PhantomData<T>,
@@ -46,12 +46,12 @@ where
     pub fn new(
         handle: MeshHandle,
         state: Arc<RwLock<AssetMeshState>>,
-        setup: MeshSetup,
+        params: MeshParams,
         frames: Arc<DoubleFrame>,
     ) -> Self {
         MeshLoader {
             handle: handle,
-            setup: setup,
+            params: params,
             state: state,
             frames: frames,
             _phantom: PhantomData,
@@ -67,21 +67,21 @@ where
         let state = match result {
             Ok(bytes) => match T::parse(bytes) {
                 Ok(mesh) => {
-                    self.setup.layout = mesh.layout;
-                    self.setup.index_format = mesh.index_format;
-                    self.setup.primitive = mesh.primitive;
-                    self.setup.num_verts = mesh.num_verts;
-                    self.setup.num_idxes = mesh.num_idxes;
-                    self.setup.sub_mesh_offsets = mesh.sub_mesh_offsets;
+                    self.params.layout = mesh.layout;
+                    self.params.index_format = mesh.index_format;
+                    self.params.primitive = mesh.primitive;
+                    self.params.num_verts = mesh.num_verts;
+                    self.params.num_idxes = mesh.num_idxes;
+                    self.params.sub_mesh_offsets = mesh.sub_mesh_offsets;
 
                     let mut frame = self.frames.front();
                     let vptr = Some(frame.buf.extend_from_slice(&mesh.verts));
                     let iptr = Some(frame.buf.extend_from_slice(&mesh.idxes));
                     let task =
-                        PreFrameTask::CreateMesh(self.handle, self.setup.clone(), vptr, iptr);
+                        PreFrameTask::CreateMesh(self.handle, self.params.clone(), vptr, iptr);
                     frame.pre.push(task);
 
-                    AssetState::ready(self.setup)
+                    AssetState::ready(self.params)
                 }
                 Err(error) => {
                     let error = format!("Failed to load mesh at {:?}.\n{:?}", path, error);

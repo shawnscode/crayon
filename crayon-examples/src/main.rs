@@ -1,6 +1,10 @@
 #[macro_use]
 extern crate crayon;
 extern crate crayon_imgui;
+extern crate crayon_scene;
+
+#[macro_use]
+extern crate failure;
 extern crate image;
 extern crate obj;
 extern crate rand;
@@ -16,6 +20,7 @@ mod render_target;
 mod imgui;
 mod input;
 mod mesh;
+mod errors;
 
 const USAGE: &str = "";
 

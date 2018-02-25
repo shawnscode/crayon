@@ -26,9 +26,9 @@ where
     T: Sized + 'static,
 {
     handles: HandlePool,
-    delay_free: Vec<Handle>,
     entries: Vec<Option<Entry<T>>>,
     locations: HashMap<LocationAtom, Handle>,
+    recycle: Option<Vec<Handle>>,
 }
 
 impl<T> Registery<T>
@@ -39,19 +39,20 @@ where
     pub fn new() -> Self {
         Registery {
             handles: HandlePool::new(),
-            delay_free: Vec::new(),
+            recycle: None,
             entries: Vec::new(),
             locations: HashMap::new(),
         }
     }
 
-    /// Construct a new `Registery` with the specified capacity.
-    pub fn with_capacity(capacity: usize) -> Self {
+    /// Construct a new, empty and passive `Registery`. You have to call `clear` manually
+    /// to recycle handles.
+    pub fn passive() -> Self {
         Registery {
-            handles: HandlePool::with_capacity(capacity),
-            delay_free: Vec::new(),
-            entries: Vec::with_capacity(capacity),
-            locations: HashMap::with_capacity(capacity),
+            handles: HandlePool::new(),
+            recycle: Some(Vec::new()),
+            entries: Vec::new(),
+            locations: HashMap::new(),
         }
     }
 
@@ -96,7 +97,7 @@ where
 
     /// Decrease the reference count of resource matched `handle`. If reference count is zero
     /// after decreasing, it will be deleted from this `Registery`.
-    pub fn dec_rc(&mut self, handle: Handle, delay: bool) -> Option<T> {
+    pub fn dec_rc(&mut self, handle: Handle) -> Option<T> {
         if !self.handles.is_alive(handle) {
             return None;
         }
@@ -121,8 +122,8 @@ where
                     self.locations.remove(&v.location);
                 }
 
-                if delay {
-                    self.delay_free.push(handle);
+                if let Some(recycle) = self.recycle.as_mut() {
+                    recycle.push(handle);
                 } else {
                     self.handles.free(handle);
                 }
@@ -136,8 +137,10 @@ where
 
     /// Recycles freed handles.
     pub fn clear(&mut self) {
-        for v in self.delay_free.drain(..) {
-            self.handles.free(v);
+        if let Some(recycle) = self.recycle.as_mut() {
+            for v in recycle.drain(..) {
+                self.handles.free(v);
+            }
         }
     }
 

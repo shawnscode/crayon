@@ -30,7 +30,7 @@ impl ContextSystem for time::TimeSystem {
 /// management.
 pub struct Engine {
     pub events_loop: event::EventsLoop,
-    pub window: Arc<graphics::Window>,
+    pub window: Arc<graphics::window::Window>,
 
     pub input: input::InputSystem,
     pub graphics: graphics::GraphicsSystem,
@@ -49,7 +49,7 @@ impl Engine {
 
     /// Setup engine with specified settings.
     pub fn new_with(settings: &Settings) -> Result<Self> {
-        let mut wb = graphics::WindowBuilder::new();
+        let mut wb = graphics::window::WindowBuilder::new();
         wb.with_title(settings.window.title.clone())
             .with_dimensions(settings.window.width, settings.window.height);
 

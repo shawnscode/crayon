@@ -60,9 +60,12 @@ pub mod component;
 pub mod world;
 pub mod system;
 
-pub use self::component::{Component, ComponentArena, HashMapArena, VecArena};
-pub use self::world::{Arena, ArenaMut, Fetch, FetchMut, View, World};
-pub use self::system::System;
-
 /// `Entity` type, as seen by the user, its a alias to `Handle` internally.
 pub type Entity = ::utils::handle::Handle;
+
+pub mod prelude {
+    pub use super::Entity;
+    pub use super::component::{Component, HashMapArena, VecArena};
+    pub use super::world::{Arena, ArenaMut, Fetch, FetchMut, View, World};
+    pub use super::system::{validate, System};
+}

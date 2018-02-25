@@ -6,7 +6,9 @@ use gl;
 use gl::types::*;
 
 use utils::{Color, Rect};
-use graphics::*;
+
+use graphics::MAX_UNIFORM_TEXTURE_SLOTS;
+use graphics::assets::prelude::*;
 
 use super::errors::*;
 
@@ -25,12 +27,13 @@ pub(crate) struct OpenGLVisitor {
     cull_face: Cell<CullFace>,
     front_face_order: Cell<FrontFaceOrder>,
     depth_test: Cell<Comparison>,
+    depth_test_enable: Cell<bool>,
     depth_write: Cell<bool>,
     depth_write_offset: Cell<Option<(f32, f32)>>,
     color_blend: Cell<Option<(Equation, BlendFactor, BlendFactor)>>,
     color_write: Cell<(bool, bool, bool, bool)>,
     viewport: Cell<((u16, u16), (u16, u16))>,
-    scissor: Cell<Scissor>,
+    scissor: Cell<SurfaceScissor>,
 
     active_bufs: RefCell<HashMap<GLenum, GLuint>>,
     active_program: Cell<Option<GLuint>>,
@@ -50,6 +53,7 @@ impl OpenGLVisitor {
         gl::FrontFace(gl::CCW);
         gl::Disable(gl::DEPTH_TEST);
         gl::DepthMask(gl::FALSE);
+        gl::DepthFunc(gl::ALWAYS);
         gl::Disable(gl::POLYGON_OFFSET_FILL);
         gl::Disable(gl::BLEND);
         gl::Disable(gl::SCISSOR_TEST);
@@ -61,12 +65,13 @@ impl OpenGLVisitor {
             cull_face: Cell::new(CullFace::Nothing),
             front_face_order: Cell::new(FrontFaceOrder::CounterClockwise),
             depth_test: Cell::new(Comparison::Always),
+            depth_test_enable: Cell::new(false),
             depth_write: Cell::new(false),
             depth_write_offset: Cell::new(None),
             color_blend: Cell::new(None),
             color_write: Cell::new((true, true, true, true)),
             viewport: Cell::new(((0, 0), (128, 128))),
-            scissor: Cell::new(Scissor::Disable),
+            scissor: Cell::new(SurfaceScissor::Disable),
 
             active_bufs: RefCell::new(HashMap::new()),
             active_program: Cell::new(None),
@@ -119,11 +124,11 @@ impl OpenGLVisitor {
         attributes: &AttributeLayout,
         layout: &VertexLayout,
     ) -> Result<()> {
-        let pid = self.active_program.get().ok_or(ErrorKind::InvalidHandle)?;
+        let pid = self.active_program.get().ok_or(Error::HandleInvalid)?;
         let vid = *self.active_bufs
             .borrow()
             .get(&gl::ARRAY_BUFFER)
-            .ok_or(ErrorKind::InvalidHandle)?;
+            .ok_or(Error::HandleInvalid)?;
 
         if let Some(vao) = self.vertex_array_objects.borrow().get(&VAOPair(pid, vid)) {
             if let Some(v) = self.active_vao.get() {
@@ -145,12 +150,10 @@ impl OpenGLVisitor {
         for (name, size) in attributes.iter() {
             if let Some(element) = layout.element(name) {
                 if element.size < size {
-                    bail!(format!(
+                    return Err(Error::DrawFailure(format!(
                         "vertex buffer has incompatible attribute `{:?}` [{:?} - {:?}].",
-                        name,
-                        element.size,
-                        size
-                    ));
+                        name, element.size, size
+                    )));
                 }
 
                 let offset = layout.offset(name).unwrap() as *const u8 as *const c_void;
@@ -166,10 +169,10 @@ impl OpenGLVisitor {
                     offset,
                 );
             } else {
-                bail!(format!(
+                return Err(Error::DrawFailure(format!(
                     "can't find attribute {:?} description in vertex buffer.",
                     name
-                ));
+                )));
             }
         }
 
@@ -221,7 +224,7 @@ impl OpenGLVisitor {
                 }
             }
         } else {
-            bail!(ErrorKind::InvalidHandle)
+            Err(Error::UniformUndefined(name.into()))
         }
     }
 
@@ -240,7 +243,7 @@ impl OpenGLVisitor {
                 }
             }
         } else {
-            bail!(ErrorKind::InvalidHandle)
+            Err(Error::AttributeUndefined(name.into()))
         }
     }
 
@@ -291,13 +294,13 @@ impl OpenGLVisitor {
     }
 
     /// Set the scissor box relative to the top-lef corner of th window, in pixels.
-    pub unsafe fn set_scissor(&self, scissor: Scissor) -> Result<()> {
+    pub unsafe fn set_scissor(&self, scissor: SurfaceScissor) -> Result<()> {
         match scissor {
-            Scissor::Disable => if self.scissor.get() != Scissor::Disable {
+            SurfaceScissor::Disable => if self.scissor.get() != SurfaceScissor::Disable {
                 gl::Disable(gl::SCISSOR_TEST);
             },
-            Scissor::Enable(position, size) => {
-                if self.scissor.get() == Scissor::Disable {
+            SurfaceScissor::Enable(position, size) => {
+                if self.scissor.get() == SurfaceScissor::Disable {
                     gl::Enable(gl::SCISSOR_TEST);
                 }
 
@@ -349,36 +352,41 @@ impl OpenGLVisitor {
         }
     }
 
-    /// Specify the value used for depth buffer comparisons.
-    pub unsafe fn set_depth_test(&self, comparsion: Comparison) -> Result<()> {
-        if self.depth_test.get() != comparsion {
-            if comparsion != Comparison::Always {
+    /// Enable or disable writing into the depth buffer and specify the value used for depth
+    /// buffer comparisons.
+    pub unsafe fn set_depth_test(&self, write: bool, comparsion: Comparison) -> Result<()> {
+        // Note that even if the depth buffer exists and the depth mask is non-zero,
+        // the depth buffer is not updated if the depth test is disabled.
+        let enable = comparsion != Comparison::Always || write;
+        if self.depth_test_enable.get() != enable {
+            if enable {
                 gl::Enable(gl::DEPTH_TEST);
-                gl::DepthFunc(comparsion.into());
             } else {
                 gl::Disable(gl::DEPTH_TEST);
             }
 
-            self.depth_test.set(comparsion);
-            check()
-        } else {
-            Ok(())
+            self.depth_test_enable.set(enable);
         }
-    }
 
-    /// Enable or disable writing into the depth buffer.
-    ///
-    /// Optional `offset` to address the scale and units used to calculate depth values.
-    pub unsafe fn set_depth_write(&self, enable: bool, offset: Option<(f32, f32)>) -> Result<()> {
-        if self.depth_write.get() != enable {
-            if enable {
+        if self.depth_write.get() != write {
+            if write {
                 gl::DepthMask(gl::TRUE);
             } else {
                 gl::DepthMask(gl::FALSE);
             }
-            self.depth_write.set(enable);
+            self.depth_write.set(write);
         }
 
+        if self.depth_test.get() != comparsion {
+            gl::DepthFunc(comparsion.into());
+            self.depth_test.set(comparsion);
+        }
+
+        check()
+    }
+
+    /// Set `offset` to address the scale and units used to calculate depth values.
+    pub unsafe fn set_depth_write_offset(&self, offset: Option<(f32, f32)>) -> Result<()> {
         if self.depth_write_offset.get() != offset {
             if let Some(v) = offset {
                 if v.0 != 0.0 || v.1 != 0.0 {
@@ -407,7 +415,6 @@ impl OpenGLVisitor {
 
                 gl::BlendFunc(src.into(), dst.into());
                 gl::BlendEquation(equation.into());
-
             } else if self.color_blend.get() != None {
                 gl::Disable(gl::BLEND);
             }
@@ -496,7 +503,7 @@ impl OpenGLVisitor {
 
     pub unsafe fn bind_render_buffer(&self, id: GLuint) -> Result<()> {
         if id == 0 {
-            bail!("failed to bind render buffer with 0.");
+            panic!("failed to bind render buffer with 0.");
         }
 
         if let Some(v) = self.active_renderbuffer.get() {
@@ -510,34 +517,59 @@ impl OpenGLVisitor {
         check()
     }
 
-    pub unsafe fn create_render_buffer(
-        &self,
-        format: GLenum,
-        width: u32,
-        height: u32,
-    ) -> Result<GLuint> {
-        let mut id = 0;
-        gl::GenRenderbuffers(1, &mut id);
-        assert!(id != 0);
+    pub unsafe fn create_render_texture(&self, setup: RenderTextureSetup) -> Result<GLuint> {
+        let (internal_format, in_format, pixel_type) = setup.format.into();
+        let id = if setup.sampler {
+            self.create_texture(
+                internal_format,
+                in_format,
+                pixel_type,
+                TextureAddress::Clamp,
+                TextureFilter::Nearest,
+                false,
+                setup.dimensions.0,
+                setup.dimensions.1,
+                None,
+            )?
+        } else {
+            let mut id = 0;
+            gl::GenRenderbuffers(1, &mut id);
+            assert!(id != 0);
 
-        self.bind_render_buffer(id)?;
-        gl::RenderbufferStorage(gl::RENDERBUFFER, format, width as GLint, height as GLint);
+            self.bind_render_buffer(id)?;
+            gl::RenderbufferStorage(
+                gl::RENDERBUFFER,
+                internal_format,
+                setup.dimensions.0 as GLint,
+                setup.dimensions.1 as GLint,
+            );
+            id
+        };
+
         check()?;
         Ok(id)
     }
 
-    pub unsafe fn delete_render_buffer(&self, id: GLuint) -> Result<()> {
-        gl::DeleteRenderbuffers(1, &id);
+    pub unsafe fn delete_render_texture(
+        &self,
+        setup: RenderTextureSetup,
+        id: GLuint,
+    ) -> Result<()> {
+        if setup.sampler {
+            self.delete_texture(id)?;
+        } else {
+            gl::DeleteRenderbuffers(1, &id);
+        }
         check()
     }
 
     pub unsafe fn bind_texture(&self, slot: GLuint, id: GLuint) -> Result<()> {
         if id == 0 {
-            bail!("failed to bind texture with 0.");
+            panic!("failed to bind texture with 0.");
         }
 
         if slot as usize >= MAX_UNIFORM_TEXTURE_SLOTS {
-            bail!("out of max texture slots.");
+            return Err(Error::OutOfBounds);
         }
 
         let cache = &mut self.active_textures.borrow_mut();
@@ -559,8 +591,8 @@ impl OpenGLVisitor {
         address: TextureAddress,
         filter: TextureFilter,
         mipmap: bool,
-        width: u32,
-        height: u32,
+        width: u16,
+        height: u16,
         data: Option<&[u8]>,
     ) -> Result<(GLuint)> {
         let mut id = 0;
@@ -674,29 +706,11 @@ impl OpenGLVisitor {
         if check_status && gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
             self.active_framebuffer.set(0);
-            bail!("framebuffer is not complete, fallback the to default framebuffer.");
+            return Err(Error::GLFrameBufferIncomplete);
         } else {
             self.active_framebuffer.set(id);
         }
 
-        check()
-    }
-
-    pub unsafe fn bind_framebuffer_with_texture(&self, tp: GLenum, id: GLuint) -> Result<()> {
-        if self.active_framebuffer.get() == 0 {
-            bail!("cann't attach texture to default framebuffer.");
-        }
-
-        gl::FramebufferTexture2D(gl::FRAMEBUFFER, tp, gl::TEXTURE_2D, id, 0);
-        check()
-    }
-
-    pub unsafe fn bind_framebuffer_with_renderbuffer(&self, tp: GLenum, id: GLuint) -> Result<()> {
-        if self.active_framebuffer.get() == 0 {
-            bail!("cann't attach render buffer to default framebuffer.");
-        }
-
-        gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, tp, gl::RENDERBUFFER, id);
         check()
     }
 
@@ -710,9 +724,74 @@ impl OpenGLVisitor {
         Ok(id)
     }
 
+    pub unsafe fn update_framebuffer_render_texture(
+        &self,
+        id: GLuint,
+        setup: RenderTextureSetup,
+        slot: u32,
+    ) -> Result<()> {
+        if self.active_framebuffer.get() == 0 {
+            panic!("can't attach texture to default framebuffer.");
+        }
+
+        match setup.format {
+            RenderTextureFormat::RGB8 | RenderTextureFormat::RGBA4 | RenderTextureFormat::RGBA8 => {
+                let location = gl::COLOR_ATTACHMENT0 + slot;
+
+                if setup.sampler {
+                    gl::FramebufferTexture2D(
+                        gl::FRAMEBUFFER,
+                        gl::COLOR_ATTACHMENT0,
+                        gl::TEXTURE_2D,
+                        id,
+                        0,
+                    );
+                } else {
+                    gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, location, gl::RENDERBUFFER, id);
+                }
+            }
+            RenderTextureFormat::Depth16
+            | RenderTextureFormat::Depth24
+            | RenderTextureFormat::Depth32 => if setup.sampler {
+                gl::FramebufferTexture2D(
+                    gl::FRAMEBUFFER,
+                    gl::DEPTH_ATTACHMENT,
+                    gl::TEXTURE_2D,
+                    id,
+                    0,
+                );
+            } else {
+                gl::FramebufferRenderbuffer(
+                    gl::FRAMEBUFFER,
+                    gl::DEPTH_ATTACHMENT,
+                    gl::RENDERBUFFER,
+                    id,
+                );
+            },
+            RenderTextureFormat::Depth24Stencil8 => if setup.sampler {
+                gl::FramebufferTexture2D(
+                    gl::FRAMEBUFFER,
+                    gl::DEPTH_STENCIL_ATTACHMENT,
+                    gl::TEXTURE_2D,
+                    id,
+                    0,
+                );
+            } else {
+                gl::FramebufferRenderbuffer(
+                    gl::FRAMEBUFFER,
+                    gl::DEPTH_STENCIL_ATTACHMENT,
+                    gl::RENDERBUFFER,
+                    id,
+                );
+            },
+        }
+
+        check()
+    }
+
     pub unsafe fn delete_framebuffer(&self, id: GLuint) -> Result<()> {
         if id == 0 {
-            bail!("try to delete default frame buffer with id 0.");
+            panic!("try to delete default frame buffer with id 0.");
         }
 
         if self.active_framebuffer.get() == id {
@@ -726,7 +805,7 @@ impl OpenGLVisitor {
     pub unsafe fn create_buffer(
         &self,
         buf: OpenGLBuffer,
-        hint: BufferHint,
+        hint: MeshHint,
         size: u32,
         data: Option<&[u8]>,
     ) -> Result<GLuint> {
@@ -758,7 +837,7 @@ impl OpenGLVisitor {
             buf.into(),
             offset as isize,
             data.len() as isize,
-            &data[0] as *const u8 as *const ::std::os::raw::c_void
+            &data[0] as *const u8 as *const ::std::os::raw::c_void,
         );
         check()
     }
@@ -818,10 +897,13 @@ impl OpenGLVisitor {
                 buf.as_mut_ptr() as *mut GLchar,
             );
 
-            let error = format!("{}. with source:\n{}\n", str::from_utf8(&buf).unwrap(), src);
-            bail!(ErrorKind::FailedCompilePipeline(error));
+            Err(Error::GLShaderCompileFailure {
+                source: src.into(),
+                errors: str::from_utf8(&buf).unwrap().into(),
+            })
+        } else {
+            Ok(shader)
         }
-        Ok(shader)
     }
 
     pub unsafe fn link(&self, vs: GLuint, fs: GLuint) -> Result<GLuint> {
@@ -847,31 +929,33 @@ impl OpenGLVisitor {
                 buf.as_mut_ptr() as *mut GLchar,
             );
 
-            let error = format!("{}. ", str::from_utf8(&buf).unwrap());
-            bail!(ErrorKind::FailedCompilePipeline(error));
+            Err(Error::GLPipelineCompileFailure(
+                str::from_utf8(&buf).unwrap().into(),
+            ))
+        } else {
+            Ok(program)
         }
-        Ok(program)
     }
 }
 
 pub unsafe fn check() -> Result<()> {
     match gl::GetError() {
         gl::NO_ERROR => Ok(()),
-        gl::INVALID_ENUM => Err(ErrorKind::InvalidEnum.into()),
-        gl::INVALID_VALUE => Err(ErrorKind::InvalidValue.into()),
-        gl::INVALID_OPERATION => Err(ErrorKind::InvalidOperation.into()),
-        gl::INVALID_FRAMEBUFFER_OPERATION => Err(ErrorKind::InvalidFramebufferOperation.into()),
-        gl::OUT_OF_MEMORY => Err(ErrorKind::OutOfBounds.into()),
-        _ => Err(ErrorKind::Unknown.into()),
+        gl::INVALID_ENUM => Err(Error::GLEnumInvalid),
+        gl::INVALID_VALUE => Err(Error::GLValueInvalid),
+        gl::INVALID_OPERATION => Err(Error::GLOperationInvalid),
+        gl::INVALID_FRAMEBUFFER_OPERATION => Err(Error::GLFrameBufferOperationInvalid),
+        gl::OUT_OF_MEMORY => Err(Error::GLOutOfMemory),
+        _ => Err(Error::GLUnknown),
     }
 }
 
-impl From<BufferHint> for GLenum {
-    fn from(hint: BufferHint) -> Self {
+impl From<MeshHint> for GLenum {
+    fn from(hint: MeshHint) -> Self {
         match hint {
-            BufferHint::Immutable => gl::STATIC_DRAW,
-            BufferHint::Stream => gl::STREAM_DRAW,
-            BufferHint::Dynamic => gl::DYNAMIC_DRAW,
+            MeshHint::Immutable => gl::STATIC_DRAW,
+            MeshHint::Stream => gl::STREAM_DRAW,
+            MeshHint::Dynamic => gl::DYNAMIC_DRAW,
         }
     }
 }
@@ -939,14 +1023,14 @@ impl From<VertexFormat> for GLenum {
     }
 }
 
-impl From<Primitive> for GLenum {
-    fn from(primitive: Primitive) -> Self {
+impl From<MeshPrimitive> for GLenum {
+    fn from(primitive: MeshPrimitive) -> Self {
         match primitive {
-            Primitive::Points => gl::POINTS,
-            Primitive::Lines => gl::LINES,
-            Primitive::LineStrip => gl::LINE_STRIP,
-            Primitive::Triangles => gl::TRIANGLES,
-            Primitive::TriangleStrip => gl::TRIANGLE_STRIP,
+            MeshPrimitive::Points => gl::POINTS,
+            MeshPrimitive::Lines => gl::LINES,
+            MeshPrimitive::LineStrip => gl::LINE_STRIP,
+            MeshPrimitive::Triangles => gl::TRIANGLES,
+            MeshPrimitive::TriangleStrip => gl::TRIANGLE_STRIP,
         }
     }
 }
@@ -1000,21 +1084,9 @@ impl From<RenderTextureFormat> for (GLenum, GLenum, GLenum) {
             RenderTextureFormat::RGB8 => (gl::RGB8, gl::RGB, gl::UNSIGNED_BYTE),
             RenderTextureFormat::RGBA4 => (gl::RGBA4, gl::RGBA, gl::UNSIGNED_SHORT_4_4_4_4),
             RenderTextureFormat::RGBA8 => (gl::RGBA8, gl::RGBA, gl::UNSIGNED_BYTE),
-            RenderTextureFormat::Depth16 => (
-                gl::DEPTH_COMPONENT16,
-                gl::DEPTH_COMPONENT,
-                gl::UNSIGNED_BYTE,
-            ),
-            RenderTextureFormat::Depth24 => (
-                gl::DEPTH_COMPONENT24,
-                gl::DEPTH_COMPONENT,
-                gl::UNSIGNED_BYTE,
-            ),
-            RenderTextureFormat::Depth32 => (
-                gl::DEPTH_COMPONENT32,
-                gl::DEPTH_COMPONENT,
-                gl::UNSIGNED_BYTE,
-            ),
+            RenderTextureFormat::Depth16 => (gl::DEPTH_COMPONENT16, gl::DEPTH_COMPONENT, gl::FLOAT),
+            RenderTextureFormat::Depth24 => (gl::DEPTH_COMPONENT24, gl::DEPTH_COMPONENT, gl::FLOAT),
+            RenderTextureFormat::Depth32 => (gl::DEPTH_COMPONENT32, gl::DEPTH_COMPONENT, gl::FLOAT),
             RenderTextureFormat::Depth24Stencil8 => {
                 (gl::DEPTH24_STENCIL8, gl::DEPTH_STENCIL, gl::UNSIGNED_BYTE)
             }

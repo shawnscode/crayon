@@ -36,12 +36,17 @@
 //! sharing even if the path (e.g. the filename) of two `Location`s matches.
 //!
 //! ```rust,ignore
-//! let l1 = Location::shared(0, "/path/to/res");
-//! let l2 = Location::shared(0, "/path/to/res");
+//! let l1 = Location::token(0, "/path/to/res");
+//! let l2 = Location::token(0, "/path/to/res");
 //! assert!(l1 == l2);
 //!
-//! let l3 = Location::shared(1, "/path/to/res");
+//! let l3 = Location::token(1, "/path/to/res");
 //! assert!(l1 != l3);
+//!
+//! let l4 = Location::shared("/path/to/res");
+//! let l5 = Location::shared("/path/to/res");
+//! assert!(l4 == l5);
+//! assert!(l4 != l1);
 //! ```
 //!
 //! There is one special `Unique` signature which disables sharing of a resource completely,
@@ -50,14 +55,9 @@
 //! a resource without having to care about name collisions.
 //!
 //! ```rust,ignore
-//! let l1 = Location::shared(0, "/path/to/res");
-//! let l2 = Location::shared(0, "/path/to/res");
-//! assert!(l1 == l2);
-//!
-//! let l3 = Location::unique("/path/to/res");
-//! let l4 = Location::unique("/path/to/res");
-//! assert!(l1 != l3);
-//! assert!(l3 != l4);
+//! let l1 = Location::unique("/path/to/res");
+//! let l2 = Location::unique("/path/to/res");
+//! assert!(l1 != l2);
 //! ```
 //!
 //! ## Lifetime (TODO)
@@ -67,13 +67,13 @@
 
 pub mod errors;
 pub mod filesystem;
-pub mod cache;
+pub mod utils;
 
-mod location;
-pub use self::location::Location;
+mod service;
+pub use self::service::{ResourceAsyncLoader, ResourceSystem, ResourceSystemShared};
 
-mod registery;
-pub use self::registery::Registery;
-
-mod resource;
-pub use self::resource::{ResourceAsyncLoader, ResourceSystem, ResourceSystemShared};
+pub mod prelude {
+    pub use super::{ResourceAsyncLoader, ResourceSystem, ResourceSystemShared};
+    pub use super::utils::location::Location;
+    pub use super::filesystem::{DirectoryFS, ZipFS};
+}

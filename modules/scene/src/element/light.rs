@@ -1,9 +1,11 @@
-use utils::Color;
+use crayon::utils::Color;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Light {
     /// Is this light enable.
     pub enable: bool,
+    /// Is this light casting shadow.
+    pub shadow_caster: bool,
     /// Color of the light.
     pub color: Color,
     /// Brightness of the light source, in lumens.
@@ -30,6 +32,7 @@ impl Default for Light {
     fn default() -> Self {
         Light {
             enable: true,
+            shadow_caster: false,
             color: Color::white(),
             intensity: 1.0,
             source: LitSrc::Dir,

@@ -1,4 +1,6 @@
 use crayon::prelude::*;
+use crayon::graphics::assets::prelude::*;
+use crayon::graphics::assets::{mesh_loader, texture_loader};
 
 use image;
 use image::GenericImage;
@@ -14,14 +16,15 @@ pub use self::console::ConsoleCanvas;
 
 pub struct TextureParser {}
 
-impl graphics::TextureParser for TextureParser {
+impl texture_loader::TextureParser for TextureParser {
     type Error = image::ImageError;
 
-    fn parse(bytes: &[u8]) -> image::ImageResult<graphics::TextureData> {
+    fn parse(bytes: &[u8]) -> image::ImageResult<texture_loader::TextureData> {
         let dynamic = image::load_from_memory(bytes)?.flipv();
-        Ok(graphics::TextureData {
-            format: graphics::TextureFormat::U8U8U8U8,
-            dimensions: dynamic.dimensions(),
+        let dimensions = dynamic.dimensions();
+        Ok(texture_loader::TextureData {
+            format: TextureFormat::U8U8U8U8,
+            dimensions: (dimensions.0 as u16, dimensions.1 as u16),
             data: dynamic.to_rgba().into_raw(),
         })
     }
@@ -65,10 +68,10 @@ impl OBJParser {
     }
 }
 
-impl graphics::MeshParser for OBJParser {
+impl mesh_loader::MeshParser for OBJParser {
     type Error = io::Error;
 
-    fn parse(bytes: &[u8]) -> io::Result<graphics::MeshData> {
+    fn parse(bytes: &[u8]) -> io::Result<mesh_loader::MeshData> {
         let data: obj::Obj<obj::SimplePolygon> =
             obj::Obj::load_buf(&mut std::io::BufReader::new(bytes))?;
 
@@ -103,15 +106,15 @@ impl graphics::MeshParser for OBJParser {
             }
         }
 
-        Ok(graphics::MeshData {
+        Ok(mesh_loader::MeshData {
             layout: OBJVertex::layout(),
-            index_format: graphics::IndexFormat::U16,
-            primitive: graphics::Primitive::Triangles,
+            index_format: IndexFormat::U16,
+            primitive: MeshPrimitive::Triangles,
             num_verts: verts.len(),
             num_idxes: idxes.len(),
             sub_mesh_offsets: meshes,
             verts: Vec::from(OBJVertex::encode(&verts)),
-            idxes: Vec::from(graphics::IndexFormat::encode(&idxes)),
+            idxes: Vec::from(IndexFormat::encode(&idxes)),
         })
     }
 }

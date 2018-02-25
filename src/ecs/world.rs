@@ -4,9 +4,10 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use utils::{HandleIndex, HandleIter, HandlePool};
 
-use super::*;
-use super::bitset::BitSet;
-use super::cell::{Ref, RefCell, RefMut};
+use ecs::Entity;
+use ecs::component::{Component, ComponentArena};
+use ecs::bitset::BitSet;
+use ecs::cell::{Ref, RefCell, RefMut};
 
 /// The `World` struct are used to manage the whole entity-component system, It keeps
 /// tracks of the state of every created `Entity`s. All memthods are supposed to be
@@ -495,7 +496,8 @@ impl<'a> ViewSlice<'a> {
 macro_rules! build_view_with {
     ($name: ident[$($cps: ident), *]) => (
         mod $name {
-            use $crate::ecs::*;
+            use $crate::ecs::world::{View, World, FetchMut};
+            use $crate::ecs::component::Component;
 
             impl World {
                 pub fn $name<$($cps), *>(&self) -> (View, ($(FetchMut<$cps>), *))

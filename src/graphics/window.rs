@@ -276,33 +276,33 @@ fn check_minimal_requirements(caps: &Capabilities) -> Result<()> {
         && (!caps.extensions.gl_arb_vertex_buffer_object
             || !caps.extensions.gl_arb_map_buffer_range)
     {
-        bail!("OpenGL implementation doesn't support vertex buffer objects.");
+        return Err(Error::Requirement("vertex buffer objects".into()));
     }
 
     if caps.version < Version::GL(2, 0) && caps.version < Version::ES(2, 0)
         && (!caps.extensions.gl_arb_shader_objects || !caps.extensions.gl_arb_vertex_shader
             || !caps.extensions.gl_arb_fragment_shader)
     {
-        bail!("OpenGL implementation doesn't support vertex/fragment shaders.");
+        return Err(Error::Requirement("shader objects".into()));
     }
 
     if caps.version < Version::GL(3, 0) && caps.version < Version::ES(2, 0)
         && !caps.extensions.gl_ext_framebuffer_object
         && !caps.extensions.gl_arb_framebuffer_object
     {
-        bail!("OpenGL implementation doesn't support framebuffers.");
+        return Err(Error::Requirement("framebuffer objects".into()));
     }
 
     if caps.version < Version::ES(2, 0) && caps.version < Version::GL(3, 0)
         && !caps.extensions.gl_ext_framebuffer_blit
     {
-        bail!("OpenGL implementation doesn't support blitting framebuffers.");
+        return Err(Error::Requirement("blitting framebuffer".into()));
     }
 
     if caps.version < Version::GL(3, 1) && caps.version < Version::ES(3, 0)
         && !caps.extensions.gl_arb_uniform_buffer_object
     {
-        bail!("OpenGL implementation doesn't support uniform buffer object.");
+        return Err(Error::Requirement("uniform buffer objects.".into()));
     }
 
     if caps.version < Version::GL(3, 0) && caps.version < Version::ES(3, 0)
@@ -310,7 +310,7 @@ fn check_minimal_requirements(caps: &Capabilities) -> Result<()> {
         && !caps.extensions.gl_apple_vertex_array_object
         && !caps.extensions.gl_oes_vertex_array_object
     {
-        bail!("OpenGL implementation doesn't support vertex array object.");
+        return Err(Error::Requirement("vertex array objects.".into()));
     }
 
     Ok(())

@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
-use crayon::{application, graphics, resource, utils};
-use crayon::application::errors::*;
+use crayon::{application, utils};
+
+use crayon::graphics::errors::*;
+use crayon::graphics::prelude::*;
+use crayon::graphics::assets::prelude::*;
 
 use imgui::{DrawList, ImGui, Ui};
 
@@ -14,53 +17,55 @@ impl_vertex!{
 }
 
 pub struct Renderer {
-    video: Arc<graphics::GraphicsSystemShared>,
+    video: Arc<GraphicsSystemShared>,
 
-    shader: graphics::ShaderHandle,
-    texture: graphics::TextureHandle,
+    shader: ShaderHandle,
+    texture: TextureHandle,
 
-    mesh: Option<(usize, usize, graphics::MeshHandle)>,
+    mesh: Option<(usize, usize, MeshHandle)>,
 }
 
 impl Renderer {
     /// Creates a new `CanvasRenderer`. This will allocates essential video
     /// resources in background.
     pub fn new(ctx: &application::Context, imgui: &mut ImGui) -> Result<Self> {
-        let video = ctx.shared::<graphics::GraphicsSystem>();
+        let video = ctx.shared::<GraphicsSystem>();
 
-        let layout = graphics::AttributeLayoutBuilder::new()
-            .with(graphics::Attribute::Position, 2)
-            .with(graphics::Attribute::Texcoord0, 2)
-            .with(graphics::Attribute::Color0, 4)
+        let layout = AttributeLayout::build()
+            .with(Attribute::Position, 2)
+            .with(Attribute::Texcoord0, 2)
+            .with(Attribute::Color0, 4)
             .finish();
 
-        let mut setup = graphics::ShaderSetup::default();
-        setup.layout = layout;
-        setup.render_state.cull_face = graphics::CullFace::Back;
-        setup.render_state.front_face_order = graphics::FrontFaceOrder::Clockwise;
-        setup.render_state.color_blend = Some((
-            graphics::Equation::Add,
-            graphics::BlendFactor::Value(graphics::BlendValue::SourceAlpha),
-            graphics::BlendFactor::OneMinusValue(graphics::BlendValue::SourceAlpha),
+        let uniforms = UniformVariableLayout::build()
+            .with("matrix", UniformVariableType::Matrix4f)
+            .with("texture", UniformVariableType::Texture)
+            .finish();
+
+        let mut render_state = RenderState::default();
+        render_state.cull_face = CullFace::Back;
+        render_state.front_face_order = FrontFaceOrder::Clockwise;
+        render_state.color_blend = Some((
+            Equation::Add,
+            BlendFactor::Value(BlendValue::SourceAlpha),
+            BlendFactor::OneMinusValue(BlendValue::SourceAlpha),
         ));
 
+        let mut setup = ShaderSetup::default();
+        setup.params.attributes = layout;
+        setup.params.uniforms = uniforms;
+        setup.params.render_state = render_state;
         setup.vs = include_str!("../assets/imgui.vs").to_owned();
         setup.fs = include_str!("../assets/imgui.fs").to_owned();
-
-        let tt = graphics::UniformVariableType::Matrix4f;
-        setup.uniform_variables.insert("matrix".into(), tt);
-
-        let tt = graphics::UniformVariableType::Texture;
-        setup.uniform_variables.insert("texture".into(), tt);
-
-        let shader = video.create_shader(resource::Location::unique(""), setup)?;
+        let shader = video.create_shader(setup)?;
 
         let texture = imgui.prepare_texture(|v| {
-            let mut setup = graphics::TextureSetup::default();
-            setup.dimensions = (v.width, v.height);
-            setup.filter = graphics::TextureFilter::Nearest;
-            setup.format = graphics::TextureFormat::U8U8U8U8;
-            video.create_texture(resource::Location::unique(""), setup, Some(v.pixels))
+            let mut setup = TextureSetup::default();
+            setup.params.dimensions = (v.width as u16, v.height as u16);
+            setup.params.filter = TextureFilter::Nearest;
+            setup.params.format = TextureFormat::U8U8U8U8;
+            setup.data = Some(v.pixels);
+            video.create_texture(setup)
         })?;
 
         imgui.set_texture_id(**texture as usize);
@@ -73,14 +78,14 @@ impl Renderer {
         })
     }
 
-    pub fn render<'a>(&mut self, surface: graphics::SurfaceHandle, ui: Ui<'a>) -> Result<()> {
+    pub fn render<'a>(&mut self, surface: SurfaceHandle, ui: Ui<'a>) -> Result<()> {
         ui.render(|ui, dcs| self.render_draw_list(surface, ui, &dcs))?;
         Ok(())
     }
 
     fn render_draw_list<'a>(
         &mut self,
-        surface: graphics::SurfaceHandle,
+        surface: SurfaceHandle,
         ui: &'a Ui<'a>,
         tasks: &DrawList<'a>,
     ) -> Result<()> {
@@ -97,13 +102,12 @@ impl Renderer {
 
         let mesh = self.update_mesh(surface, &verts, &tasks.idx_buffer)?;
         let (width, height) = ui.imgui().display_size();
-        let (scale_width, scale_height) = ui.imgui().display_framebuffer_scale();
 
         if width == 0.0 || height == 0.0 {
             return Ok(());
         }
 
-        let matrix = graphics::UniformVariable::Matrix4f(
+        let matrix = UniformVariable::Matrix4f(
             [
                 [2.0 / width as f32, 0.0, 0.0, 0.0],
                 [0.0, 2.0 / -(height as f32), 0.0, 0.0],
@@ -118,23 +122,20 @@ impl Renderer {
         for cmd in tasks.cmd_buffer {
             assert!(font_texture_id == cmd.texture_id as usize);
 
-            let scissor_pos = (
-                (cmd.clip_rect.x * scale_width) as u16,
-                ((height - cmd.clip_rect.w) * scale_height) as u16,
-            );
+            let scissor_pos = (cmd.clip_rect.x as u16, (height - cmd.clip_rect.w) as u16);
             let scissor_size = (
-                ((cmd.clip_rect.z - cmd.clip_rect.x) * scale_width) as u16,
-                ((cmd.clip_rect.w - cmd.clip_rect.y) * scale_height) as u16,
+                (cmd.clip_rect.z - cmd.clip_rect.x) as u16,
+                (cmd.clip_rect.w - cmd.clip_rect.y) as u16,
             );
 
             {
-                let scissor = graphics::Scissor::Enable(scissor_pos, scissor_size);
-                let cmd = graphics::Command::set_scissor(scissor);
+                let scissor = SurfaceScissor::Enable(scissor_pos, scissor_size);
+                let cmd = Command::set_scissor(scissor);
                 self.video.submit(surface, 0u64, cmd)?;
             }
 
             {
-                let mut dc = graphics::DrawCall::new(self.shader, mesh);
+                let mut dc = DrawCall::new(self.shader, mesh);
                 dc.set_uniform_variable("matrix", matrix);
                 dc.set_uniform_variable("texture", self.texture);
                 let cmd = dc.build_from(idx_start, cmd.elem_count as usize)?;
@@ -144,26 +145,26 @@ impl Renderer {
             idx_start += cmd.elem_count as usize;
         }
 
-        let scissor = graphics::Scissor::Disable;
-        let cmd = graphics::Command::set_scissor(scissor);
+        let scissor = SurfaceScissor::Disable;
+        let cmd = Command::set_scissor(scissor);
         self.video.submit(surface, 0u64, cmd)?;
         Ok(())
     }
 
     fn update_mesh(
         &mut self,
-        surface: graphics::SurfaceHandle,
+        surface: SurfaceHandle,
         verts: &[CanvasVertex],
         idxes: &[u16],
-    ) -> Result<graphics::MeshHandle> {
+    ) -> Result<MeshHandle> {
         if let Some((nv, ni, handle)) = self.mesh {
             if nv >= verts.len() && ni >= idxes.len() {
                 let slice = CanvasVertex::encode(verts);
-                let cmd = graphics::Command::update_vertex_buffer(handle, 0, slice);
+                let cmd = Command::update_vertex_buffer(handle, 0, slice);
                 self.video.submit(surface, 0u64, cmd)?;
 
-                let slice = graphics::IndexFormat::encode(idxes);
-                let cmd = graphics::Command::update_index_buffer(handle, 0, slice);
+                let slice = IndexFormat::encode(idxes);
+                let cmd = Command::update_index_buffer(handle, 0, slice);
                 self.video.submit(surface, 0u64, cmd)?;
 
                 return Ok(handle);
@@ -182,22 +183,17 @@ impl Renderer {
             ni *= 2;
         }
 
-        let mut setup = graphics::MeshSetup::default();
-        setup.hint = graphics::BufferHint::Stream;
-        setup.layout = CanvasVertex::layout();
-        setup.index_format = graphics::IndexFormat::U16;
-        setup.primitive = graphics::Primitive::Triangles;
-        setup.num_verts = nv;
-        setup.num_idxes = ni;
+        let mut setup = MeshSetup::default();
+        setup.params.hint = MeshHint::Stream;
+        setup.params.layout = CanvasVertex::layout();
+        setup.params.index_format = IndexFormat::U16;
+        setup.params.primitive = MeshPrimitive::Triangles;
+        setup.params.num_verts = nv;
+        setup.params.num_idxes = ni;
+        setup.verts = Some(CanvasVertex::encode(verts));
+        setup.idxes = Some(IndexFormat::encode(idxes));
 
-        let verts_slice = CanvasVertex::encode(verts);
-        let idxes_slice = graphics::IndexFormat::encode(idxes);
-        let mesh = self.video.create_mesh(
-            resource::Location::unique(""),
-            setup,
-            verts_slice,
-            idxes_slice,
-        )?;
+        let mesh = self.video.create_mesh(setup)?;
         self.mesh = Some((nv, ni, mesh));
         Ok(mesh)
     }

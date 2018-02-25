@@ -1,5 +1,6 @@
 use std::ops::Deref;
 use std::borrow::Borrow;
+use std::fmt;
 
 /// `HandleIndex` type is arbitrary. Keeping it 32-bits allows for
 /// a single 64-bits word per `Handle`.
@@ -81,6 +82,12 @@ impl<'a> Borrow<HandleIndex> for &'a Handle {
     }
 }
 
+impl fmt::Display for Handle {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Handle ({}, {})", self.index, self.version)
+    }
+}
+
 #[macro_export]
 macro_rules! impl_handle {
     ($name: ident) => (
@@ -109,6 +116,12 @@ macro_rules! impl_handle {
         impl ::std::borrow::Borrow<$crate::utils::handle::Handle> for $name {
             fn borrow(&self) -> &$crate::utils::handle::Handle {
                 &self.0
+            }
+        }
+
+        impl ::std::fmt::Display for $name {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                write!(f, "$name ({}, {})", self.index(), self.version())
             }
         }
     )

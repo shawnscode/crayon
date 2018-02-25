@@ -25,7 +25,6 @@
 //! essential systems in a central place, and responsible for running the main loop.
 //!
 
-pub mod errors;
 pub mod settings;
 pub mod context;
 pub mod event;
@@ -39,9 +38,11 @@ pub use self::context::Context;
 mod engine;
 pub use self::engine::Engine;
 
-use self::errors::*;
+pub type Result<T> = ::std::result::Result<T, ::failure::Error>;
+
 use graphics::GraphicsFrameInfo;
 use std::time::Duration;
+use std::result::Result as StdResult;
 
 /// The collected information during last frame.
 #[derive(Debug, Copy, Clone, Default)]
@@ -51,32 +52,38 @@ pub struct FrameInfo {
     pub fps: u32,
 }
 
-/// `Application` is a user-friendly facade to building application, which defines a number
-/// of event functions that get executed in a pre-determined order.
+/// `Application` is a user-friendly facade to build application, which consists of
+/// several event functions that get executed in a pre-determined order.
 pub trait Application {
+    type Error: ::failure::Fail;
+
     /// `Application::on_update` is called every frame. Its the main workhorse
     /// function for frame updates.
-    fn on_update(&mut self, _: &Context) -> Result<()> {
+    fn on_update(&mut self, _: &Context) -> StdResult<(), Self::Error> {
         Ok(())
     }
 
     /// `Application::on_render` is called before we starts rendering the scene.
-    fn on_render(&mut self, _: &Context) -> Result<()> {
+    fn on_render(&mut self, _: &Context) -> StdResult<(), Self::Error> {
         Ok(())
     }
 
     /// `Application::on_post_update` is called after camera has rendered the scene.
-    fn on_post_update(&mut self, _: &Context, _: &FrameInfo) -> Result<()> {
+    fn on_post_update(&mut self, _: &Context, _: &FrameInfo) -> StdResult<(), Self::Error> {
         Ok(())
     }
 
     /// `Application::on_update` is called when receiving application event.
-    fn on_receive_event(&mut self, _: &Context, _: event::ApplicationEvent) -> Result<()> {
+    fn on_receive_event(
+        &mut self,
+        _: &Context,
+        _: event::ApplicationEvent,
+    ) -> StdResult<(), Self::Error> {
         Ok(())
     }
 
     /// `Application::on_exit` is called when exiting.
-    fn on_exit(&mut self, _: &Context) -> Result<()> {
+    fn on_exit(&mut self, _: &Context) -> StdResult<(), Self::Error> {
         Ok(())
     }
 }

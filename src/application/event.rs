@@ -110,7 +110,6 @@ impl EventsLoop {
         self.frame_events.iter()
     }
 
-
     pub(crate) fn underlaying(&self) -> &glutin::EventsLoop {
         &self.ctx
     }
@@ -149,8 +148,8 @@ fn from_window_event(source: &glutin::WindowEvent) -> Option<Event> {
         }
 
         glutin::WindowEvent::MouseWheel { delta, .. } => match delta {
-            glutin::MouseScrollDelta::LineDelta(x, y) |
-            glutin::MouseScrollDelta::PixelDelta(x, y) => {
+            glutin::MouseScrollDelta::LineDelta(x, y)
+            | glutin::MouseScrollDelta::PixelDelta(x, y) => {
                 Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
                     delta: (x as f32, y as f32),
                 }))
@@ -161,17 +160,17 @@ fn from_window_event(source: &glutin::WindowEvent) -> Option<Event> {
             state: glutin::ElementState::Pressed,
             button,
             ..
-        } => Some(Event::InputDevice(
-            InputDeviceEvent::MousePressed { button },
-        )),
+        } => Some(Event::InputDevice(InputDeviceEvent::MousePressed {
+            button,
+        })),
 
         glutin::WindowEvent::MouseInput {
             state: glutin::ElementState::Released,
             button,
             ..
-        } => Some(Event::InputDevice(
-            InputDeviceEvent::MouseReleased { button },
-        )),
+        } => Some(Event::InputDevice(InputDeviceEvent::MouseReleased {
+            button,
+        })),
 
         glutin::WindowEvent::KeyboardInput {
             input:
@@ -181,9 +180,9 @@ fn from_window_event(source: &glutin::WindowEvent) -> Option<Event> {
                     ..
                 },
             ..
-        } => Some(Event::InputDevice(
-            InputDeviceEvent::KeyboardPressed { key },
-        )),
+        } => Some(Event::InputDevice(InputDeviceEvent::KeyboardPressed {
+            key,
+        })),
 
         glutin::WindowEvent::KeyboardInput {
             input:
@@ -193,9 +192,9 @@ fn from_window_event(source: &glutin::WindowEvent) -> Option<Event> {
                     ..
                 },
             ..
-        } => Some(Event::InputDevice(
-            InputDeviceEvent::KeyboardReleased { key },
-        )),
+        } => Some(Event::InputDevice(InputDeviceEvent::KeyboardReleased {
+            key,
+        })),
 
         glutin::WindowEvent::ReceivedCharacter(character) => Some(Event::InputDevice(
             InputDeviceEvent::ReceivedCharacter { character },

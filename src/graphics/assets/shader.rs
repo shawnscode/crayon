@@ -1,60 +1,60 @@
 //! Pipeline state object that containing immutable render state and vertex-layout.
 
 use std::collections::HashMap;
+use std::collections::hash_map::Values;
 use std::str::FromStr;
 
 use math;
-use graphics::{RenderTextureHandle, TextureHandle, MAX_VERTEX_ATTRIBUTES};
-use graphics::errors::*;
-use utils::HashValue;
 
-use super::mesh::VertexLayout;
+use graphics::{MAX_UNIFORM_VARIABLES, MAX_VERTEX_ATTRIBUTES};
+use graphics::errors::{Error, Result};
+use graphics::assets::texture::{RenderTextureHandle, TextureHandle};
+use graphics::assets::mesh::VertexLayout;
+use resource::utils::location::Location;
+use utils::HashValue;
 
 impl_handle!(ShaderHandle);
 
-/// A `ShaderObject` encapusulate all the informations we need to configurate
+/// A `ShaderSetup` encapusulate all the informations we need to configurate
 /// OpenGL before real drawing, like shaders, render states, etc.
 #[derive(Debug, Clone, Default)]
-pub struct ShaderSetup {
-    pub render_state: RenderState,
-    pub uniform_variables: HashMap<String, UniformVariableType>,
-    pub layout: AttributeLayout,
+pub struct ShaderSetup<'a> {
+    pub location: Location<'a>,
+    pub params: ShaderParams,
     pub vs: String,
     pub fs: String,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct ShaderStateObject {
-    pub(crate) render_state: RenderState,
-    pub(crate) uniform_variables: HashMap<HashValue<str>, UniformVariableType>,
-    pub(crate) uniform_variable_names: HashMap<HashValue<str>, String>,
-    pub(crate) layout: AttributeLayout,
+impl<'a> ShaderSetup<'a> {
+    pub fn validate(&self) -> Result<()> {
+        if self.params.uniforms.len() > MAX_UNIFORM_VARIABLES {
+            return Err(Error::ShaderCreationFailure(format!(
+                "Too many uniform variables (>= {:?}).",
+                MAX_UNIFORM_VARIABLES
+            )));
+        }
+
+        if self.vs.is_empty() {
+            return Err(Error::ShaderCreationFailure(
+                "Vertex shader is required to describe a proper render pipeline.".into(),
+            ));
+        }
+
+        if self.fs.is_empty() {
+            return Err(Error::ShaderCreationFailure(
+                "Fragment shader is required to describe a proper render pipeline.".into(),
+            ));
+        }
+
+        Ok(())
+    }
 }
 
-impl ShaderStateObject {
-    pub fn render_state(&self) -> &RenderState {
-        &self.render_state
-    }
-
-    pub fn layout(&self) -> &AttributeLayout {
-        &self.layout
-    }
-
-    pub fn uniform_variable<T>(&self, field: T) -> Option<UniformVariableType>
-    where
-        T: Into<HashValue<str>>,
-    {
-        self.uniform_variables.get(&field.into()).cloned()
-    }
-
-    pub fn uniform_variable_name<T>(&self, field: T) -> Option<&str>
-    where
-        T: Into<HashValue<str>>,
-    {
-        self.uniform_variable_names
-            .get(&field.into())
-            .map(|v| v.as_ref())
-    }
+#[derive(Debug, Clone, Default)]
+pub struct ShaderParams {
+    pub attributes: AttributeLayout,
+    pub uniforms: UniformVariableLayout,
+    pub render_state: RenderState,
 }
 
 /// The possible pre-defined and named attributes in the vertex component, describing
@@ -111,7 +111,7 @@ impl FromStr for Attribute {
             "Texcoord1" => Ok(Attribute::Texcoord1),
             "Texcoord2" => Ok(Attribute::Texcoord2),
             "Texcoord3" => Ok(Attribute::Texcoord3),
-            _ => bail!(format!("Can not parse attribute from &str `{0}`.", s)),
+            _ => Err(Error::AttributeParseFailure(s.into())),
         }
     }
 }
@@ -186,7 +186,7 @@ impl AttributeLayoutBuilder {
         Default::default()
     }
 
-    pub fn with(&mut self, attribute: Attribute, size: u8) -> &mut Self {
+    pub fn with(mut self, attribute: Attribute, size: u8) -> Self {
         assert!(size > 0 && size <= 4);
 
         for i in 0..self.0.len {
@@ -204,7 +204,7 @@ impl AttributeLayoutBuilder {
     }
 
     #[inline]
-    pub fn finish(&mut self) -> AttributeLayout {
+    pub fn finish(self) -> AttributeLayout {
         self.0
     }
 }
@@ -437,5 +437,68 @@ impl Into<UniformVariable> for math::Vector4<f32> {
 impl Into<UniformVariable> for [f32; 4] {
     fn into(self) -> UniformVariable {
         UniformVariable::Vector4f(self)
+    }
+}
+
+// UniformVariableLayout defines an layout of uniforms in program.
+#[derive(Debug, Clone, Default)]
+pub struct UniformVariableLayout {
+    variables: HashMap<HashValue<str>, (String, UniformVariableType)>,
+}
+
+impl UniformVariableLayout {
+    pub fn build() -> UniformVariableLayoutBuilder {
+        UniformVariableLayoutBuilder::new()
+    }
+
+    pub fn len(&self) -> usize {
+        self.variables.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.variables.is_empty()
+    }
+
+    pub fn iter(&self) -> Values<HashValue<str>, (String, UniformVariableType)> {
+        self.variables.values()
+    }
+
+    pub fn variable_type<T>(&self, field: T) -> Option<UniformVariableType>
+    where
+        T: Into<HashValue<str>>,
+    {
+        self.variables.get(&field.into()).map(|v| v.1)
+    }
+
+    pub fn variable_name<T>(&self, field: T) -> Option<&str>
+    where
+        T: Into<HashValue<str>>,
+    {
+        self.variables.get(&field.into()).map(|v| v.0.as_ref())
+    }
+}
+
+#[derive(Default)]
+pub struct UniformVariableLayoutBuilder(UniformVariableLayout);
+
+impl UniformVariableLayoutBuilder {
+    #[inline]
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn with<T>(mut self, field: T, v: UniformVariableType) -> Self
+    where
+        T: Into<String>,
+    {
+        let field = field.into();
+        let hash = HashValue::from(&field);
+        self.0.variables.insert(hash, (field, v));
+        self
+    }
+
+    #[inline]
+    pub fn finish(self) -> UniformVariableLayout {
+        self.0
     }
 }

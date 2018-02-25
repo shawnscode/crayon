@@ -5,8 +5,8 @@ use std::time::{Duration, Instant};
 use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 
-use super::settings::EngineSettings;
-use super::errors::*;
+use application::Result;
+use application::settings::EngineSettings;
 
 /// `TimeSystem`
 pub struct TimeSystem {

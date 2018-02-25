@@ -1,6 +1,6 @@
 use std::sync::{Mutex, MutexGuard, RwLock};
 
-use super::super::*;
+use graphics::assets::prelude::*;
 use super::errors::*;
 use super::device::Device;
 
@@ -9,15 +9,13 @@ use utils::{DataBuffer, DataBufferPtr, HashValue, Rect};
 #[derive(Debug, Clone)]
 pub(crate) enum PreFrameTask {
     CreateSurface(SurfaceHandle, SurfaceSetup),
-    CreatePipeline(ShaderHandle, ShaderSetup),
-    CreateFrameBuffer(FrameBufferHandle, FrameBufferSetup),
-    CreateTexture(TextureHandle, TextureSetup, Option<DataBufferPtr<[u8]>>),
+    CreatePipeline(ShaderHandle, ShaderParams, String, String),
+    CreateTexture(TextureHandle, TextureParams, Option<DataBufferPtr<[u8]>>),
     UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),
     CreateRenderTexture(RenderTextureHandle, RenderTextureSetup),
-    CreateRenderBuffer(RenderBufferHandle, RenderBufferSetup),
     CreateMesh(
         MeshHandle,
-        MeshSetup,
+        MeshParams,
         Option<DataBufferPtr<[u8]>>,
         Option<DataBufferPtr<[u8]>>,
     ),
@@ -28,7 +26,8 @@ pub(crate) enum PreFrameTask {
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum FrameTask {
     DrawCall(FrameDrawCall),
-    UpdateSurface(Scissor),
+    UpdateSurfaceScissor(SurfaceScissor),
+    UpdateSurfaceViewport(SurfaceViewport),
     UpdateVertexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
     UpdateIndexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
     UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),
@@ -49,8 +48,6 @@ pub(crate) enum PostFrameTask {
     DeleteMesh(MeshHandle),
     DeleteTexture(TextureHandle),
     DeleteRenderTexture(RenderTextureHandle),
-    DeleteRenderBuffer(RenderBufferHandle),
-    DeleteFrameBuffer(FrameBufferHandle),
 }
 
 #[derive(Debug, Clone)]
@@ -95,8 +92,8 @@ impl Frame {
                 PreFrameTask::CreateSurface(handle, setup) => {
                     device.create_surface(handle, setup)?;
                 }
-                PreFrameTask::CreatePipeline(handle, setup) => {
-                    device.create_shader(handle, setup)?;
+                PreFrameTask::CreatePipeline(handle, params, vs, fs) => {
+                    device.create_shader(handle, params, vs, fs)?;
                 }
                 PreFrameTask::CreateMesh(handle, setup, verts, idxes) => {
                     let field = &self.buf;
@@ -124,27 +121,6 @@ impl Frame {
                 PreFrameTask::CreateRenderTexture(handle, setup) => {
                     device.create_render_texture(handle, setup)?;
                 }
-                PreFrameTask::CreateRenderBuffer(handle, setup) => {
-                    device.create_render_buffer(handle, setup)?;
-                }
-                PreFrameTask::CreateFrameBuffer(handle, setup) => {
-                    device.create_framebuffer(handle)?;
-
-                    // Update framebuffer's attachments.
-                    for (i, attachment) in setup.attachments().iter().enumerate() {
-                        if let Some(v) = *attachment {
-                            let i = i as u32;
-                            match v {
-                                FrameBufferAttachment::RenderBuffer(rb) => {
-                                    device.update_framebuffer_with_renderbuffer(handle, rb, i)?;
-                                }
-                                FrameBufferAttachment::Texture(texture) => {
-                                    device.update_framebuffer_with_texture(handle, texture, i)?;
-                                }
-                            };
-                        }
-                    }
-                }
             }
         }
 
@@ -166,12 +142,6 @@ impl Frame {
                 }
                 PostFrameTask::DeleteRenderTexture(handle) => {
                     device.delete_render_texture(handle)?;
-                }
-                PostFrameTask::DeleteRenderBuffer(handle) => {
-                    device.delete_render_buffer(handle)?;
-                }
-                PostFrameTask::DeleteFrameBuffer(handle) => {
-                    device.delete_framebuffer(handle)?;
                 }
             }
         }

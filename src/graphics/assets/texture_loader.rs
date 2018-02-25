@@ -11,7 +11,7 @@ use graphics::backend::frame::{DoubleFrame, PreFrameTask};
 /// Parsed texture from `TextureParser`.
 pub struct TextureData {
     pub format: TextureFormat,
-    pub dimensions: (u32, u32),
+    pub dimensions: (u16, u16),
     pub data: Vec<u8>,
 }
 
@@ -28,7 +28,7 @@ where
     T: TextureParser,
 {
     handle: TextureHandle,
-    setup: TextureSetup,
+    params: TextureParams,
     state: Arc<RwLock<AssetTextureState>>,
     frames: Arc<DoubleFrame>,
     _phantom: PhantomData<T>,
@@ -41,12 +41,12 @@ where
     pub fn new(
         handle: TextureHandle,
         state: Arc<RwLock<AssetTextureState>>,
-        setup: TextureSetup,
+        params: TextureParams,
         frames: Arc<DoubleFrame>,
     ) -> Self {
         TextureLoader {
             handle: handle,
-            setup: setup,
+            params: params,
             state: state,
             frames: frames,
             _phantom: PhantomData,
@@ -62,15 +62,15 @@ where
         let state = match result {
             Ok(bytes) => match T::parse(bytes) {
                 Ok(texture) => {
-                    self.setup.dimensions = texture.dimensions;
-                    self.setup.format = texture.format;
+                    self.params.dimensions = texture.dimensions;
+                    self.params.format = texture.format;
 
                     let mut frame = self.frames.front();
                     let ptr = frame.buf.extend_from_slice(&texture.data);
-                    let task = PreFrameTask::CreateTexture(self.handle, self.setup, Some(ptr));
+                    let task = PreFrameTask::CreateTexture(self.handle, self.params, Some(ptr));
                     frame.pre.push(task);
 
-                    AssetState::ready(self.setup)
+                    AssetState::ready(self.params)
                 }
                 Err(error) => {
                     let error = format!("Failed to load texture at {:?}.\n{:?}", path, error);

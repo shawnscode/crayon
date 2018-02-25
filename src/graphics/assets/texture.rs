@@ -1,25 +1,48 @@
 //! Immutable or dynamic 2D texture.
 
+use graphics::errors::{Error, Result};
+use resource::utils::location::Location;
+
 /// A texture is a container of one or more images. It can be the source of a texture
 /// access from a Shader.
+#[derive(Debug, Clone, Default)]
+pub struct TextureSetup<'a> {
+    pub location: Location<'a>,
+    pub params: TextureParams,
+    pub data: Option<&'a [u8]>,
+}
+
+impl<'a> TextureSetup<'a> {
+    pub fn validate(&self) -> Result<()> {
+        if self.location.is_shared() {
+            if self.params.hint != TextureHint::Immutable {
+                return Err(Error::CreateMutableSharedObject);
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
-pub struct TextureSetup {
+pub struct TextureParams {
     pub format: TextureFormat,
     pub address: TextureAddress,
     pub filter: TextureFilter,
+    pub hint: TextureHint,
     pub mipmap: bool,
-    pub dimensions: (u32, u32),
+    pub dimensions: (u16, u16),
 }
 
-pub type TextureStateObject = TextureSetup;
 impl_handle!(TextureHandle);
 
-impl Default for TextureSetup {
+impl Default for TextureParams {
     fn default() -> Self {
-        TextureSetup {
+        TextureParams {
             format: TextureFormat::U8U8U8U8,
             address: TextureAddress::Clamp,
             filter: TextureFilter::Linear,
+            hint: TextureHint::Immutable,
             mipmap: false,
             dimensions: (0, 0),
         }
@@ -27,12 +50,14 @@ impl Default for TextureSetup {
 }
 
 /// A `RenderTexture` object is basicly texture object with special format. It can
-/// be the source of a texture access from a Shader, or it can be used as a render
-/// target.
+/// be used as a render target. If the `sampler` field is true, it can also be ther
+/// source of a texture access from a __shader__.
+///
 #[derive(Debug, Copy, Clone)]
 pub struct RenderTextureSetup {
     pub format: RenderTextureFormat,
-    pub dimensions: (u32, u32),
+    pub dimensions: (u16, u16),
+    pub sampler: bool,
 }
 
 impl Default for RenderTextureSetup {
@@ -40,24 +65,28 @@ impl Default for RenderTextureSetup {
         RenderTextureSetup {
             format: RenderTextureFormat::RGB8,
             dimensions: (0, 0),
+            sampler: true,
         }
     }
 }
 
-pub type RenderTextureStateObject = RenderTextureSetup;
+pub type RenderTextureParams = RenderTextureSetup;
 impl_handle!(RenderTextureHandle);
 
-/// RBOs are like a texture with a hint - that you won't expect some functionality
-/// from them. The driver can speedup rendering to them. Yet, on most modern cards,
-/// the performance difference is almost zero.
-#[derive(Debug, Copy, Clone)]
-pub struct RenderBufferSetup {
-    pub format: RenderTextureFormat,
-    pub dimensions: (u32, u32),
+/// Hint abouts the intended update strategy of the data.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum TextureHint {
+    /// The resource is initialized with data and cannot be changed later, this
+    /// is the most common and most efficient usage. Optimal for render targets
+    /// and resourced memory.
+    Immutable,
+    /// The resource is initialized without data, but will be be updated by the
+    /// CPU in each frame.
+    Stream,
+    /// The resource is initialized without data and will be written by the CPU
+    /// before use, updates will be infrequent.
+    Dynamic,
 }
-
-pub type RenderBufferStateObject = RenderBufferSetup;
-impl_handle!(RenderBufferHandle);
 
 /// Specify how the texture is used whenever the pixel being sampled.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -85,6 +114,10 @@ pub enum TextureAddress {
 
 /// List of all the possible formats of renderable texture which could be use as
 /// attachment of framebuffer.
+///
+/// Each element of `Depth` is a single depth value. The `Graphics` converts it to
+/// floating point, multiplies by the signed scale factor, adds the signed bias, and
+/// clamps to the range [0,1].
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum RenderTextureFormat {
     RGB8,

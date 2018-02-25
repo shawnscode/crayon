@@ -46,7 +46,7 @@ impl FilesystemDriver {
         let hash = HashValue::from(ident);
 
         if self.filesystems.get(&hash).is_some() {
-            bail!(ErrorKind::DriveWithSameIdentFound);
+            return Err(Error::DriveIdentDuplicated);
         }
 
         self.filesystems.insert(hash, Arc::new(Box::new(fs)));
@@ -90,9 +90,11 @@ impl FilesystemDriver {
                 fs.load_into(file, buf)?;
                 return Ok(&self.buf[..]);
             }
-        }
 
-        bail!(ErrorKind::DriveNotFound);
+            Err(Error::DriveNotFound(bundle.into()))
+        } else {
+            Err(Error::DriveNotFound("".into()))
+        }
     }
 
     fn parse(mut cmps: Components) -> Option<(&str, &Path)> {
@@ -125,7 +127,9 @@ impl DirectoryFS {
                 wp: path.as_ref().to_owned(),
             })
         } else {
-            bail!(ErrorKind::NotFound);
+            Err(Error::FilesystemNotFound(
+                path.as_ref().to_str().unwrap_or("").into(),
+            ))
         }
     }
 }
@@ -175,7 +179,7 @@ impl Filesystem for ZipFS {
             file.read_to_end(buf)?;
             Ok(())
         } else {
-            bail!(ErrorKind::NotFound);
+            Err(Error::FileNotFound(path.to_str().unwrap_or("").into()))
         }
     }
 }
