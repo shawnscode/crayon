@@ -1,8 +1,7 @@
-use std::path::Path;
-use std::sync::{Arc, RwLock};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
-
-use two_lock_queue;
+use std::sync::mpsc;
 
 use super::filesystem::{Filesystem, FilesystemDriver};
 use super::errors::*;
@@ -26,7 +25,8 @@ impl ResourceSystem {
     pub fn new() -> Result<Self> {
         let driver = Arc::new(RwLock::new(FilesystemDriver::new()));
 
-        let (tx, rx) = two_lock_queue::channel(1024);
+        // let (tx, rx) = two_lock_queue::channel(1024);
+        let (tx, rx) = mpsc::channel();
 
         {
             let driver = driver.clone();
@@ -70,55 +70,33 @@ impl ResourceSystem {
         self.filesystems.write().unwrap().unmount(ident);
     }
 
-    fn run(chan: &two_lock_queue::Receiver<ResourceTask>, driver: &RwLock<FilesystemDriver>) {
+    fn run(chan: &mpsc::Receiver<Command>, driver: &RwLock<FilesystemDriver>) {
         let mut buf = Vec::new();
 
         loop {
             match chan.recv().unwrap() {
-                ResourceTask::Load { mut closure } => {
+                Command::Task(mut task) => {
                     let driver = driver.read().unwrap();
-                    closure(&driver, &mut buf);
+                    task.execute(&driver, &mut buf);
                 }
 
-                ResourceTask::Stop => return,
+                Command::Stop => return,
             }
         }
-    }
-
-    fn load<T>(slave: T, path: &Path, driver: &FilesystemDriver, buf: &mut Vec<u8>)
-    where
-        T: ResourceAsyncLoader,
-    {
-        let from = buf.len();
-
-        match driver.load_into(&path, buf) {
-            Ok(_) => slave.on_finished(path, Ok(&buf[from..])),
-            Err(err) => slave.on_finished(path, Err(err)),
-        };
     }
 }
 
 /// The multi-thread friendly parts of `ResourceSystem`.
 pub struct ResourceSystemShared {
     filesystems: Arc<RwLock<FilesystemDriver>>,
-    chan: two_lock_queue::Sender<ResourceTask>,
-}
-
-enum ResourceTask {
-    Load {
-        closure: Box<FnMut(&FilesystemDriver, &mut Vec<u8>) + Send + Sync>,
-    },
-    Stop,
+    chan: Mutex<mpsc::Sender<Command>>,
 }
 
 impl ResourceSystemShared {
-    fn new(
-        filesystems: Arc<RwLock<FilesystemDriver>>,
-        chan: two_lock_queue::Sender<ResourceTask>,
-    ) -> Self {
+    fn new(filesystems: Arc<RwLock<FilesystemDriver>>, chan: mpsc::Sender<Command>) -> Self {
         ResourceSystemShared {
             filesystems: filesystems,
-            chan: chan,
+            chan: Mutex::new(chan),
         }
     }
 
@@ -134,31 +112,59 @@ impl ResourceSystemShared {
     ///
     /// `ResourceAsyncLoader::on_finished` will be called if task finishs or any
     /// error triggered when loading.
-    pub fn load_async<T, P>(&self, worker: T, path: P)
+    pub fn load_async<T, P>(&self, loader: T, path: P)
     where
         T: ResourceAsyncLoader,
-        P: AsRef<Path>,
+        P: Into<PathBuf>,
     {
-        // Hacks: Optimize this when Box<FnOnce> is usable.
-        let path = path.as_ref().to_owned();
-        let payload = Arc::new(RwLock::new(Some((worker, path))));
-        let closure = move |d: &FilesystemDriver, b: &mut Vec<u8>| {
-            // ..
-            if let Some(data) = payload.write().unwrap().take() {
-                ResourceSystem::load::<T>(data.0, &data.1, d, b);
-            }
+        let task = TaskLoad {
+            loader: Some(loader),
+            path: path.into(),
         };
 
         self.chan
-            .send(ResourceTask::Load {
-                closure: Box::new(closure),
-            })
+            .lock()
+            .unwrap()
+            .send(Command::Task(Box::new(task)))
             .unwrap();
     }
 }
 
 impl Drop for ResourceSystemShared {
     fn drop(&mut self) {
-        self.chan.send(ResourceTask::Stop).unwrap();
+        self.chan.lock().unwrap().send(Command::Stop).unwrap();
+    }
+}
+
+enum Command {
+    Task(Box<Task>),
+    Stop,
+}
+
+trait Task: Send {
+    fn execute(&mut self, _: &FilesystemDriver, _: &mut Vec<u8>);
+}
+
+struct TaskLoad<T>
+where
+    T: ResourceAsyncLoader,
+{
+    loader: Option<T>,
+    path: PathBuf,
+}
+
+impl<T> Task for TaskLoad<T>
+where
+    T: ResourceAsyncLoader,
+{
+    fn execute(&mut self, driver: &FilesystemDriver, buf: &mut Vec<u8>) {
+        if let Some(loader) = self.loader.take() {
+            let from = buf.len();
+
+            match driver.load_into(&self.path, buf) {
+                Ok(_) => loader.on_finished(&self.path, Ok(&buf[from..])),
+                Err(err) => loader.on_finished(&self.path, Err(err)),
+            };
+        }
     }
 }
