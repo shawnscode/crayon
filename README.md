@@ -5,7 +5,9 @@
 [![Crate](https://img.shields.io/crates/v/crayon.svg)](https://crates.io/crates/crayon)
 [![License](https://img.shields.io/crates/l/crayon.svg)](https://github.com/shawnscode/crayon/blob/master/LICENSE-APACHE)
 
-Crayon is a small, portable and extensible game framework written. It is written with a minimalistic modular design philosophy, and built from the ground up to focus on cache friendly data layouts in multicore environments. It is loosely inspired by some amazing blogs on [bitsquid](https://bitsquid.blogspot.de) and [molecular](https://blog.molecular-matters.com). Some goals include:
+Crayon is a small, portable and extensible game framework, which loosely inspired by some amazing blogs on [bitsquid](https://bitsquid.blogspot.de), [molecular](https://blog.molecular-matters.com) and [floooh](http://floooh.github.io/).
+
+Some goals include:
 
 - Extensible through external code modules;
 - Run on macOS, Linux, Windows, iOS, Android from the same source;
