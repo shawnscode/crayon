@@ -6,8 +6,6 @@ use crayon::graphics::errors::*;
 use crayon::graphics::prelude::*;
 use crayon::graphics::assets::prelude::*;
 
-use crayon::resource::prelude::*;
-
 use imgui::{DrawList, ImGui, Ui};
 
 impl_vertex!{
@@ -58,14 +56,15 @@ impl Renderer {
         let tt = UniformVariableType::Texture;
         setup.uniform_variables.insert("texture".into(), tt);
 
-        let shader = video.create_shader(Location::unique(""), setup)?;
+        let shader = video.create_shader(setup)?;
 
         let texture = imgui.prepare_texture(|v| {
             let mut setup = TextureSetup::default();
-            setup.dimensions = (v.width as u16, v.height as u16);
-            setup.filter = TextureFilter::Nearest;
-            setup.format = TextureFormat::U8U8U8U8;
-            video.create_texture(Location::unique(""), setup, Some(v.pixels))
+            setup.params.dimensions = (v.width as u16, v.height as u16);
+            setup.params.filter = TextureFilter::Nearest;
+            setup.params.format = TextureFormat::U8U8U8U8;
+            setup.data = Some(v.pixels);
+            video.create_texture(setup)
         })?;
 
         imgui.set_texture_id(**texture as usize);
@@ -184,17 +183,16 @@ impl Renderer {
         }
 
         let mut setup = MeshSetup::default();
-        setup.hint = MeshHint::Stream;
-        setup.layout = CanvasVertex::layout();
-        setup.index_format = IndexFormat::U16;
-        setup.primitive = MeshPrimitive::Triangles;
-        setup.num_verts = nv;
-        setup.num_idxes = ni;
+        setup.params.hint = MeshHint::Stream;
+        setup.params.layout = CanvasVertex::layout();
+        setup.params.index_format = IndexFormat::U16;
+        setup.params.primitive = MeshPrimitive::Triangles;
+        setup.params.num_verts = nv;
+        setup.params.num_idxes = ni;
+        setup.verts = Some(CanvasVertex::encode(verts));
+        setup.idxes = Some(IndexFormat::encode(idxes));
 
-        let verts_slice = CanvasVertex::encode(verts);
-        let idxes_slice = IndexFormat::encode(idxes);
-        let mesh = self.video
-            .create_mesh(Location::unique(""), setup, verts_slice, idxes_slice)?;
+        let mesh = self.video.create_mesh(setup)?;
         self.mesh = Some((nv, ni, mesh));
         Ok(mesh)
     }

@@ -21,14 +21,13 @@ type UniformID = GLint;
 struct MeshObject {
     vbo: ResourceID,
     ibo: ResourceID,
-    setup: MeshSetup,
+    params: MeshParams,
 }
 
 #[derive(Debug)]
 struct ShaderObject {
     id: ResourceID,
-    render_state: RenderState,
-    layout: AttributeLayout,
+    params: ShaderParams,
     uniform_locations: HashMap<HashValue<str>, UniformID>,
     uniforms: HashMap<String, UniformVariable>,
 }
@@ -48,7 +47,7 @@ struct FrameBufferObject {
 #[derive(Debug, Copy, Clone)]
 struct TextureObject {
     id: ResourceID,
-    setup: TextureSetup,
+    params: TextureParams,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -216,7 +215,7 @@ impl Device {
 
         self.visitor.bind_buffer(gl::ARRAY_BUFFER, mesh.vbo)?;
         self.visitor
-            .bind_attribute_layout(&shader.layout, &mesh.setup.layout)?;
+            .bind_attribute_layout(shader.params.layout(), &mesh.params.layout)?;
 
         // Bind index buffer object if available.
         self.visitor
@@ -224,47 +223,47 @@ impl Device {
 
         let (from, len) = match dc.index {
             MeshIndex::Ptr(from, len) => {
-                if (from + len) > mesh.setup.num_idxes {
+                if (from + len) > mesh.params.num_idxes {
                     return Err(Error::OutOfBounds);
                 }
 
                 (
-                    (from * mesh.setup.index_format.stride()) as u32,
+                    (from * mesh.params.index_format.stride()) as u32,
                     len as GLsizei,
                 )
             }
             MeshIndex::SubMesh(index) => {
-                let num = mesh.setup.sub_mesh_offsets.len();
-                let from = mesh.setup
+                let num = mesh.params.sub_mesh_offsets.len();
+                let from = mesh.params
                     .sub_mesh_offsets
                     .get(index)
                     .ok_or(Error::OutOfBounds)?;
 
                 let to = if index == (num - 1) {
-                    mesh.setup.num_idxes
+                    mesh.params.num_idxes
                 } else {
-                    mesh.setup.sub_mesh_offsets[index + 1]
+                    mesh.params.sub_mesh_offsets[index + 1]
                 };
 
                 (
-                    (from * mesh.setup.index_format.stride()) as u32,
+                    (from * mesh.params.index_format.stride()) as u32,
                     (to - from) as GLsizei,
                 )
             }
-            MeshIndex::All => (0, mesh.setup.num_idxes as i32),
+            MeshIndex::All => (0, mesh.params.num_idxes as i32),
         };
 
         gl::DrawElements(
-            mesh.setup.primitive.into(),
+            mesh.params.primitive.into(),
             len,
-            mesh.setup.index_format.into(),
+            mesh.params.index_format.into(),
             from as *const u32 as *const ::std::os::raw::c_void,
         );
 
         {
             let mut info = self.frame_info.borrow_mut();
             info.drawcall += 1;
-            info.triangles += mesh.setup.primitive.assemble_triangles(len as u32);
+            info.triangles += mesh.params.primitive.assemble_triangles(len as u32);
         }
 
         check()
@@ -356,7 +355,7 @@ impl Device {
 
         self.visitor.bind_program(shader.id)?;
 
-        let s = &shader.render_state;
+        let s = shader.params.render_state();
         self.visitor.set_cull_face(s.cull_face)?;
         self.visitor.set_front_face_order(s.front_face_order)?;
         self.visitor.set_depth_test(s.depth_write, s.depth_test)?;
@@ -382,7 +381,7 @@ impl Device {
     pub unsafe fn create_mesh(
         &mut self,
         handle: MeshHandle,
-        setup: MeshSetup,
+        params: MeshParams,
         verts: Option<&[u8]>,
         idxes: Option<&[u8]>,
     ) -> Result<()> {
@@ -392,22 +391,22 @@ impl Device {
 
         let vbo = self.visitor.create_buffer(
             OpenGLBuffer::Vertex,
-            setup.hint,
-            setup.vertex_buffer_len() as u32,
+            params.hint,
+            params.vertex_buffer_len() as u32,
             verts,
         )?;
 
         let ibo = self.visitor.create_buffer(
             OpenGLBuffer::Index,
-            setup.hint,
-            setup.index_buffer_len() as u32,
+            params.hint,
+            params.index_buffer_len() as u32,
             idxes,
         )?;
 
         let mesh = MeshObject {
             vbo: vbo,
             ibo: ibo,
-            setup: setup,
+            params: params,
         };
 
         self.meshes.set(handle, mesh);
@@ -421,11 +420,11 @@ impl Device {
         data: &[u8],
     ) -> Result<()> {
         if let Some(mesh) = self.meshes.get(handle) {
-            if mesh.setup.hint == MeshHint::Immutable {
+            if mesh.params.hint == MeshHint::Immutable {
                 return Err(Error::UpdateImmutableBuffer);
             }
 
-            if data.len() + offset > mesh.setup.vertex_buffer_len() {
+            if data.len() + offset > mesh.params.vertex_buffer_len() {
                 return Err(Error::OutOfBounds);
             }
 
@@ -443,11 +442,11 @@ impl Device {
         data: &[u8],
     ) -> Result<()> {
         if let Some(mesh) = self.meshes.get(handle) {
-            if mesh.setup.hint == MeshHint::Immutable {
+            if mesh.params.hint == MeshHint::Immutable {
                 return Err(Error::UpdateImmutableBuffer);
             }
 
-            if data.len() + offset > mesh.setup.index_buffer_len() {
+            if data.len() + offset > mesh.params.index_buffer_len() {
                 return Err(Error::OutOfBounds);
             }
 
@@ -497,19 +496,19 @@ impl Device {
     pub unsafe fn create_texture(
         &mut self,
         handle: TextureHandle,
-        setup: TextureSetup,
+        params: TextureParams,
         data: Option<&[u8]>,
     ) -> Result<()> {
-        let (internal_format, in_format, pixel_type) = setup.format.into();
+        let (internal_format, in_format, pixel_type) = params.format.into();
         let id = self.visitor.create_texture(
             internal_format,
             in_format,
             pixel_type,
-            setup.address,
-            setup.filter,
-            setup.mipmap,
-            setup.dimensions.0,
-            setup.dimensions.1,
+            params.address,
+            params.filter,
+            params.mipmap,
+            params.dimensions.0,
+            params.dimensions.1,
             data,
         )?;
 
@@ -517,7 +516,7 @@ impl Device {
             handle,
             TextureObject {
                 id: id,
-                setup: setup,
+                params: params,
             },
         );
         Ok(())
@@ -531,14 +530,14 @@ impl Device {
     ) -> Result<()> {
         if let Some(texture) = self.textures.get(handle) {
             if data.len() > rect.size() as usize || rect.min.x < 0
-                || rect.min.x as u16 >= texture.setup.dimensions.0 || rect.min.y < 0
-                || rect.min.y as u16 >= texture.setup.dimensions.1 || rect.max.x < 0
+                || rect.min.x as u16 >= texture.params.dimensions.0 || rect.min.y < 0
+                || rect.min.y as u16 >= texture.params.dimensions.1 || rect.max.x < 0
                 || rect.max.y < 0
             {
                 return Err(Error::OutOfBounds);
             }
 
-            let (_, format, tt) = texture.setup.format.into();
+            let (_, format, tt) = texture.params.format.into();
             self.visitor
                 .update_texture(texture.id, format, tt, rect, data)?;
             Ok(())
@@ -638,10 +637,16 @@ impl Device {
     /// Initializes named program object. A program object is an object to
     /// which shader objects can be attached. Vertex and fragment shader
     /// are minimal requirement to build a proper program.
-    pub unsafe fn create_shader(&mut self, handle: ShaderHandle, setup: ShaderSetup) -> Result<()> {
-        let pid = self.visitor.create_program(&setup.vs, &setup.fs)?;
+    pub unsafe fn create_shader(
+        &mut self,
+        handle: ShaderHandle,
+        params: ShaderParams,
+        vs: String,
+        fs: String,
+    ) -> Result<()> {
+        let pid = self.visitor.create_program(&vs, &fs)?;
 
-        for (name, _) in setup.layout.iter() {
+        for (name, _) in params.layout().iter() {
             let name: &'static str = name.into();
             let location = self.visitor.get_attribute_location(pid, name)?;
             if location == -1 {
@@ -650,10 +655,10 @@ impl Device {
         }
 
         let mut uniform_locations = HashMap::new();
-        for (name, _) in setup.uniform_variables {
-            let location = self.visitor.get_uniform_location(pid, &name)?;
+        for &(ref name, _) in params.uniform_variables() {
+            let location = self.visitor.get_uniform_location(pid, name)?;
             if location == -1 {
-                return Err(Error::UniformUndefined(name.into()));
+                return Err(Error::UniformUndefined(name.clone()));
             }
 
             uniform_locations.insert(name.into(), location);
@@ -663,8 +668,7 @@ impl Device {
             handle,
             ShaderObject {
                 id: pid,
-                render_state: setup.render_state,
-                layout: setup.layout,
+                params: params,
                 uniform_locations: uniform_locations,
                 uniforms: HashMap::new(),
             },

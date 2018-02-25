@@ -18,40 +18,35 @@ pub mod pipeline {
             return Ok(pipeline);
         }
 
-        let shader = if let Some(shader) = scene.video.lookup_shader_from(location) {
-            shader
-        } else {
-            let attributes = AttributeLayout::build()
-                .with(Attribute::Position, 4)
-                .with(Attribute::Normal, 4)
-                .with(Attribute::Texcoord0, 2)
-                .finish();
+        let attributes = AttributeLayout::build()
+            .with(Attribute::Position, 4)
+            .with(Attribute::Normal, 4)
+            .with(Attribute::Texcoord0, 2)
+            .finish();
 
-            let mut render_state = RenderState::default();
-            render_state.depth_write = true;
-            render_state.depth_test = Comparison::LessOrEqual;
+        let mut render_state = RenderState::default();
+        render_state.depth_write = true;
+        render_state.depth_test = Comparison::LessOrEqual;
 
-            let mut setup = ShaderSetup::default();
-            setup.render_state = render_state;
-            setup.layout = attributes;
-            setup.vs = include_str!("../../assets/pbr.vs").to_owned();
-            setup.fs = include_str!("../../assets/pbr.fs").to_owned();
+        let mut setup = ShaderSetup::default();
+        setup.location = location;
+        setup.render_state = render_state;
+        setup.layout = attributes;
+        setup.vs = include_str!("../../assets/pbr.vs").to_owned();
+        setup.fs = include_str!("../../assets/pbr.fs").to_owned();
 
-            let uvs = [
-                ("scn_MVPMatrix", UVT::Matrix4f),
-                ("scn_ModelViewMatrix", UVT::Matrix4f),
-                ("scn_ViewNormalMatrix", UVT::Matrix4f),
-            ];
+        let uvs = [
+            ("scn_MVPMatrix", UVT::Matrix4f),
+            ("scn_ModelViewMatrix", UVT::Matrix4f),
+            ("scn_ViewNormalMatrix", UVT::Matrix4f),
+        ];
 
-            for &(field, tt) in &uvs {
-                setup.uniform_variables.insert(field.into(), tt);
-            }
+        for &(field, tt) in &uvs {
+            setup.uniform_variables.insert(field.into(), tt);
+        }
 
-            scene.video.create_shader(location, setup)?
-        };
-
-        let setup = PipelineSetup::new(shader);
-        scene.create_pipeline(location, setup)
+        let pipeline_setup = PipelineSetup::new(setup);
+        scene.create_pipeline(pipeline_setup)
     }
 
     pub fn phong(scene: &mut Scene) -> Result<PipelineHandle> {
@@ -60,61 +55,56 @@ pub mod pipeline {
             return Ok(pipeline);
         }
 
-        let shader = if let Some(shader) = scene.video.lookup_shader_from(location) {
-            shader
-        } else {
-            let attributes = AttributeLayout::build()
-                .with(Attribute::Position, 3)
-                .with(Attribute::Normal, 3)
-                .with(Attribute::Color0, 4)
-                .finish();
+        let attributes = AttributeLayout::build()
+            .with(Attribute::Position, 3)
+            .with(Attribute::Normal, 3)
+            .with(Attribute::Color0, 4)
+            .finish();
 
-            let mut render_state = RenderState::default();
-            render_state.depth_write = true;
-            render_state.depth_test = Comparison::LessOrEqual;
-            render_state.cull_face = CullFace::Back;
+        let mut render_state = RenderState::default();
+        render_state.depth_write = true;
+        render_state.depth_test = Comparison::LessOrEqual;
+        render_state.cull_face = CullFace::Back;
 
-            let mut setup = ShaderSetup::default();
-            setup.render_state = render_state;
-            setup.layout = attributes;
-            setup.vs = include_str!("../../assets/phong.vs").to_owned();
-            setup.fs = include_str!("../../assets/phong.fs").to_owned();
+        let mut setup = ShaderSetup::default();
+        setup.location = location;
+        setup.render_state = render_state;
+        setup.layout = attributes;
+        setup.vs = include_str!("../../assets/phong.vs").to_owned();
+        setup.fs = include_str!("../../assets/phong.fs").to_owned();
 
-            let uvs = [
-                ("scn_MVPMatrix", UVT::Matrix4f),
-                ("scn_ModelViewMatrix", UVT::Matrix4f),
-                ("scn_ViewNormalMatrix", UVT::Matrix4f),
-                ("scn_ShadowCasterSpaceMatrix", UVT::Matrix4f),
-                ("scn_ShadowTexture", UVT::RenderTexture),
-                ("scn_DirLightViewDir", UVT::Vector3f),
-                ("scn_DirLightColor", UVT::Vector3f),
-                ("scn_PointLightViewPos[0]", UVT::Vector3f),
-                ("scn_PointLightColor[0]", UVT::Vector3f),
-                ("scn_PointLightAttenuation[0]", UVT::Vector3f),
-                ("scn_PointLightViewPos[1]", UVT::Vector3f),
-                ("scn_PointLightColor[1]", UVT::Vector3f),
-                ("scn_PointLightAttenuation[1]", UVT::Vector3f),
-                ("scn_PointLightViewPos[2]", UVT::Vector3f),
-                ("scn_PointLightColor[2]", UVT::Vector3f),
-                ("scn_PointLightAttenuation[2]", UVT::Vector3f),
-                ("scn_PointLightViewPos[3]", UVT::Vector3f),
-                ("scn_PointLightColor[3]", UVT::Vector3f),
-                ("scn_PointLightAttenuation[3]", UVT::Vector3f),
-                ("u_Ambient", UVT::Vector3f),
-                ("u_Diffuse", UVT::Vector3f),
-                ("u_Specular", UVT::Vector3f),
-                ("u_Shininess", UVT::F32),
-            ];
+        let uvs = [
+            ("scn_MVPMatrix", UVT::Matrix4f),
+            ("scn_ModelViewMatrix", UVT::Matrix4f),
+            ("scn_ViewNormalMatrix", UVT::Matrix4f),
+            ("scn_ShadowCasterSpaceMatrix", UVT::Matrix4f),
+            ("scn_ShadowTexture", UVT::RenderTexture),
+            ("scn_DirLightViewDir", UVT::Vector3f),
+            ("scn_DirLightColor", UVT::Vector3f),
+            ("scn_PointLightViewPos[0]", UVT::Vector3f),
+            ("scn_PointLightColor[0]", UVT::Vector3f),
+            ("scn_PointLightAttenuation[0]", UVT::Vector3f),
+            ("scn_PointLightViewPos[1]", UVT::Vector3f),
+            ("scn_PointLightColor[1]", UVT::Vector3f),
+            ("scn_PointLightAttenuation[1]", UVT::Vector3f),
+            ("scn_PointLightViewPos[2]", UVT::Vector3f),
+            ("scn_PointLightColor[2]", UVT::Vector3f),
+            ("scn_PointLightAttenuation[2]", UVT::Vector3f),
+            ("scn_PointLightViewPos[3]", UVT::Vector3f),
+            ("scn_PointLightColor[3]", UVT::Vector3f),
+            ("scn_PointLightAttenuation[3]", UVT::Vector3f),
+            ("u_Ambient", UVT::Vector3f),
+            ("u_Diffuse", UVT::Vector3f),
+            ("u_Specular", UVT::Vector3f),
+            ("u_Shininess", UVT::F32),
+        ];
 
-            for &(field, tt) in &uvs {
-                setup.uniform_variables.insert(field.into(), tt);
-            }
+        for &(field, tt) in &uvs {
+            setup.uniform_variables.insert(field.into(), tt);
+        }
 
-            scene.video.create_shader(location, setup)?
-        };
-
-        let setup = PipelineSetup::new(shader);
-        scene.create_pipeline(location, setup)
+        let pipeline_setup = PipelineSetup::new(setup);
+        scene.create_pipeline(pipeline_setup)
     }
 
     pub fn color(scene: &mut Scene) -> Result<PipelineHandle> {
@@ -123,35 +113,30 @@ pub mod pipeline {
             return Ok(pipeline);
         }
 
-        let shader = if let Some(shader) = scene.video.lookup_shader_from(location) {
-            shader
-        } else {
-            let attributes = AttributeLayout::build()
-                .with(Attribute::Position, 3)
-                .finish();
+        let attributes = AttributeLayout::build()
+            .with(Attribute::Position, 3)
+            .finish();
 
-            let mut render_state = RenderState::default();
-            render_state.depth_write = true;
-            render_state.depth_test = Comparison::LessOrEqual;
-            render_state.cull_face = CullFace::Back;
+        let mut render_state = RenderState::default();
+        render_state.depth_write = true;
+        render_state.depth_test = Comparison::LessOrEqual;
+        render_state.cull_face = CullFace::Back;
 
-            let mut setup = ShaderSetup::default();
-            setup.render_state = render_state;
-            setup.layout = attributes;
-            setup.vs = include_str!("../../assets/color.vs").to_owned();
-            setup.fs = include_str!("../../assets/color.fs").to_owned();
+        let mut setup = ShaderSetup::default();
+        setup.location = location;
+        setup.render_state = render_state;
+        setup.layout = attributes;
+        setup.vs = include_str!("../../assets/color.vs").to_owned();
+        setup.fs = include_str!("../../assets/color.fs").to_owned();
 
-            let uvs = [("scn_MVPMatrix", UVT::Matrix4f), ("u_Color", UVT::Vector4f)];
+        let uvs = [("scn_MVPMatrix", UVT::Matrix4f), ("u_Color", UVT::Vector4f)];
 
-            for &(field, tt) in &uvs {
-                setup.uniform_variables.insert(field.into(), tt);
-            }
+        for &(field, tt) in &uvs {
+            setup.uniform_variables.insert(field.into(), tt);
+        }
 
-            scene.video.create_shader(location, setup)?
-        };
-
-        let setup = PipelineSetup::new(shader);
-        scene.create_pipeline(location, setup)
+        let pipeline_setup = PipelineSetup::new(setup);
+        scene.create_pipeline(pipeline_setup)
     }
 
     pub fn undefined(scene: &mut Scene) -> Result<PipelineHandle> {
@@ -160,35 +145,30 @@ pub mod pipeline {
             return Ok(pipeline);
         }
 
-        let shader = if let Some(shader) = scene.video.lookup_shader_from(location) {
-            shader
-        } else {
-            let attributes = AttributeLayout::build()
-                .with(Attribute::Position, 3)
-                .finish();
+        let attributes = AttributeLayout::build()
+            .with(Attribute::Position, 3)
+            .finish();
 
-            let mut render_state = RenderState::default();
-            render_state.depth_write = true;
-            render_state.depth_test = Comparison::LessOrEqual;
-            render_state.cull_face = CullFace::Back;
+        let mut render_state = RenderState::default();
+        render_state.depth_write = true;
+        render_state.depth_test = Comparison::LessOrEqual;
+        render_state.cull_face = CullFace::Back;
 
-            let mut setup = ShaderSetup::default();
-            setup.render_state = render_state;
-            setup.layout = attributes;
-            setup.vs = include_str!("../../assets/undefined.vs").to_owned();
-            setup.fs = include_str!("../../assets/undefined.fs").to_owned();
+        let mut setup = ShaderSetup::default();
+        setup.location = location;
+        setup.render_state = render_state;
+        setup.layout = attributes;
+        setup.vs = include_str!("../../assets/undefined.vs").to_owned();
+        setup.fs = include_str!("../../assets/undefined.fs").to_owned();
 
-            let uvs = [("scn_MVPMatrix", UVT::Matrix4f)];
+        let uvs = [("scn_MVPMatrix", UVT::Matrix4f)];
 
-            for &(field, tt) in &uvs {
-                setup.uniform_variables.insert(field.into(), tt);
-            }
+        for &(field, tt) in &uvs {
+            setup.uniform_variables.insert(field.into(), tt);
+        }
 
-            scene.video.create_shader(location, setup)?
-        };
-
-        let setup = PipelineSetup::new(shader);
-        scene.create_pipeline(location, setup)
+        let pipeline_setup = PipelineSetup::new(setup);
+        scene.create_pipeline(pipeline_setup)
     }
 }
 
@@ -238,14 +218,14 @@ pub mod mesh {
         let idxes = [0, 1, 2, 2, 3, 0];
 
         let mut setup = MeshSetup::default();
-        setup.layout = PrimitiveVertex::layout();
-        setup.num_verts = verts.len();
-        setup.num_idxes = idxes.len();
-        setup.sub_mesh_offsets.push(0);
-
-        let vbytes = PrimitiveVertex::encode(&verts);
-        let ibytes = IndexFormat::encode::<u16>(&idxes);
-        video.create_mesh(location, setup, vbytes, ibytes)
+        setup.location = location;
+        setup.params.layout = PrimitiveVertex::layout();
+        setup.params.num_verts = verts.len();
+        setup.params.num_idxes = idxes.len();
+        setup.params.sub_mesh_offsets.push(0);
+        setup.verts = Some(PrimitiveVertex::encode(&verts));
+        setup.idxes = Some(IndexFormat::encode::<u16>(&idxes));
+        video.create_mesh(setup)
     }
 
     pub fn cube(video: &GraphicsSystemShared) -> Result<MeshHandle> {
@@ -315,13 +295,13 @@ pub mod mesh {
         ];
 
         let mut setup = MeshSetup::default();
-        setup.layout = PrimitiveVertex::layout();
-        setup.num_verts = verts.len();
-        setup.num_idxes = idxes.len();
-        setup.sub_mesh_offsets.push(0);
-
-        let vbytes = PrimitiveVertex::encode(&verts);
-        let ibytes = IndexFormat::encode::<u16>(&idxes);
-        video.create_mesh(location, setup, vbytes, ibytes)
+        setup.location = location;
+        setup.params.layout = PrimitiveVertex::layout();
+        setup.params.num_verts = verts.len();
+        setup.params.num_idxes = idxes.len();
+        setup.params.sub_mesh_offsets.push(0);
+        setup.verts = Some(PrimitiveVertex::encode(&verts));
+        setup.idxes = Some(IndexFormat::encode::<u16>(&idxes));
+        video.create_mesh(setup)
     }
 }

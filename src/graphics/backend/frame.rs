@@ -9,13 +9,13 @@ use utils::{DataBuffer, DataBufferPtr, HashValue, Rect};
 #[derive(Debug, Clone)]
 pub(crate) enum PreFrameTask {
     CreateSurface(SurfaceHandle, SurfaceSetup),
-    CreatePipeline(ShaderHandle, ShaderSetup),
-    CreateTexture(TextureHandle, TextureSetup, Option<DataBufferPtr<[u8]>>),
+    CreatePipeline(ShaderHandle, ShaderParams, String, String),
+    CreateTexture(TextureHandle, TextureParams, Option<DataBufferPtr<[u8]>>),
     UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),
     CreateRenderTexture(RenderTextureHandle, RenderTextureSetup),
     CreateMesh(
         MeshHandle,
-        MeshSetup,
+        MeshParams,
         Option<DataBufferPtr<[u8]>>,
         Option<DataBufferPtr<[u8]>>,
     ),
@@ -92,8 +92,8 @@ impl Frame {
                 PreFrameTask::CreateSurface(handle, setup) => {
                     device.create_surface(handle, setup)?;
                 }
-                PreFrameTask::CreatePipeline(handle, setup) => {
-                    device.create_shader(handle, setup)?;
+                PreFrameTask::CreatePipeline(handle, params, vs, fs) => {
+                    device.create_shader(handle, params, vs, fs)?;
                 }
                 PreFrameTask::CreateMesh(handle, setup, verts, idxes) => {
                     let field = &self.buf;

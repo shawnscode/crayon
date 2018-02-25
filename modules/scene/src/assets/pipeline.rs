@@ -1,32 +1,74 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
-use crayon::graphics::assets::shader::*;
+use crayon::resource::utils::location::Location;
+use crayon::graphics::assets::shader::{ShaderHandle, ShaderParams, ShaderSetup,
+                                       UniformVariableType};
 use crayon::utils::HashValue;
+use errors::{Error, Result};
 
 impl_handle!(PipelineHandle);
 
-pub struct PipelineSetup {
-    pub shader: ShaderHandle,
-    pub link_uniforms: HashMap<PipelineUniformVariable, HashValue<str>>,
+pub type PipelineUniformLinks = HashMap<PipelineUniformVariable, HashValue<str>>;
+
+#[derive(Debug, Clone, Default)]
+pub struct PipelineSetup<'a> {
+    shader: ShaderSetup<'a>,
+    link_uniforms: PipelineUniformLinks,
 }
 
-impl PipelineSetup {
-    pub fn new(shader: ShaderHandle) -> PipelineSetup {
+impl<'a> PipelineSetup<'a> {
+    pub fn new(shader: ShaderSetup<'a>) -> PipelineSetup<'a> {
         PipelineSetup {
             shader: shader,
             link_uniforms: HashMap::new(),
         }
     }
+
+    pub fn link<T>(&mut self, name: T, v: PipelineUniformVariable) -> Result<()>
+    where
+        T: AsRef<str>,
+    {
+        let name = name.as_ref();
+
+        if let Some(&tt) = self.shader.uniform_variables.get(name) {
+            if tt != v.into() {
+                return Err(Error::UniformMismatch);
+            }
+        } else {
+            return Err(Error::UniformMismatch);
+        }
+
+        self.link_uniforms.insert(v, name.into());
+        Ok(())
+    }
+
+    pub fn location(&self) -> Location {
+        self.shader.location
+    }
 }
 
-pub(crate) struct PipelineObject {
-    pub shader: ShaderHandle,
-    pub link_uniforms: HashMap<PipelineUniformVariable, HashValue<str>>,
-    pub sso: Arc<ShaderStateObject>,
+impl<'a> Into<(Location<'a>, ShaderSetup<'a>, PipelineUniformLinks)> for PipelineSetup<'a> {
+    fn into(self) -> (Location<'a>, ShaderSetup<'a>, PipelineUniformLinks) {
+        (self.shader.location, self.shader, self.link_uniforms)
+    }
 }
 
-impl PipelineObject {
+#[derive(Debug, Clone, Default)]
+pub struct PipelineParams {
+    pub(crate) shader: ShaderHandle,
+    pub(crate) shader_params: ShaderParams,
+    pub(crate) link_uniforms: HashMap<PipelineUniformVariable, HashValue<str>>,
+}
+
+impl PipelineParams {
+    pub fn new(shader: ShaderHandle, params: ShaderParams, links: PipelineUniformLinks) -> Self {
+        PipelineParams {
+            shader: shader,
+            shader_params: params,
+            link_uniforms: links,
+        }
+    }
+
     #[inline]
     pub fn uniform_field(&self, uv: PipelineUniformVariable) -> HashValue<str> {
         self.link_uniforms

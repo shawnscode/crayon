@@ -1,6 +1,7 @@
 //! Pipeline state object that containing immutable render state and vertex-layout.
 
 use std::collections::HashMap;
+use std::collections::hash_map::Values;
 use std::str::FromStr;
 
 use math;
@@ -9,15 +10,16 @@ use graphics::MAX_VERTEX_ATTRIBUTES;
 use graphics::errors::{Error, Result};
 use graphics::assets::texture::{RenderTextureHandle, TextureHandle};
 use graphics::assets::mesh::VertexLayout;
-
+use resource::utils::location::Location;
 use utils::HashValue;
 
 impl_handle!(ShaderHandle);
 
-/// A `ShaderObject` encapusulate all the informations we need to configurate
+/// A `ShaderSetup` encapusulate all the informations we need to configurate
 /// OpenGL before real drawing, like shaders, render states, etc.
 #[derive(Debug, Clone, Default)]
-pub struct ShaderSetup {
+pub struct ShaderSetup<'a> {
+    pub location: Location<'a>,
     pub render_state: RenderState,
     pub uniform_variables: HashMap<String, UniformVariableType>,
     pub layout: AttributeLayout,
@@ -25,15 +27,48 @@ pub struct ShaderSetup {
     pub fs: String,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct ShaderStateObject {
-    pub(crate) render_state: RenderState,
-    pub(crate) uniform_variables: HashMap<HashValue<str>, UniformVariableType>,
-    pub(crate) uniform_variable_names: HashMap<HashValue<str>, String>,
-    pub(crate) layout: AttributeLayout,
+impl<'a> Into<(ShaderParams, String, String)> for ShaderSetup<'a> {
+    fn into(self) -> (ShaderParams, String, String) {
+        let mut uvs = HashMap::new();
+        for (name, v) in self.uniform_variables {
+            let k: HashValue<str> = (&name).into();
+            uvs.insert(k, (name, v));
+        }
+
+        (
+            ShaderParams {
+                layout: self.layout,
+                render_state: self.render_state,
+                uniform_variables: uvs,
+            },
+            self.vs,
+            self.fs,
+        )
+    }
 }
 
-impl ShaderStateObject {
+#[derive(Debug, Clone, Default)]
+pub struct ShaderParams {
+    layout: AttributeLayout,
+    render_state: RenderState,
+    uniform_variables: HashMap<HashValue<str>, (String, UniformVariableType)>,
+}
+
+impl ShaderParams {
+    pub fn new(setup: &ShaderSetup) -> Self {
+        let mut uvs = HashMap::new();
+        for (name, v) in &setup.uniform_variables {
+            let k: HashValue<str> = name.into();
+            uvs.insert(k, (name.clone(), *v));
+        }
+
+        ShaderParams {
+            layout: setup.layout,
+            render_state: setup.render_state,
+            uniform_variables: uvs,
+        }
+    }
+
     pub fn render_state(&self) -> &RenderState {
         &self.render_state
     }
@@ -46,16 +81,20 @@ impl ShaderStateObject {
     where
         T: Into<HashValue<str>>,
     {
-        self.uniform_variables.get(&field.into()).cloned()
+        self.uniform_variables.get(&field.into()).map(|v| v.1)
     }
 
     pub fn uniform_variable_name<T>(&self, field: T) -> Option<&str>
     where
         T: Into<HashValue<str>>,
     {
-        self.uniform_variable_names
+        self.uniform_variables
             .get(&field.into())
-            .map(|v| v.as_ref())
+            .map(|v| v.0.as_ref())
+    }
+
+    pub fn uniform_variables(&self) -> Values<HashValue<str>, (String, UniformVariableType)> {
+        self.uniform_variables.values()
     }
 }
 

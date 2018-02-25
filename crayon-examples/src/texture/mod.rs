@@ -41,16 +41,12 @@ impl Window {
 
         // Create vertex buffer object.
         let mut setup = MeshSetup::default();
-        setup.num_verts = 4;
-        setup.num_idxes = 6;
-        setup.layout = Vertex::layout();
-
-        let mesh = video.create_mesh(
-            Location::unique(""),
-            setup,
-            Vertex::encode(&verts[..]),
-            IndexFormat::encode(&idxes),
-        )?;
+        setup.params.num_verts = 4;
+        setup.params.num_idxes = 6;
+        setup.params.layout = Vertex::layout();
+        setup.verts = Some(Vertex::encode(&verts[..]));
+        setup.idxes = Some(IndexFormat::encode(&idxes));
+        let mesh = video.create_mesh(setup)?;
 
         // Create the view state.
         let setup = SurfaceSetup::default();
@@ -63,13 +59,11 @@ impl Window {
         setup.fs = include_str!("../../assets/texture.fs").to_owned();
         let tt = UniformVariableType::Texture;
         setup.uniform_variables.insert("renderedTexture".into(), tt);
-        let shader = video.create_shader(Location::unique(""), setup)?;
+        let shader = video.create_shader(setup)?;
 
-        let setup = TextureSetup::default();
-        let location = Location::unique("/std/texture.png");
-        let texture = video
-            .create_texture_from::<TextureParser>(location, setup)
-            .unwrap();
+        let mut setup = TextureSetup::default();
+        setup.location = Location::shared("/std/texture.png");
+        let texture = video.create_texture_from::<TextureParser>(setup).unwrap();
 
         Ok(Window {
             surface: surface,

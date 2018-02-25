@@ -110,6 +110,15 @@ impl<'a> Hash for Location<'a> {
     }
 }
 
+impl<'a> Default for Location<'a> {
+    fn default() -> Self {
+        Location {
+            code: Signature::Unique,
+            location: Path::new(""),
+        }
+    }
+}
+
 /// Hash object of `Location`.
 #[derive(Debug, Clone, Copy)]
 pub struct LocationAtom {
@@ -157,6 +166,12 @@ impl Hash for LocationAtom {
         } else {
             panic!("Trying to hash unique location.");
         }
+    }
+}
+
+impl Default for LocationAtom {
+    fn default() -> Self {
+        Location::default().into()
     }
 }
 

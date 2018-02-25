@@ -7,7 +7,6 @@ use crayon::application::Context;
 use crayon::ecs::prelude::*;
 use crayon::graphics::prelude::*;
 use crayon::graphics::assets::prelude::*;
-use crayon::resource::prelude::*;
 
 use node::Node;
 use transform::Transform;
@@ -66,7 +65,7 @@ impl RenderShadow {
 
             let tt = UniformVariableType::Matrix4f;
             setup.uniform_variables.insert("u_MVPMatrix".into(), tt);
-            video.create_shader(Location::unique(""), setup)?
+            video.create_shader(setup)?
         };
 
         let draw_shader = {
@@ -81,7 +80,7 @@ impl RenderShadow {
 
             let tt = UniformVariableType::RenderTexture;
             setup.uniform_variables.insert("u_ShadowTexture".into(), tt);
-            video.create_shader(Location::unique(""), setup)?
+            video.create_shader(setup)?
         };
 
         Ok(RenderShadow {

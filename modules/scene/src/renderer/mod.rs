@@ -18,7 +18,6 @@ use errors::*;
 use node::Node;
 use transform::Transform;
 use scene::Scene;
-use assets::pipeline::PipelineObject;
 use assets::material::Material;
 
 pub struct RendererSetup {
@@ -82,7 +81,7 @@ struct DrawTask<'a> {
 }
 
 impl<'a> DrawTask<'a> {
-    fn material(&self, handle: MaterialHandle) -> (&PipelineObject, &Material) {
+    fn material(&self, handle: MaterialHandle) -> (&PipelineParams, &Material) {
         if let Some(mat) = self.scene.materials.get(handle) {
             if let Some(pipeline) = self.scene.pipelines.get(*mat.pipeline) {
                 if self.scene.video.is_shader_alive(pipeline.shader) {
@@ -99,12 +98,12 @@ impl<'a> DrawTask<'a> {
         (pipeline, mat)
     }
 
-    fn bind<T>(dc: &mut DrawCall, pipeline: &PipelineObject, uniform: PipelineUniformVariable, v: T)
+    fn bind<T>(dc: &mut DrawCall, pipeline: &PipelineParams, uniform: PipelineUniformVariable, v: T)
     where
         T: Into<UniformVariable>,
     {
         let field = pipeline.uniform_field(uniform);
-        if pipeline.sso.uniform_variable(field).is_some() {
+        if pipeline.shader_params.uniform_variable(field).is_some() {
             dc.set_uniform_variable(field, v);
         }
     }
@@ -144,7 +143,7 @@ impl<'a, 'b> System<'a> for DrawTask<'b> {
 
                     // Generate packed draw order.
                     let order = DrawOrder {
-                        tranlucent: pipeline.sso.render_state().color_blend.is_some(),
+                        tranlucent: pipeline.shader_params.render_state().color_blend.is_some(),
                         zorder: (csp.z * 1000.0) as u32,
                         shader: pipeline.shader,
                     };

@@ -43,16 +43,12 @@ impl Window {
 
             // Create vertex buffer object.
             let mut setup = MeshSetup::default();
-            setup.num_verts = 3;
-            setup.num_idxes = 3;
-            setup.layout = Vertex::layout();
-
-            let mesh = video.create_mesh(
-                Location::unique(""),
-                setup,
-                Vertex::encode(&verts[..]),
-                IndexFormat::encode(&idxes),
-            )?;
+            setup.params.num_verts = 3;
+            setup.params.num_idxes = 3;
+            setup.params.layout = Vertex::layout();
+            setup.verts = Some(Vertex::encode(&verts[..]));
+            setup.idxes = Some(IndexFormat::encode(&idxes));
+            let mesh = video.create_mesh(setup)?;
 
             // Create render texture for post effect.
             let mut setup = RenderTextureSetup::default();
@@ -72,7 +68,7 @@ impl Window {
             setup.layout = attributes;
             setup.vs = include_str!("../../assets/render_target_p1.vs").to_owned();
             setup.fs = include_str!("../../assets/render_target_p1.fs").to_owned();
-            let shader = video.create_shader(Location::unique(""), setup)?;
+            let shader = video.create_shader(setup)?;
 
             (
                 Pass {
@@ -94,16 +90,12 @@ impl Window {
             let idxes: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
             let mut setup = MeshSetup::default();
-            setup.num_verts = 4;
-            setup.num_idxes = 6;
-            setup.layout = Vertex::layout();
-
-            let mesh = video.create_mesh(
-                Location::unique(""),
-                setup,
-                Vertex::encode(&verts[..]),
-                IndexFormat::encode(&idxes),
-            )?;
+            setup.params.num_verts = 4;
+            setup.params.num_idxes = 6;
+            setup.params.layout = Vertex::layout();
+            setup.verts = Some(Vertex::encode(&verts[..]));
+            setup.idxes = Some(IndexFormat::encode(&idxes));
+            let mesh = video.create_mesh(setup)?;
 
             let mut setup = SurfaceSetup::default();
             setup.set_order(1);
@@ -117,7 +109,7 @@ impl Window {
             setup.uniform_variables.insert("renderedTexture".into(), tt);
             let tt = UniformVariableType::F32;
             setup.uniform_variables.insert("time".into(), tt);
-            let shader = video.create_shader(Location::unique(""), setup)?;
+            let shader = video.create_shader(setup)?;
 
             Pass {
                 surface: surface,

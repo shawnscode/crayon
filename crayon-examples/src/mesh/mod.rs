@@ -139,9 +139,9 @@ impl Window {
     ) -> Result<(Entity, MaterialHandle)> {
         let shader = factory::pipeline::phong(scene)?;
 
-        let setup = MeshSetup::default();
-        let mesh =
-            video.create_mesh_from::<OBJParser>(Location::shared("/std/cornell_box.obj"), setup)?;
+        let mut setup = MeshSetup::default();
+        setup.location = Location::shared("/std/cornell_box.obj");
+        let mesh = video.create_mesh_from::<OBJParser>(setup)?;
 
         let mat_wall = scene.create_material(shader)?;
         scene.update_material(mat_wall, "u_Ambient", [1.0, 1.0, 1.0])?;

@@ -1,8 +1,6 @@
 use std::sync::Arc;
 use std::ops::Deref;
 
-use resource::prelude::*;
-
 use graphics::GraphicsSystemShared;
 use graphics::errors::Result;
 use graphics::assets::prelude::*;
@@ -37,54 +35,32 @@ impl GraphicsSystemGuard {
     }
 
     #[inline]
-    pub fn create_shader(
-        &mut self,
-        location: Location,
-        setup: ShaderSetup,
-    ) -> Result<ShaderHandle> {
-        let v = self.video.create_shader(location, setup)?;
+    pub fn create_shader(&mut self, setup: ShaderSetup) -> Result<ShaderHandle> {
+        let v = self.video.create_shader(setup)?;
         Ok(self.push(v))
     }
 
     #[inline]
-    pub fn create_mesh_from<T>(
-        &mut self,
-        location: Location,
-        setup: MeshSetup,
-    ) -> Result<MeshHandle>
+    pub fn create_mesh_from<T>(&mut self, setup: MeshSetup) -> Result<MeshHandle>
     where
         T: MeshParser + Send + Sync + 'static,
     {
-        let v = self.video.create_mesh_from::<T>(location, setup)?;
+        let v = self.video.create_mesh_from::<T>(setup)?;
         Ok(self.push(v))
     }
 
     #[inline]
-    pub fn create_mesh<'a, 'b, T1, T2>(
-        &mut self,
-        location: Location,
-        setup: MeshSetup,
-        verts: T1,
-        idxes: T2,
-    ) -> Result<MeshHandle>
-    where
-        T1: Into<Option<&'a [u8]>>,
-        T2: Into<Option<&'b [u8]>>,
-    {
-        let v = self.video.create_mesh(location, setup, verts, idxes)?;
+    pub fn create_mesh(&mut self, setup: MeshSetup) -> Result<MeshHandle> {
+        let v = self.video.create_mesh(setup)?;
         Ok(self.push(v))
     }
 
     #[inline]
-    pub fn create_texture_from<T>(
-        &mut self,
-        location: Location,
-        setup: TextureSetup,
-    ) -> Result<TextureHandle>
+    pub fn create_texture_from<T>(&mut self, setup: TextureSetup) -> Result<TextureHandle>
     where
         T: TextureParser + Send + Sync + 'static,
     {
-        let v = self.video.create_texture_from::<T>(location, setup)?;
+        let v = self.video.create_texture_from::<T>(setup)?;
         Ok(self.push(v))
     }
 
@@ -98,16 +74,8 @@ impl GraphicsSystemGuard {
     }
 
     #[inline]
-    pub fn create_texture<'a, T>(
-        &mut self,
-        location: Location,
-        setup: TextureSetup,
-        data: T,
-    ) -> Result<TextureHandle>
-    where
-        T: Into<Option<&'a [u8]>>,
-    {
-        let v = self.video.create_texture(location, setup, data)?;
+    pub fn create_texture(&mut self, setup: TextureSetup) -> Result<TextureHandle> {
+        let v = self.video.create_texture(setup)?;
         Ok(self.push(v))
     }
 

@@ -4,7 +4,7 @@ use crayon::graphics::assets::prelude::*;
 use crayon::utils::HashValue;
 
 use errors::*;
-use assets::pipeline::{PipelineHandle, PipelineObject};
+use assets::pipeline::{PipelineHandle, PipelineParams};
 
 impl_handle!(MaterialHandle);
 
@@ -26,7 +26,7 @@ impl Material {
 
     pub fn set_uniform_variable<T1, T2>(
         &mut self,
-        pipeline: &PipelineObject,
+        pipeline: &PipelineParams,
         field: T1,
         variable: T2,
     ) -> Result<()>
@@ -37,7 +37,7 @@ impl Material {
         let field = field.into();
         let variable = variable.into();
 
-        if let Some(tt) = pipeline.sso.uniform_variable(field) {
+        if let Some(tt) = pipeline.shader_params.uniform_variable(field) {
             if tt != variable.variable_type() {
                 return Err(Error::UniformMismatch);
             }

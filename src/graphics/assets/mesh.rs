@@ -3,12 +3,51 @@
 use graphics::MAX_VERTEX_ATTRIBUTES;
 use graphics::errors::{Error, Result};
 use graphics::assets::shader::Attribute;
+use resource::utils::location::Location;
 
 impl_handle!(MeshHandle);
 
+#[derive(Debug, Clone, Default)]
+pub struct MeshSetup<'a> {
+    pub location: Location<'a>,
+    pub params: MeshParams,
+    pub verts: Option<&'a [u8]>,
+    pub idxes: Option<&'a [u8]>,
+}
+
+impl<'a> MeshSetup<'a> {
+    pub fn validate(&self) -> Result<()> {
+        if self.location.is_shared() {
+            if self.params.hint != MeshHint::Immutable {
+                return Err(Error::CreateMutableSharedObject);
+            }
+        }
+
+        if let Some(buf) = self.verts.as_ref() {
+            if buf.len() > self.params.vertex_buffer_len() {
+                return Err(Error::OutOfBounds);
+            }
+        }
+
+        if let Some(buf) = self.idxes.as_ref() {
+            if buf.len() > self.params.index_buffer_len() {
+                return Err(Error::OutOfBounds);
+            }
+        }
+
+        for v in &self.params.sub_mesh_offsets {
+            if *v >= self.params.num_idxes {
+                return Err(Error::OutOfBounds);
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// The setup parameters of mesh object.
 #[derive(Debug, Clone)]
-pub struct MeshSetup {
+pub struct MeshParams {
     /// Usage hints.
     pub hint: MeshHint,
     /// How a single vertex structure looks like.
@@ -25,11 +64,9 @@ pub struct MeshSetup {
     pub sub_mesh_offsets: Vec<usize>,
 }
 
-pub type MeshStateObject = MeshSetup;
-
-impl Default for MeshSetup {
+impl Default for MeshParams {
     fn default() -> Self {
-        MeshSetup {
+        MeshParams {
             hint: MeshHint::Immutable,
             layout: VertexLayout::default(),
             index_format: IndexFormat::U16,
@@ -41,7 +78,7 @@ impl Default for MeshSetup {
     }
 }
 
-impl MeshSetup {
+impl MeshParams {
     #[inline]
     pub fn vertex_buffer_len(&self) -> usize {
         self.num_verts * self.layout.stride() as usize
@@ -50,16 +87,6 @@ impl MeshSetup {
     #[inline]
     pub fn index_buffer_len(&self) -> usize {
         self.num_idxes * self.index_format.stride() as usize
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        for v in &self.sub_mesh_offsets {
-            if *v >= self.num_idxes {
-                return Err(Error::OutOfBounds);
-            }
-        }
-
-        Ok(())
     }
 }
 

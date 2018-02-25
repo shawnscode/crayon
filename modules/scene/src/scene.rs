@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crayon;
 use crayon::application::Context;
 use crayon::ecs::prelude::*;
 use crayon::graphics::prelude::*;
@@ -15,7 +14,6 @@ use renderer::Renderer;
 
 use assets::prelude::*;
 use assets::material::Material;
-use assets::pipeline::PipelineObject;
 use errors::*;
 
 /// `Scene`s contain the environments of your game. Its relative easy to think of each
@@ -51,7 +49,7 @@ pub struct Scene {
 
     pub(crate) video: Arc<GraphicsSystemShared>,
     pub(crate) materials: HandleObjectPool<Material>,
-    pub(crate) pipelines: Registery<PipelineObject>,
+    pub(crate) pipelines: Registery<PipelineParams>,
 
     pub(crate) renderer: Renderer,
     pub(crate) fallback: Option<MaterialHandle>,
@@ -161,32 +159,19 @@ impl Scene {
     }
 
     /// Creates a new pipeline object that indicates the whole render pipeline of `Scene`.
-    pub fn create_pipeline(
-        &mut self,
-        location: Location,
-        setup: PipelineSetup,
-    ) -> Result<PipelineHandle> {
-        if let Some(sso) = self.video.shader(setup.shader) {
-            for (uniform, field) in &setup.link_uniforms {
-                if let Some(tt) = sso.uniform_variable(*field) {
-                    if tt != (*uniform).into() {
-                        return Err(Error::UniformMismatch);
-                    }
-                } else {
-                    return Err(Error::UniformMismatch);
-                }
-            }
-
-            let po = PipelineObject {
-                shader: setup.shader,
-                link_uniforms: setup.link_uniforms,
-                sso: sso,
-            };
-
-            Ok(self.pipelines.create(location, po).into())
-        } else {
-            Err(crayon::graphics::errors::Error::ShaderHandleInvalid(setup.shader).into())
+    pub fn create_pipeline(&mut self, setup: PipelineSetup) -> Result<PipelineHandle> {
+        if let Some(handle) = self.lookup_pipeline_from(setup.location()) {
+            self.pipelines.inc_rc(*handle);
+            return Ok(handle.into());
         }
+
+        let (location, setup, links) = setup.into();
+        let params = ShaderParams::new(&setup);
+        let shader = self.video.create_shader(setup)?;
+
+        Ok(self.pipelines
+            .create(location, PipelineParams::new(shader, params, links))
+            .into())
     }
 
     /// Creates a new material instance from shader.

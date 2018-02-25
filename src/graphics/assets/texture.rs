@@ -1,9 +1,18 @@
 //! Immutable or dynamic 2D texture.
 
+use resource::utils::location::Location;
+
 /// A texture is a container of one or more images. It can be the source of a texture
 /// access from a Shader.
+#[derive(Debug, Clone, Default)]
+pub struct TextureSetup<'a> {
+    pub location: Location<'a>,
+    pub params: TextureParams,
+    pub data: Option<&'a [u8]>,
+}
+
 #[derive(Debug, Copy, Clone)]
-pub struct TextureSetup {
+pub struct TextureParams {
     pub format: TextureFormat,
     pub address: TextureAddress,
     pub filter: TextureFilter,
@@ -12,12 +21,11 @@ pub struct TextureSetup {
     pub dimensions: (u16, u16),
 }
 
-pub type TextureStateObject = TextureSetup;
 impl_handle!(TextureHandle);
 
-impl Default for TextureSetup {
+impl Default for TextureParams {
     fn default() -> Self {
-        TextureSetup {
+        TextureParams {
             format: TextureFormat::U8U8U8U8,
             address: TextureAddress::Clamp,
             filter: TextureFilter::Linear,

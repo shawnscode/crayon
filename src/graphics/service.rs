@@ -1,10 +1,9 @@
 //! The centralized management of video sub-system.
 
 use std::sync::{Arc, RwLock};
-use std::collections::HashMap;
 use std::time::Duration;
 
-use utils::{HashValue, Rect};
+use utils::Rect;
 
 use resource::prelude::*;
 use resource::utils::prelude::*;
@@ -13,9 +12,6 @@ use graphics::MAX_UNIFORM_VARIABLES;
 use graphics::errors::{Error, Result};
 use graphics::assets::prelude::*;
 
-use super::assets::mesh::MeshStateObject;
-use super::assets::shader::ShaderStateObject;
-use super::assets::texture::TextureStateObject;
 use super::assets::mesh_loader::{MeshLoader, MeshParser};
 use super::assets::texture_loader::{TextureLoader, TextureParser};
 
@@ -162,7 +158,7 @@ pub struct GraphicsSystemShared {
     surfaces: RwLock<Registery<()>>,
     framebuffers: RwLock<Registery<()>>,
     render_buffers: RwLock<Registery<()>>,
-    shaders: RwLock<Registery<AssetShaderState>>,
+    shaders: RwLock<Registery<ShaderParams>>,
     meshes: RwLock<Registery<Arc<RwLock<AssetMeshState>>>>,
     textures: RwLock<Registery<Arc<RwLock<AssetTextureState>>>>,
     render_textures: RwLock<Registery<Arc<RwLock<AssetRenderTextureState>>>>,
@@ -252,31 +248,27 @@ impl GraphicsSystemShared {
         let mut frame = self.frames.front();
         let uniforms = {
             let mut pack = Vec::new();
-            if let Some(state) = self.shaders.read().unwrap().get(dc.shader.into()) {
-                match *state {
-                    AssetState::Ready(ref sso) => for &(n, v) in dc.uniforms {
-                        if let Some(tt) = sso.uniform_variable(n) {
-                            if tt == v.variable_type() {
-                                pack.push((n, frame.buf.extend(&v)));
-                            } else {
-                                let name = sso.uniform_variable_name(n).unwrap();
-
-                                return Err(Error::DrawFailure(format!(
-                                    "Unmatched uniform variable: [{:?}]{:?} ({:?} required).",
-                                    v.variable_type(),
-                                    name,
-                                    tt
-                                )));
-                            }
+            if let Some(params) = self.shaders.read().unwrap().get(dc.shader.into()) {
+                for &(n, v) in dc.uniforms {
+                    if let Some(tt) = params.uniform_variable(n) {
+                        if tt == v.variable_type() {
+                            pack.push((n, frame.buf.extend(&v)));
                         } else {
+                            let name = params.uniform_variable_name(n).unwrap();
                             return Err(Error::DrawFailure(format!(
-                                "Undefined uniform variable: {:?}.",
-                                n
+                                "Unmatched uniform variable: [{:?}]{:?} ({:?} required).",
+                                v.variable_type(),
+                                name,
+                                tt
                             )));
                         }
-                    },
-                    _ => return Ok(()),
-                };
+                    } else {
+                        return Err(Error::DrawFailure(format!(
+                            "Undefined uniform variable: {:?}.",
+                            n
+                        )));
+                    }
+                }
             } else {
                 return Err(Error::ShaderHandleInvalid(dc.shader));
             }
@@ -417,6 +409,11 @@ impl GraphicsSystemShared {
         Ok(handle)
     }
 
+    /// Returns true if shader is exists.
+    pub fn is_surface_alive(&self, handle: SurfaceHandle) -> bool {
+        self.surfaces.read().unwrap().is_alive(handle.into())
+    }
+
     /// Delete surface object.
     pub fn delete_surface(&self, handle: SurfaceHandle) {
         if self.surfaces
@@ -443,7 +440,7 @@ impl GraphicsSystemShared {
 
     /// Create a shader with initial shaders and render state. Pipeline encapusulate
     /// all the informations we need to configurate OpenGL before real drawing.
-    pub fn create_shader(&self, location: Location, setup: ShaderSetup) -> Result<ShaderHandle> {
+    pub fn create_shader(&self, setup: ShaderSetup) -> Result<ShaderHandle> {
         if setup.uniform_variables.len() > MAX_UNIFORM_VARIABLES {
             return Err(Error::ShaderCreationFailure(format!(
                 "Too many uniform variables (>= {:?}).",
@@ -465,41 +462,19 @@ impl GraphicsSystemShared {
 
         let handle = {
             let mut shaders = self.shaders.write().unwrap();
+            let location = setup.location;
             if let Some(handle) = shaders.lookup(location) {
                 shaders.inc_rc(handle);
                 return Ok(handle.into());
             }
 
-            let mut uniform_variable_names = HashMap::new();
-            let mut uniform_variables = HashMap::new();
-            for (name, v) in &setup.uniform_variables {
-                let k: HashValue<str> = name.into();
-                uniform_variables.insert(k, *v);
-                uniform_variable_names.insert(k, name.clone());
-            }
-
-            let shader_state = AssetShaderState::ready(ShaderStateObject {
-                render_state: setup.render_state,
-                layout: setup.layout,
-                uniform_variables: uniform_variables,
-                uniform_variable_names: uniform_variable_names,
-            });
-
-            shaders.create(location, shader_state).into()
+            shaders.create(location, ShaderParams::new(&setup)).into()
         };
 
-        let task = PreFrameTask::CreatePipeline(handle, setup);
+        let (params, vs, fs) = setup.into();
+        let task = PreFrameTask::CreatePipeline(handle, params, vs, fs);
         self.frames.front().pre.push(task);
         Ok(handle)
-    }
-
-    /// Gets the shader state if exists.
-    pub fn shader(&self, handle: ShaderHandle) -> Option<Arc<ShaderStateObject>> {
-        self.shaders
-            .read()
-            .unwrap()
-            .get(*handle)
-            .and_then(|v| v.clone())
     }
 
     /// Returns true if shader is exists.
@@ -532,92 +507,52 @@ impl GraphicsSystemShared {
     }
 
     /// Create a new mesh object from location.
-    pub fn create_mesh_from<T>(&self, location: Location, setup: MeshSetup) -> Result<MeshHandle>
+    pub fn create_mesh_from<T>(&self, setup: MeshSetup) -> Result<MeshHandle>
     where
         T: MeshParser + Send + Sync + 'static,
     {
-        if setup.hint != MeshHint::Immutable {
+        if setup.params.hint != MeshHint::Immutable {
             return Err(Error::CreateMutableRemoteObject);
         }
 
         let (handle, state) = {
             let mut meshes = self.meshes.write().unwrap();
-            if let Some(handle) = meshes.lookup(location) {
+            if let Some(handle) = meshes.lookup(setup.location) {
                 meshes.inc_rc(handle);
                 return Ok(handle.into());
             }
 
             let state = Arc::new(RwLock::new(AssetState::NotReady));
-            let handle = meshes.create(location, state.clone()).into();
+            let handle = meshes.create(setup.location, state.clone()).into();
             (handle, state)
         };
 
-        let loader = MeshLoader::<T>::new(handle, state, setup, self.frames.clone());
-        self.resource.load_async(loader, location.uri());
+        let loader = MeshLoader::<T>::new(handle, state, setup.params, self.frames.clone());
+        self.resource.load_async(loader, setup.location.uri());
         Ok(handle)
     }
 
     /// Create a new mesh object.
-    pub fn create_mesh<'a, 'b, T1, T2>(
-        &self,
-        location: Location,
-        setup: MeshSetup,
-        verts: T1,
-        idxes: T2,
-    ) -> Result<MeshHandle>
-    where
-        T1: Into<Option<&'a [u8]>>,
-        T2: Into<Option<&'b [u8]>>,
-    {
-        if location.is_shared() {
-            if setup.hint != MeshHint::Immutable {
-                return Err(Error::CreateMutableSharedObject);
-            }
-        }
-
-        let verts = verts.into();
-        let idxes = idxes.into();
-
-        if let Some(buf) = verts.as_ref() {
-            if buf.len() > setup.vertex_buffer_len() {
-                return Err(Error::OutOfBounds);
-            }
-        }
-
-        if let Some(buf) = idxes.as_ref() {
-            if buf.len() > setup.index_buffer_len() {
-                return Err(Error::OutOfBounds);
-            }
-        }
-
+    pub fn create_mesh(&self, setup: MeshSetup) -> Result<MeshHandle> {
         setup.validate()?;
 
         let handle = {
             let mut meshes = self.meshes.write().unwrap();
-            if let Some(handle) = meshes.lookup(location) {
+            if let Some(handle) = meshes.lookup(setup.location) {
                 meshes.inc_rc(handle);
                 return Ok(handle.into());
             }
 
-            let state = Arc::new(RwLock::new(AssetState::ready(setup.clone())));
-            meshes.create(location, state).into()
+            let state = Arc::new(RwLock::new(AssetState::ready(setup.params.clone())));
+            meshes.create(setup.location, state).into()
         };
 
         let mut frame = self.frames.front();
-        let verts_ptr = verts.map(|v| frame.buf.extend_from_slice(v));
-        let idxes_ptr = idxes.map(|v| frame.buf.extend_from_slice(v));
-        let task = PreFrameTask::CreateMesh(handle, setup, verts_ptr, idxes_ptr);
+        let verts_ptr = setup.verts.map(|v| frame.buf.extend_from_slice(v));
+        let idxes_ptr = setup.idxes.map(|v| frame.buf.extend_from_slice(v));
+        let task = PreFrameTask::CreateMesh(handle, setup.params, verts_ptr, idxes_ptr);
         frame.pre.push(task);
         Ok(handle)
-    }
-
-    /// Gets the mesh state if exists.
-    pub fn mesh(&self, handle: MeshHandle) -> Option<Arc<MeshStateObject>> {
-        self.meshes
-            .read()
-            .unwrap()
-            .get(*handle)
-            .and_then(|v| v.read().unwrap().clone())
     }
 
     /// Returns true if shader is exists.
@@ -693,81 +628,60 @@ impl GraphicsSystemShared {
     }
 
     /// Create texture object from location.
-    pub fn create_texture_from<T>(
-        &self,
-        location: Location,
-        setup: TextureSetup,
-    ) -> Result<TextureHandle>
+    pub fn create_texture_from<T>(&self, setup: TextureSetup) -> Result<TextureHandle>
     where
         T: TextureParser + Send + Sync + 'static,
     {
-        if setup.hint != TextureHint::Immutable {
+        if setup.params.hint != TextureHint::Immutable {
             return Err(Error::CreateMutableRemoteObject);
         }
 
         let (handle, state) = {
             let mut textures = self.textures.write().unwrap();
-            if let Some(handle) = textures.lookup(location) {
+            if let Some(handle) = textures.lookup(setup.location) {
                 textures.inc_rc(handle);
                 return Ok(handle.into());
             }
 
             let state = Arc::new(RwLock::new(AssetState::NotReady));
-            let handle = textures.create(location, state.clone()).into();
+            let handle = textures.create(setup.location, state.clone()).into();
             (handle, state)
         };
 
-        let loader = TextureLoader::<T>::new(handle, state, setup, self.frames.clone());
-        self.resource.load_async(loader, location.uri());
+        let loader = TextureLoader::<T>::new(handle, state, setup.params, self.frames.clone());
+        self.resource.load_async(loader, setup.location.uri());
         Ok(handle)
     }
 
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
-    pub fn create_texture<'a, T>(
-        &self,
-        location: Location,
-        setup: TextureSetup,
-        data: T,
-    ) -> Result<TextureHandle>
-    where
-        T: Into<Option<&'a [u8]>>,
-    {
-        if location.is_shared() {
-            if setup.hint != TextureHint::Immutable {
+    pub fn create_texture(&self, setup: TextureSetup) -> Result<TextureHandle> {
+        if setup.location.is_shared() {
+            if setup.params.hint != TextureHint::Immutable {
                 return Err(Error::CreateMutableSharedObject);
             }
         }
 
         let handle = {
             let mut textures = self.textures.write().unwrap();
-            if let Some(handle) = textures.lookup(location) {
+            if let Some(handle) = textures.lookup(setup.location) {
                 textures.inc_rc(handle);
                 return Ok(handle.into());
             }
 
-            let state = Arc::new(RwLock::new(AssetState::ready(setup)));
-            textures.create(location, state).into()
+            let state = Arc::new(RwLock::new(AssetState::ready(setup.params.clone())));
+            textures.create(setup.location, state).into()
         };
 
         let mut frame = self.frames.front();
-        let ptr = data.into().map(|v| frame.buf.extend_from_slice(v));
-        let task = PreFrameTask::CreateTexture(handle, setup, ptr);
+        let ptr = setup.data.map(|v| frame.buf.extend_from_slice(v));
+        let task = PreFrameTask::CreateTexture(handle, setup.params, ptr);
         frame.pre.push(task);
         Ok(handle)
     }
 
-    /// Gets the mesh state if exists.
-    pub fn texture(&self, handle: TextureHandle) -> Option<Arc<TextureStateObject>> {
-        self.textures
-            .read()
-            .unwrap()
-            .get(*handle)
-            .and_then(|v| v.read().unwrap().clone())
-    }
-
     /// Returns true if texture is exists.
-    pub fn texture_alive(&self, handle: TextureHandle) -> bool {
+    pub fn is_texture_alive(&self, handle: TextureHandle) -> bool {
         self.textures.read().unwrap().is_alive(handle.into())
     }
 
@@ -824,6 +738,11 @@ impl GraphicsSystemShared {
         }
 
         Ok(handle)
+    }
+
+    /// Returns true if texture is exists.
+    pub fn is_render_texture_alive(&self, handle: RenderTextureHandle) -> bool {
+        self.render_textures.read().unwrap().is_alive(handle.into())
     }
 
     /// Delete the render texture object.
