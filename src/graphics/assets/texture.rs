@@ -1,5 +1,6 @@
 //! Immutable or dynamic 2D texture.
 
+use graphics::errors::{Error, Result};
 use resource::utils::location::Location;
 
 /// A texture is a container of one or more images. It can be the source of a texture
@@ -9,6 +10,18 @@ pub struct TextureSetup<'a> {
     pub location: Location<'a>,
     pub params: TextureParams,
     pub data: Option<&'a [u8]>,
+}
+
+impl<'a> TextureSetup<'a> {
+    pub fn validate(&self) -> Result<()> {
+        if self.location.is_shared() {
+            if self.params.hint != TextureHint::Immutable {
+                return Err(Error::CreateMutableSharedObject);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -57,7 +70,7 @@ impl Default for RenderTextureSetup {
     }
 }
 
-pub type RenderTextureStateObject = RenderTextureSetup;
+pub type RenderTextureParams = RenderTextureSetup;
 impl_handle!(RenderTextureHandle);
 
 /// Hint abouts the intended update strategy of the data.

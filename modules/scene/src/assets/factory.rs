@@ -24,26 +24,24 @@ pub mod pipeline {
             .with(Attribute::Texcoord0, 2)
             .finish();
 
+        let uniforms = UniformVariableLayout::build()
+            .with("scn_MVPMatrix", UVT::Matrix4f)
+            .with("scn_ModelViewMatrix", UVT::Matrix4f)
+            .with("scn_ViewNormalMatrix", UVT::Matrix4f)
+            .finish();
+
         let mut render_state = RenderState::default();
         render_state.depth_write = true;
         render_state.depth_test = Comparison::LessOrEqual;
 
         let mut setup = ShaderSetup::default();
         setup.location = location;
-        setup.render_state = render_state;
-        setup.layout = attributes;
         setup.vs = include_str!("../../assets/pbr.vs").to_owned();
         setup.fs = include_str!("../../assets/pbr.fs").to_owned();
 
-        let uvs = [
-            ("scn_MVPMatrix", UVT::Matrix4f),
-            ("scn_ModelViewMatrix", UVT::Matrix4f),
-            ("scn_ViewNormalMatrix", UVT::Matrix4f),
-        ];
-
-        for &(field, tt) in &uvs {
-            setup.uniform_variables.insert(field.into(), tt);
-        }
+        setup.params.render_state = render_state;
+        setup.params.attributes = attributes;
+        setup.params.uniforms = uniforms;
 
         let pipeline_setup = PipelineSetup::new(setup);
         scene.create_pipeline(pipeline_setup)
@@ -61,6 +59,32 @@ pub mod pipeline {
             .with(Attribute::Color0, 4)
             .finish();
 
+        let uniforms = UniformVariableLayout::build()
+            .with("scn_MVPMatrix", UVT::Matrix4f)
+            .with("scn_ModelViewMatrix", UVT::Matrix4f)
+            .with("scn_ViewNormalMatrix", UVT::Matrix4f)
+            .with("scn_ShadowCasterSpaceMatrix", UVT::Matrix4f)
+            .with("scn_ShadowTexture", UVT::RenderTexture)
+            .with("scn_DirLightViewDir", UVT::Vector3f)
+            .with("scn_DirLightColor", UVT::Vector3f)
+            .with("scn_PointLightViewPos[0]", UVT::Vector3f)
+            .with("scn_PointLightColor[0]", UVT::Vector3f)
+            .with("scn_PointLightAttenuation[0]", UVT::Vector3f)
+            .with("scn_PointLightViewPos[1]", UVT::Vector3f)
+            .with("scn_PointLightColor[1]", UVT::Vector3f)
+            .with("scn_PointLightAttenuation[1]", UVT::Vector3f)
+            .with("scn_PointLightViewPos[2]", UVT::Vector3f)
+            .with("scn_PointLightColor[2]", UVT::Vector3f)
+            .with("scn_PointLightAttenuation[2]", UVT::Vector3f)
+            .with("scn_PointLightViewPos[3]", UVT::Vector3f)
+            .with("scn_PointLightColor[3]", UVT::Vector3f)
+            .with("scn_PointLightAttenuation[3]", UVT::Vector3f)
+            .with("u_Ambient", UVT::Vector3f)
+            .with("u_Diffuse", UVT::Vector3f)
+            .with("u_Specular", UVT::Vector3f)
+            .with("u_Shininess", UVT::F32)
+            .finish();
+
         let mut render_state = RenderState::default();
         render_state.depth_write = true;
         render_state.depth_test = Comparison::LessOrEqual;
@@ -68,40 +92,12 @@ pub mod pipeline {
 
         let mut setup = ShaderSetup::default();
         setup.location = location;
-        setup.render_state = render_state;
-        setup.layout = attributes;
         setup.vs = include_str!("../../assets/phong.vs").to_owned();
         setup.fs = include_str!("../../assets/phong.fs").to_owned();
 
-        let uvs = [
-            ("scn_MVPMatrix", UVT::Matrix4f),
-            ("scn_ModelViewMatrix", UVT::Matrix4f),
-            ("scn_ViewNormalMatrix", UVT::Matrix4f),
-            ("scn_ShadowCasterSpaceMatrix", UVT::Matrix4f),
-            ("scn_ShadowTexture", UVT::RenderTexture),
-            ("scn_DirLightViewDir", UVT::Vector3f),
-            ("scn_DirLightColor", UVT::Vector3f),
-            ("scn_PointLightViewPos[0]", UVT::Vector3f),
-            ("scn_PointLightColor[0]", UVT::Vector3f),
-            ("scn_PointLightAttenuation[0]", UVT::Vector3f),
-            ("scn_PointLightViewPos[1]", UVT::Vector3f),
-            ("scn_PointLightColor[1]", UVT::Vector3f),
-            ("scn_PointLightAttenuation[1]", UVT::Vector3f),
-            ("scn_PointLightViewPos[2]", UVT::Vector3f),
-            ("scn_PointLightColor[2]", UVT::Vector3f),
-            ("scn_PointLightAttenuation[2]", UVT::Vector3f),
-            ("scn_PointLightViewPos[3]", UVT::Vector3f),
-            ("scn_PointLightColor[3]", UVT::Vector3f),
-            ("scn_PointLightAttenuation[3]", UVT::Vector3f),
-            ("u_Ambient", UVT::Vector3f),
-            ("u_Diffuse", UVT::Vector3f),
-            ("u_Specular", UVT::Vector3f),
-            ("u_Shininess", UVT::F32),
-        ];
-
-        for &(field, tt) in &uvs {
-            setup.uniform_variables.insert(field.into(), tt);
-        }
+        setup.params.render_state = render_state;
+        setup.params.attributes = attributes;
+        setup.params.uniforms = uniforms;
 
         let pipeline_setup = PipelineSetup::new(setup);
         scene.create_pipeline(pipeline_setup)
@@ -117,6 +113,11 @@ pub mod pipeline {
             .with(Attribute::Position, 3)
             .finish();
 
+        let uniforms = UniformVariableLayout::build()
+            .with("scn_MVPMatrix", UVT::Matrix4f)
+            .with("u_Color", UVT::Vector4f)
+            .finish();
+
         let mut render_state = RenderState::default();
         render_state.depth_write = true;
         render_state.depth_test = Comparison::LessOrEqual;
@@ -124,16 +125,12 @@ pub mod pipeline {
 
         let mut setup = ShaderSetup::default();
         setup.location = location;
-        setup.render_state = render_state;
-        setup.layout = attributes;
         setup.vs = include_str!("../../assets/color.vs").to_owned();
         setup.fs = include_str!("../../assets/color.fs").to_owned();
 
-        let uvs = [("scn_MVPMatrix", UVT::Matrix4f), ("u_Color", UVT::Vector4f)];
-
-        for &(field, tt) in &uvs {
-            setup.uniform_variables.insert(field.into(), tt);
-        }
+        setup.params.render_state = render_state;
+        setup.params.attributes = attributes;
+        setup.params.uniforms = uniforms;
 
         let pipeline_setup = PipelineSetup::new(setup);
         scene.create_pipeline(pipeline_setup)
@@ -149,6 +146,10 @@ pub mod pipeline {
             .with(Attribute::Position, 3)
             .finish();
 
+        let uniforms = UniformVariableLayout::build()
+            .with("scn_MVPMatrix", UVT::Matrix4f)
+            .finish();
+
         let mut render_state = RenderState::default();
         render_state.depth_write = true;
         render_state.depth_test = Comparison::LessOrEqual;
@@ -156,16 +157,12 @@ pub mod pipeline {
 
         let mut setup = ShaderSetup::default();
         setup.location = location;
-        setup.render_state = render_state;
-        setup.layout = attributes;
         setup.vs = include_str!("../../assets/undefined.vs").to_owned();
         setup.fs = include_str!("../../assets/undefined.fs").to_owned();
 
-        let uvs = [("scn_MVPMatrix", UVT::Matrix4f)];
-
-        for &(field, tt) in &uvs {
-            setup.uniform_variables.insert(field.into(), tt);
-        }
+        setup.params.render_state = render_state;
+        setup.params.attributes = attributes;
+        setup.params.uniforms = uniforms;
 
         let pipeline_setup = PipelineSetup::new(setup);
         scene.create_pipeline(pipeline_setup)

@@ -103,7 +103,7 @@ impl<'a> DrawTask<'a> {
         T: Into<UniformVariable>,
     {
         let field = pipeline.uniform_field(uniform);
-        if pipeline.shader_params.uniform_variable(field).is_some() {
+        if pipeline.shader_params.uniforms.variable_type(field).is_some() {
             dc.set_uniform_variable(field, v);
         }
     }
@@ -143,7 +143,7 @@ impl<'a, 'b> System<'a> for DrawTask<'b> {
 
                     // Generate packed draw order.
                     let order = DrawOrder {
-                        tranlucent: pipeline.shader_params.render_state().color_blend.is_some(),
+                        tranlucent: pipeline.shader_params.render_state.color_blend.is_some(),
                         zorder: (csp.z * 1000.0) as u32,
                         shader: pipeline.shader,
                     };

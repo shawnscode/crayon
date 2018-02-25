@@ -8,7 +8,6 @@ use utils::Rect;
 use resource::prelude::*;
 use resource::utils::prelude::*;
 
-use graphics::MAX_UNIFORM_VARIABLES;
 use graphics::errors::{Error, Result};
 use graphics::assets::prelude::*;
 
@@ -31,7 +30,6 @@ pub struct GraphicsFrameInfo {
     pub alive_frame_buffers: u32,
     pub alive_meshes: u32,
     pub alive_textures: u32,
-    pub alive_render_buffers: u32,
 }
 
 /// The centralized management of video sub-system.
@@ -132,7 +130,6 @@ impl GraphicsSystem {
                 info.alive_frame_buffers = Self::clear(&mut s.framebuffers.write().unwrap());
                 info.alive_meshes = Self::clear(&mut s.meshes.write().unwrap());
                 info.alive_textures = Self::clear(&mut s.textures.write().unwrap());
-                info.alive_render_buffers = Self::clear(&mut s.render_buffers.write().unwrap());
             }
 
             info.duration = time::Instant::now() - ts;
@@ -157,11 +154,10 @@ pub struct GraphicsSystemShared {
 
     surfaces: RwLock<Registery<()>>,
     framebuffers: RwLock<Registery<()>>,
-    render_buffers: RwLock<Registery<()>>,
+    render_textures: RwLock<Registery<()>>,
     shaders: RwLock<Registery<ShaderParams>>,
     meshes: RwLock<Registery<Arc<RwLock<AssetMeshState>>>>,
     textures: RwLock<Registery<Arc<RwLock<AssetTextureState>>>>,
-    render_textures: RwLock<Registery<Arc<RwLock<AssetRenderTextureState>>>>,
 }
 
 impl GraphicsSystemShared {
@@ -180,7 +176,6 @@ impl GraphicsSystemShared {
             surfaces: RwLock::new(Registery::passive()),
             shaders: RwLock::new(Registery::passive()),
             framebuffers: RwLock::new(Registery::passive()),
-            render_buffers: RwLock::new(Registery::passive()),
             meshes: RwLock::new(Registery::passive()),
             textures: RwLock::new(Registery::passive()),
             render_textures: RwLock::new(Registery::passive()),
@@ -250,11 +245,11 @@ impl GraphicsSystemShared {
             let mut pack = Vec::new();
             if let Some(params) = self.shaders.read().unwrap().get(dc.shader.into()) {
                 for &(n, v) in dc.uniforms {
-                    if let Some(tt) = params.uniform_variable(n) {
+                    if let Some(tt) = params.uniforms.variable_type(n) {
                         if tt == v.variable_type() {
                             pack.push((n, frame.buf.extend(&v)));
                         } else {
-                            let name = params.uniform_variable_name(n).unwrap();
+                            let name = params.uniforms.variable_name(n).unwrap();
                             return Err(Error::DrawFailure(format!(
                                 "Unmatched uniform variable: [{:?}]{:?} ({:?} required).",
                                 v.variable_type(),
@@ -441,24 +436,7 @@ impl GraphicsSystemShared {
     /// Create a shader with initial shaders and render state. Pipeline encapusulate
     /// all the informations we need to configurate OpenGL before real drawing.
     pub fn create_shader(&self, setup: ShaderSetup) -> Result<ShaderHandle> {
-        if setup.uniform_variables.len() > MAX_UNIFORM_VARIABLES {
-            return Err(Error::ShaderCreationFailure(format!(
-                "Too many uniform variables (>= {:?}).",
-                MAX_UNIFORM_VARIABLES
-            )));
-        }
-
-        if setup.vs.is_empty() {
-            return Err(Error::ShaderCreationFailure(
-                "Vertex shader is required to describe a proper render pipeline.".into(),
-            ));
-        }
-
-        if setup.fs.is_empty() {
-            return Err(Error::ShaderCreationFailure(
-                "Fragment shader is required to describe a proper render pipeline.".into(),
-            ));
-        }
+        setup.validate()?;
 
         let handle = {
             let mut shaders = self.shaders.write().unwrap();
@@ -468,11 +446,10 @@ impl GraphicsSystemShared {
                 return Ok(handle.into());
             }
 
-            shaders.create(location, ShaderParams::new(&setup)).into()
+            shaders.create(location, setup.params.clone()).into()
         };
 
-        let (params, vs, fs) = setup.into();
-        let task = PreFrameTask::CreatePipeline(handle, params, vs, fs);
+        let task = PreFrameTask::CreatePipeline(handle, setup.params, setup.vs, setup.fs);
         self.frames.front().pre.push(task);
         Ok(handle)
     }
@@ -511,9 +488,7 @@ impl GraphicsSystemShared {
     where
         T: MeshParser + Send + Sync + 'static,
     {
-        if setup.params.hint != MeshHint::Immutable {
-            return Err(Error::CreateMutableRemoteObject);
-        }
+        setup.validate()?;
 
         let (handle, state) = {
             let mut meshes = self.meshes.write().unwrap();
@@ -632,9 +607,7 @@ impl GraphicsSystemShared {
     where
         T: TextureParser + Send + Sync + 'static,
     {
-        if setup.params.hint != TextureHint::Immutable {
-            return Err(Error::CreateMutableRemoteObject);
-        }
+        setup.validate()?;
 
         let (handle, state) = {
             let mut textures = self.textures.write().unwrap();
@@ -656,11 +629,7 @@ impl GraphicsSystemShared {
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
     pub fn create_texture(&self, setup: TextureSetup) -> Result<TextureHandle> {
-        if setup.location.is_shared() {
-            if setup.params.hint != TextureHint::Immutable {
-                return Err(Error::CreateMutableSharedObject);
-            }
-        }
+        setup.validate()?;
 
         let handle = {
             let mut textures = self.textures.write().unwrap();
@@ -725,11 +694,10 @@ impl GraphicsSystemShared {
     /// Create render texture object, which could be attached with a framebuffer.
     pub fn create_render_texture(&self, setup: RenderTextureSetup) -> Result<RenderTextureHandle> {
         let location = Location::unique("");
-        let state = Arc::new(RwLock::new(AssetState::ready(setup)));
         let handle = self.render_textures
             .write()
             .unwrap()
-            .create(location, state)
+            .create(location, ())
             .into();
 
         {

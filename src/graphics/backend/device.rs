@@ -215,7 +215,7 @@ impl Device {
 
         self.visitor.bind_buffer(gl::ARRAY_BUFFER, mesh.vbo)?;
         self.visitor
-            .bind_attribute_layout(shader.params.layout(), &mesh.params.layout)?;
+            .bind_attribute_layout(&shader.params.attributes, &mesh.params.layout)?;
 
         // Bind index buffer object if available.
         self.visitor
@@ -355,7 +355,7 @@ impl Device {
 
         self.visitor.bind_program(shader.id)?;
 
-        let s = shader.params.render_state();
+        let s = shader.params.render_state;
         self.visitor.set_cull_face(s.cull_face)?;
         self.visitor.set_front_face_order(s.front_face_order)?;
         self.visitor.set_depth_test(s.depth_write, s.depth_test)?;
@@ -646,7 +646,7 @@ impl Device {
     ) -> Result<()> {
         let pid = self.visitor.create_program(&vs, &fs)?;
 
-        for (name, _) in params.layout().iter() {
+        for (name, _) in params.attributes.iter() {
             let name: &'static str = name.into();
             let location = self.visitor.get_attribute_location(pid, name)?;
             if location == -1 {
@@ -655,7 +655,7 @@ impl Device {
         }
 
         let mut uniform_locations = HashMap::new();
-        for &(ref name, _) in params.uniform_variables() {
+        for &(ref name, _) in params.uniforms.iter() {
             let location = self.visitor.get_uniform_location(pid, name)?;
             if location == -1 {
                 return Err(Error::UniformUndefined(name.clone()));

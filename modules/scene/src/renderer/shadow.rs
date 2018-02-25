@@ -51,35 +51,41 @@ impl RenderShadow {
         };
 
         let shader = {
-            let attributes = AttributeLayoutBuilder::new()
+            let attributes = AttributeLayout::build()
                 .with(Attribute::Position, 3)
                 .finish();
 
+            let uniforms = UniformVariableLayout::build()
+                .with("u_MVPMatrix", UniformVariableType::Matrix4f)
+                .finish();
+
             let mut setup = ShaderSetup::default();
-            setup.render_state.depth_write = true;
-            setup.render_state.depth_test = Comparison::Less;
-            setup.render_state.cull_face = CullFace::Back;
-            setup.layout = attributes;
             setup.vs = include_str!("../../assets/shadow.vs").to_owned();
             setup.fs = include_str!("../../assets/shadow.fs").to_owned();
 
-            let tt = UniformVariableType::Matrix4f;
-            setup.uniform_variables.insert("u_MVPMatrix".into(), tt);
+            setup.params.attributes = attributes;
+            setup.params.uniforms = uniforms;
+            setup.params.render_state.depth_write = true;
+            setup.params.render_state.depth_test = Comparison::Less;
+            setup.params.render_state.cull_face = CullFace::Back;
             video.create_shader(setup)?
         };
 
         let draw_shader = {
-            let attributes = AttributeLayoutBuilder::new()
+            let attributes = AttributeLayout::build()
                 .with(Attribute::Position, 3)
                 .finish();
 
+            let uniforms = UniformVariableLayout::build()
+                .with("u_ShadowTexture", UniformVariableType::RenderTexture)
+                .finish();
+
             let mut setup = ShaderSetup::default();
-            setup.layout = attributes;
             setup.vs = include_str!("../../assets/shadow_texture.vs").to_owned();
             setup.fs = include_str!("../../assets/shadow_texture.fs").to_owned();
 
-            let tt = UniformVariableType::RenderTexture;
-            setup.uniform_variables.insert("u_ShadowTexture".into(), tt);
+            setup.params.attributes = attributes;
+            setup.params.uniforms = uniforms;
             video.create_shader(setup)?
         };
 

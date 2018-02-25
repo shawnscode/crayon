@@ -30,7 +30,7 @@ impl<'a> PipelineSetup<'a> {
     {
         let name = name.as_ref();
 
-        if let Some(&tt) = self.shader.uniform_variables.get(name) {
+        if let Some(tt) = self.shader.params.uniforms.variable_type(name) {
             if tt != v.into() {
                 return Err(Error::UniformMismatch);
             }

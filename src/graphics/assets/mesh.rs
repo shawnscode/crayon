@@ -280,12 +280,12 @@ impl VertexLayoutBuilder {
     }
 
     pub fn with(
-        &mut self,
+        mut self,
         attribute: Attribute,
         format: VertexFormat,
         size: u8,
         normalized: bool,
-    ) -> &mut Self {
+    ) -> Self {
         assert!(size > 0 && size <= 4);
 
         let desc = VertexAttribute {
@@ -311,7 +311,7 @@ impl VertexLayoutBuilder {
     }
 
     #[inline]
-    pub fn finish(&mut self) -> VertexLayout {
+    pub fn finish(mut self) -> VertexLayout {
         self.0.stride = 0;
         for i in 0..self.0.len {
             let i = i as usize;
@@ -472,11 +472,13 @@ pub mod macros {
 
                 #[allow(dead_code)]
                 pub fn attributes() -> $crate::graphics::assets::shader::AttributeLayout {
-                    let mut builder = $crate::graphics::assets::shader::AttributeLayoutBuilder::new();
+                    let builder = $crate::graphics::assets::shader::AttributeLayoutBuilder::new();
 
-                    $( builder.with(
-                        $crate::graphics::assets::shader::Attribute::$attribute,
-                        $size); ) *
+                    $(
+                        let builder = builder.with(
+                            $crate::graphics::assets::shader::Attribute::$attribute,
+                            $size);
+                    ) *
 
                     builder.finish()
                 }

@@ -35,10 +35,6 @@ impl Window {
         ];
         let idxes: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
-        let attributes = AttributeLayoutBuilder::new()
-            .with(Attribute::Position, 2)
-            .finish();
-
         // Create vertex buffer object.
         let mut setup = MeshSetup::default();
         setup.params.num_verts = 4;
@@ -53,12 +49,19 @@ impl Window {
         let surface = video.create_surface(setup)?;
 
         // Create shader state.
+        let attributes = AttributeLayout::build()
+            .with(Attribute::Position, 2)
+            .finish();
+
+        let uniforms = UniformVariableLayout::build()
+            .with("renderedTexture", UniformVariableType::Texture)
+            .finish();
+
         let mut setup = ShaderSetup::default();
-        setup.layout = attributes;
         setup.vs = include_str!("../../assets/texture.vs").to_owned();
         setup.fs = include_str!("../../assets/texture.fs").to_owned();
-        let tt = UniformVariableType::Texture;
-        setup.uniform_variables.insert("renderedTexture".into(), tt);
+        setup.params.attributes = attributes;
+        setup.params.uniforms = uniforms;
         let shader = video.create_shader(setup)?;
 
         let mut setup = TextureSetup::default();

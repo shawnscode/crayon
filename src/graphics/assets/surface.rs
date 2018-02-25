@@ -21,7 +21,6 @@ use graphics::assets::texture::RenderTextureHandle;
 pub struct SurfaceSetup {
     pub(crate) colors: [Option<RenderTextureHandle>; MAX_FRAMEBUFFER_ATTACHMENTS],
     pub(crate) depth_stencil: Option<RenderTextureHandle>,
-
     pub(crate) clear_color: Option<Color>,
     pub(crate) clear_depth: Option<f32>,
     pub(crate) clear_stencil: Option<i32>,
@@ -43,6 +42,7 @@ impl Default for SurfaceSetup {
     }
 }
 
+pub type SurfaceParams = SurfaceSetup;
 impl_handle!(SurfaceHandle);
 
 impl SurfaceSetup {

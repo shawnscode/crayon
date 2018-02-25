@@ -37,7 +37,7 @@ impl Material {
         let field = field.into();
         let variable = variable.into();
 
-        if let Some(tt) = pipeline.shader_params.uniform_variable(field) {
+        if let Some(tt) = pipeline.shader_params.uniforms.variable_type(field) {
             if tt != variable.variable_type() {
                 return Err(Error::UniformMismatch);
             }

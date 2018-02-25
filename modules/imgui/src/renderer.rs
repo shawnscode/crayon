@@ -31,31 +31,32 @@ impl Renderer {
     pub fn new(ctx: &application::Context, imgui: &mut ImGui) -> Result<Self> {
         let video = ctx.shared::<GraphicsSystem>();
 
-        let layout = AttributeLayoutBuilder::new()
+        let layout = AttributeLayout::build()
             .with(Attribute::Position, 2)
             .with(Attribute::Texcoord0, 2)
             .with(Attribute::Color0, 4)
             .finish();
 
-        let mut setup = ShaderSetup::default();
-        setup.layout = layout;
-        setup.render_state.cull_face = CullFace::Back;
-        setup.render_state.front_face_order = FrontFaceOrder::Clockwise;
-        setup.render_state.color_blend = Some((
+        let uniforms = UniformVariableLayout::build()
+            .with("matrix", UniformVariableType::Matrix4f)
+            .with("texture", UniformVariableType::Texture)
+            .finish();
+
+        let mut render_state = RenderState::default();
+        render_state.cull_face = CullFace::Back;
+        render_state.front_face_order = FrontFaceOrder::Clockwise;
+        render_state.color_blend = Some((
             Equation::Add,
             BlendFactor::Value(BlendValue::SourceAlpha),
             BlendFactor::OneMinusValue(BlendValue::SourceAlpha),
         ));
 
+        let mut setup = ShaderSetup::default();
+        setup.params.attributes = layout;
+        setup.params.uniforms = uniforms;
+        setup.params.render_state = render_state;
         setup.vs = include_str!("../assets/imgui.vs").to_owned();
         setup.fs = include_str!("../assets/imgui.fs").to_owned();
-
-        let tt = UniformVariableType::Matrix4f;
-        setup.uniform_variables.insert("matrix".into(), tt);
-
-        let tt = UniformVariableType::Texture;
-        setup.uniform_variables.insert("texture".into(), tt);
-
         let shader = video.create_shader(setup)?;
 
         let texture = imgui.prepare_texture(|v| {

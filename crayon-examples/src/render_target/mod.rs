@@ -65,9 +65,9 @@ impl Window {
 
             // Create shader state.
             let mut setup = ShaderSetup::default();
-            setup.layout = attributes;
             setup.vs = include_str!("../../assets/render_target_p1.vs").to_owned();
             setup.fs = include_str!("../../assets/render_target_p1.fs").to_owned();
+            setup.params.attributes = attributes;
             let shader = video.create_shader(setup)?;
 
             (
@@ -101,14 +101,16 @@ impl Window {
             setup.set_order(1);
             let surface = video.create_surface(setup)?;
 
+            let uniforms = UniformVariableLayout::build()
+                .with("renderedTexture", UniformVariableType::RenderTexture)
+                .with("time", UniformVariableType::F32)
+                .finish();
+
             let mut setup = ShaderSetup::default();
-            setup.layout = attributes;
             setup.vs = include_str!("../../assets/render_target_p2.vs").to_owned();
             setup.fs = include_str!("../../assets/render_target_p2.fs").to_owned();
-            let tt = UniformVariableType::RenderTexture;
-            setup.uniform_variables.insert("renderedTexture".into(), tt);
-            let tt = UniformVariableType::F32;
-            setup.uniform_variables.insert("time".into(), tt);
+            setup.params.attributes = attributes;
+            setup.params.uniforms = uniforms;
             let shader = video.create_shader(setup)?;
 
             Pass {

@@ -166,7 +166,7 @@ impl Scene {
         }
 
         let (location, setup, links) = setup.into();
-        let params = ShaderParams::new(&setup);
+        let params = setup.params.clone();
         let shader = self.video.create_shader(setup)?;
 
         Ok(self.pipelines
