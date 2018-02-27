@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use std::ops::Deref;
+use std::collections::HashMap;
 
 use graphics::GraphicsSystemShared;
 use graphics::errors::Result;
@@ -8,7 +9,7 @@ use graphics::assets::texture_loader::TextureParser;
 use graphics::assets::mesh_loader::MeshParser;
 
 pub struct GraphicsSystemGuard {
-    stack: Vec<Resource>,
+    stack: HashMap<Resource, u32>,
     video: Arc<GraphicsSystemShared>,
 }
 
@@ -23,7 +24,7 @@ impl Deref for GraphicsSystemGuard {
 impl GraphicsSystemGuard {
     pub fn new(video: Arc<GraphicsSystemShared>) -> Self {
         GraphicsSystemGuard {
-            stack: Vec::new(),
+            stack: HashMap::new(),
             video: video,
         }
     }
@@ -35,17 +36,27 @@ impl GraphicsSystemGuard {
     }
 
     #[inline]
+    pub fn delete_surface(&mut self, handle: SurfaceHandle) {
+        self.pop(handle);
+    }
+
+    #[inline]
     pub fn create_shader(&mut self, setup: ShaderSetup) -> Result<ShaderHandle> {
         let v = self.video.create_shader(setup)?;
         Ok(self.push(v))
     }
 
     #[inline]
-    pub fn create_mesh_from<T>(&mut self, setup: MeshSetup) -> Result<MeshHandle>
+    pub fn delete_shader(&mut self, handle: ShaderHandle) {
+        self.pop(handle);
+    }
+
+    #[inline]
+    pub fn create_mesh_from_file<T>(&mut self, setup: MeshSetup) -> Result<MeshHandle>
     where
         T: MeshParser + Send + Sync + 'static,
     {
-        let v = self.video.create_mesh_from::<T>(setup)?;
+        let v = self.video.create_mesh_from_file::<T>(setup)?;
         Ok(self.push(v))
     }
 
@@ -56,12 +67,28 @@ impl GraphicsSystemGuard {
     }
 
     #[inline]
-    pub fn create_texture_from<T>(&mut self, setup: TextureSetup) -> Result<TextureHandle>
+    pub fn delete_mesh(&mut self, handle: MeshHandle) {
+        self.pop(handle);
+    }
+
+    #[inline]
+    pub fn create_texture_from_file<T>(&mut self, setup: TextureSetup) -> Result<TextureHandle>
     where
         T: TextureParser + Send + Sync + 'static,
     {
-        let v = self.video.create_texture_from::<T>(setup)?;
+        let v = self.video.create_texture_from_file::<T>(setup)?;
         Ok(self.push(v))
+    }
+
+    #[inline]
+    pub fn create_texture(&mut self, setup: TextureSetup) -> Result<TextureHandle> {
+        let v = self.video.create_texture(setup)?;
+        Ok(self.push(v))
+    }
+
+    #[inline]
+    pub fn delete_texture(&mut self, handle: TextureHandle) {
+        self.pop(handle);
     }
 
     #[inline]
@@ -74,20 +101,25 @@ impl GraphicsSystemGuard {
     }
 
     #[inline]
-    pub fn create_texture(&mut self, setup: TextureSetup) -> Result<TextureHandle> {
-        let v = self.video.create_texture(setup)?;
-        Ok(self.push(v))
+    pub fn delete_render_texture(&mut self, handle: RenderTextureHandle) {
+        self.pop(handle);
     }
 
-    pub fn clear(&mut self) {
-        for v in self.stack.drain(..) {
-            match v {
-                Resource::Texture(handle) => self.video.delete_texture(handle),
-                Resource::RenderTexture(handle) => self.video.delete_render_texture(handle),
-                Resource::Mesh(handle) => self.video.delete_mesh(handle),
-                Resource::Surface(handle) => self.video.delete_surface(handle),
-                Resource::ShaderState(handle) => self.video.delete_shader(handle),
-            }
+    fn pop<T>(&mut self, resource: T)
+    where
+        T: Copy + Into<Resource>,
+    {
+        let resource = resource.into();
+        let delete = if let Some(v) = self.stack.get_mut(&resource) {
+            *v -= 1;
+            *v <= 0
+        } else {
+            panic!("Trying to delete resource that do not belongs to this `GraphicsSystemGuard`.");
+        };
+
+        if delete {
+            self.stack.remove(&resource);
+            Self::delete(&self.video, resource);
         }
     }
 
@@ -95,17 +127,30 @@ impl GraphicsSystemGuard {
     where
         T: Copy + Into<Resource>,
     {
-        self.stack.push(resource.into());
+        *self.stack.entry(resource.into()).or_insert(0) += 1;
         resource
+    }
+
+    fn delete(video: &GraphicsSystemShared, handle: Resource) {
+        match handle {
+            Resource::Texture(handle) => video.delete_texture(handle),
+            Resource::RenderTexture(handle) => video.delete_render_texture(handle),
+            Resource::Mesh(handle) => video.delete_mesh(handle),
+            Resource::Surface(handle) => video.delete_surface(handle),
+            Resource::ShaderState(handle) => video.delete_shader(handle),
+        }
     }
 }
 
 impl Drop for GraphicsSystemGuard {
     fn drop(&mut self) {
-        self.clear();
+        for v in self.stack.keys() {
+            Self::delete(&self.video, *v);
+        }
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Resource {
     Texture(TextureHandle),
     RenderTexture(RenderTextureHandle),

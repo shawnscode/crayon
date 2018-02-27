@@ -66,7 +66,7 @@ impl Window {
 
         let mut setup = TextureSetup::default();
         setup.location = Location::shared("/std/texture.png");
-        let texture = video.create_texture_from::<TextureParser>(setup).unwrap();
+        let texture = video.create_texture_from_file::<TextureParser>(setup)?;
 
         Ok(Window {
             surface: surface,

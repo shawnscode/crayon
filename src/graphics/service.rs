@@ -425,7 +425,7 @@ impl GraphicsSystemShared {
 
 impl GraphicsSystemShared {
     /// Lookup shader object from location.
-    pub fn lookup_shader_from(&self, location: Location) -> Option<ShaderHandle> {
+    pub fn lookup_shader(&self, location: Location) -> Option<ShaderHandle> {
         self.shaders
             .read()
             .unwrap()
@@ -475,7 +475,7 @@ impl GraphicsSystemShared {
 
 impl GraphicsSystemShared {
     /// Lookup mesh object from location.
-    pub fn lookup_mesh_from(&self, location: Location) -> Option<MeshHandle> {
+    pub fn lookup_mesh(&self, location: Location) -> Option<MeshHandle> {
         self.meshes
             .read()
             .unwrap()
@@ -484,7 +484,7 @@ impl GraphicsSystemShared {
     }
 
     /// Create a new mesh object from location.
-    pub fn create_mesh_from<T>(&self, setup: MeshSetup) -> Result<MeshHandle>
+    pub fn create_mesh_from_file<T>(&self, setup: MeshSetup) -> Result<MeshHandle>
     where
         T: MeshParser + Send + Sync + 'static,
     {
@@ -594,7 +594,7 @@ impl GraphicsSystemShared {
 
 impl GraphicsSystemShared {
     /// Lookup texture object from location.
-    pub fn lookup_texture_from(&self, location: Location) -> Option<TextureHandle> {
+    pub fn lookup_texture(&self, location: Location) -> Option<TextureHandle> {
         self.textures
             .read()
             .unwrap()
@@ -603,7 +603,7 @@ impl GraphicsSystemShared {
     }
 
     /// Create texture object from location.
-    pub fn create_texture_from<T>(&self, setup: TextureSetup) -> Result<TextureHandle>
+    pub fn create_texture_from_file<T>(&self, setup: TextureSetup) -> Result<TextureHandle>
     where
         T: TextureParser + Send + Sync + 'static,
     {

@@ -154,13 +154,13 @@ impl Scene {
     }
 
     /// Lookups pipeline object from location.
-    pub fn lookup_pipeline_from(&self, location: Location) -> Option<PipelineHandle> {
+    pub fn lookup_pipeline(&self, location: Location) -> Option<PipelineHandle> {
         self.pipelines.lookup(location).map(|v| v.into())
     }
 
     /// Creates a new pipeline object that indicates the whole render pipeline of `Scene`.
     pub fn create_pipeline(&mut self, setup: PipelineSetup) -> Result<PipelineHandle> {
-        if let Some(handle) = self.lookup_pipeline_from(setup.location()) {
+        if let Some(handle) = self.lookup_pipeline(setup.location()) {
             self.pipelines.inc_rc(*handle);
             return Ok(handle.into());
         }
