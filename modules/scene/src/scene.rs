@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crayon::application::Context;
 use crayon::ecs::prelude::*;
 use crayon::graphics::prelude::*;
@@ -47,7 +45,7 @@ use errors::*;
 pub struct Scene {
     pub(crate) world: World,
 
-    pub(crate) video: Arc<GraphicsSystemShared>,
+    pub(crate) video: GraphicsSystemGuard,
     pub(crate) materials: HandleObjectPool<Material>,
     pub(crate) pipelines: Registery<PipelineParams>,
 
@@ -58,7 +56,7 @@ pub struct Scene {
 impl Scene {
     /// Creates a new `Scene`.
     pub fn new(ctx: &Context) -> Result<Self> {
-        let video = ctx.shared::<GraphicsSystem>();
+        let video = GraphicsSystemGuard::new(ctx.shared::<GraphicsSystem>().clone());
 
         let mut world = World::new();
         world.register::<Node>();
@@ -68,7 +66,7 @@ impl Scene {
         let materials = HandleObjectPool::new();
         let scene = Scene {
             world: world,
-            video: video.clone(),
+            video: video,
 
             pipelines: Registery::new(),
             materials: materials,
@@ -172,6 +170,11 @@ impl Scene {
         Ok(self.pipelines
             .create(location, PipelineParams::new(shader, params, links))
             .into())
+    }
+
+    /// Deletes a pipelie object.
+    pub fn delete_pipeline(&mut self, handle: PipelineHandle) {
+        self.pipelines.dec_rc(handle.into());
     }
 
     /// Creates a new material instance from shader.

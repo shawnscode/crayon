@@ -1,6 +1,5 @@
 use crayon::prelude::*;
 use crayon::graphics::assets::prelude::*;
-use crayon::graphics::GraphicsSystemGuard;
 
 use utils::*;
 use errors::*;
