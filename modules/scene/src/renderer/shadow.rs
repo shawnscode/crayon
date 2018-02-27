@@ -1,7 +1,4 @@
-use std::sync::Arc;
-
 use crayon::math;
-
 use crayon::application::Context;
 
 use crayon::ecs::prelude::*;
@@ -22,7 +19,7 @@ pub enum SceneDrawOrder {
 
 /// A shadow mapping builder.
 pub struct RenderShadow {
-    video: Arc<GraphicsSystemShared>,
+    video: GraphicsSystemGuard,
 
     depth_shadow_texture: RenderTextureHandle,
     depth_surface: SurfaceHandle,
@@ -33,7 +30,7 @@ pub struct RenderShadow {
 impl RenderShadow {
     /// Craetes a new `RenderShadow`.
     pub fn new(ctx: &Context) -> Result<Self> {
-        let video = ctx.shared::<GraphicsSystem>().clone();
+        let mut video = GraphicsSystemGuard::new(ctx.shared::<GraphicsSystem>().clone());
 
         let render_depth_buffer = {
             let mut setup = RenderTextureSetup::default();
@@ -126,15 +123,6 @@ impl RenderShadow {
 
         self.video.submit(surface, 0u64, sdc)?;
         Ok(())
-    }
-}
-
-impl Drop for RenderShadow {
-    fn drop(&mut self) {
-        self.video.delete_render_texture(self.depth_shadow_texture);
-        self.video.delete_surface(self.depth_surface);
-        self.video.delete_shader(self.depth_shader);
-        self.video.delete_shader(self.draw_shader);
     }
 }
 

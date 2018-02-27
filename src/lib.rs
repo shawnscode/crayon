@@ -31,10 +31,8 @@ extern crate failure;
 extern crate gl;
 extern crate glutin;
 extern crate libc;
-pub extern crate cgmath as math;
-
-extern crate two_lock_queue;
 extern crate zip;
+pub extern crate cgmath as math;
 
 #[macro_use]
 pub mod utils;

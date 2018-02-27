@@ -202,10 +202,9 @@ mod service;
 
 pub use self::service::{GraphicsFrameInfo, GraphicsSystem, GraphicsSystemShared};
 
-pub use self::guard::GraphicsSystemGuard;
-
 pub mod prelude {
     pub use super::{GraphicsFrameInfo, GraphicsSystem, GraphicsSystemShared};
+    pub use super::guard::GraphicsSystemGuard;
 
     pub use super::command::{Command, DrawCall};
     pub use super::assets::mesh::{MeshHandle, MeshIndex};
