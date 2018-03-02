@@ -9,6 +9,12 @@ The format is based on [Keep a Changelog][kc], and this project adheres to
 
 ## [Unreleased]
 
+### Added
+* Supports multi-file requests in single task.
+* Add access to underlying video resources as a compromise to avoid too complex interface API.
+
+## [0.3.0] - 2018-02-28
+
 ### Fixed
 * Fixed write failures on depth buffer. ([#47])
 * Fixed input detection under HiDPI environments. ([#47])
@@ -59,4 +65,5 @@ The format is based on [Keep a Changelog][kc], and this project adheres to
 
 [0.2.0]: https://github.com/shawnscode/crayon/compare/v0.1.0...v0.2.0
 [0.2.1]: https://github.com/shawnscode/crayon/compare/v0.1.0...v0.2.1
-[Unreleased]: https://github.com/shawnscode/crayon/compare/v0.2.1...HEAD
+[0.3.0]: https://github.com/shawnscode/crayon/compare/v0.2.1...v0.3.0
+[Unreleased]: https://github.com/shawnscode/crayon/compare/v0.3.0...HEAD
