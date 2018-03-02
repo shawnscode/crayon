@@ -10,6 +10,7 @@ use crayon::math;
 use crayon::math::{Matrix, SquareMatrix};
 use crayon::graphics::prelude::*;
 use crayon::graphics::assets::prelude::*;
+use crayon::utils::Handle;
 
 use assets::prelude::*;
 use element::prelude::*;
@@ -103,7 +104,12 @@ impl<'a> DrawTask<'a> {
         T: Into<UniformVariable>,
     {
         let field = pipeline.uniform_field(uniform);
-        if pipeline.shader_params.uniforms.variable_type(field).is_some() {
+        if pipeline
+            .shader_params
+            .uniforms
+            .variable_type(field)
+            .is_some()
+        {
             dc.set_uniform_variable(field, v);
         }
     }
@@ -117,7 +123,8 @@ impl<'a, 'b> System<'a> for DrawTask<'b> {
         use self::PipelineUniformVariable as RU;
 
         let (view_matrix, projection_matrix) = {
-            if let Some(Element::Camera(v)) = self.scene.world.get::<Element>(self.camera) {
+            let elements = self.scene.world.arena::<Element>();
+            if let Some(&Element::Camera(v)) = elements.get(self.camera) {
                 let tree = self.scene.world.arena::<Node>();
                 let arena = self.scene.world.arena::<Transform>();
                 let view = Transform::world_view_matrix(&tree, &arena, self.camera)?;
@@ -130,9 +137,14 @@ impl<'a, 'b> System<'a> for DrawTask<'b> {
 
         unsafe {
             for v in view {
-                if let Element::Mesh(mesh) = *data.2.get_unchecked(v) {
-                    let (pipeline, mat) = self.material(mesh.material);
+                if let Element::Mesh(ref mesh) = *data.2.get_unchecked(v) {
+                    // Checks if mesh is visible.
+                    if !mesh.visible {
+                        continue;
+                    }
 
+                    // A brutal test for visibility, this should be replaced with a more
+                    // elegant process likes queries in some kind of scene graph.
                     let p = Transform::world_position(&data.0, &data.1, v).unwrap();
                     let mut csp = view_matrix * math::Vector4::new(p.x, p.y, p.z, 1.0);
                     csp /= csp.w;
@@ -141,64 +153,87 @@ impl<'a, 'b> System<'a> for DrawTask<'b> {
                         continue;
                     }
 
-                    // Generate packed draw order.
-                    let order = DrawOrder {
-                        tranlucent: pipeline.shader_params.render_state.color_blend.is_some(),
-                        zorder: (csp.z * 1000.0) as u32,
-                        shader: pipeline.shader,
+                    // Gets the underlying mesh params.
+                    let mso = if let Some(mso) = self.scene.video.mesh(mesh.mesh) {
+                        mso
+                    } else {
+                        continue;
                     };
 
-                    // Generate draw call and fill it with build-in uniforms.
-                    let mut dc = DrawCall::new(pipeline.shader, mesh.mesh);
-                    for (k, v) in &mat.variables {
-                        dc.set_uniform_variable(*k, *v);
+                    // Iterates and draws the sub-meshes with corresponding material.
+                    for i in 0..mso.sub_mesh_offsets.len() {
+                        let (pipeline, mat) =
+                            self.material(*mesh.materials.get(i).unwrap_or(&Handle::nil().into()));
+                        let p = Transform::world_position(&data.0, &data.1, v).unwrap();
+                        let mut csp = view_matrix * math::Vector4::new(p.x, p.y, p.z, 1.0);
+                        csp /= csp.w;
+
+                        if csp.z <= 0.0 {
+                            continue;
+                        }
+
+                        // Generate packed draw order.
+                        let order = DrawOrder {
+                            tranlucent: pipeline.shader_params.render_state.color_blend.is_some(),
+                            zorder: (csp.z * 1000.0) as u32,
+                            shader: pipeline.shader,
+                        };
+
+                        // Generate draw call and fill it with build-in uniforms.
+                        let mut dc = DrawCall::new(pipeline.shader, mesh.mesh);
+                        for (k, v) in &mat.variables {
+                            dc.set_uniform_variable(*k, *v);
+                        }
+
+                        let m = Transform::world_matrix(&data.0, &data.1, v).unwrap();
+                        let mv = view_matrix * m;
+                        let mvp = projection_matrix * mv;
+                        let n = mv.invert().and_then(|v| Some(v.transpose())).unwrap_or(mv);
+
+                        // Model matrix.
+                        Self::bind(&mut dc, pipeline, RU::ModelMatrix, m);
+                        // Model view matrix.
+                        Self::bind(&mut dc, pipeline, RU::ModelViewMatrix, mv);
+                        // Mode view projection matrix.
+                        Self::bind(&mut dc, pipeline, RU::ModelViewProjectionMatrix, mvp);
+                        // Normal matrix.
+                        Self::bind(&mut dc, pipeline, RU::ViewNormalMatrix, n);
+
+                        if mesh.shadow_receiver {
+                            // Shadow space matrix.
+                            let ssm = self.shadow_space_matrix * m;
+                            Self::bind(&mut dc, pipeline, RU::ShadowCasterSpaceMatrix, ssm);
+                            // Shadow depth texture.
+                            let st = self.shadow_texture;
+                            Self::bind(&mut dc, pipeline, RU::ShadowTexture, st);
+                        }
+
+                        if let Some(dir) = self.env.dir_lits(p) {
+                            // The direction of directional light in view space.
+                            Self::bind(&mut dc, pipeline, RU::DirLightViewDir, dir.dir);
+                            // The color of directional light.
+                            Self::bind(&mut dc, pipeline, RU::DirLightColor, dir.color);
+                        }
+
+                        for (i, v) in self.env
+                            .point_lits(p, 10.0)
+                            .iter()
+                            .enumerate()
+                            .take(RU::POINT_LIT_UNIFORMS.len())
+                        {
+                            let uniforms = RU::POINT_LIT_UNIFORMS[i];
+                            // The position of point light in view space.
+                            Self::bind(&mut dc, pipeline, uniforms[0], v.position);
+                            // The color of point light in view space.
+                            Self::bind(&mut dc, pipeline, uniforms[1], v.color);
+                            // The attenuation of point light in view space.
+                            Self::bind(&mut dc, pipeline, uniforms[2], v.attenuation);
+                        }
+
+                        // Submit.
+                        let sdc = dc.build_sub_mesh(i)?;
+                        self.scene.video.submit(self.surface, order, sdc)?;
                     }
-
-                    let m = Transform::world_matrix(&data.0, &data.1, v).unwrap();
-                    let mv = view_matrix * m;
-                    let mvp = projection_matrix * mv;
-                    let n = mv.invert().and_then(|v| Some(v.transpose())).unwrap_or(mv);
-
-                    // Model matrix.
-                    Self::bind(&mut dc, pipeline, RU::ModelMatrix, m);
-                    // Model view matrix.
-                    Self::bind(&mut dc, pipeline, RU::ModelViewMatrix, mv);
-                    // Mode view projection matrix.
-                    Self::bind(&mut dc, pipeline, RU::ModelViewProjectionMatrix, mvp);
-                    // Normal matrix.
-                    Self::bind(&mut dc, pipeline, RU::ViewNormalMatrix, n);
-                    // Shadow space matrix.
-                    let ssm = self.shadow_space_matrix * m;
-                    Self::bind(&mut dc, pipeline, RU::ShadowCasterSpaceMatrix, ssm);
-                    // Shadow depth texture.
-                    let st = self.shadow_texture;
-                    Self::bind(&mut dc, pipeline, RU::ShadowTexture, st);
-
-                    if let Some(dir) = self.env.dir_lits(p) {
-                        // The direction of directional light in view space.
-                        Self::bind(&mut dc, pipeline, RU::DirLightViewDir, dir.dir);
-                        // The color of directional light.
-                        Self::bind(&mut dc, pipeline, RU::DirLightColor, dir.color);
-                    }
-
-                    for (i, v) in self.env
-                        .point_lits(p, 10.0)
-                        .iter()
-                        .enumerate()
-                        .take(RU::POINT_LIT_UNIFORMS.len())
-                    {
-                        let uniforms = RU::POINT_LIT_UNIFORMS[i];
-                        // The position of point light in view space.
-                        Self::bind(&mut dc, pipeline, uniforms[0], v.position);
-                        // The color of point light in view space.
-                        Self::bind(&mut dc, pipeline, uniforms[1], v.color);
-                        // The attenuation of point light in view space.
-                        Self::bind(&mut dc, pipeline, uniforms[2], v.attenuation);
-                    }
-
-                    // Submit.
-                    let sdc = dc.build(mesh.index)?;
-                    self.scene.video.submit(self.surface, order, sdc)?;
                 }
             }
         }

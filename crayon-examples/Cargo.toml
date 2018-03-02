@@ -12,5 +12,5 @@ crayon-imgui = { path = "../modules/imgui", version = "0.3.0" }
 crayon-scene = { path = "../modules/scene", version = "0.3.0" }
 failure = "0.1.1"
 image = "0.18.0"
-obj = "0.8.1"
+obj = "0.8.2"
 rand = "0.4.2"

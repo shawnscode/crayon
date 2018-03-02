@@ -59,10 +59,10 @@ impl Window {
 
             let zero = [0.0, 0.0, 0.0];
             let up = [0.0, 1.0, 0.0];
-            Transform::set_world_position(&tree, &mut transforms, camera, [0.0, 0.0, -500.0])?;
+            Transform::set_world_position(&tree, &mut transforms, camera, [0.0, 1.0, -3.0])?;
             // Transform::look_at(&tree, &mut transforms, camera, zero, up)?;
 
-            Transform::set_world_position(&tree, &mut transforms, light, [200.0, 200.0, -200.0])?;
+            Transform::set_world_position(&tree, &mut transforms, light, [2.0, 2.0, -2.0])?;
             Transform::look_at(&tree, &mut transforms, light, zero, up)?;
         }
 
@@ -88,10 +88,10 @@ impl Window {
         let mut lits = [Entity::nil(); 4];
         let colors = [Color::red(), Color::blue(), Color::green(), Color::cyan()];
         let positions = [
-            [100.0, 0.0, 0.0],
-            [-100.0, 0.0, 0.0],
-            [0.0, 100.0, 0.0],
-            [0.0, -100.0, 0.0],
+            [1.0, 0.5, 0.0],
+            [-1.0, 0.5, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.5, 0.0],
         ];
 
         for i in 0..4 {
@@ -103,7 +103,7 @@ impl Window {
                 intensity: 1.0,
                 shadow_caster: false,
                 source: LitSrc::Point {
-                    radius: 100.0,
+                    radius: 1.0,
                     smoothness: 0.001,
                 },
             });
@@ -114,8 +114,10 @@ impl Window {
 
             let cube = scene.create_node(MeshRenderer {
                 mesh: mesh,
-                index: MeshIndex::All,
-                material: mat,
+                materials: vec![mat],
+                shadow_caster: true,
+                shadow_receiver: true,
+                visible: true,
             });
 
             unsafe {
@@ -123,7 +125,7 @@ impl Window {
                 let mut transforms = scene.arena_mut::<Transform>();
                 Node::set_parent(&mut tree, lit, node)?;
                 Node::set_parent(&mut tree, cube, lit)?;
-                transforms.get_unchecked_mut(cube).set_scale(20.0);
+                transforms.get_unchecked_mut(cube).set_scale(0.1);
                 transforms.get_unchecked_mut(lit).set_position(positions[i]);
             }
 
@@ -155,38 +157,16 @@ impl Window {
         scene.update_material(mat_block, "u_Specular", [1.0, 1.0, 1.0])?;
         scene.update_material(mat_block, "u_Shininess", 0.5)?;
 
-        let room = scene.create_node(());
-        let anchor = [-278.0, -274.0, 280.0];
+        let room = scene.create_node(MeshRenderer {
+            mesh: mesh,
+            materials: vec![
+                mat_wall, mat_wall, mat_wall, mat_wall, mat_wall, mat_block, mat_block, mat_wall
+            ],
+            shadow_caster: true,
+            shadow_receiver: true,
+            visible: true,
+        });
 
-        for i in 0..6 {
-            let wall = scene.create_node(MeshRenderer {
-                mesh: mesh,
-                index: MeshIndex::SubMesh(i),
-                material: mat_wall,
-            });
-
-            let mut tree = scene.arena_mut::<Node>();
-            let mut transforms = scene.arena_mut::<Transform>();
-            Node::set_parent(&mut tree, wall, room)?;
-            Transform::set_world_position(&tree, &mut transforms, wall, anchor)?;
-        }
-
-        for i in 6..8 {
-            let block = scene.create_node(MeshRenderer {
-                mesh: mesh,
-                index: MeshIndex::SubMesh(i),
-                material: mat_block,
-            });
-
-            let mut tree = scene.arena_mut::<Node>();
-            let mut transforms = scene.arena_mut::<Transform>();
-            Node::set_parent(&mut tree, block, room)?;
-            Transform::set_world_position(&tree, &mut transforms, block, anchor)?;
-        }
-
-        let tree = scene.arena::<Node>();
-        let mut transforms = scene.arena_mut::<Transform>();
-        Transform::set_world_scale(&tree, &mut transforms, room, 0.6)?;
         Ok((room, mat_block))
     }
 }

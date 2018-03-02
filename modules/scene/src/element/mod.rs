@@ -9,7 +9,7 @@ use self::mesh_renderer::MeshRenderer;
 use crayon::ecs::prelude::*;
 
 /// The contrainer of elements that supported in `Scene`.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Element {
     None,
     Light(Light),

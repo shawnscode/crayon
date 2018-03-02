@@ -137,12 +137,16 @@ impl<'a, 'b> System<'a> for GenerateRenderShadow<'b> {
 
     fn run(&self, view: View, data: Self::ViewWith) -> Self::Result {
         let v = Transform::world_view_matrix(&data.0, &data.1, self.caster)?;
-        let p = Camera::ortho_matrix(-256.0, 256.0, -256.0, 256.0, 0.1, 1000.0);
+        let p = Camera::ortho_matrix(-2.0, 2.0, -2.0, 2.0, 0.1, 10.0);
         let vp = p * v;
 
         unsafe {
             for handle in view {
-                if let Element::Mesh(mesh) = *data.2.get_unchecked(handle) {
+                if let Element::Mesh(ref mesh) = *data.2.get_unchecked(handle) {
+                    if !mesh.visible || !mesh.shadow_caster {
+                        continue;
+                    }
+
                     let point = Transform::world_position(&data.0, &data.1, handle).unwrap();
                     let mut csp = v * math::Vector4::new(point.x, point.y, point.z, 1.0);
                     csp /= csp.w;
@@ -151,16 +155,25 @@ impl<'a, 'b> System<'a> for GenerateRenderShadow<'b> {
                         continue;
                     }
 
+                    // Gets the underlying mesh params.
+                    let mso = if let Some(mso) = self.shadow.video.mesh(mesh.mesh) {
+                        mso
+                    } else {
+                        continue;
+                    };
+
                     let m = Transform::world_matrix(&data.0, &data.1, handle)?;
                     let mvp = vp * m;
 
                     let mut dc = DrawCall::new(self.shadow.depth_shader, mesh.mesh);
                     dc.set_uniform_variable("u_MVPMatrix", mvp);
-                    let sdc = dc.build(mesh.index)?;
 
-                    self.shadow
-                        .video
-                        .submit(self.shadow.depth_surface, 0u64, sdc)?;
+                    for i in 0..mso.sub_mesh_offsets.len() {
+                        let sdc = dc.build_sub_mesh(i)?;
+                        self.shadow
+                            .video
+                            .submit(self.shadow.depth_surface, 0u64, sdc)?;
+                    }
                 }
             }
         }

@@ -1,9 +1,16 @@
 use crayon::graphics::prelude::*;
 use assets::prelude::*;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct MeshRenderer {
+    /// The mesh handle used by the renderer.
     pub mesh: MeshHandle,
-    pub index: MeshIndex,
-    pub material: MaterialHandle,
+    /// This is an array of all materials used by the renderer.
+    pub materials: Vec<MaterialHandle>,
+    /// Indicates whether this object cast shadows.
+    pub shadow_caster: bool,
+    /// Indicates whether this object receive shadows.
+    pub shadow_receiver: bool,
+    /// Is this renderer visible.
+    pub visible: bool,
 }

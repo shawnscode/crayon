@@ -78,6 +78,7 @@ impl mesh_loader::MeshParser for OBJParser {
         let mut verts = Vec::new();
         let mut idxes = Vec::new();
         let mut meshes = Vec::new();
+
         for o in data.objects {
             for mesh in o.groups {
                 meshes.push(idxes.len());
