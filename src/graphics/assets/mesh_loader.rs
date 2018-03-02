@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::marker::PhantomData;
 
 use resource;
+use resource::utils::registery::Registery;
 use graphics::assets::mesh::*;
 use graphics::assets::{AssetMeshState, AssetState};
 use graphics::backend::frame::{DoubleFrame, PreFrameTask};
@@ -34,7 +35,7 @@ where
 {
     handle: MeshHandle,
     params: MeshParams,
-    state: Arc<RwLock<AssetMeshState>>,
+    meshes: Arc<RwLock<Registery<AssetMeshState>>>,
     frames: Arc<DoubleFrame>,
     _phantom: PhantomData<T>,
 }
@@ -45,14 +46,14 @@ where
 {
     pub fn new(
         handle: MeshHandle,
-        state: Arc<RwLock<AssetMeshState>>,
         params: MeshParams,
+        meshes: Arc<RwLock<Registery<AssetMeshState>>>,
         frames: Arc<DoubleFrame>,
     ) -> Self {
         MeshLoader {
             handle: handle,
             params: params,
-            state: state,
+            meshes: meshes,
             frames: frames,
             _phantom: PhantomData,
         }
@@ -94,6 +95,11 @@ where
             }
         };
 
-        *self.state.write().unwrap() = state;
+        {
+            let mut meshes = self.meshes.write().unwrap();
+            if let Some(mesh) = meshes.get_mut(*self.handle) {
+                *mesh = state;
+            }
+        }
     }
 }

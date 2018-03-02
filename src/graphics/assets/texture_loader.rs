@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::marker::PhantomData;
 
 use resource;
+use resource::utils::registery::Registery;
 use graphics::assets::texture::*;
 use graphics::assets::{AssetState, AssetTextureState};
 use graphics::backend::frame::{DoubleFrame, PreFrameTask};
@@ -29,7 +30,7 @@ where
 {
     handle: TextureHandle,
     params: TextureParams,
-    state: Arc<RwLock<AssetTextureState>>,
+    textures: Arc<RwLock<Registery<AssetTextureState>>>,
     frames: Arc<DoubleFrame>,
     _phantom: PhantomData<T>,
 }
@@ -40,14 +41,14 @@ where
 {
     pub fn new(
         handle: TextureHandle,
-        state: Arc<RwLock<AssetTextureState>>,
         params: TextureParams,
+        textures: Arc<RwLock<Registery<AssetTextureState>>>,
         frames: Arc<DoubleFrame>,
     ) -> Self {
         TextureLoader {
             handle: handle,
             params: params,
-            state: state,
+            textures: textures,
             frames: frames,
             _phantom: PhantomData,
         }
@@ -83,6 +84,11 @@ where
             }
         };
 
-        *self.state.write().unwrap() = state;
+        {
+            let mut textures = self.textures.write().unwrap();
+            if let Some(texture) = textures.get_mut(*self.handle) {
+                *texture = state;
+            }
+        }
     }
 }
