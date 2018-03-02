@@ -3,8 +3,9 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::marker::PhantomData;
 
-use resource;
+use resource::prelude::*;
 use resource::utils::registery::Registery;
+
 use graphics::assets::texture::*;
 use graphics::assets::{AssetState, AssetTextureState};
 use graphics::backend::frame::{DoubleFrame, PreFrameTask};
@@ -17,7 +18,7 @@ pub struct TextureData {
 }
 
 /// Parse bytes into texture.
-pub trait TextureParser {
+pub trait TextureParser: Send + 'static {
     type Error: std::error::Error + std::fmt::Debug;
 
     fn parse(bytes: &[u8]) -> std::result::Result<TextureData, Self::Error>;
@@ -55,12 +56,12 @@ where
     }
 }
 
-impl<T> resource::ResourceAsyncLoader for TextureLoader<T>
+impl<T> ResourceTask for TextureLoader<T>
 where
-    T: TextureParser + Send + Sync + 'static,
+    T: TextureParser,
 {
-    fn on_finished(mut self, path: &Path, result: resource::errors::Result<&[u8]>) {
-        let state = match result {
+    fn execute(mut self, driver: &mut ResourceFS, path: &Path) {
+        let state = match driver.load(path) {
             Ok(bytes) => match T::parse(bytes) {
                 Ok(texture) => {
                     self.params.dimensions = texture.dimensions;

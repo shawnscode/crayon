@@ -70,10 +70,10 @@ pub mod filesystem;
 pub mod utils;
 
 mod service;
-pub use self::service::{ResourceAsyncLoader, ResourceSystem, ResourceSystemShared};
+pub use self::service::{ResourceFS, ResourceSystem, ResourceSystemShared, ResourceTask};
 
 pub mod prelude {
-    pub use super::{ResourceAsyncLoader, ResourceSystem, ResourceSystemShared};
-    pub use super::utils::location::Location;
+    pub use super::{ResourceFS, ResourceSystem, ResourceSystemShared, ResourceTask};
     pub use super::filesystem::{DirectoryFS, ZipFS};
+    pub use super::utils::location::Location;
 }

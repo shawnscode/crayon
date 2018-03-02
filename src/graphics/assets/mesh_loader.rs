@@ -3,8 +3,9 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::marker::PhantomData;
 
-use resource;
+use resource::prelude::*;
 use resource::utils::registery::Registery;
+
 use graphics::assets::mesh::*;
 use graphics::assets::{AssetMeshState, AssetState};
 use graphics::backend::frame::{DoubleFrame, PreFrameTask};
@@ -60,12 +61,12 @@ where
     }
 }
 
-impl<T> resource::ResourceAsyncLoader for MeshLoader<T>
+impl<T> ResourceTask for MeshLoader<T>
 where
     T: MeshParser + Send + Sync + 'static,
 {
-    fn on_finished(mut self, path: &Path, result: resource::errors::Result<&[u8]>) {
-        let state = match result {
+    fn execute(mut self, driver: &mut ResourceFS, path: &Path) {
+        let state = match driver.load(path) {
             Ok(bytes) => match T::parse(bytes) {
                 Ok(mesh) => {
                     self.params.layout = mesh.layout;

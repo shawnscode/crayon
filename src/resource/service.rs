@@ -6,9 +6,36 @@ use std::sync::mpsc;
 use super::filesystem::{Filesystem, FilesystemDriver};
 use super::errors::*;
 
-/// The callbacks of async loader.
-pub trait ResourceAsyncLoader: Send + Sync + 'static {
-    fn on_finished(self, _: &Path, _: Result<&[u8]>);
+/// A buffered filesystem driver.
+pub struct ResourceFS<'a> {
+    buf: &'a mut Vec<u8>,
+    driver: &'a FilesystemDriver,
+}
+
+impl<'a> ResourceFS<'a> {
+    /// Return whether the path points at an existing file.
+    #[inline]
+    pub fn exists<P>(&self, path: P) -> bool
+    where
+        P: AsRef<Path> + Sync,
+    {
+        self.driver.exists(path)
+    }
+
+    /// Read all bytes until EOF in this source.
+    #[inline]
+    pub fn load<P>(&mut self, path: P) -> Result<&[u8]>
+    where
+        P: AsRef<Path> + Sync,
+    {
+        self.driver.load_into(path, &mut self.buf)?;
+        Ok(&self.buf[..])
+    }
+}
+
+/// The executor of async resource task.
+pub trait ResourceTask: Send + 'static {
+    fn execute(self, _: &mut ResourceFS, _: &Path);
 }
 
 /// Takes care of loading data asynchronously through pluggable filesystems.
@@ -24,8 +51,6 @@ impl ResourceSystem {
     /// io requests.
     pub fn new() -> Result<Self> {
         let driver = Arc::new(RwLock::new(FilesystemDriver::new()));
-
-        // let (tx, rx) = two_lock_queue::channel(1024);
         let (tx, rx) = mpsc::channel();
 
         {
@@ -72,12 +97,18 @@ impl ResourceSystem {
 
     fn run(chan: &mpsc::Receiver<Command>, driver: &RwLock<FilesystemDriver>) {
         let mut buf = Vec::new();
-
         loop {
             match chan.recv().unwrap() {
                 Command::Task(mut task) => {
+                    buf.clear();
+
                     let driver = driver.read().unwrap();
-                    task.execute(&driver, &mut buf);
+                    let mut fs = ResourceFS {
+                        buf: &mut buf,
+                        driver: &driver,
+                    };
+
+                    task.execute(&mut fs);
                 }
 
                 Command::Stop => return,
@@ -101,7 +132,7 @@ impl ResourceSystemShared {
     }
 
     /// Return whether the path points at an existing file.
-    pub fn exists<T, P>(&self, path: P) -> bool
+    pub fn exists<P>(&self, path: P) -> bool
     where
         P: AsRef<Path>,
     {
@@ -110,11 +141,11 @@ impl ResourceSystemShared {
 
     /// Load a file at location `path` asynchronously.
     ///
-    /// `ResourceAsyncLoader::on_finished` will be called if task finishs or any
+    /// `ResourceTask::execute` will be called if task finishs or any
     /// error triggered when loading.
-    pub fn load_async<T, P>(&self, loader: T, path: P)
+    pub fn load_async<'a, T, P>(&'a self, loader: T, path: P)
     where
-        T: ResourceAsyncLoader,
+        T: ResourceTask + 'static,
         P: Into<PathBuf>,
     {
         let task = TaskLoad {
@@ -142,12 +173,12 @@ enum Command {
 }
 
 trait Task: Send {
-    fn execute(&mut self, _: &FilesystemDriver, _: &mut Vec<u8>);
+    fn execute(&mut self, _: &mut ResourceFS);
 }
 
 struct TaskLoad<T>
 where
-    T: ResourceAsyncLoader,
+    T: ResourceTask,
 {
     loader: Option<T>,
     path: PathBuf,
@@ -155,16 +186,11 @@ where
 
 impl<T> Task for TaskLoad<T>
 where
-    T: ResourceAsyncLoader,
+    T: ResourceTask,
 {
-    fn execute(&mut self, driver: &FilesystemDriver, buf: &mut Vec<u8>) {
+    fn execute(&mut self, fs: &mut ResourceFS) {
         if let Some(loader) = self.loader.take() {
-            let from = buf.len();
-
-            match driver.load_into(&self.path, buf) {
-                Ok(_) => loader.on_finished(&self.path, Ok(&buf[from..])),
-                Err(err) => loader.on_finished(&self.path, Err(err)),
-            };
+            loader.execute(fs, &self.path);
         }
     }
 }
