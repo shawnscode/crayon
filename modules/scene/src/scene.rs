@@ -159,7 +159,7 @@ impl Scene {
     /// Creates a new pipeline object that indicates the whole render pipeline of `Scene`.
     pub fn create_pipeline(&mut self, setup: PipelineSetup) -> Result<PipelineHandle> {
         if let Some(handle) = self.lookup_pipeline(setup.location()) {
-            self.pipelines.inc_rc(*handle);
+            self.pipelines.inc_rc(handle);
             return Ok(handle.into());
         }
 
@@ -174,7 +174,7 @@ impl Scene {
 
     /// Deletes a pipelie object.
     pub fn delete_pipeline(&mut self, handle: PipelineHandle) {
-        self.pipelines.dec_rc(handle.into());
+        self.pipelines.dec_rc(handle);
     }
 
     /// Creates a new material instance from shader.
@@ -208,7 +208,7 @@ impl Scene {
     /// with purple color.
     #[inline]
     pub fn delete_material(&mut self, handle: MaterialHandle) {
-        self.materials.dec_rc(handle.into());
+        self.materials.dec_rc(handle);
     }
 
     pub fn advance(&mut self, camera: Entity) -> Result<()> {

@@ -203,7 +203,7 @@ impl GraphicsSystemShared {
         T1: Into<u64>,
         T2: Into<Command<'a>>,
     {
-        if !self.surfaces.read().unwrap().is_alive(s.into()) {
+        if !self.surfaces.read().unwrap().is_alive(s) {
             return Err(Error::SurfaceHandleInvalid(s));
         }
 
@@ -224,11 +224,11 @@ impl GraphicsSystemShared {
         order: u64,
         dc: &SliceDrawCall<'a>,
     ) -> Result<()> {
-        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+        if !self.surfaces.read().unwrap().is_alive(surface) {
             return Err(Error::SurfaceHandleInvalid(surface));
         }
 
-        if let Some(state) = self.meshes.read().unwrap().get(dc.mesh.into()) {
+        if let Some(state) = self.meshes.read().unwrap().get(dc.mesh) {
             if !state.is_ready() {
                 return Ok(());
             }
@@ -239,7 +239,7 @@ impl GraphicsSystemShared {
         let mut frame = self.frames.front();
         let uniforms = {
             let mut pack = Vec::new();
-            if let Some(params) = self.shaders.read().unwrap().get(dc.shader.into()) {
+            if let Some(params) = self.shaders.read().unwrap().get(dc.shader) {
                 for &(n, v) in dc.uniforms {
                     if let Some(tt) = params.uniforms.variable_type(n) {
                         if tt == v.variable_type() {
@@ -284,7 +284,7 @@ impl GraphicsSystemShared {
         order: u64,
         su: &ScissorUpdate,
     ) -> Result<()> {
-        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+        if !self.surfaces.read().unwrap().is_alive(surface) {
             return Err(Error::SurfaceHandleInvalid(surface));
         }
 
@@ -300,7 +300,7 @@ impl GraphicsSystemShared {
         order: u64,
         vp: &ViewportUpdate,
     ) -> Result<()> {
-        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+        if !self.surfaces.read().unwrap().is_alive(surface) {
             return Err(Error::SurfaceHandleInvalid(surface));
         }
 
@@ -316,11 +316,11 @@ impl GraphicsSystemShared {
         order: u64,
         vbu: &VertexBufferUpdate,
     ) -> Result<()> {
-        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+        if !self.surfaces.read().unwrap().is_alive(surface) {
             return Err(Error::SurfaceHandleInvalid(surface));
         }
 
-        if let Some(state) = self.meshes.read().unwrap().get(vbu.mesh.into()) {
+        if let Some(state) = self.meshes.read().unwrap().get(vbu.mesh) {
             if !state.is_ready() {
                 unreachable!();
             } else {
@@ -341,11 +341,11 @@ impl GraphicsSystemShared {
         order: u64,
         ibu: &IndexBufferUpdate,
     ) -> Result<()> {
-        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+        if !self.surfaces.read().unwrap().is_alive(surface) {
             return Err(Error::SurfaceHandleInvalid(surface));
         }
 
-        if let Some(state) = self.meshes.read().unwrap().get(ibu.mesh.into()) {
+        if let Some(state) = self.meshes.read().unwrap().get(ibu.mesh) {
             if !state.is_ready() {
                 unreachable!();
             } else {
@@ -366,11 +366,11 @@ impl GraphicsSystemShared {
         order: u64,
         tu: &TextureUpdate,
     ) -> Result<()> {
-        if !self.surfaces.read().unwrap().is_alive(surface.into()) {
+        if !self.surfaces.read().unwrap().is_alive(surface) {
             return Err(Error::SurfaceHandleInvalid(surface));
         }
 
-        if let Some(state) = self.textures.read().unwrap().get(tu.texture.into()) {
+        if let Some(state) = self.textures.read().unwrap().get(tu.texture) {
             if !state.is_ready() {
                 unreachable!();
             } else {
@@ -406,22 +406,17 @@ impl GraphicsSystemShared {
 
     /// Gets the `SurfaceParams` if available.
     pub fn surface(&self, handle: MeshHandle) -> Option<SurfaceParams> {
-        self.surfaces.read().unwrap().get(*handle).cloned()
+        self.surfaces.read().unwrap().get(handle).cloned()
     }
 
     /// Returns true if shader is exists.
     pub fn is_surface_alive(&self, handle: SurfaceHandle) -> bool {
-        self.surfaces.read().unwrap().is_alive(handle.into())
+        self.surfaces.read().unwrap().is_alive(handle)
     }
 
     /// Delete surface object.
     pub fn delete_surface(&self, handle: SurfaceHandle) {
-        if self.surfaces
-            .write()
-            .unwrap()
-            .dec_rc(handle.into())
-            .is_some()
-        {
+        if self.surfaces.write().unwrap().dec_rc(handle).is_some() {
             let task = PostFrameTask::DeleteSurface(handle);
             self.frames.front().post.push(task);
         }
@@ -461,22 +456,17 @@ impl GraphicsSystemShared {
 
     /// Gets the `ShaderParams` if available.
     pub fn shader(&self, handle: MeshHandle) -> Option<ShaderParams> {
-        self.shaders.read().unwrap().get(*handle).cloned()
+        self.shaders.read().unwrap().get(handle).cloned()
     }
 
     /// Returns true if shader is exists.
     pub fn is_shader_alive(&self, handle: ShaderHandle) -> bool {
-        self.shaders.read().unwrap().is_alive(handle.into())
+        self.shaders.read().unwrap().is_alive(handle)
     }
 
     /// Delete shader state object.
     pub fn delete_shader(&self, handle: ShaderHandle) {
-        if self.shaders
-            .write()
-            .unwrap()
-            .dec_rc(handle.into())
-            .is_some()
-        {
+        if self.shaders.write().unwrap().dec_rc(handle).is_some() {
             let task = PostFrameTask::DeletePipeline(handle);
             self.frames.front().post.push(task);
         }
@@ -551,7 +541,7 @@ impl GraphicsSystemShared {
     /// true. The underlying object might be still in creation process and can not be
     /// provided yet.
     pub fn mesh(&self, handle: MeshHandle) -> Option<Arc<MeshParams>> {
-        self.meshes.read().unwrap().get(*handle).and_then(|v| {
+        self.meshes.read().unwrap().get(handle).and_then(|v| {
             if let &AssetState::Ready(ref mso) = v {
                 Some(mso.clone())
             } else {
@@ -562,14 +552,14 @@ impl GraphicsSystemShared {
 
     /// Checks whether the mesh is exists.
     pub fn is_mesh_alive(&self, handle: MeshHandle) -> bool {
-        self.meshes.read().unwrap().is_alive(handle.into())
+        self.meshes.read().unwrap().is_alive(handle)
     }
 
     /// Update a subset of dynamic vertex buffer. Use `offset` specifies the offset
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
     pub fn update_vertex_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
-        if let Some(state) = self.meshes.read().unwrap().get(mesh.into()) {
+        if let Some(state) = self.meshes.read().unwrap().get(mesh) {
             if let &AssetState::Ready(ref mso) = state {
                 if mso.hint == MeshHint::Immutable {
                     return Err(Error::UpdateImmutableBuffer);
@@ -593,7 +583,7 @@ impl GraphicsSystemShared {
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
     pub fn update_index_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
-        if let Some(state) = self.meshes.read().unwrap().get(mesh.into()) {
+        if let Some(state) = self.meshes.read().unwrap().get(mesh) {
             if let &AssetState::Ready(ref mso) = state {
                 if mso.hint == MeshHint::Immutable {
                     return Err(Error::UpdateImmutableBuffer);
@@ -615,7 +605,7 @@ impl GraphicsSystemShared {
 
     /// Delete mesh object.
     pub fn delete_mesh(&self, mesh: MeshHandle) {
-        if self.meshes.write().unwrap().dec_rc(mesh.into()).is_some() {
+        if self.meshes.write().unwrap().dec_rc(mesh).is_some() {
             let task = PostFrameTask::DeleteMesh(mesh);
             self.frames.front().post.push(task);
         }
@@ -691,7 +681,7 @@ impl GraphicsSystemShared {
     /// true. The underlying object might be still in creation process and can not be
     /// provided yet.
     pub fn texture(&self, handle: TextureHandle) -> Option<TextureParams> {
-        self.textures.read().unwrap().get(*handle).and_then(|v| {
+        self.textures.read().unwrap().get(handle).and_then(|v| {
             if let &AssetState::Ready(ref texture) = v {
                 Some(*texture.as_ref())
             } else {
@@ -702,12 +692,12 @@ impl GraphicsSystemShared {
 
     /// Returns true if texture is exists.
     pub fn is_texture_alive(&self, handle: TextureHandle) -> bool {
-        self.textures.read().unwrap().is_alive(handle.into())
+        self.textures.read().unwrap().is_alive(handle)
     }
 
     /// Update a contiguous subregion of an existing two-dimensional texture object.
     pub fn update_texture(&self, handle: TextureHandle, rect: Rect, data: &[u8]) -> Result<()> {
-        if let Some(state) = self.textures.read().unwrap().get(handle.into()) {
+        if let Some(state) = self.textures.read().unwrap().get(handle) {
             if let AssetState::Ready(ref texture) = *state {
                 if texture.hint == TextureHint::Immutable {
                     return Err(Error::UpdateImmutableBuffer);
@@ -729,12 +719,7 @@ impl GraphicsSystemShared {
 
     /// Delete the texture object.
     pub fn delete_texture(&self, handle: TextureHandle) {
-        if self.textures
-            .write()
-            .unwrap()
-            .dec_rc(handle.into())
-            .is_some()
-        {
+        if self.textures.write().unwrap().dec_rc(handle).is_some() {
             let task = PostFrameTask::DeleteTexture(handle);
             self.frames.front().post.push(task);
         }
@@ -761,12 +746,12 @@ impl GraphicsSystemShared {
 
     /// Gets the `RenderTextureParams` if available.
     pub fn render_texture(&self, handle: MeshHandle) -> Option<RenderTextureParams> {
-        self.render_textures.read().unwrap().get(*handle).cloned()
+        self.render_textures.read().unwrap().get(handle).cloned()
     }
 
     /// Returns true if texture is exists.
     pub fn is_render_texture_alive(&self, handle: RenderTextureHandle) -> bool {
-        self.render_textures.read().unwrap().is_alive(handle.into())
+        self.render_textures.read().unwrap().is_alive(handle)
     }
 
     /// Delete the render texture object.
@@ -774,7 +759,7 @@ impl GraphicsSystemShared {
         if self.render_textures
             .write()
             .unwrap()
-            .dec_rc(handle.into())
+            .dec_rc(handle)
             .is_some()
         {
             let task = PostFrameTask::DeleteRenderTexture(handle);
