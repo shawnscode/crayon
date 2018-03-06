@@ -19,7 +19,8 @@ use errors::*;
 use node::Node;
 use transform::Transform;
 use scene::Scene;
-use assets::material::Material;
+use assets::material::MaterialParams;
+use assets::pipeline::PipelineParams;
 
 pub struct RendererSetup {
     pub max_dir_lits: usize,
@@ -82,8 +83,8 @@ struct DrawTask<'a> {
 }
 
 impl<'a> DrawTask<'a> {
-    fn material(&self, handle: MaterialHandle) -> (&PipelineParams, &Material) {
-        if let Some(mat) = self.scene.materials.get(handle) {
+    fn material(&self, handle: MaterialHandle) -> (&PipelineParams, &MaterialParams) {
+        if let Some(mat) = self.scene.materials.get(*handle) {
             if let Some(pipeline) = self.scene.pipelines.get(*mat.pipeline) {
                 if self.scene.video.is_shader_alive(pipeline.shader) {
                     return (pipeline, mat);
@@ -93,8 +94,9 @@ impl<'a> DrawTask<'a> {
 
         let mat = self.scene
             .materials
-            .get(self.scene.fallback.unwrap())
+            .get(*self.scene.fallback.unwrap())
             .unwrap();
+
         let pipeline = self.scene.pipelines.get(*mat.pipeline).unwrap();
         (pipeline, mat)
     }

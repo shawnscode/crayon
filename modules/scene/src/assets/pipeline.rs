@@ -54,10 +54,10 @@ impl<'a> Into<(Location<'a>, ShaderSetup<'a>, PipelineUniformLinks)> for Pipelin
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct PipelineParams {
-    pub(crate) shader: ShaderHandle,
-    pub(crate) shader_params: ShaderParams,
-    pub(crate) link_uniforms: HashMap<PipelineUniformVariable, HashValue<str>>,
+pub(crate) struct PipelineParams {
+    pub shader: ShaderHandle,
+    pub shader_params: ShaderParams,
+    pub link_uniforms: HashMap<PipelineUniformVariable, HashValue<str>>,
 }
 
 impl PipelineParams {

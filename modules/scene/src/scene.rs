@@ -3,7 +3,7 @@ use crayon::ecs::prelude::*;
 use crayon::graphics::prelude::*;
 use crayon::graphics::assets::prelude::*;
 use crayon::resource::utils::prelude::*;
-use crayon::utils::{HandleObjectPool, HashValue};
+use crayon::utils::HashValue;
 
 use node::Node;
 use transform::Transform;
@@ -11,7 +11,8 @@ use element::Element;
 use renderer::Renderer;
 
 use assets::prelude::*;
-use assets::material::Material;
+use assets::material::MaterialParams;
+use assets::pipeline::PipelineParams;
 use errors::*;
 
 /// `Scene`s contain the environments of your game. Its relative easy to think of each
@@ -46,7 +47,7 @@ pub struct Scene {
     pub(crate) world: World,
 
     pub(crate) video: GraphicsSystemGuard,
-    pub(crate) materials: HandleObjectPool<Material>,
+    pub(crate) materials: Registery<MaterialParams>,
     pub(crate) pipelines: Registery<PipelineParams>,
 
     pub(crate) renderer: Renderer,
@@ -63,13 +64,12 @@ impl Scene {
         world.register::<Transform>();
         world.register::<Element>();
 
-        let materials = HandleObjectPool::new();
         let scene = Scene {
             world: world,
             video: video,
 
             pipelines: Registery::new(),
-            materials: materials,
+            materials: Registery::new(),
             fallback: None,
 
             renderer: Renderer::new(ctx)?,
@@ -178,12 +178,14 @@ impl Scene {
     }
 
     /// Creates a new material instance from shader.
-    pub fn create_material(&mut self, pipeline: PipelineHandle) -> Result<MaterialHandle> {
-        if self.pipelines.get(*pipeline).is_some() {
-            let m = self.materials.create(Material::new(pipeline));
-            Ok(m.into())
+    pub fn create_material(&mut self, setup: MaterialSetup) -> Result<MaterialHandle> {
+        if let Some(po) = self.pipelines.get(*setup.pipeline) {
+            let location = Location::unique("");
+            let material =
+                MaterialParams::new(setup.pipeline, setup.variables, po.shader_params.clone());
+            Ok(self.materials.create(location, material).into())
         } else {
-            Err(Error::PipelineHandleInvalid(pipeline))
+            Err(Error::PipelineHandleInvalid(setup.pipeline))
         }
     }
 
@@ -194,10 +196,7 @@ impl Scene {
         T2: Into<UniformVariable>,
     {
         if let Some(m) = self.materials.get_mut(*h) {
-            if let Some(pipeline) = self.pipelines.get(*m.pipeline) {
-                m.set_uniform_variable(pipeline, f, v)?;
-            }
-
+            m.bind(f, v)?;
             Ok(())
         } else {
             Err(Error::MaterialHandleInvalid(h))
@@ -208,12 +207,8 @@ impl Scene {
     /// invalid/deleted material handle will be drawed with a fallback material marked
     /// with purple color.
     #[inline]
-    pub fn delete_material(&mut self, handle: MaterialHandle) -> Result<()> {
-        if self.materials.free(handle).is_none() {
-            Err(Error::MaterialHandleInvalid(handle))
-        } else {
-            Ok(())
-        }
+    pub fn delete_material(&mut self, handle: MaterialHandle) {
+        self.materials.dec_rc(handle.into());
     }
 
     pub fn advance(&mut self, camera: Entity) -> Result<()> {
@@ -230,7 +225,7 @@ impl Scene {
     pub fn draw(&mut self, surface: SurfaceHandle, camera: Entity) -> Result<()> {
         if self.fallback.is_none() {
             let undefined = factory::pipeline::undefined(self)?;
-            self.fallback = Some(self.create_material(undefined)?);
+            self.fallback = Some(self.create_material(MaterialSetup::new(undefined))?);
         }
 
         self.renderer.draw(self, surface, camera)?;
