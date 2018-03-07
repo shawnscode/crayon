@@ -159,12 +159,43 @@ impl World {
     }
 
     /// Returns a reference to the component corresponding to the `Entity`.
-    pub fn get<T>(&self, ent: Entity) -> Option<T>
+    ///
+    /// The borrow lasts until the returned `Ref` exits scope. Multiple immutable
+    /// borrows can be taken out at the same time.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the arena is currently mutably borrowed.
+    pub fn get<T>(&self, ent: Entity) -> Option<Ref<T>>
     where
-        T: Component + Copy,
+        T: Component,
     {
         if self.has::<T>(ent) {
-            unsafe { Some(*self.cell::<T>().borrow().get_unchecked(ent.index())) }
+            unsafe {
+                let cell = self.cell::<T>().borrow();
+                Some(Ref::map(cell, |v| v.get_unchecked(ent.index())))
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable reference to the componenent corresponding to the `Entity`.
+    ///
+    /// The borrow lasts until the returned `RefMut` exits scope.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the arena is currently mutably borrowed.
+    pub fn get_mut<T>(&self, ent: Entity) -> Option<RefMut<T>>
+    where
+        T: Component,
+    {
+        if self.has::<T>(ent) {
+            unsafe {
+                let cell = self.cell::<T>().borrow_mut();
+                Some(RefMut::map(cell, |v| v.get_unchecked_mut(ent.index())))
+            }
         } else {
             None
         }
@@ -349,7 +380,7 @@ pub struct EntityBuilder<'a> {
 }
 
 impl<'a> EntityBuilder<'a> {
-    pub fn with<T>(&mut self, value: T) -> &mut Self
+    pub fn with<T>(self, value: T) -> Self
     where
         T: Component,
     {
@@ -357,7 +388,7 @@ impl<'a> EntityBuilder<'a> {
         self
     }
 
-    pub fn with_default<T>(&mut self) -> &mut Self
+    pub fn with_default<T>(self) -> Self
     where
         T: Component + Default,
     {
@@ -365,7 +396,7 @@ impl<'a> EntityBuilder<'a> {
         self
     }
 
-    pub fn finish(&self) -> Entity {
+    pub fn finish(self) -> Entity {
         self.entity
     }
 }

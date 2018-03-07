@@ -71,7 +71,7 @@ fn basic() {
 
     {
         let p = world.get::<Position>(e1).unwrap();
-        assert_eq!(p, Position { x: 1, y: 2 });
+        assert_eq!(*p, Position { x: 1, y: 2 });
     }
 
     {
@@ -84,12 +84,44 @@ fn basic() {
 
     {
         let p = world.get::<Position>(e1).unwrap();
-        assert_eq!(p, Position { x: 2, y: 5 });
+        assert_eq!(*p, Position { x: 2, y: 5 });
     }
 
     world.remove::<Position>(e1);
     assert!(!world.has::<Position>(e1));
     assert!(world.get::<Position>(e1).is_none());
+}
+
+#[test]
+fn get() {
+    let mut world = World::new();
+    world.register::<Position>();
+
+    let e1 = world.create();
+    world.add::<Position>(e1, Position { x: 1, y: 2 });
+    assert!(world.has::<Position>(e1));
+    assert!(world.get::<Position>(e1).is_some());
+
+    *world.get_mut(e1).unwrap() = Position { x: 2, y: 3 };
+    assert_eq!(*world.get::<Position>(e1).unwrap(), Position { x: 2, y: 3 });
+
+    {
+        let _p1 = world.get::<Position>(e1);
+        let _p2 = world.get::<Position>(e1);
+    }
+}
+
+#[test]
+#[should_panic]
+fn invalid_get() {
+    let mut world = World::new();
+    world.register::<Position>();
+
+    let e1 = world.create();
+    world.add::<Position>(e1, Position { x: 1, y: 2 });
+
+    let _p1 = world.get::<Position>(e1);
+    let _p2 = world.get_mut::<Position>(e1);
 }
 
 #[test]
@@ -142,7 +174,7 @@ fn duplicated_add() {
     assert!(world.add::<Position>(e1, Position { x: 1, y: 2 }) == None);
     assert!(world.add::<Position>(e1, Position { x: 2, y: 4 }) == Some(Position { x: 1, y: 2 }));
 
-    assert!(world.get::<Position>(e1).unwrap() == Position { x: 2, y: 4 })
+    assert!(*world.get::<Position>(e1).unwrap() == Position { x: 2, y: 4 })
 }
 
 #[test]
@@ -182,7 +214,7 @@ fn random_allocate() {
 
     for i in v {
         assert_eq!(
-            world.get::<Position>(i).unwrap(),
+            *world.get::<Position>(i).unwrap(),
             Position {
                 x: i.index(),
                 y: i.version(),

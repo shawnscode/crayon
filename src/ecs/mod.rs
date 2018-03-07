@@ -66,6 +66,6 @@ pub type Entity = ::utils::handle::Handle;
 pub mod prelude {
     pub use super::Entity;
     pub use super::component::{Component, HashMapArena, VecArena};
-    pub use super::world::{Arena, ArenaMut, Fetch, FetchMut, View, World};
+    pub use super::world::{Arena, ArenaMut, EntityBuilder, Fetch, FetchMut, View, World};
     pub use super::system::{validate, System};
 }
