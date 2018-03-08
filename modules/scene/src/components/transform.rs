@@ -3,7 +3,7 @@ use crayon::math;
 use crayon::math::Transform as _Transform;
 use crayon::math::{EuclideanSpace, Matrix, One, Rotation};
 
-use node::Node;
+use components::node::Node;
 use errors::*;
 
 /// `Transform` is used to store and manipulate the postiion, rotation and scale

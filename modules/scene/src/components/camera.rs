@@ -2,6 +2,8 @@
 
 use crayon::math;
 use crayon::math::{Angle, Zero};
+use crayon::ecs::prelude::*;
+use crayon::graphics::assets::surface::SurfaceHandle;
 
 /// The projection funcs used when take primitives into camera.
 #[derive(Debug, Clone, Copy)]
@@ -19,6 +21,11 @@ pub struct Camera {
     aspect: f32,
     clip: math::Vector2<f32>,
     projection: Projection,
+    surface: Option<SurfaceHandle>,
+}
+
+impl Component for Camera {
+    type Arena = HashMapArena<Camera>;
 }
 
 impl Default for Camera {
@@ -27,6 +34,7 @@ impl Default for Camera {
             aspect: 1.0,
             clip: math::Vector2::new(0.1, 1000.0),
             projection: Projection::Perspective(math::Deg(60.0).into()),
+            surface: None,
         }
     }
 }
@@ -38,6 +46,7 @@ impl Camera {
             aspect: width / height,
             clip: math::Vector2::new(near, far),
             projection: Projection::Ortho(height * 0.5),
+            surface: None,
         };
 
         camera.validate();
@@ -53,10 +62,22 @@ impl Camera {
             aspect: aspect,
             clip: math::Vector2::new(near, far),
             projection: Projection::Perspective(fovy.into()),
+            surface: None,
         };
 
         camera.validate();
         camera
+    }
+
+    pub fn set_surface<T>(&mut self, surface: T)
+    where
+        T: Into<Option<SurfaceHandle>>,
+    {
+        self.surface = surface.into();
+    }
+
+    pub fn surface(&self) -> Option<SurfaceHandle> {
+        self.surface
     }
 
     /// Gets the aspect ratio (width divided by height).

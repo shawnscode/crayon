@@ -1,3 +1,4 @@
+use crayon::ecs::prelude::*;
 use crayon::utils::Color;
 
 #[derive(Debug, Clone, Copy)]
@@ -11,12 +12,16 @@ pub struct Light {
     /// Brightness of the light source, in lumens.
     pub intensity: f32,
     /// Light source
-    pub source: LitSrc,
+    pub source: LitSource,
+}
+
+impl Component for Light {
+    type Arena = HashMapArena<Light>;
 }
 
 /// Enumeration for all light sources.
 #[derive(Debug, Clone, Copy)]
-pub enum LitSrc {
+pub enum LitSource {
     /// A direcitonal light.
     Dir,
     /// A point light.
@@ -35,7 +40,7 @@ impl Default for Light {
             shadow_caster: false,
             color: Color::white(),
             intensity: 1.0,
-            source: LitSrc::Dir,
+            source: LitSource::Dir,
         }
     }
 }

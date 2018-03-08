@@ -1,19 +1,21 @@
 #version 100
-#define MAX_POINT_LIGHTS 4
-
 precision lowp float;
 
-varying vec3 v_ShadowFragPos;
+#define MAX_POINT_LIGHTS 4
+#define MAX_DIR_LIGHTS 1
+
+varying vec3 v_DirLitShadowPos[MAX_DIR_LIGHTS];
 varying vec3 v_EyeFragPos;
 varying vec3 v_EyeNormal;
 varying vec4 v_Color;
 
-uniform sampler2D scn_ShadowTexture;
-uniform vec3 scn_DirLightViewDir;
-uniform vec3 scn_DirLightColor;
-uniform vec3 scn_PointLightViewPos[MAX_POINT_LIGHTS];
-uniform vec3 scn_PointLightColor[MAX_POINT_LIGHTS];
-uniform vec3 scn_PointLightAttenuation[MAX_POINT_LIGHTS];
+uniform vec3 scn_DirLitViewDir[MAX_DIR_LIGHTS];
+uniform vec3 scn_DirLitColor[MAX_DIR_LIGHTS];
+uniform sampler2D scn_DirLitShadowTexture[MAX_DIR_LIGHTS];
+
+uniform vec3 scn_PointLitViewPos[MAX_POINT_LIGHTS];
+uniform vec3 scn_PointLitColor[MAX_POINT_LIGHTS];
+uniform vec3 scn_PointLitAttenuation[MAX_POINT_LIGHTS];
 
 // Phong materials
 uniform vec3 u_Ambient;
@@ -29,39 +31,42 @@ vec3 CalculateLight(vec3 normal, vec3 viewDir, vec3 lightDir, vec3 reflectDir, f
     return 0.2 * ambient + (1.0 - shadow) * (0.5 * diffuse + specular);
 }
 
-float CalculateShadow(vec3 shadowPos, float bias)
+float CalculateShadow(sampler2D shadowTexture, vec3 shadowPos, float bias)
 {
     // transform to [0,1] range.
     shadowPos = shadowPos * 0.5 + 0.5;
-    float closestDepth = texture2D(scn_ShadowTexture, shadowPos.xy).r;
-    float shadow = (shadowPos.z - bias) > closestDepth ? 0.5 : 0.0;
-    return shadow;
+    float closestDepth = texture2D(shadowTexture, shadowPos.xy).r;
+    return (shadowPos.z - bias) > closestDepth ? 0.5 : 0.0;
 }
 
 void main()
 {
     vec3 normal = normalize(v_EyeNormal);
     vec3 viewDir = normalize(v_EyeFragPos);
+    vec3 result = vec3(0.0, 0.0, 0.0);
 
     // directional light
-    float bias = max(0.005 * (1.0 - dot(normal, scn_DirLightViewDir)), 0.0005);  
-    float shadow = CalculateShadow(v_ShadowFragPos, bias);
+    for(int i = 0; i < MAX_DIR_LIGHTS; i++)
+    {
+        float bias = max(0.005 * (1.0 - dot(normal, scn_DirLitViewDir[i])), 0.0005);
+        float shadow = CalculateShadow(scn_DirLitShadowTexture[i], v_DirLitShadowPos[i], bias);
 
-    vec3 reflectDir = reflect(-scn_DirLightViewDir, normal);
-    vec3 result = CalculateLight(normal, viewDir, scn_DirLightViewDir, reflectDir, shadow) * scn_DirLightColor;
+        vec3 reflectDir = reflect(-scn_DirLitViewDir[i], normal);
+        result += CalculateLight(normal, viewDir, scn_DirLitViewDir[i], reflectDir, shadow) * scn_DirLitColor[i];
+    }
 
     // point lights
     for(int i = 0; i < MAX_POINT_LIGHTS; i++)
     {
-        vec3 lightDir2 = normalize(v_EyeFragPos - scn_PointLightViewPos[i]);
+        vec3 lightDir2 = normalize(v_EyeFragPos - scn_PointLitViewPos[i]);
         vec3 reflectDir2 = reflect(-lightDir2, normal);
-        float distance = length(scn_PointLightViewPos[i] - v_EyeFragPos);
+        float distance = length(scn_PointLitViewPos[i] - v_EyeFragPos);
         float attenuation =
-            scn_PointLightAttenuation[i].x +
-            scn_PointLightAttenuation[i].y * distance +
-            scn_PointLightAttenuation[i].z * (distance * distance);
+            scn_PointLitAttenuation[i].x +
+            scn_PointLitAttenuation[i].y * distance +
+            scn_PointLitAttenuation[i].z * (distance * distance);
 
-        vec3 power = CalculateLight(normal, viewDir, lightDir2, reflectDir2, 0.0) * scn_PointLightColor[i];
+        vec3 power = CalculateLight(normal, viewDir, lightDir2, reflectDir2, 0.0) * scn_PointLitColor[i];
         result += max(power * attenuation, vec3(0.0, 0.0, 0.0));
     }
 

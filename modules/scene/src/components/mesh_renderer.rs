@@ -1,4 +1,5 @@
 use crayon::graphics::prelude::*;
+use crayon::ecs::prelude::*;
 use assets::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -13,4 +14,8 @@ pub struct MeshRenderer {
     pub shadow_receiver: bool,
     /// Is this renderer visible.
     pub visible: bool,
+}
+
+impl Component for MeshRenderer {
+    type Arena = HashMapArena<MeshRenderer>;
 }

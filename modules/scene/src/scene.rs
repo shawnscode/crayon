@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use crayon::application::Context;
 use crayon::ecs::prelude::*;
 use crayon::graphics::prelude::*;
@@ -5,14 +7,11 @@ use crayon::graphics::assets::prelude::*;
 use crayon::resource::utils::prelude::*;
 use crayon::utils::HashValue;
 
-use node::Node;
-use transform::Transform;
-use element::Element;
-use renderer::Renderer;
-
+use components::prelude::*;
 use assets::prelude::*;
 use assets::material::MaterialParams;
 use assets::pipeline::PipelineParams;
+use graphics::renderer::Renderer;
 use errors::*;
 
 /// `Scene`s contain the environments of your game. Its relative easy to think of each
@@ -36,10 +35,10 @@ use errors::*;
 /// scene, a list of drawcalls will be generated and submitted to `GraphicsSystem`.
 ///
 /// ```rust,ignore
-/// let _mesh_node = scene.create_node(MeshRenderer { ... });
-/// let _lit_node = scene.create_node(Lit { ... });
+/// let _mesh_node = scene.build(MeshRenderer { ... });
+/// let _lit_node = scene.build(Lit { ... });
 /// let camera = Camera::perspective(math::Deg(60.0), 6.4 / 4.8, 0.1, 1000.0);
-/// let camera_node = scene.create_node(camera);
+/// let camera_node = scene.build(camera);
 /// self.scene.render(surface, camera_node)?;
 /// ```
 ///
@@ -62,7 +61,9 @@ impl Scene {
         let mut world = World::new();
         world.register::<Node>();
         world.register::<Transform>();
-        world.register::<Element>();
+        world.register::<Camera>();
+        world.register::<Light>();
+        world.register::<MeshRenderer>();
 
         let scene = Scene {
             world: world,
@@ -110,36 +111,35 @@ impl Scene {
         self.world.arena_mut::<T>()
     }
 
-    /// Creates a `Element`.
-    pub fn create_node<T1>(&mut self, node: T1) -> Entity
-    where
-        T1: Into<Element>,
-    {
+    /// Build a new `Entity` in this scene.
+    pub fn build(&mut self) -> EntityBuilder {
         self.world
             .build()
             .with_default::<Node>()
             .with_default::<Transform>()
-            .with(node.into())
-            .finish()
     }
 
-    /// Updates a `Element`.
-    pub fn update_node<T1>(&mut self, handle: Entity, node: T1) -> Result<()>
-    where
-        T1: Into<Element>,
-    {
-        if !self.world.is_alive(handle) {
-            return Err(Error::NonNodeFound);
-        }
+    pub fn create(&mut self) -> Entity {
+        self.build().finish()
+    }
 
-        unsafe {
-            *self.world.arena_mut::<Element>().get_unchecked_mut(handle) = node.into();
-            Ok(())
+    pub fn update<O, T>(&mut self, handle: Entity, value: O) -> Option<T>
+    where
+        O: Into<Option<T>>,
+        T: Component,
+    {
+        let id = TypeId::of::<T>();
+        assert!(id != TypeId::of::<Node>() && id != TypeId::of::<Transform>());
+
+        if let Some(value) = value.into() {
+            self.world.add(handle, value)
+        } else {
+            self.world.remove::<T>(handle)
         }
     }
 
     /// Deletes a node and its descendants from the `Scene`.
-    pub fn delete_node(&mut self, handle: Entity) -> Result<()> {
+    pub fn delete(&mut self, handle: Entity) -> Result<()> {
         let descendants: Vec<_> = Node::descendants(&self.arena::<Node>(), handle).collect();
         for v in descendants {
             self.world.free(v);
@@ -211,24 +211,29 @@ impl Scene {
         self.materials.dec_rc(handle);
     }
 
+    /// Advance to next frame.
     pub fn advance(&mut self, camera: Entity) -> Result<()> {
-        self.renderer.advance(&self.world, camera)
+        self.renderer.advance(&self.world, camera)?;
+        Ok(())
     }
 
     /// Draws the underlaying depth buffer of shadow mapping pass. This is used for
     /// debugging.
-    pub fn draw_shadow(&mut self, surface: SurfaceHandle) -> Result<()> {
-        self.renderer.draw_shadow(surface)
+    pub fn draw_shadow<T>(&mut self, surface: T) -> Result<()>
+    where
+        T: Into<Option<SurfaceHandle>>,
+    {
+        self.renderer.draw_shadow(surface.into())
     }
 
     /// Renders objects into `Surface` from `Camera`.
-    pub fn draw(&mut self, surface: SurfaceHandle, camera: Entity) -> Result<()> {
+    pub fn draw(&mut self, camera: Entity) -> Result<()> {
         if self.fallback.is_none() {
             let undefined = factory::pipeline::undefined(self)?;
             self.fallback = Some(self.create_material(MaterialSetup::new(undefined))?);
         }
 
-        self.renderer.draw(self, surface, camera)?;
+        self.renderer.draw(self, camera)?;
         Ok(())
     }
 }

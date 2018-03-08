@@ -132,46 +132,57 @@ impl_pipeline_uniforms!(
         ModelViewMatrix => [Matrix4f, "scn_ModelViewMatrix"],
         ModelViewProjectionMatrix => [Matrix4f, "scn_MVPMatrix"],
         ViewNormalMatrix => [Matrix4f, "scn_ViewNormalMatrix"],
-        ShadowCasterSpaceMatrix => [Matrix4f, "scn_ShadowCasterSpaceMatrix"],
-        ShadowTexture => [RenderTexture, "scn_ShadowTexture"],
-        DirLightViewDir => [Vector3f, "scn_DirLightViewDir"],
-        DirLightColor => [Vector3f, "scn_DirLightColor"],
-        PointLightViewPos0 => [Vector3f, "scn_PointLightViewPos[0]"],
-        PointLightViewPos1 => [Vector3f, "scn_PointLightViewPos[1]"],
-        PointLightViewPos2 => [Vector3f, "scn_PointLightViewPos[2]"],
-        PointLightViewPos3 => [Vector3f, "scn_PointLightViewPos[3]"],
-        PointLightAttenuation0 => [Vector3f, "scn_PointLightAttenuation[0]"],
-        PointLightAttenuation1 => [Vector3f, "scn_PointLightAttenuation[1]"],
-        PointLightAttenuation2 => [Vector3f, "scn_PointLightAttenuation[2]"],
-        PointLightAttenuation3 => [Vector3f, "scn_PointLightAttenuation[3]"],
-        PointLightColor0 => [Vector3f, "scn_PointLightColor[0]"],
-        PointLightColor1 => [Vector3f, "scn_PointLightColor[1]"],
-        PointLightColor2 => [Vector3f, "scn_PointLightColor[2]"],
-        PointLightColor3 => [Vector3f, "scn_PointLightColor[3]"],
+
+        DirLitViewDir0 => [Vector3f, "scn_DirLitViewDir[0]"],
+        DirLitColor0 => [Vector3f, "scn_DirLitColor[0]"],
+        DirLitShadowSpaceMatrix0 => [Matrix4f, "scn_DirLitShadowSpaceMatrix[0]"],
+        DirLitShadowTexture0 => [RenderTexture, "scn_DirLitShadowTexture[0]"],
+
+        PointLitViewPos0 => [Vector3f, "scn_PointLitViewPos[0]"],
+        PointLitViewPos1 => [Vector3f, "scn_PointLitViewPos[1]"],
+        PointLitViewPos2 => [Vector3f, "scn_PointLitViewPos[2]"],
+        PointLitViewPos3 => [Vector3f, "scn_PointLitViewPos[3]"],
+        PointLitAttenuation0 => [Vector3f, "scn_PointLitAttenuation[0]"],
+        PointLitAttenuation1 => [Vector3f, "scn_PointLitAttenuation[1]"],
+        PointLitAttenuation2 => [Vector3f, "scn_PointLitAttenuation[2]"],
+        PointLitAttenuation3 => [Vector3f, "scn_PointLitAttenuation[3]"],
+        PointLitColor0 => [Vector3f, "scn_PointLitColor[0]"],
+        PointLitColor1 => [Vector3f, "scn_PointLitColor[1]"],
+        PointLitColor2 => [Vector3f, "scn_PointLitColor[2]"],
+        PointLitColor3 => [Vector3f, "scn_PointLitColor[3]"],
     }
 );
 
 impl PipelineUniformVariable {
     pub const POINT_LIT_UNIFORMS: [[PipelineUniformVariable; 3]; 4] = [
         [
-            PipelineUniformVariable::PointLightViewPos0,
-            PipelineUniformVariable::PointLightColor0,
-            PipelineUniformVariable::PointLightAttenuation0,
+            PipelineUniformVariable::PointLitViewPos0,
+            PipelineUniformVariable::PointLitColor0,
+            PipelineUniformVariable::PointLitAttenuation0,
         ],
         [
-            PipelineUniformVariable::PointLightViewPos1,
-            PipelineUniformVariable::PointLightColor1,
-            PipelineUniformVariable::PointLightAttenuation1,
+            PipelineUniformVariable::PointLitViewPos1,
+            PipelineUniformVariable::PointLitColor1,
+            PipelineUniformVariable::PointLitAttenuation1,
         ],
         [
-            PipelineUniformVariable::PointLightViewPos2,
-            PipelineUniformVariable::PointLightColor2,
-            PipelineUniformVariable::PointLightAttenuation2,
+            PipelineUniformVariable::PointLitViewPos2,
+            PipelineUniformVariable::PointLitColor2,
+            PipelineUniformVariable::PointLitAttenuation2,
         ],
         [
-            PipelineUniformVariable::PointLightViewPos3,
-            PipelineUniformVariable::PointLightColor3,
-            PipelineUniformVariable::PointLightAttenuation3,
+            PipelineUniformVariable::PointLitViewPos3,
+            PipelineUniformVariable::PointLitColor3,
+            PipelineUniformVariable::PointLitAttenuation3,
+        ],
+    ];
+
+    pub const DIR_LIT_UNIFORMS: [[PipelineUniformVariable; 4]; 1] = [
+        [
+            PipelineUniformVariable::DirLitViewDir0,
+            PipelineUniformVariable::DirLitColor0,
+            PipelineUniformVariable::DirLitShadowTexture0,
+            PipelineUniformVariable::DirLitShadowSpaceMatrix0,
         ],
     ];
 }

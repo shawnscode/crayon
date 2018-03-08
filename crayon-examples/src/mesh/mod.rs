@@ -8,7 +8,6 @@ use utils::*;
 use errors::*;
 
 struct Window {
-    surface: SurfaceHandle,
     scene: Scene,
     console: ConsoleCanvas,
 
@@ -32,16 +31,12 @@ impl Window {
         let ctx = engine.context();
         let video = ctx.shared::<GraphicsSystem>().clone();
 
-        // Create the view state.
-        let setup = SurfaceSetup::default();
-        let surface = video.create_surface(setup)?;
-
         // Create scene.
         let mut scene = Scene::new(ctx)?;
 
         let camera = {
             let c = Camera::perspective(math::Deg(60.0), 6.4 / 4.8, 0.1, 1000.0);
-            scene.create_node(c)
+            scene.build().with(c).finish()
         };
 
         let (room, mat_block) = Window::create_room(&mut scene, &video)?;
@@ -50,7 +45,7 @@ impl Window {
         let light = {
             let mut dir = Light::default();
             dir.shadow_caster = true;
-            scene.create_node(dir)
+            scene.build().with(dir).finish()
         };
 
         {
@@ -67,8 +62,7 @@ impl Window {
         }
 
         Ok(Window {
-            console: ConsoleCanvas::new(1, ctx)?,
-            surface: surface,
+            console: ConsoleCanvas::new(DrawOrder::Max as u64, ctx)?,
             scene: scene,
             camera: camera,
             room: room,
@@ -95,30 +89,36 @@ impl Window {
         ];
 
         for i in 0..4 {
-            let node = scene.create_node(());
+            let node = scene.build().finish();
 
-            let lit = scene.create_node(Light {
-                enable: true,
-                color: colors[i],
-                intensity: 1.0,
-                shadow_caster: false,
-                source: LitSrc::Point {
-                    radius: 1.0,
-                    smoothness: 0.001,
-                },
-            });
+            let lit = scene
+                .build()
+                .with(Light {
+                    enable: true,
+                    color: colors[i],
+                    intensity: 1.0,
+                    shadow_caster: false,
+                    source: LitSource::Point {
+                        radius: 1.0,
+                        smoothness: 0.001,
+                    },
+                })
+                .finish();
 
             let color: [f32; 4] = colors[i].into();
             let mat = scene.create_material(MaterialSetup::new(shader))?;
             scene.update_material(mat, "u_Color", color)?;
 
-            let cube = scene.create_node(MeshRenderer {
-                mesh: mesh,
-                materials: vec![mat],
-                shadow_caster: true,
-                shadow_receiver: true,
-                visible: true,
-            });
+            let cube = scene
+                .build()
+                .with(MeshRenderer {
+                    mesh: mesh,
+                    materials: vec![mat],
+                    shadow_caster: true,
+                    shadow_receiver: true,
+                    visible: true,
+                })
+                .finish();
 
             unsafe {
                 let mut tree = scene.arena_mut::<Node>();
@@ -157,15 +157,19 @@ impl Window {
         scene.update_material(mat_block, "u_Specular", [1.0, 1.0, 1.0])?;
         scene.update_material(mat_block, "u_Shininess", 0.5)?;
 
-        let room = scene.create_node(MeshRenderer {
-            mesh: mesh,
-            materials: vec![
-                mat_wall, mat_wall, mat_wall, mat_wall, mat_wall, mat_block, mat_block, mat_wall
-            ],
-            shadow_caster: true,
-            shadow_receiver: true,
-            visible: true,
-        });
+        let room = scene
+            .build()
+            .with(MeshRenderer {
+                mesh: mesh,
+                materials: vec![
+                    mat_wall, mat_wall, mat_wall, mat_wall, mat_wall, mat_block, mat_block,
+                    mat_wall,
+                ],
+                shadow_caster: true,
+                shadow_receiver: true,
+                visible: true,
+            })
+            .finish();
 
         Ok((room, mat_block))
     }
@@ -238,9 +242,9 @@ impl Application for Window {
         self.scene.advance(self.camera)?;
 
         if !self.draw_shadow {
-            self.scene.draw(self.surface, self.camera)?;
+            self.scene.draw(self.camera)?;
         } else {
-            self.scene.draw_shadow(self.surface)?;
+            self.scene.draw_shadow(None)?;
         }
         Ok(())
     }
