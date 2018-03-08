@@ -1,11 +1,11 @@
 #[macro_use]
 extern crate approx;
 extern crate crayon;
-extern crate crayon_scene;
+extern crate crayon_3d;
 
 use crayon::prelude::*;
 use crayon::ecs::prelude::*;
-use crayon_scene::prelude::*;
+use crayon_3d::prelude::*;
 
 pub fn build(world: &mut World) -> Entity {
     world

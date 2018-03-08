@@ -1,9 +1,9 @@
 extern crate crayon;
-extern crate crayon_scene;
+extern crate crayon_3d;
 extern crate rand;
 
 use crayon::ecs::prelude::*;
-use crayon_scene::prelude::*;
+use crayon_3d::prelude::*;
 
 use rand::{Rng, SeedableRng, XorShiftRng};
 

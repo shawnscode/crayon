@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate crayon;
+extern crate crayon_3d;
 extern crate crayon_imgui;
-extern crate crayon_scene;
 
 #[macro_use]
 extern crate failure;
