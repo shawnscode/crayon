@@ -214,12 +214,16 @@ impl<'a, 'b> System<'a> for TaskDraw<'b> {
                                 // The color of directional light.
                                 Self::bind(&mut dc, pipeline, uniforms[1], color);
 
-                                if let Some((rt, shadow)) = self.renderer.shadow.shadow(l.handle) {
-                                    // Shadow depth texture.
-                                    Self::bind(&mut dc, pipeline, uniforms[2], rt);
-                                    // Shadow space matrix.
-                                    let ssm = shadow.shadow_space_matrix;
-                                    Self::bind(&mut dc, pipeline, uniforms[3], ssm);
+                                if let Some(shadow) = l.shadow {
+                                    if let Some(rt) =
+                                        self.renderer.shadow.depth_render_texture(l.handle)
+                                    {
+                                        // Shadow depth texture.
+                                        Self::bind(&mut dc, pipeline, uniforms[2], rt);
+                                        // Shadow space matrix.
+                                        let ssm = shadow.shadow_space_matrix * m;
+                                        Self::bind(&mut dc, pipeline, uniforms[3], ssm);
+                                    }
                                 }
 
                                 dir_index += 1;

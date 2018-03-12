@@ -35,7 +35,7 @@ impl Default for Node {
 }
 
 impl Node {
-    /// Returns the parent widget.
+    /// Returns the parent node.
     #[inline]
     pub fn parent(&self) -> Option<Entity> {
         self.parent

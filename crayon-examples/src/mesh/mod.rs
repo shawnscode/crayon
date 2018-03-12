@@ -35,31 +35,25 @@ impl Window {
         let mut scene = Scene::new(ctx)?;
 
         let camera = {
-            let c = Camera::perspective(math::Deg(60.0), 6.4 / 4.8, 0.1, 1000.0);
-            scene.build().with(c).finish()
+            let camera = scene.create();
+            let mut ent = scene.get_mut(camera).unwrap();
+            ent.add(Camera::perspective(math::Deg(60.0), 6.4 / 4.8, 0.1, 1000.0));
+            ent.set_world_position([0.0, 1.0, -3.0])?;
+            camera
         };
 
         let (room, mat_block) = Window::create_room(&mut scene, &video)?;
         Window::create_lits(&mut scene, &video)?;
 
-        let light = {
+        let lit = scene.create();
+        {
+            let mut ent = scene.get_mut(lit).unwrap();
             let mut dir = Light::default();
             dir.shadow_caster = true;
-            scene.build().with(dir).finish()
+            ent.add(dir);
+            ent.set_world_position([1.0, 1.0, 0.0])?;
+            ent.look_at([0.0, 0.0, 0.0], [0.0, 1.0, 0.0])?;
         };
-
-        {
-            let tree = scene.arena::<Node>();
-            let mut transforms = scene.arena_mut::<Transform>();
-
-            let zero = [0.0, 0.0, 0.0];
-            let up = [0.0, 1.0, 0.0];
-            Transform::set_world_position(&tree, &mut transforms, camera, [0.0, 1.0, -3.0])?;
-            // Transform::look_at(&tree, &mut transforms, camera, zero, up)?;
-
-            Transform::set_world_position(&tree, &mut transforms, light, [2.0, 2.0, -2.0])?;
-            Transform::look_at(&tree, &mut transforms, light, zero, up)?;
-        }
 
         Ok(Window {
             console: ConsoleCanvas::new(DrawOrder::Max as u64, ctx)?,
@@ -89,11 +83,12 @@ impl Window {
         ];
 
         for i in 0..4 {
-            let node = scene.build().finish();
+            let node = scene.create();
+            let lit = scene.create();
 
-            let lit = scene
-                .build()
-                .with(Light {
+            {
+                let mut ent = scene.get_mut(lit).unwrap();
+                ent.add(Light {
                     enable: true,
                     color: colors[i],
                     intensity: 1.0,
@@ -102,31 +97,29 @@ impl Window {
                         radius: 1.0,
                         smoothness: 0.001,
                     },
-                })
-                .finish();
+                });
+
+                ent.set_parent(node)?;
+                ent.set_position(positions[i]);
+            }
 
             let color: [f32; 4] = colors[i].into();
             let mat = scene.create_material(MaterialSetup::new(shader))?;
             scene.update_material(mat, "u_Color", color)?;
 
-            let cube = scene
-                .build()
-                .with(MeshRenderer {
+            let cube = scene.create();
+            {
+                let mut ent = scene.get_mut(cube).unwrap();
+                ent.add(MeshRenderer {
                     mesh: mesh,
                     materials: vec![mat],
                     shadow_caster: true,
                     shadow_receiver: true,
                     visible: true,
-                })
-                .finish();
+                });
 
-            unsafe {
-                let mut tree = scene.arena_mut::<Node>();
-                let mut transforms = scene.arena_mut::<Transform>();
-                Node::set_parent(&mut tree, lit, node)?;
-                Node::set_parent(&mut tree, cube, lit)?;
-                transforms.get_unchecked_mut(cube).set_scale(0.1);
-                transforms.get_unchecked_mut(lit).set_position(positions[i]);
+                ent.set_parent(lit)?;
+                ent.set_scale(0.1);
             }
 
             lits[i] = node;
@@ -157,9 +150,11 @@ impl Window {
         scene.update_material(mat_block, "u_Specular", [1.0, 1.0, 1.0])?;
         scene.update_material(mat_block, "u_Shininess", 0.5)?;
 
-        let room = scene
-            .build()
-            .with(MeshRenderer {
+        let room = scene.create();
+
+        {
+            let mut ent = scene.get_mut(room).unwrap();
+            ent.add(MeshRenderer {
                 mesh: mesh,
                 materials: vec![
                     mat_wall, mat_wall, mat_wall, mat_wall, mat_wall, mat_block, mat_block,
@@ -168,8 +163,8 @@ impl Window {
                 shadow_caster: true,
                 shadow_receiver: true,
                 visible: true,
-            })
-            .finish();
+            });
+        }
 
         Ok((room, mat_block))
     }
@@ -217,6 +212,7 @@ impl Application for Window {
 
         if !capture {
             let input = ctx.shared::<InputSystem>();
+
             if let GesturePan::Move { movement, .. } = input.finger_pan() {
                 self.rotation.y -= movement.y;
                 self.rotation.x -= movement.x;
@@ -225,10 +221,9 @@ impl Application for Window {
                     math::Deg(self.rotation.x),
                     math::Deg(self.rotation.z),
                 );
-                unsafe {
-                    let mut transforms = self.scene.arena_mut::<Transform>();
-                    transforms.get_unchecked_mut(self.room).set_rotation(euler);
-                }
+
+                let mut ent = self.scene.get_mut(self.room).unwrap();
+                ent.set_rotation(euler);
             }
         }
 

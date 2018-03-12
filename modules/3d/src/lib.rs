@@ -7,6 +7,7 @@ pub mod errors;
 pub mod components;
 pub mod graphics;
 pub mod scene;
+pub mod ent;
 pub mod assets;
 
 pub mod prelude {

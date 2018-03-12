@@ -228,10 +228,10 @@ impl Transform {
     }
 
     /// Get the scale of `Transform` in world space.
-    pub fn world_scale<T1, T2>(tree: &T1, arena: &mut T2, handle: Entity) -> Result<f32>
+    pub fn world_scale<T1, T2>(tree: &T1, arena: &T2, handle: Entity) -> Result<f32>
     where
         T1: Arena<Node>,
-        T2: ArenaMut<Transform>,
+        T2: Arena<Transform>,
     {
         if let Some(transform) = arena.get(handle) {
             let mut scale = transform.scale();
@@ -321,7 +321,7 @@ impl Transform {
     {
         let eye = math::Point3::from_vec(Transform::world_position(tree, arena, handle)?);
         let center = math::Point3::from_vec(dst.into());
-        let rotation = math::Quaternion::look_at(center - eye, -up.into());
+        let rotation = math::Quaternion::look_at(center - eye, up.into());
         Transform::set_world_rotation(tree, arena, handle, rotation)
     }
 

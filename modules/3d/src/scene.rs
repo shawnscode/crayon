@@ -1,5 +1,3 @@
-use std::any::TypeId;
-
 use crayon::application::Context;
 use crayon::ecs::prelude::*;
 use crayon::graphics::prelude::*;
@@ -12,6 +10,7 @@ use assets::prelude::*;
 use assets::material::MaterialParams;
 use assets::pipeline::PipelineParams;
 use graphics::renderer::Renderer;
+use ent::EntMut;
 use errors::*;
 
 /// `Scene`s contain the environments of your game. Its relative easy to think of each
@@ -79,73 +78,32 @@ impl Scene {
         Ok(scene)
     }
 
-    /// Immutably borrows the arena of component. The borrow lasts until the returned
-    /// `Fetch` exits scope. Multiple immutable borrows can be taken out at the same
-    /// time.
-    ///
-    /// # Panics
-    ///
-    /// - Panics if user has not register the arena with type `T`.
-    /// - Panics if the value is currently mutably borrowed.
-    #[inline]
-    pub fn arena<T>(&self) -> Fetch<T>
-    where
-        T: Component,
-    {
-        self.world.arena::<T>()
-    }
-
-    /// Mutably borrows the wrapped arena. The borrow lasts until the returned
-    /// `FetchMut` exits scope. The value cannot be borrowed while this borrow
-    /// is active.
-    ///
-    /// # Panics
-    ///
-    /// - Panics if user has not register the arena with type `T`.
-    /// - Panics if the value is currently borrowed.
-    #[inline]
-    pub fn arena_mut<T>(&self) -> FetchMut<T>
-    where
-        T: Component,
-    {
-        self.world.arena_mut::<T>()
-    }
-
     /// Build a new `Entity` in this scene.
-    pub fn build(&mut self) -> EntityBuilder {
+    pub fn create(&mut self) -> Entity {
         self.world
             .build()
             .with_default::<Node>()
             .with_default::<Transform>()
+            .finish()
     }
 
-    pub fn create(&mut self) -> Entity {
-        self.build().finish()
-    }
-
-    pub fn update<O, T>(&mut self, handle: Entity, value: O) -> Option<T>
-    where
-        O: Into<Option<T>>,
-        T: Component,
-    {
-        let id = TypeId::of::<T>();
-        assert!(id != TypeId::of::<Node>() && id != TypeId::of::<Transform>());
-
-        if let Some(value) = value.into() {
-            self.world.add(handle, value)
+    /// Gets the reference to entity mutablely.
+    pub fn get_mut(&mut self, handle: Entity) -> Option<EntMut> {
+        if self.world.is_alive(handle) {
+            Some(EntMut::new(&mut self.world, handle))
         } else {
-            self.world.remove::<T>(handle)
+            None
         }
     }
 
     /// Deletes a node and its descendants from the `Scene`.
     pub fn delete(&mut self, handle: Entity) -> Result<()> {
-        let descendants: Vec<_> = Node::descendants(&self.arena::<Node>(), handle).collect();
+        let descendants: Vec<_> = Node::descendants(&self.world.arena::<Node>(), handle).collect();
         for v in descendants {
             self.world.free(v);
         }
 
-        Node::remove_from_parent(&mut self.arena_mut::<Node>(), handle)?;
+        Node::remove_from_parent(&mut self.world.arena_mut::<Node>(), handle)?;
         self.world.free(handle);
 
         Ok(())

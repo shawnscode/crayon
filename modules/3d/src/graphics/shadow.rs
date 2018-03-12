@@ -100,9 +100,9 @@ impl RenderShadow {
     }
 
     /// Gets the handle of depth buffer.
-    pub fn shadow(&self, caster: Entity) -> Option<(RenderTextureHandle, RenderShadowCaster)> {
-        if let Some(&(ss, rsc)) = self.shadow_casters.get(&caster) {
-            Some((ss.render_texture, rsc))
+    pub fn depth_render_texture(&self, caster: Entity) -> Option<RenderTextureHandle> {
+        if let Some(&(ss, _)) = self.shadow_casters.get(&caster) {
+            Some(ss.render_texture)
         } else {
             None
         }
@@ -110,7 +110,7 @@ impl RenderShadow {
 
     /// Draw the underlying depth buffer into the `surface`.
     pub fn draw(&self, caster: Entity, surface: SurfaceHandle) -> Result<()> {
-        if let Some((render_texture, _)) = self.shadow(caster) {
+        if let Some(render_texture) = self.depth_render_texture(caster) {
             let mesh = factory::mesh::quad(&self.video)?;
 
             let mut dc = DrawCall::new(self.draw_shader, mesh);
@@ -130,7 +130,7 @@ impl RenderShadow {
         let mut setup = RenderTextureSetup::default();
         setup.format = RenderTextureFormat::Depth16;
         // FIXME: The dimensions of shadow texture should be configuratable.
-        setup.dimensions = (640, 480);
+        setup.dimensions = (512, 512);
         let render_texture = self.video.create_render_texture(setup)?;
 
         let mut setup = SurfaceSetup::default();
