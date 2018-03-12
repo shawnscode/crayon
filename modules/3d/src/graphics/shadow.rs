@@ -158,7 +158,7 @@ impl<'a, 'b> System<'a> for GenerateRenderShadow<'b> {
     );
     type Result = Result<()>;
 
-    fn run(&self, view: View, data: Self::ViewWith) -> Self::Result {
+    fn run(&mut self, view: View, data: Self::ViewWith) -> Self::Result {
         unsafe {
             for handle in view {
                 let mesh = data.2.get_unchecked(handle);

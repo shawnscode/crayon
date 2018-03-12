@@ -84,13 +84,12 @@ impl<'a> EntMut<'a> {
     /// Panics if the arena is currently mutably borrowed.
     /// Panics if trying to get `Node` component or `Transform` component mutablely.
     #[inline]
-    pub fn component_mut<T>(&self) -> Option<RefMut<T>>
+    pub fn component_mut<T>(&mut self) -> Option<RefMut<T>>
     where
         T: Component,
     {
         let id = TypeId::of::<T>();
         assert!(id != TypeId::of::<Node>() && id != TypeId::of::<Transform>());
-
         self.world.get_mut(self.handle)
     }
 }
@@ -186,8 +185,7 @@ impl<'a> EntMut<'a> {
     /// Gets the scale component in world space.
     #[inline]
     pub fn world_scale(&self) -> Result<f32> {
-        let nodes = self.world.arena();
-        let transforms = self.world.arena();
+        let (nodes, transforms) = self.world.arena_r2();
         Transform::world_scale(&nodes, &transforms, self.handle)
     }
 
@@ -203,8 +201,7 @@ impl<'a> EntMut<'a> {
     /// Sets the scale component in world space.
     #[inline]
     pub fn set_world_scale(&mut self, scale: f32) -> Result<()> {
-        let nodes = self.world.arena();
-        let mut transforms = self.world.arena_mut();
+        let (nodes, mut transforms) = self.world.arena_r1w1();
         Transform::set_world_scale(&nodes, &mut transforms, self.handle, scale)
     }
 
@@ -243,8 +240,7 @@ impl<'a> EntMut<'a> {
     where
         T: Into<math::Vector3<f32>>,
     {
-        let nodes = self.world.arena();
-        let mut transforms = self.world.arena_mut();
+        let (nodes, mut transforms) = self.world.arena_r1w1();
         Transform::set_world_position(&nodes, &mut transforms, self.handle, position)
     }
 
@@ -272,8 +268,7 @@ impl<'a> EntMut<'a> {
     /// Gets the rotation in world space.
     #[inline]
     pub fn world_rotation(&self) -> Result<math::Quaternion<f32>> {
-        let nodes = self.world.arena();
-        let transforms = self.world.arena();
+        let (nodes, transforms) = self.world.arena_r2();
         Transform::world_rotation(&nodes, &transforms, self.handle)
     }
 
@@ -297,8 +292,7 @@ impl<'a> EntMut<'a> {
     where
         T: Into<math::Quaternion<f32>>,
     {
-        let nodes = self.world.arena();
-        let mut transforms = self.world.arena_mut();
+        let (nodes, mut transforms) = self.world.arena_r1w1();
         Transform::set_world_rotation(&nodes, &mut transforms, self.handle, rotation)
     }
 
@@ -321,8 +315,7 @@ impl<'a> EntMut<'a> {
         T1: Into<math::Vector3<f32>>,
         T2: Into<math::Vector3<f32>>,
     {
-        let nodes = self.world.arena();
-        let mut transforms = self.world.arena_mut();
+        let (nodes, mut transforms) = self.world.arena_r1w1();
         Transform::look_at(&nodes, &mut transforms, self.handle, dst, up)
     }
 
@@ -332,8 +325,7 @@ impl<'a> EntMut<'a> {
     where
         T1: Into<math::Vector3<f32>>,
     {
-        let nodes = self.world.arena();
-        let transforms = self.world.arena();
+        let (nodes, transforms) = self.world.arena_r2();
         Transform::transform_point(&nodes, &transforms, self.handle, v)
     }
 
@@ -346,8 +338,7 @@ impl<'a> EntMut<'a> {
     where
         T1: Into<math::Vector3<f32>>,
     {
-        let nodes = self.world.arena();
-        let transforms = self.world.arena();
+        let (nodes, transforms) = self.world.arena_r2();
         Transform::transform_vector(&nodes, &transforms, self.handle, v)
     }
 
@@ -360,32 +351,28 @@ impl<'a> EntMut<'a> {
     where
         T1: Into<math::Vector3<f32>>,
     {
-        let nodes = self.world.arena();
-        let transforms = self.world.arena();
+        let (nodes, transforms) = self.world.arena_r2();
         Transform::transform_direction(&nodes, &transforms, self.handle, v)
     }
 
     /// Return the up direction in world space, which is looking down the positive y-axis.
     #[inline]
     pub fn up(&self) -> Result<math::Vector3<f32>> {
-        let nodes = self.world.arena();
-        let transforms = self.world.arena();
+        let (nodes, transforms) = self.world.arena_r2();
         Transform::up(&nodes, &transforms, self.handle)
     }
 
     /// Return the forward direction in world space, which is looking down the positive z-axis.
     #[inline]
     pub fn forward(&self) -> Result<math::Vector3<f32>> {
-        let nodes = self.world.arena();
-        let transforms = self.world.arena();
+        let (nodes, transforms) = self.world.arena_r2();
         Transform::forward(&nodes, &transforms, self.handle)
     }
 
     /// Return the right direction in world space, which is looking down the positive x-axis.
     #[inline]
     pub fn right(&self) -> Result<math::Vector3<f32>> {
-        let nodes = self.world.arena();
-        let transforms = self.world.arena();
+        let (nodes, transforms) = self.world.arena_r2();
         Transform::right(&nodes, &transforms, self.handle)
     }
 }

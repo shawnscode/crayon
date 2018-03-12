@@ -34,11 +34,11 @@ impl Component for Reference {
 struct IncXSystem {}
 struct DecXSystem {}
 
-impl<'a> System<'a> for IncXSystem {
-    type ViewWith = FetchMut<'a, Position>;
-    type Result = ();
+impl<'a> SystemMut<'a> for IncXSystem {
+    type ViewWithMut = FetchMut<'a, Position>;
+    type ResultMut = ();
 
-    fn run(&self, view: View, mut arena: Self::ViewWith) {
+    fn run_mut(&mut self, view: View, mut arena: Self::ViewWithMut) {
         unsafe {
             for v in view {
                 arena.get_unchecked_mut(v).x += 1;
@@ -47,11 +47,11 @@ impl<'a> System<'a> for IncXSystem {
     }
 }
 
-impl<'a> System<'a> for DecXSystem {
-    type ViewWith = FetchMut<'a, Position>;
-    type Result = ();
+impl<'a> SystemMut<'a> for DecXSystem {
+    type ViewWithMut = FetchMut<'a, Position>;
+    type ResultMut = ();
 
-    fn run(&self, view: View, mut arena: Self::ViewWith) {
+    fn run_mut(&mut self, view: View, mut arena: Self::ViewWithMut) {
         unsafe {
             for v in view {
                 arena.get_unchecked_mut(v).x -= 1;
@@ -109,19 +109,6 @@ fn get() {
         let _p1 = world.get::<Position>(e1);
         let _p2 = world.get::<Position>(e1);
     }
-}
-
-#[test]
-#[should_panic]
-fn invalid_get() {
-    let mut world = World::new();
-    world.register::<Position>();
-
-    let e1 = world.create();
-    world.add::<Position>(e1, Position { x: 1, y: 2 });
-
-    let _p1 = world.get::<Position>(e1);
-    let _p2 = world.get_mut::<Position>(e1);
 }
 
 #[test]
@@ -290,26 +277,6 @@ fn iter_with() {
 }
 
 #[test]
-#[should_panic]
-fn invalid_view() {
-    let mut world = World::new();
-    world.register::<Position>();
-
-    let _arena = world.arena_mut::<Position>();
-    world.arena_mut::<Position>();
-}
-
-#[test]
-#[should_panic]
-fn invalid_view_2() {
-    let mut world = World::new();
-    world.register::<Position>();
-
-    let _arena = world.arena::<Position>();
-    world.arena_mut::<Position>();
-}
-
-#[test]
 fn builder() {
     let mut world = World::new();
     world.register::<Position>();
@@ -326,13 +293,13 @@ fn system() {
     world.register::<Position>();
     let e1 = world.build().with_default::<Position>().finish();
 
-    let inc = IncXSystem {};
-    inc.run_at(&world);
+    let mut inc = IncXSystem {};
+    inc.run_mut_at(&mut world);
     assert!(world.get::<Position>(e1).unwrap().x == 1);
 
-    let dec = DecXSystem {};
-    dec.run_at(&world);
+    let mut dec = DecXSystem {};
+    dec.run_mut_at(&mut world);
     assert!(world.get::<Position>(e1).unwrap().x == 0);
 
-    assert!(!validate(&world, &[&inc, &dec]));
+    // assert!(!validate(&world, &[&inc, &dec]));
 }

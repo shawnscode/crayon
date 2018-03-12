@@ -26,8 +26,7 @@ pub fn hierachy() {
     let e3 = build(&mut world);
     let e4 = build(&mut world);
 
-    let mut tree = world.arena_mut::<Node>();
-    let mut arena = world.arena_mut::<Transform>();
+    let (mut tree, mut arena) = world.arena_w2::<Node, Transform>();
     Node::set_parent(&mut tree, e4, Some(e3)).unwrap();
     Node::set_parent(&mut tree, e3, Some(e1)).unwrap();
     Node::set_parent(&mut tree, e2, Some(e1)).unwrap();
@@ -86,9 +85,7 @@ fn look_at() {
     world.register::<Transform>();
 
     let e1 = build(&mut world);
-
-    let tree = world.arena_mut::<Node>();
-    let mut arena = world.arena_mut::<Transform>();
+    let (tree, mut arena) = world.arena_r1w1::<Node, Transform>();
     Transform::set_world_position(&tree, &mut arena, e1, [0.0, 0.0, -5.0]).unwrap();
 
     let v = [0.0, 0.0, 1.0];

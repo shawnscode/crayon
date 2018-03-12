@@ -133,7 +133,7 @@ impl<'a, 'b> System<'a> for TaskDraw<'b> {
     );
     type Result = Result<()>;
 
-    fn run(&self, view: View, data: Self::ViewWith) -> Self::Result {
+    fn run(&mut self, view: View, data: Self::ViewWith) -> Self::Result {
         use self::PipelineUniformVariable as RU;
 
         unsafe {

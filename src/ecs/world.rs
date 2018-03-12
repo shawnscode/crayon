@@ -16,7 +16,6 @@ use ecs::cell::{Ref, RefCell, RefMut};
 pub struct World {
     masks: Vec<BitSet>,
     entities: HandlePool,
-
     registry: HashMap<TypeId, usize>,
     arenas: Vec<Entry>,
 }
@@ -96,9 +95,9 @@ impl World {
         if self.is_alive(ent) {
             for x in self.masks[ent.index() as usize].iter() {
                 let v = &mut self.arenas[x];
-                let arena = &v.arena;
+                let arena = &mut v.arena;
                 let eraser = &mut v.eraser;
-                eraser(arena.as_ref(), ent.index());
+                eraser(arena.as_mut(), ent.index());
             }
 
             self.masks[ent.index() as usize].clear();
@@ -117,7 +116,9 @@ impl World {
 
         if self.is_alive(ent) {
             self.masks[ent.index() as usize].insert(index);
-            self.cell::<T>().borrow_mut().insert(ent.index(), value)
+            Self::cast::<T>(self.arenas[index].arena.as_ref())
+                .borrow_mut()
+                .insert(ent.index(), value)
         } else {
             None
         }
@@ -142,7 +143,9 @@ impl World {
 
         if self.masks[ent.index() as usize].contains(index) {
             self.masks[ent.index() as usize].remove(index);
-            self.cell::<T>().borrow_mut().remove(ent.index())
+            Self::cast::<T>(self.arenas[index].arena.as_ref())
+                .borrow_mut()
+                .remove(ent.index())
         } else {
             None
         }
@@ -172,8 +175,9 @@ impl World {
     {
         if self.has::<T>(ent) {
             unsafe {
-                let cell = self.cell::<T>().borrow();
-                Some(Ref::map(cell, |v| v.get_unchecked(ent.index())))
+                Some(Ref::map(self.arena_raw::<T>().borrow(), |v| {
+                    v.get_unchecked(ent.index())
+                }))
             }
         } else {
             None
@@ -183,18 +187,15 @@ impl World {
     /// Returns a mutable reference to the componenent corresponding to the `Entity`.
     ///
     /// The borrow lasts until the returned `RefMut` exits scope.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the arena is currently mutably borrowed.
-    pub fn get_mut<T>(&self, ent: Entity) -> Option<RefMut<T>>
+    pub fn get_mut<T>(&mut self, ent: Entity) -> Option<RefMut<T>>
     where
         T: Component,
     {
         if self.has::<T>(ent) {
             unsafe {
-                let cell = self.cell::<T>().borrow_mut();
-                Some(RefMut::map(cell, |v| v.get_unchecked_mut(ent.index())))
+                Some(RefMut::map(self.arena_raw::<T>().borrow_mut(), |v| {
+                    v.get_unchecked_mut(ent.index())
+                }))
             }
         } else {
             None
@@ -208,14 +209,13 @@ impl World {
     /// # Panics
     ///
     /// - Panics if user has not register the arena with type `T`.
-    /// - Panics if the value is currently borrowed.
     #[inline]
-    pub fn arena_mut<T>(&self) -> FetchMut<T>
+    pub fn arena_mut<T>(&mut self) -> FetchMut<T>
     where
         T: Component,
     {
         FetchMut {
-            arena: self.cell::<T>().borrow_mut(),
+            arena: self.arena_raw::<T>().borrow_mut(),
         }
     }
 
@@ -225,14 +225,13 @@ impl World {
     /// # Panics
     ///
     /// - Panics if user has not register the arena with type `T`.
-    /// - Panics if the value is currently mutably borrowed.
     #[inline]
     pub fn arena<T>(&self) -> Fetch<T>
     where
         T: Component,
     {
         Fetch {
-            arena: self.cell::<T>().borrow(),
+            arena: self.arena_raw::<T>().borrow(),
         }
     }
 
@@ -258,16 +257,17 @@ impl World {
         }
     }
 
-    fn cell<T>(&self) -> &RefCell<T::Arena>
+    #[inline]
+    pub(crate) fn arena_raw<T>(&self) -> &RefCell<T::Arena>
     where
         T: Component,
     {
         let index = self.index::<T>();
-        Self::any::<T>(self.arenas[index].arena.as_ref())
+        Self::cast::<T>(self.arenas[index].arena.as_ref())
     }
 
     #[inline]
-    fn any<T>(v: &Any) -> &RefCell<T::Arena>
+    fn cast<T>(v: &Any) -> &RefCell<T::Arena>
     where
         T: Component,
     {
@@ -286,11 +286,9 @@ impl Entry {
         T: Component,
     {
         let eraser = Box::new(|any: &Any, id: HandleIndex| {
-            any.downcast_ref::<RefCell<T::Arena>>()
-                .unwrap()
-                .borrow_mut()
-                .remove(id);
+            World::cast::<T>(any).borrow_mut().remove(id);
         });
+
         Entry {
             arena: Box::new(RefCell::new(T::Arena::new())),
             eraser: eraser,
@@ -310,7 +308,7 @@ pub struct Fetch<'a, T>
 where
     T: Component,
 {
-    arena: Ref<'a, T::Arena>,
+    pub(crate) arena: Ref<'a, T::Arena>,
 }
 
 impl<'a, T> Arena<T> for Fetch<'a, T>
@@ -340,7 +338,7 @@ pub struct FetchMut<'a, T>
 where
     T: Component,
 {
-    arena: RefMut<'a, T::Arena>,
+    pub(crate) arena: RefMut<'a, T::Arena>,
 }
 
 impl<'a, T> Arena<T> for FetchMut<'a, T>
@@ -524,6 +522,102 @@ impl<'a> ViewSlice<'a> {
     }
 }
 
+macro_rules! build_arena_view_with {
+    ($name: ident, [], [$($writables: ident), *]) => (
+        mod $name {
+            use $crate::ecs::world::{World, FetchMut};
+            use $crate::ecs::component::Component;
+
+            impl World {
+                pub fn $name<$($writables, )*>(&mut self) -> ($(FetchMut<$writables>, )*)
+                where
+                    $($writables:Component, )*
+                {
+                    (
+                        $( FetchMut { arena: self.arena_raw::<$writables>().borrow_mut() }, )*
+                    )
+                }
+            }
+        }
+    );
+
+    ($name: ident, [$($readables: ident), *], []) => (
+        mod $name {
+            use $crate::ecs::world::{World, Fetch};
+            use $crate::ecs::component::Component;
+
+            impl World {
+                pub fn $name<$($readables, )*>(&self) -> ($(Fetch<$readables>, )*)
+                where
+                    $($readables:Component, )*
+                {
+                    (
+                        $( Fetch { arena: self.arena_raw::<$readables>().borrow() }, )*
+                    )
+                }
+            }
+        }
+    );
+
+    ($name: ident, [$($readables: ident), *], [$($writables: ident), *]) => (
+        mod $name {
+            use $crate::ecs::world::{World, Fetch, FetchMut};
+            use $crate::ecs::component::Component;
+
+            impl World {
+                pub fn $name<$($readables, )* $($writables, )*>(&mut self) -> ($(Fetch<$readables>, )* $(FetchMut<$writables>, )*)
+                where
+                    $($readables:Component, )*
+                    $($writables:Component, )*
+                {
+                    (
+                        $( Fetch { arena: self.arena_raw::<$readables>().borrow() }, )*
+                        $( FetchMut { arena: self.arena_raw::<$writables>().borrow_mut() }, )*
+                    )
+                }
+            }
+        }
+    );
+}
+
+build_arena_view_with!(arena_r2, [R1, R2], []);
+build_arena_view_with!(arena_r3, [R1, R2, R3], []);
+build_arena_view_with!(arena_r4, [R1, R2, R3, R4], []);
+build_arena_view_with!(arena_r5, [R1, R2, R3, R4, R5], []);
+build_arena_view_with!(arena_r6, [R1, R2, R3, R4, R5, R6], []);
+build_arena_view_with!(arena_r7, [R1, R2, R3, R4, R5, R6, R7], []);
+build_arena_view_with!(arena_r8, [R1, R2, R3, R4, R5, R6, R7, R8], []);
+build_arena_view_with!(arena_r9, [R1, R2, R3, R4, R5, R6, R7, R8, R9], []);
+
+build_arena_view_with!(arena_w2, [], [W1, W2]);
+build_arena_view_with!(arena_w3, [], [W1, W2, W3]);
+build_arena_view_with!(arena_w4, [], [W1, W2, W3, W4]);
+build_arena_view_with!(arena_w5, [], [W1, W2, W3, W4, W5]);
+build_arena_view_with!(arena_w6, [], [W1, W2, W3, W4, W5, W6]);
+build_arena_view_with!(arena_w7, [], [W1, W2, W3, W4, W5, W6, W7]);
+build_arena_view_with!(arena_w8, [], [W1, W2, W3, W4, W5, W6, W7, W8]);
+build_arena_view_with!(arena_w9, [], [W1, W2, W3, W4, W5, W6, W7, W8, W9]);
+
+build_arena_view_with!(arena_r1w1, [R1], [W1]);
+build_arena_view_with!(arena_r2w1, [R1, R2], [W1]);
+build_arena_view_with!(arena_r3w1, [R1, R2, R3], [W1]);
+build_arena_view_with!(arena_r4w1, [R1, R2, R3, R4], [W1]);
+
+build_arena_view_with!(arena_r1w2, [R1], [W1, W2]);
+build_arena_view_with!(arena_r2w2, [R1, R2], [W1, W2]);
+build_arena_view_with!(arena_r3w2, [R1, R2, R3], [W1, W2]);
+build_arena_view_with!(arena_r4w2, [R1, R2, R3, R4], [W1, W2]);
+
+build_arena_view_with!(arena_r1w3, [R1], [W1, W2, W3]);
+build_arena_view_with!(arena_r2w3, [R1, R2], [W1, W2, W3]);
+build_arena_view_with!(arena_r3w3, [R1, R2, R3], [W1, W2, W3]);
+build_arena_view_with!(arena_r4w3, [R1, R2, R3, R4], [W1, W2, W3]);
+
+build_arena_view_with!(arena_r1w4, [R1], [W1, W2, W3, W4]);
+build_arena_view_with!(arena_r2w4, [R1, R2], [W1, W2, W3, W4]);
+build_arena_view_with!(arena_r3w4, [R1, R2, R3], [W1, W2, W3, W4]);
+build_arena_view_with!(arena_r4w4, [R1, R2, R3, R4], [W1, W2, W3, W4]);
+
 macro_rules! build_view_with {
     ($name: ident[$($cps: ident), *]) => (
         mod $name {
@@ -531,8 +625,9 @@ macro_rules! build_view_with {
             use $crate::ecs::component::Component;
 
             impl World {
-                pub fn $name<$($cps), *>(&self) -> (View, ($(FetchMut<$cps>), *))
-                    where $($cps:Component, )*
+                pub fn $name<$($cps), *>(&mut self) -> (View, ($(FetchMut<$cps>), *))
+                where
+                    $($cps:Component, )*
                 {
                     let mut mask = $crate::ecs::bitset::BitSet::new();
                     $( mask.insert(self.index::<$cps>()); ) *
@@ -542,7 +637,7 @@ macro_rules! build_view_with {
                             world: self,
                             mask: mask,
                         },
-                        ( $(self.arena_mut::<$cps>()), * )
+                        ( $( FetchMut { arena: self.arena_raw::<$cps>().borrow_mut() } ), * )
                     )
                 }
             }

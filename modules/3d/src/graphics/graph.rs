@@ -59,13 +59,13 @@ impl SimpleRenderGraph {
         TaskGetRenderLits {
             graph: self,
             view_space_matrix: view_space_matrix,
-        }.run_mut_at(world)?;
+        }.run_at(world)?;
 
         TaskGetVisibleEntities {
             graph: self,
             camera: data,
             view_space_matrix: view_space_matrix,
-        }.run_mut_at(world)?;
+        }.run_at(world)?;
         Ok(())
     }
 
@@ -94,7 +94,7 @@ impl<'a, 'b> System<'a> for TaskGetVisibleEntities<'b> {
     );
     type Result = Result<()>;
 
-    fn run_mut(&mut self, view: View, data: Self::ViewWith) -> Self::Result {
+    fn run(&mut self, view: View, data: Self::ViewWith) -> Self::Result {
         self.graph.visible_entities.clear();
 
         unsafe {
@@ -127,7 +127,7 @@ impl<'a, 'b> System<'a> for TaskGetRenderLits<'b> {
     type ViewWith = (Fetch<'a, Node>, Fetch<'a, Transform>, Fetch<'a, Light>);
     type Result = Result<()>;
 
-    fn run_mut(&mut self, view: View, data: Self::ViewWith) -> Self::Result {
+    fn run(&mut self, view: View, data: Self::ViewWith) -> Self::Result {
         unsafe {
             let dir_matrix = math::Matrix3::from_cols(
                 self.view_space_matrix.x.truncate(),
