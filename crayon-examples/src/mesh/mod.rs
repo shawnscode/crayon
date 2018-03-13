@@ -38,7 +38,7 @@ impl Window {
             let camera = scene.create();
             let mut ent = scene.get_mut(camera).unwrap();
             ent.add(Camera::perspective(math::Deg(60.0), 6.4 / 4.8, 0.1, 1000.0));
-            ent.set_world_position([0.0, 1.0, -3.0])?;
+            ent.set_world_position([0.0, 1.0, -3.0]);
             camera
         };
 
@@ -52,8 +52,8 @@ impl Window {
 
             let mut ent = scene.get_mut(lit).unwrap();
             ent.add(dir);
-            ent.set_world_position([-1.0, 0.0, -1.0])?;
-            ent.look_at([0.0, 0.0, 0.0], [0.0, 1.0, 0.0])?;
+            ent.set_world_position([-1.0, 0.0, -1.0]);
+            ent.look_at([0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
         };
 
         Ok(Window {
@@ -100,7 +100,7 @@ impl Window {
                     },
                 });
 
-                ent.set_parent(node)?;
+                ent.set_parent(node);
                 ent.set_position(positions[i]);
             }
 
@@ -122,7 +122,7 @@ impl Window {
                     visible: true,
                 });
 
-                ent.set_parent(lit)?;
+                ent.set_parent(lit);
                 ent.set_scale(0.1);
             }
 

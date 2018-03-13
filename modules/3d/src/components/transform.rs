@@ -1,7 +1,7 @@
 use crayon::ecs::prelude::*;
 use crayon::math;
 use crayon::math::Transform as _Transform;
-use crayon::math::{InnerSpace, Matrix, One, Rotation};
+use crayon::math::{Matrix, One, Rotation};
 
 use components::node::Node;
 use errors::*;
@@ -144,24 +144,37 @@ impl Transform {
             return Err(Error::NonTransformFound);
         }
 
-        let disp = disp.into();
         unsafe {
-            if tree.get(handle).is_none() {
-                arena.get_unchecked_mut(handle).set_position(disp);
-            } else {
-                let mut ancestors_disp = math::Vector3::new(0.0, 0.0, 0.0);
-                for v in Node::ancestors(tree, handle) {
-                    if let Some(transform) = arena.get(v) {
-                        ancestors_disp += transform.position();
-                    }
-                }
+            Self::set_world_position_unchecked(tree, arena, handle, disp);
+            Ok(())
+        }
+    }
 
-                arena
-                    .get_unchecked_mut(handle)
-                    .set_position(disp - ancestors_disp);
+    /// Set position of `Transform` in world space without doing bounds checking.
+    pub unsafe fn set_world_position_unchecked<T1, T2, T3>(
+        tree: &T1,
+        arena: &mut T2,
+        handle: Entity,
+        disp: T3,
+    ) where
+        T1: Arena<Node>,
+        T2: ArenaMut<Transform>,
+        T3: Into<math::Vector3<f32>>,
+    {
+        let disp = disp.into();
+        if tree.get(handle).is_none() {
+            arena.get_unchecked_mut(handle).set_position(disp);
+        } else {
+            let mut ancestors_disp = math::Vector3::new(0.0, 0.0, 0.0);
+            for v in Node::ancestors(tree, handle) {
+                if let Some(transform) = arena.get(v) {
+                    ancestors_disp += transform.position();
+                }
             }
 
-            Ok(())
+            arena
+                .get_unchecked_mut(handle)
+                .set_position(disp - ancestors_disp);
         }
     }
 
@@ -175,17 +188,32 @@ impl Transform {
         T1: Arena<Node>,
         T2: Arena<Transform>,
     {
-        if let Some(transform) = arena.get(handle) {
-            let mut disp = transform.position();
-            for v in Node::ancestors(tree, handle) {
-                if let Some(ancestor) = arena.get(v) {
-                    disp += ancestor.position();
-                }
-            }
-            Ok(disp)
-        } else {
+        if arena.get(handle).is_none() {
             Err(Error::NonTransformFound)
+        } else {
+            unsafe { Ok(Self::world_position_unchecked(tree, arena, handle)) }
         }
+    }
+
+    /// Get position of `Transform` in world space without doing bounds checking.
+    pub unsafe fn world_position_unchecked<T1, T2>(
+        tree: &T1,
+        arena: &T2,
+        handle: Entity,
+    ) -> math::Vector3<f32>
+    where
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
+    {
+        let transform = arena.get_unchecked(handle);
+        let mut disp = transform.position();
+        for v in Node::ancestors(tree, handle) {
+            if let Some(ancestor) = arena.get(v) {
+                disp += ancestor.position();
+            }
+        }
+
+        disp
     }
 
     /// Set uniform scale of `Transform` in world space.
@@ -204,26 +232,38 @@ impl Transform {
         }
 
         unsafe {
-            if tree.get(handle).is_none() {
-                arena.get_unchecked_mut(handle).set_scale(scale);
-            } else {
-                let mut ancestors_scale = 1.0;
-                for v in Node::ancestors(tree, handle) {
-                    if let Some(transform) = arena.get(v) {
-                        ancestors_scale *= transform.scale();
-                    }
-                }
+            Self::set_world_scale_unchecked(tree, arena, handle, scale);
+            Ok(())
+        }
+    }
 
-                if ancestors_scale < ::std::f32::EPSILON {
-                    arena.get_unchecked_mut(handle).set_scale(scale);
-                } else {
-                    arena
-                        .get_unchecked_mut(handle)
-                        .set_scale(scale / ancestors_scale);
+    /// Set uniform scale of `Transform` in world space withoud doing bounds checking.
+    pub unsafe fn set_world_scale_unchecked<T1, T2>(
+        tree: &T1,
+        arena: &mut T2,
+        handle: Entity,
+        scale: f32,
+    ) where
+        T1: Arena<Node>,
+        T2: ArenaMut<Transform>,
+    {
+        if tree.get(handle).is_none() {
+            arena.get_unchecked_mut(handle).set_scale(scale);
+        } else {
+            let mut ancestors_scale = 1.0;
+            for v in Node::ancestors(tree, handle) {
+                if let Some(transform) = arena.get(v) {
+                    ancestors_scale *= transform.scale();
                 }
             }
 
-            Ok(())
+            if ancestors_scale < ::std::f32::EPSILON {
+                arena.get_unchecked_mut(handle).set_scale(scale);
+            } else {
+                arena
+                    .get_unchecked_mut(handle)
+                    .set_scale(scale / ancestors_scale);
+            }
         }
     }
 
@@ -233,17 +273,27 @@ impl Transform {
         T1: Arena<Node>,
         T2: Arena<Transform>,
     {
-        if let Some(transform) = arena.get(handle) {
-            let mut scale = transform.scale();
-            for v in Node::ancestors(tree, handle) {
-                if let Some(ancestor) = arena.get(v) {
-                    scale *= ancestor.scale();
-                }
-            }
-            Ok(scale)
-        } else {
+        if arena.get(handle).is_none() {
             Err(Error::NonTransformFound)
+        } else {
+            unsafe { Ok(Self::world_scale_unchecked(tree, arena, handle)) }
         }
+    }
+
+    /// Get the scale of `Transform` in world space without doing bounds checking.
+    pub unsafe fn world_scale_unchecked<T1, T2>(tree: &T1, arena: &T2, handle: Entity) -> f32
+    where
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
+    {
+        let transform = arena.get_unchecked(handle);
+        let mut scale = transform.scale();
+        for v in Node::ancestors(tree, handle) {
+            if let Some(ancestor) = arena.get(v) {
+                scale *= ancestor.scale();
+            }
+        }
+        scale
     }
 
     /// Set rotation of `Transform` in world space.
@@ -263,22 +313,35 @@ impl Transform {
         }
 
         unsafe {
-            if tree.get(handle).is_none() {
-                arena.get_unchecked_mut(handle).set_rotation(rotation);
-            } else {
-                let mut ancestors_rotation = math::Quaternion::one();
-                for v in Node::ancestors(tree, handle) {
-                    if let Some(transform) = arena.get(v) {
-                        ancestors_rotation = ancestors_rotation * transform.rotation();
-                    }
-                }
+            Self::set_world_rotation_unchecked(tree, arena, handle, rotation);
+            Ok(())
+        }
+    }
 
-                arena
-                    .get_unchecked_mut(handle)
-                    .set_rotation(rotation.into() * ancestors_rotation.invert());
+    /// Set rotation of `Transform` in world space without doing bounds checking.
+    pub unsafe fn set_world_rotation_unchecked<T1, T2, T3>(
+        tree: &T1,
+        arena: &mut T2,
+        handle: Entity,
+        rotation: T3,
+    ) where
+        T1: Arena<Node>,
+        T2: ArenaMut<Transform>,
+        T3: Into<math::Quaternion<f32>>,
+    {
+        if tree.get(handle).is_none() {
+            arena.get_unchecked_mut(handle).set_rotation(rotation);
+        } else {
+            let mut ancestors_rotation = math::Quaternion::one();
+            for v in Node::ancestors(tree, handle) {
+                if let Some(transform) = arena.get(v) {
+                    ancestors_rotation = ancestors_rotation * transform.rotation();
+                }
             }
 
-            Ok(())
+            arena
+                .get_unchecked_mut(handle)
+                .set_rotation(rotation.into() * ancestors_rotation.invert());
         }
     }
 
@@ -292,47 +355,36 @@ impl Transform {
         T1: Arena<Node>,
         T2: Arena<Transform>,
     {
-        if let Some(transform) = arena.get(handle) {
-            let mut rotation = transform.rotation();
-            for v in Node::ancestors(tree, handle) {
-                if let Some(ancestor) = arena.get(v) {
-                    rotation = rotation * ancestor.rotation();
-                }
-            }
-            Ok(rotation)
-        } else {
+        if arena.get(handle).is_none() {
             Err(Error::NonTransformFound)
+        } else {
+            unsafe { Ok(Self::world_rotation_unchecked(tree, arena, handle)) }
         }
     }
 
-    /// Rotate the transform so the forward vector points at target's current position.
-    pub fn look_at<T1, T2, T3, T4>(
+    /// Get rotation of `Transform` in world space without doing bounds checking.
+    pub unsafe fn world_rotation_unchecked<T1, T2>(
         tree: &T1,
-        arena: &mut T2,
+        arena: &T2,
         handle: Entity,
-        center: T3,
-        up: T4,
-    ) -> Result<()>
+    ) -> math::Quaternion<f32>
     where
         T1: Arena<Node>,
-        T2: ArenaMut<Transform>,
-        T3: Into<math::Vector3<f32>>,
-        T4: Into<math::Vector3<f32>>,
+        T2: Arena<Transform>,
     {
-        let center = center.into();
-        let up = up.into();
-        let eye = Transform::world_position(tree, arena, handle)?;
+        let transform = arena.get_unchecked(handle);
+        let mut rotation = transform.rotation();
+        for v in Node::ancestors(tree, handle) {
+            if let Some(ancestor) = arena.get(v) {
+                rotation = rotation * ancestor.rotation();
+            }
+        }
 
-        let dir = (center - eye).normalize();
-        let side = up.cross(dir).normalize();
-        let up = dir.cross(side).normalize();
-        let rotation: math::Quaternion<f32> = math::Matrix3::from_cols(side, up, dir).into();
-
-        Transform::set_world_rotation(tree, arena, handle, rotation)
+        rotation
     }
 
     #[allow(dead_code)]
-    fn set_world_decomposed<T1, T2>(
+    pub(crate) fn set_world_decomposed<T1, T2>(
         tree: &T1,
         arena: &mut T2,
         handle: Entity,
@@ -354,7 +406,7 @@ impl Transform {
         }
     }
 
-    fn world_decomposed<T1, T2>(
+    pub(crate) fn world_decomposed<T1, T2>(
         tree: &T1,
         arena: &T2,
         handle: Entity,
@@ -363,17 +415,30 @@ impl Transform {
         T1: Arena<Node>,
         T2: Arena<Transform>,
     {
-        if let Some(transform) = arena.get(handle) {
-            let mut decomposed = transform.decomposed;
-            for v in Node::ancestors(tree, handle) {
-                if let Some(ancestor) = arena.get(v) {
-                    decomposed = ancestor.decomposed.concat(&decomposed);
-                }
-            }
-            Ok(decomposed)
-        } else {
+        if arena.get(handle).is_none() {
             Err(Error::NonTransformFound)
+        } else {
+            unsafe { Ok(Self::world_decomposed_unchecked(tree, arena, handle)) }
         }
+    }
+
+    pub(crate) unsafe fn world_decomposed_unchecked<T1, T2>(
+        tree: &T1,
+        arena: &T2,
+        handle: Entity,
+    ) -> math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>
+    where
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
+    {
+        let transform = arena.get_unchecked(handle);
+        let mut decomposed = transform.decomposed;
+        for v in Node::ancestors(tree, handle) {
+            if let Some(ancestor) = arena.get(v) {
+                decomposed = ancestor.decomposed.concat(&decomposed);
+            }
+        }
+        decomposed
     }
 }
 

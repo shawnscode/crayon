@@ -61,23 +61,27 @@ impl Node {
         T1: ArenaMut<Node>,
         T2: Into<Option<Entity>>,
     {
+        if arena.get(child).is_none() {
+            Err(Error::NonTransformFound)
+        } else {
+            unsafe {
+                Self::set_parent_unchecked(arena, child, parent);
+                Ok(())
+            }
+        }
+    }
+
+    /// Attachs a new child to parent transform, before existing children.
+    pub unsafe fn set_parent_unchecked<T1, T2>(arena: &mut T1, child: Entity, parent: T2)
+    where
+        T1: ArenaMut<Node>,
+        T2: Into<Option<Entity>>,
+    {
+        Self::remove_from_parent_unchecked(arena, child);
+
         let parent = parent.into();
-
-        unsafe {
-            if arena.get(child).is_none() {
-                return Err(Error::NonTransformFound);
-            }
-
-            // Can not append a transform to it self.
-            if let Some(parent) = parent {
-                if parent == child || arena.get(parent).is_none() {
-                    return Err(Error::CanNotAttachSelfAsParent);
-                }
-            }
-
-            Self::remove_from_parent(arena, child)?;
-
-            if let Some(parent) = parent {
+        if let Some(parent) = parent {
+            if parent != child {
                 let next_sib = {
                     let node = arena.get_unchecked_mut(parent);
                     ::std::mem::replace(&mut node.first_child, Some(child))
@@ -87,8 +91,6 @@ impl Node {
                 child.parent = Some(parent);
                 child.next_sib = next_sib;
             }
-
-            Ok(())
         }
     }
 
@@ -97,31 +99,39 @@ impl Node {
     where
         T1: ArenaMut<Node>,
     {
-        unsafe {
-            let (parent, next_sib, prev_sib) = {
-                if let Some(node) = arena.get_mut(handle) {
-                    (
-                        node.parent.take(),
-                        node.next_sib.take(),
-                        node.prev_sib.take(),
-                    )
-                } else {
-                    return Err(Error::NonTransformFound);
-                }
-            };
-
-            if let Some(next_sib) = next_sib {
-                arena.get_unchecked_mut(next_sib).prev_sib = prev_sib;
+        if arena.get(handle).is_none() {
+            Err(Error::NonTransformFound)
+        } else {
+            unsafe {
+                Self::remove_from_parent_unchecked(arena, handle);
+                Ok(())
             }
+        }
+    }
 
-            if let Some(prev_sib) = prev_sib {
-                arena.get_unchecked_mut(prev_sib).next_sib = next_sib;
-            } else if let Some(parent) = parent {
-                // Take this transform as the first child of parent if there is no previous sibling.
-                arena.get_unchecked_mut(parent).first_child = next_sib;
-            }
+    /// Detach a transform from its parent and siblings without doing bounds checking.
+    pub unsafe fn remove_from_parent_unchecked<T1>(arena: &mut T1, handle: Entity)
+    where
+        T1: ArenaMut<Node>,
+    {
+        let (parent, next_sib, prev_sib) = {
+            let node = arena.get_unchecked_mut(handle);
+            (
+                node.parent.take(),
+                node.next_sib.take(),
+                node.prev_sib.take(),
+            )
+        };
 
-            Ok(())
+        if let Some(next_sib) = next_sib {
+            arena.get_unchecked_mut(next_sib).prev_sib = prev_sib;
+        }
+
+        if let Some(prev_sib) = prev_sib {
+            arena.get_unchecked_mut(prev_sib).next_sib = next_sib;
+        } else if let Some(parent) = parent {
+            // Take this transform as the first child of parent if there is no previous sibling.
+            arena.get_unchecked_mut(parent).first_child = next_sib;
         }
     }
 
