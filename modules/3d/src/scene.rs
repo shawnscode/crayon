@@ -10,7 +10,7 @@ use assets::prelude::*;
 use assets::material::MaterialParams;
 use assets::pipeline::PipelineParams;
 use graphics::renderer::Renderer;
-use ent::EntMut;
+use ent::{EntAccessor, EntAccessorMut};
 use errors::*;
 
 /// `Scene`s contain the environments of your game. Its relative easy to think of each
@@ -56,10 +56,10 @@ impl Scene {
     /// Creates a new `Scene`.
     pub fn new(ctx: &Context) -> Result<Self> {
         let video = GraphicsSystemGuard::new(ctx.shared::<GraphicsSystem>().clone());
-
         let mut world = World::new();
         world.register::<Node>();
         world.register::<Transform>();
+
         world.register::<Camera>();
         world.register::<Light>();
         world.register::<MeshRenderer>();
@@ -87,10 +87,19 @@ impl Scene {
             .finish()
     }
 
+    ///
+    pub fn get(&self, id: Entity) -> Option<EntAccessor> {
+        if self.world.is_alive(id) {
+            Some(EntAccessor::new(&self.world, id))
+        } else {
+            None
+        }
+    }
+
     /// Gets the reference to entity mutablely.
-    pub fn get_mut(&mut self, handle: Entity) -> Option<EntMut> {
-        if self.world.is_alive(handle) {
-            Some(EntMut::new(&mut self.world, handle))
+    pub fn get_mut(&mut self, id: Entity) -> Option<EntAccessorMut> {
+        if self.world.is_alive(id) {
+            Some(EntAccessorMut::new(&mut self.world, id))
         } else {
             None
         }

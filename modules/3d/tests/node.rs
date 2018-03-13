@@ -66,25 +66,50 @@ fn iteration() {
     let e6 = world.build().with_default::<Node>().finish();
     // e1 <- (e2, e3 <- e4 <- (e5, e6))
 
-    let mut arena = world.arena_mut::<Node>();
-    Node::set_parent(&mut arena, e4, Some(e3)).unwrap();
-    Node::set_parent(&mut arena, e3, Some(e1)).unwrap();
-    Node::set_parent(&mut arena, e2, Some(e1)).unwrap();
-    Node::set_parent(&mut arena, e6, Some(e4)).unwrap();
-    Node::set_parent(&mut arena, e5, Some(e4)).unwrap();
+    {
+        let mut arena = world.arena_mut::<Node>();
+        Node::set_parent(&mut arena, e4, Some(e3)).unwrap();
+        Node::set_parent(&mut arena, e3, Some(e1)).unwrap();
+        Node::set_parent(&mut arena, e2, Some(e1)).unwrap();
+        Node::set_parent(&mut arena, e6, Some(e4)).unwrap();
+        Node::set_parent(&mut arena, e5, Some(e4)).unwrap();
 
-    assert_eq!(
-        Node::descendants(&arena, e1).collect::<Vec<_>>(),
-        [e2, e3, e4, e5, e6]
-    );
-    assert_eq!(Node::children(&arena, e1).collect::<Vec<_>>(), [e2, e3]);
-    assert_eq!(Node::ancestors(&arena, e1).collect::<Vec<_>>(), []);
-    assert_eq!(Node::ancestors(&arena, e2).collect::<Vec<_>>(), [e1]);
-    assert_eq!(Node::ancestors(&arena, e4).collect::<Vec<_>>(), [e3, e1]);
-    assert_eq!(
-        Node::ancestors(&arena, e6).collect::<Vec<_>>(),
-        [e4, e3, e1]
-    );
+        assert_eq!(
+            Node::descendants(&arena, e1).collect::<Vec<_>>(),
+            [e2, e3, e4, e5, e6]
+        );
+        assert_eq!(Node::children(&arena, e1).collect::<Vec<_>>(), [e2, e3]);
+
+        assert_eq!(Node::ancestors(&arena, e1).collect::<Vec<_>>(), []);
+        assert_eq!(Node::ancestors(&arena, e2).collect::<Vec<_>>(), [e1]);
+        assert_eq!(Node::ancestors(&arena, e4).collect::<Vec<_>>(), [e3, e1]);
+        assert_eq!(
+            Node::ancestors(&arena, e6).collect::<Vec<_>>(),
+            [e4, e3, e1]
+        );
+    }
+
+    {
+        assert_eq!(
+            Node::ancestors_in_place(world.arena::<Node>(), e1).collect::<Vec<_>>(),
+            []
+        );
+
+        assert_eq!(
+            Node::ancestors_in_place(world.arena::<Node>(), e2).collect::<Vec<_>>(),
+            [e1]
+        );
+
+        assert_eq!(
+            Node::ancestors_in_place(world.arena::<Node>(), e4).collect::<Vec<_>>(),
+            [e3, e1]
+        );
+
+        assert_eq!(
+            Node::ancestors_in_place(world.arena::<Node>(), e6).collect::<Vec<_>>(),
+            [e4, e3, e1]
+        );
+    }
 }
 
 #[test]

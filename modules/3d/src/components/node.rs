@@ -125,14 +125,25 @@ impl Node {
         }
     }
 
-    /// Return an iterator of references to its ancestors.
+    /// Returns an iterator of references to its ancestors.
     pub fn ancestors<T1>(arena: &T1, handle: Entity) -> Ancestors
     where
         T1: Arena<Node>,
     {
         Ancestors {
-            arena: arena,
             cursor: arena.get(handle).and_then(|v| v.parent),
+            arena: arena,
+        }
+    }
+
+    /// Returns an iterator of references to its ancestors.
+    pub fn ancestors_in_place<T1>(arena: T1, handle: Entity) -> AncestorsInPlace<T1>
+    where
+        T1: Arena<Node>,
+    {
+        AncestorsInPlace {
+            cursor: arena.get(handle).and_then(|v| v.parent),
+            arena: arena,
         }
     }
 
@@ -142,8 +153,19 @@ impl Node {
         T1: Arena<Node>,
     {
         Children {
-            arena: arena,
             cursor: arena.get(handle).and_then(|v| v.first_child),
+            arena: arena,
+        }
+    }
+
+    /// Returns an iterator of references to this transform's children.
+    pub fn children_in_place<T1>(arena: T1, handle: Entity) -> ChildrenInPlace<T1>
+    where
+        T1: Arena<Node>,
+    {
+        ChildrenInPlace {
+            cursor: arena.get(handle).and_then(|v| v.first_child),
+            arena: arena,
         }
     }
 
@@ -156,6 +178,18 @@ impl Node {
             arena: arena,
             root: handle,
             cursor: arena.get(handle).and_then(|v| v.first_child),
+        }
+    }
+
+    /// Returns an iterator of references to this transform's descendants in tree order.
+    pub fn descendants_in_place<T1>(arena: T1, handle: Entity) -> DescendantsInPlace<T1>
+    where
+        T1: Arena<Node>,
+    {
+        DescendantsInPlace {
+            cursor: arena.get(handle).and_then(|v| v.first_child),
+            arena: arena,
+            root: handle,
         }
     }
 
@@ -180,18 +214,45 @@ pub struct Ancestors<'a> {
     cursor: Option<Entity>,
 }
 
-impl<'a> Iterator for Ancestors<'a> {
-    type Item = Entity;
-
-    fn next(&mut self) -> Option<Self::Item> {
+impl<'a> Ancestors<'a> {
+    #[inline]
+    pub fn next(arena: &Arena<Node>, mut cursor: &mut Option<Entity>) -> Option<Entity> {
         unsafe {
-            if let Some(node) = self.cursor {
-                let v = &self.arena.get_unchecked(node);
-                return ::std::mem::replace(&mut self.cursor, v.parent);
+            if let Some(node) = *cursor {
+                let v = arena.get_unchecked(node);
+                return ::std::mem::replace(&mut cursor, v.parent);
             }
 
             None
         }
+    }
+}
+
+impl<'a> Iterator for Ancestors<'a> {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Ancestors::next(self.arena, &mut self.cursor)
+    }
+}
+
+/// An iterator of references to its ancestors.
+pub struct AncestorsInPlace<T>
+where
+    T: Arena<Node>,
+{
+    arena: T,
+    cursor: Option<Entity>,
+}
+
+impl<T> Iterator for AncestorsInPlace<T>
+where
+    T: Arena<Node>,
+{
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Ancestors::next(&self.arena, &mut self.cursor)
     }
 }
 
@@ -201,18 +262,45 @@ pub struct Children<'a> {
     cursor: Option<Entity>,
 }
 
-impl<'a> Iterator for Children<'a> {
-    type Item = Entity;
-
-    fn next(&mut self) -> Option<Self::Item> {
+impl<'a> Children<'a> {
+    #[inline]
+    pub fn next(arena: &Arena<Node>, mut cursor: &mut Option<Entity>) -> Option<Entity> {
         unsafe {
-            if let Some(node) = self.cursor {
-                let v = &self.arena.get_unchecked(node);
-                return ::std::mem::replace(&mut self.cursor, v.next_sib);
+            if let Some(node) = *cursor {
+                let v = arena.get_unchecked(node);
+                return ::std::mem::replace(&mut cursor, v.next_sib);
             }
 
             None
         }
+    }
+}
+
+impl<'a> Iterator for Children<'a> {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Children::next(self.arena, &mut self.cursor)
+    }
+}
+
+/// An iterator of references to its children.
+pub struct ChildrenInPlace<T>
+where
+    T: Arena<Node>,
+{
+    arena: T,
+    cursor: Option<Entity>,
+}
+
+impl<T> Iterator for ChildrenInPlace<T>
+where
+    T: Arena<Node>,
+{
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Children::next(&self.arena, &mut self.cursor)
     }
 }
 
@@ -223,37 +311,69 @@ pub struct Descendants<'a> {
     cursor: Option<Entity>,
 }
 
-impl<'a> Iterator for Descendants<'a> {
-    type Item = Entity;
-
-    fn next(&mut self) -> Option<Self::Item> {
+impl<'a> Descendants<'a> {
+    #[inline]
+    pub fn next(
+        arena: &Arena<Node>,
+        root: Entity,
+        mut cursor: &mut Option<Entity>,
+    ) -> Option<Entity> {
         unsafe {
-            if let Some(node) = self.cursor {
-                let mut v = self.arena.get_unchecked(node);
+            if let Some(node) = *cursor {
+                let mut v = *arena.get_unchecked(node);
 
                 // Deep first search when iterating children recursively.
                 if v.first_child.is_some() {
-                    return ::std::mem::replace(&mut self.cursor, v.first_child);
+                    return ::std::mem::replace(&mut cursor, v.first_child);
                 }
 
                 if v.next_sib.is_some() {
-                    return ::std::mem::replace(&mut self.cursor, v.next_sib);
+                    return ::std::mem::replace(&mut cursor, v.next_sib);
                 }
 
                 // Travel back when we reach leaf-node.
                 while let Some(parent) = v.parent {
-                    if parent == self.root {
+                    if parent == root {
                         break;
                     }
 
-                    v = self.arena.get_unchecked(v.parent.unwrap());
+                    v = *arena.get_unchecked(v.parent.unwrap());
                     if v.next_sib.is_some() {
-                        return ::std::mem::replace(&mut self.cursor, v.next_sib);
+                        return ::std::mem::replace(&mut cursor, v.next_sib);
                     }
                 }
             }
 
-            ::std::mem::replace(&mut self.cursor, None)
+            ::std::mem::replace(&mut cursor, None)
         }
+    }
+}
+
+impl<'a> Iterator for Descendants<'a> {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Descendants::next(self.arena, self.root, &mut self.cursor)
+    }
+}
+
+/// An iterator of references to its descendants, in tree order.
+pub struct DescendantsInPlace<T>
+where
+    T: Arena<Node>,
+{
+    arena: T,
+    root: Entity,
+    cursor: Option<Entity>,
+}
+
+impl<T> Iterator for DescendantsInPlace<T>
+where
+    T: Arena<Node>,
+{
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Descendants::next(&self.arena, self.root, &mut self.cursor)
     }
 }
