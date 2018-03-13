@@ -1,13 +1,11 @@
 use crayon::application::Context;
 use crayon::ecs::prelude::*;
 use crayon::graphics::prelude::*;
-use crayon::graphics::assets::prelude::*;
 use crayon::resource::utils::prelude::*;
-use crayon::utils::HashValue;
 
 use components::prelude::*;
 use assets::prelude::*;
-use assets::material::MaterialParams;
+use assets::material::Material;
 use assets::pipeline::PipelineParams;
 use graphics::renderer::Renderer;
 use ent::{EntAccessor, EntAccessorMut};
@@ -45,7 +43,7 @@ pub struct Scene {
     pub(crate) world: World,
 
     pub(crate) video: GraphicsSystemGuard,
-    pub(crate) materials: Registery<MaterialParams>,
+    pub(crate) materials: Registery<Material>,
     pub(crate) pipelines: Registery<PipelineParams>,
 
     pub(crate) renderer: Renderer,
@@ -146,28 +144,23 @@ impl Scene {
 
     /// Creates a new material instance from shader.
     pub fn create_material(&mut self, setup: MaterialSetup) -> Result<MaterialHandle> {
-        if let Some(po) = self.pipelines.get(*setup.pipeline) {
+        if let Some(po) = self.pipelines.get(setup.pipeline) {
             let location = Location::unique("");
-            let material =
-                MaterialParams::new(setup.pipeline, setup.variables, po.shader_params.clone());
+            let material = Material::new(setup.pipeline, setup.variables, po.shader_params.clone());
             Ok(self.materials.create(location, material).into())
         } else {
             Err(Error::PipelineHandleInvalid(setup.pipeline))
         }
     }
 
-    /// Updates the uniform variable of material.
-    pub fn update_material<T1, T2>(&mut self, h: MaterialHandle, f: T1, v: T2) -> Result<()>
-    where
-        T1: Into<HashValue<str>>,
-        T2: Into<UniformVariable>,
-    {
-        if let Some(m) = self.materials.get_mut(*h) {
-            m.bind(f, v)?;
-            Ok(())
-        } else {
-            Err(Error::MaterialHandleInvalid(h))
-        }
+    /// Gets the reference to material.
+    pub fn material(&self, h: MaterialHandle) -> Option<MatAccessor> {
+        self.materials.get(h).map(|v| MatAccessor::new(v))
+    }
+
+    /// Gets the mutable reference to material.
+    pub fn material_mut(&mut self, h: MaterialHandle) -> Option<MatAccessorMut> {
+        self.materials.get_mut(h).map(|v| MatAccessorMut::new(v))
     }
 
     /// Deletes the material instance from `Scene`. Any meshes that associated with a

@@ -105,7 +105,10 @@ impl Window {
 
             let color: [f32; 4] = colors[i].into();
             let mat = scene.create_material(MaterialSetup::new(shader))?;
-            scene.update_material(mat, "u_Color", color)?;
+            {
+                let mut m = scene.material_mut(mat).unwrap();
+                m.bind("u_Color", color)?;
+            }
 
             let cube = scene.create();
             {
@@ -139,16 +142,22 @@ impl Window {
         let mesh = video.create_mesh_from_file::<OBJParser>(setup)?;
 
         let mat_wall = scene.create_material(MaterialSetup::new(shader))?;
-        scene.update_material(mat_wall, "u_Ambient", [1.0, 1.0, 1.0])?;
-        scene.update_material(mat_wall, "u_Diffuse", [1.0, 1.0, 1.0])?;
-        scene.update_material(mat_wall, "u_Specular", [0.0, 0.0, 0.0])?;
-        scene.update_material(mat_wall, "u_Shininess", 0.0)?;
+        {
+            let mut m = scene.material_mut(mat_wall).unwrap();
+            m.bind("u_Ambient", [1.0, 1.0, 1.0])?;
+            m.bind("u_Diffuse", [1.0, 1.0, 1.0])?;
+            m.bind("u_Specular", [0.0, 0.0, 0.0])?;
+            m.bind("u_Shininess", 0.0)?;
+        }
 
         let mat_block = scene.create_material(MaterialSetup::new(shader))?;
-        scene.update_material(mat_block, "u_Ambient", [1.0, 1.0, 1.0])?;
-        scene.update_material(mat_block, "u_Diffuse", [1.0, 1.0, 1.0])?;
-        scene.update_material(mat_block, "u_Specular", [1.0, 1.0, 1.0])?;
-        scene.update_material(mat_block, "u_Shininess", 0.5)?;
+        {
+            let mut m = scene.material_mut(mat_block).unwrap();
+            m.bind("u_Ambient", [1.0, 1.0, 1.0])?;
+            m.bind("u_Diffuse", [1.0, 1.0, 1.0])?;
+            m.bind("u_Specular", [1.0, 1.0, 1.0])?;
+            m.bind("u_Shininess", 0.5)?;
+        }
 
         let room = scene.create();
 
@@ -227,12 +236,12 @@ impl Application for Window {
             }
         }
 
-        self.scene
-            .update_material(self.material, "u_Ambient", *ambient)?;
-        self.scene
-            .update_material(self.material, "u_Diffuse", *diffuse)?;
-        self.scene
-            .update_material(self.material, "u_Specular", *specular)?;
+        {
+            let mut m = self.scene.material_mut(self.material).unwrap();
+            m.bind("u_Ambient", *ambient)?;
+            m.bind("u_Diffuse", *diffuse)?;
+            m.bind("u_Specular", *specular)?;
+        }
 
         self.scene.advance(self.camera)?;
 

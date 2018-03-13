@@ -14,7 +14,7 @@ use graphics::shadow::RenderShadow;
 use graphics::graph::SimpleRenderGraph;
 
 use scene::Scene;
-use assets::material::MaterialParams;
+use assets::material::Material;
 use assets::pipeline::PipelineParams;
 
 pub struct RendererSetup {
@@ -91,7 +91,7 @@ struct TaskDraw<'a> {
 }
 
 impl<'a> TaskDraw<'a> {
-    fn material(&self, handle: MaterialHandle) -> (&PipelineParams, &MaterialParams) {
+    fn material(&self, handle: MaterialHandle) -> (&PipelineParams, &Material) {
         if let Some(mat) = self.scene.materials.get(handle) {
             if let Some(pipeline) = self.scene.pipelines.get(mat.pipeline) {
                 if self.scene.video.is_shader_alive(pipeline.shader) {

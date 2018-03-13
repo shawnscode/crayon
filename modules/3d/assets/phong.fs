@@ -33,7 +33,7 @@ vec3 CalculateLight(vec3 normal, vec3 viewDir, vec3 lightDir, vec3 reflectDir, f
 
 float CalculateShadow(sampler2D shadowTexture, vec3 shadowPos, float bias)
 {
-    // transform to [0,1] range.
+    // transform to [0, 1] range.
     shadowPos = shadowPos * 0.5 + 0.5;
     float closestDepth = texture2D(shadowTexture, shadowPos.xy).r;
     return (shadowPos.z - bias) > closestDepth ? 0.5 : 0.0;

@@ -139,16 +139,19 @@ impl_pipeline_uniforms!(
         DirLitShadowTexture0 => [RenderTexture, "scn_DirLitShadowTexture[0]"],
 
         PointLitViewPos0 => [Vector3f, "scn_PointLitViewPos[0]"],
-        PointLitViewPos1 => [Vector3f, "scn_PointLitViewPos[1]"],
-        PointLitViewPos2 => [Vector3f, "scn_PointLitViewPos[2]"],
-        PointLitViewPos3 => [Vector3f, "scn_PointLitViewPos[3]"],
         PointLitAttenuation0 => [Vector3f, "scn_PointLitAttenuation[0]"],
-        PointLitAttenuation1 => [Vector3f, "scn_PointLitAttenuation[1]"],
-        PointLitAttenuation2 => [Vector3f, "scn_PointLitAttenuation[2]"],
-        PointLitAttenuation3 => [Vector3f, "scn_PointLitAttenuation[3]"],
         PointLitColor0 => [Vector3f, "scn_PointLitColor[0]"],
+
+        PointLitViewPos1 => [Vector3f, "scn_PointLitViewPos[1]"],
+        PointLitAttenuation1 => [Vector3f, "scn_PointLitAttenuation[1]"],
         PointLitColor1 => [Vector3f, "scn_PointLitColor[1]"],
+
+        PointLitViewPos2 => [Vector3f, "scn_PointLitViewPos[2]"],
+        PointLitAttenuation2 => [Vector3f, "scn_PointLitAttenuation[2]"],
         PointLitColor2 => [Vector3f, "scn_PointLitColor[2]"],
+        
+        PointLitViewPos3 => [Vector3f, "scn_PointLitViewPos[3]"],
+        PointLitAttenuation3 => [Vector3f, "scn_PointLitAttenuation[3]"],
         PointLitColor3 => [Vector3f, "scn_PointLitColor[3]"],
     }
 );
