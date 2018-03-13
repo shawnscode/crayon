@@ -1,7 +1,7 @@
 use crayon::ecs::prelude::*;
 use crayon::math;
 use crayon::math::Transform as _Transform;
-use crayon::math::{EuclideanSpace, Matrix, One, Rotation};
+use crayon::math::{InnerSpace, Matrix, One, Rotation};
 
 use components::node::Node;
 use errors::*;
@@ -310,7 +310,7 @@ impl Transform {
         tree: &T1,
         arena: &mut T2,
         handle: Entity,
-        dst: T3,
+        center: T3,
         up: T4,
     ) -> Result<()>
     where
@@ -319,9 +319,15 @@ impl Transform {
         T3: Into<math::Vector3<f32>>,
         T4: Into<math::Vector3<f32>>,
     {
-        let eye = math::Point3::from_vec(Transform::world_position(tree, arena, handle)?);
-        let center = math::Point3::from_vec(dst.into());
-        let rotation = math::Quaternion::look_at(center - eye, up.into());
+        let center = center.into();
+        let up = up.into();
+        let eye = Transform::world_position(tree, arena, handle)?;
+
+        let dir = (center - eye).normalize();
+        let side = up.cross(dir).normalize();
+        let up = dir.cross(side).normalize();
+        let rotation: math::Quaternion<f32> = math::Matrix3::from_cols(side, up, dir).into();
+
         Transform::set_world_rotation(tree, arena, handle, rotation)
     }
 

@@ -47,11 +47,12 @@ impl Window {
 
         let lit = scene.create();
         {
-            let mut ent = scene.get_mut(lit).unwrap();
             let mut dir = Light::default();
             dir.shadow_caster = true;
+
+            let mut ent = scene.get_mut(lit).unwrap();
             ent.add(dir);
-            ent.set_world_position([1.0, 1.0, 0.0])?;
+            ent.set_world_position([-1.0, 0.0, -1.0])?;
             ent.look_at([0.0, 0.0, 0.0], [0.0, 1.0, 0.0])?;
         };
 
