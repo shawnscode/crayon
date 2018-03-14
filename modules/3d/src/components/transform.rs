@@ -93,6 +93,24 @@ impl Transform {
         Ok(math::Matrix4::from(decomposed))
     }
 
+    /// Get the transform matrix from world space to local space.
+    pub fn inverse_world_matrix<T1, T2>(
+        tree: &T1,
+        arena: &T2,
+        handle: Entity,
+    ) -> Result<math::Matrix4<f32>>
+    where
+        T1: Arena<Node>,
+        T2: Arena<Transform>,
+    {
+        let decomposed = Transform::world_decomposed(tree, arena, handle)?;
+        if let Some(inverse) = decomposed.inverse_transform() {
+            Ok(math::Matrix4::from(inverse))
+        } else {
+            Err(Error::CanNotInverseTransform)
+        }
+    }
+
     /// Get the view matrix from world space to view space.
     pub fn world_view_matrix<T1, T2>(
         tree: &T1,
@@ -110,8 +128,8 @@ impl Transform {
         Ok(ir * it)
     }
 
-    /// Get the transform matrix from world space to local space.
-    pub fn inverse_world_matrix<T1, T2>(
+    /// Gets the inverse view matrix which transform vector from view space to world space.
+    pub fn inverse_world_view_matrix<T1, T2>(
         tree: &T1,
         arena: &T2,
         handle: Entity,
@@ -121,11 +139,9 @@ impl Transform {
         T2: Arena<Transform>,
     {
         let decomposed = Transform::world_decomposed(tree, arena, handle)?;
-        if let Some(inverse) = decomposed.inverse_transform() {
-            Ok(math::Matrix4::from(inverse))
-        } else {
-            Err(Error::CanNotInverseTransform)
-        }
+        let t = math::Matrix4::from_translation(decomposed.disp);
+        let r = math::Matrix4::from(decomposed.rot);
+        Ok(t * r)
     }
 
     /// Set position of `Transform` in world space.

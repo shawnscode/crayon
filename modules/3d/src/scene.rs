@@ -85,7 +85,7 @@ impl Scene {
             .finish()
     }
 
-    ///
+    /// Gets the reference to entity.
     pub fn get(&self, id: Entity) -> Option<EntAccessor> {
         if self.world.is_alive(id) {
             Some(EntAccessor::new(&self.world, id))
@@ -94,7 +94,7 @@ impl Scene {
         }
     }
 
-    /// Gets the reference to entity mutablely.
+    /// Gets the mutable reference to entity.
     pub fn get_mut(&mut self, id: Entity) -> Option<EntAccessorMut> {
         if self.world.is_alive(id) {
             Some(EntAccessorMut::new(&mut self.world, id))
@@ -193,7 +193,7 @@ impl Scene {
             self.fallback = Some(self.create_material(MaterialSetup::new(undefined))?);
         }
 
-        self.renderer.draw(self, camera)?;
+        self.renderer.draw(self)?;
         Ok(())
     }
 }

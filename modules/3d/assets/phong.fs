@@ -48,6 +48,7 @@ void main()
     // directional light
     for(int i = 0; i < MAX_DIR_LIGHTS; i++)
     {
+        // slope-scale depth bias
         float bias = max(0.005 * (1.0 - dot(normal, scn_DirLitViewDir[i])), 0.0005);
         float shadow = CalculateShadow(scn_DirLitShadowTexture[i], v_DirLitShadowPos[i], bias);
 

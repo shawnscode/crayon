@@ -78,6 +78,7 @@ impl mesh_loader::MeshParser for OBJParser {
         let mut verts = Vec::new();
         let mut idxes = Vec::new();
         let mut meshes = Vec::new();
+        let mut aabb = math::Aabb3::zero();
 
         for o in data.objects {
             for mesh in o.groups {
@@ -88,18 +89,22 @@ impl mesh_loader::MeshParser for OBJParser {
                             let a = data.position[poly[0].0].into();
                             let b = data.position[poly[1].0].into();
                             let c = data.position[poly[2].0].into();
+                            aabb = aabb.grow(math::Point3::from_vec(a));
+                            aabb = aabb.grow(math::Point3::from_vec(b));
+                            aabb = aabb.grow(math::Point3::from_vec(c));
                             OBJParser::add(a, b, c, &mut verts, &mut idxes);
                         }
                         4 => {
                             let a = data.position[poly[0].0].into();
                             let b = data.position[poly[1].0].into();
                             let c = data.position[poly[2].0].into();
+                            let d = data.position[poly[3].0].into();
+                            aabb = aabb.grow(math::Point3::from_vec(a));
+                            aabb = aabb.grow(math::Point3::from_vec(b));
+                            aabb = aabb.grow(math::Point3::from_vec(c));
+                            aabb = aabb.grow(math::Point3::from_vec(d));
                             OBJParser::add(a, b, c, &mut verts, &mut idxes);
-
-                            let a = data.position[poly[0].0].into();
-                            let b = data.position[poly[2].0].into();
-                            let c = data.position[poly[3].0].into();
-                            OBJParser::add(a, b, c, &mut verts, &mut idxes);
+                            OBJParser::add(a, c, d, &mut verts, &mut idxes);
                         }
                         _ => unreachable!(),
                     };
@@ -114,6 +119,7 @@ impl mesh_loader::MeshParser for OBJParser {
             num_verts: verts.len(),
             num_idxes: idxes.len(),
             sub_mesh_offsets: meshes,
+            aabb: aabb,
             verts: Vec::from(OBJVertex::encode(&verts)),
             idxes: Vec::from(IndexFormat::encode(&idxes)),
         })

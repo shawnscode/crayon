@@ -19,6 +19,10 @@ struct ShadowSurface {
 }
 
 /// A shadow mapping builder.
+///
+/// Some techniques that used to avoid artifacts could be found at :
+/// https://msdn.microsoft.com/en-us/library/windows/desktop/ee416324(v=vs.85).aspx
+///
 pub struct RenderShadow {
     video: GraphicsSystemGuard,
     depth_shader: ShaderHandle,
@@ -130,7 +134,7 @@ impl RenderShadow {
         let mut setup = RenderTextureSetup::default();
         setup.format = RenderTextureFormat::Depth16;
         // FIXME: The dimensions of shadow texture should be configuratable.
-        setup.dimensions = (512, 512);
+        setup.dimensions = (256, 256);
         let render_texture = self.video.create_render_texture(setup)?;
 
         let mut setup = SurfaceSetup::default();
@@ -162,6 +166,7 @@ impl<'a, 'b> System<'a> for GenerateRenderShadow<'b> {
         unsafe {
             for handle in view {
                 let mesh = data.2.get_unchecked(handle);
+
                 if !mesh.visible || !mesh.shadow_caster {
                     continue;
                 }

@@ -24,6 +24,7 @@ pub struct RendererSetup {
 }
 
 pub struct Renderer {
+    video: GraphicsSystemGuard,
     graph: SimpleRenderGraph,
     shadow: RenderShadow,
     default_surface: SurfaceHandle,
@@ -31,10 +32,12 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new(ctx: &Context) -> Result<Renderer> {
+        let mut video = GraphicsSystemGuard::new(ctx.shared::<GraphicsSystem>().clone());
         let setup = SurfaceSetup::default();
-        let surface = ctx.shared::<GraphicsSystem>().create_surface(setup)?;
+        let surface = video.create_surface(setup)?;
 
         Ok(Renderer {
+            video: video,
             graph: SimpleRenderGraph::new(ctx)?,
             shadow: RenderShadow::new(ctx)?,
             default_surface: surface,
@@ -58,26 +61,11 @@ impl Renderer {
         Ok(())
     }
 
-    pub fn draw(&self, scene: &Scene, camera: Entity) -> Result<()> {
-        let (surface, view_matrix, projection_matrix) = {
-            if let Some(v) = scene.world.arena::<Camera>().get(camera) {
-                let tree = scene.world.arena::<Node>();
-                let arena = scene.world.arena::<Transform>();
-                let view = Transform::world_view_matrix(&tree, &arena, camera)?;
-                let projection = v.matrix();
-                let surface = v.surface().unwrap_or(self.default_surface);
-                (surface, view, projection)
-            } else {
-                return Err(Error::NonCameraFound);
-            }
-        };
-
+    pub fn draw(&self, scene: &Scene) -> Result<()> {
         TaskDraw {
-            scene: &scene,
+            scene: scene,
             renderer: self,
-            surface: surface,
-            view_matrix: view_matrix,
-            projection_matrix: projection_matrix,
+            default_surface: self.default_surface,
         }.run_at(&scene.world)
     }
 }
@@ -85,9 +73,7 @@ impl Renderer {
 struct TaskDraw<'a> {
     scene: &'a Scene,
     renderer: &'a Renderer,
-    surface: SurfaceHandle,
-    view_matrix: math::Matrix4<f32>,
-    projection_matrix: math::Matrix4<f32>,
+    default_surface: SurfaceHandle,
 }
 
 impl<'a> TaskDraw<'a> {
@@ -137,22 +123,12 @@ impl<'a, 'b> System<'a> for TaskDraw<'b> {
         use self::PipelineUniformVariable as RU;
 
         unsafe {
+            let camera = self.renderer.graph.camera();
+            let surface = camera.component.surface().unwrap_or(self.default_surface);
+            let projection_matrix = camera.frustum.to_matrix();
+
             for v in view {
                 let mesh = data.2.get_unchecked(v);
-                // Checks if mesh is visible.
-                if !mesh.visible {
-                    continue;
-                }
-
-                // A brutal test for visibility, this should be replaced with a more
-                // elegant process likes queries in some kind of scene graph.
-                let p = Transform::world_position(&data.0, &data.1, v).unwrap();
-                let mut csp = self.view_matrix * math::Vector4::new(p.x, p.y, p.z, 1.0);
-                csp /= csp.w;
-
-                if csp.z <= 0.0 {
-                    continue;
-                }
 
                 // Gets the underlying mesh params.
                 let mso = if let Some(mso) = self.scene.video.mesh(mesh.mesh) {
@@ -161,17 +137,27 @@ impl<'a, 'b> System<'a> for TaskDraw<'b> {
                     continue;
                 };
 
+                // Gets the model matrix.
+                let model = Transform::world_matrix(&data.0, &data.1, v).unwrap();
+
+                // Checks if mesh is visible.
+                if !mesh.visible {
+                    continue;
+                }
+
+                // let aabb = mso.aabb.transform(&model);
+                // if !mesh.visible || camera.frustum.contains(&aabb) == math::PlaneRelation::Out {
+                //     continue;
+                // }
+
                 // Iterates and draws the sub-meshes with corresponding material.
                 for i in 0..mso.sub_mesh_offsets.len() {
                     let (pipeline, mat) =
                         self.material(*mesh.materials.get(i).unwrap_or(&Handle::nil().into()));
-                    let p = Transform::world_position(&data.0, &data.1, v).unwrap();
-                    let mut csp = self.view_matrix * math::Vector4::new(p.x, p.y, p.z, 1.0);
-                    csp /= csp.w;
 
-                    if csp.z <= 0.0 {
-                        continue;
-                    }
+                    let p = Transform::world_position(&data.0, &data.1, v).unwrap();
+                    let mut csp = camera.view_matrix * math::Vector4::new(p.x, p.y, p.z, 1.0);
+                    csp /= csp.w;
 
                     // Generate packed draw order.
                     let order = DrawCommandOrder {
@@ -186,13 +172,12 @@ impl<'a, 'b> System<'a> for TaskDraw<'b> {
                         dc.set_uniform_variable(*k, *v);
                     }
 
-                    let m = Transform::world_matrix(&data.0, &data.1, v).unwrap();
-                    let mv = self.view_matrix * m;
-                    let mvp = self.projection_matrix * mv;
+                    let mv = camera.view_matrix * model;
+                    let mvp = projection_matrix * mv;
                     let n = mv.invert().and_then(|v| Some(v.transpose())).unwrap_or(mv);
 
                     // Model matrix.
-                    Self::bind(&mut dc, pipeline, RU::ModelMatrix, m);
+                    Self::bind(&mut dc, pipeline, RU::ModelMatrix, model);
                     // Model view matrix.
                     Self::bind(&mut dc, pipeline, RU::ModelViewMatrix, mv);
                     // Mode view projection matrix.
@@ -221,7 +206,7 @@ impl<'a, 'b> System<'a> for TaskDraw<'b> {
                                         // Shadow depth texture.
                                         Self::bind(&mut dc, pipeline, uniforms[2], rt);
                                         // Shadow space matrix.
-                                        let ssm = shadow.shadow_space_matrix * m;
+                                        let ssm = shadow.shadow_space_matrix * model;
                                         Self::bind(&mut dc, pipeline, uniforms[3], ssm);
                                     }
                                 }
@@ -254,7 +239,7 @@ impl<'a, 'b> System<'a> for TaskDraw<'b> {
 
                     // Submit.
                     let sdc = dc.build_sub_mesh(i)?;
-                    self.scene.video.submit(self.surface, order, sdc)?;
+                    self.renderer.video.submit(surface, order, sdc)?;
                 }
             }
         }

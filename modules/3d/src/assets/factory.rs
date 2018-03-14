@@ -174,6 +174,7 @@ pub mod mesh {
     use crayon::graphics::prelude::*;
     use crayon::graphics::assets::prelude::*;
     use crayon::resource::prelude::*;
+    use crayon::math;
 
     impl_vertex! {
         PrimitiveVertex {
@@ -297,6 +298,7 @@ pub mod mesh {
         setup.params.num_verts = verts.len();
         setup.params.num_idxes = idxes.len();
         setup.params.sub_mesh_offsets.push(0);
+        setup.params.aabb = math::Aabb3::new([-0.5, -0.5, -0.5].into(), [0.5, 0.5, 0.5].into());
         setup.verts = Some(PrimitiveVertex::encode(&verts));
         setup.idxes = Some(IndexFormat::encode::<u16>(&idxes));
         video.create_mesh(setup)
