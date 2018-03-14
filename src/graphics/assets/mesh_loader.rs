@@ -3,6 +3,8 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::marker::PhantomData;
 
+use math;
+
 use resource::prelude::*;
 use resource::utils::registery::Registery;
 
@@ -18,6 +20,7 @@ pub struct MeshData {
     pub num_verts: usize,
     pub num_idxes: usize,
     pub sub_mesh_offsets: Vec<usize>,
+    pub aabb: math::Aabb3<f32>,
     pub verts: Vec<u8>,
     pub idxes: Vec<u8>,
 }
@@ -75,6 +78,7 @@ where
                     self.params.num_verts = mesh.num_verts;
                     self.params.num_idxes = mesh.num_idxes;
                     self.params.sub_mesh_offsets = mesh.sub_mesh_offsets;
+                    self.params.aabb = mesh.aabb;
 
                     let mut frame = self.frames.front();
                     let vptr = Some(frame.buf.extend_from_slice(&mesh.verts));

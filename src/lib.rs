@@ -27,12 +27,13 @@
 //! ```
 
 #[macro_use]
+extern crate cgmath;
+#[macro_use]
 extern crate failure;
 extern crate gl;
 extern crate glutin;
 extern crate libc;
 extern crate zip;
-pub extern crate cgmath as math;
 
 #[macro_use]
 pub mod utils;
@@ -44,3 +45,4 @@ pub mod graphics;
 pub mod resource;
 pub mod input;
 pub mod prelude;
+pub mod math;

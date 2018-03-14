@@ -1,5 +1,5 @@
 pub use math;
-pub use math::prelude::{Angle, InnerSpace, Matrix, One, SquareMatrix, Zero};
+pub use math::prelude::{Angle, EuclideanSpace, InnerSpace, Matrix, One, SquareMatrix, Zero};
 
 pub use application;
 pub use application::{Application, Context, Engine, FrameInfo, Settings, TimeSystem};

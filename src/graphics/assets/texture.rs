@@ -56,6 +56,8 @@ impl Default for TextureParams {
 #[derive(Debug, Copy, Clone)]
 pub struct RenderTextureSetup {
     pub format: RenderTextureFormat,
+    pub address: TextureAddress,
+    pub filter: TextureFilter,
     pub dimensions: (u16, u16),
     pub sampler: bool,
 }
@@ -64,6 +66,8 @@ impl Default for RenderTextureSetup {
     fn default() -> Self {
         RenderTextureSetup {
             format: RenderTextureFormat::RGB8,
+            address: TextureAddress::Clamp,
+            filter: TextureFilter::Linear,
             dimensions: (0, 0),
             sampler: true,
         }
