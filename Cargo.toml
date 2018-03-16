@@ -16,8 +16,8 @@ travis-ci = { repository = "shawnscode/crayon", branch = "master" }
 appveyor = { repository = "shawnscode/crayon", branch = "master", service = "github" }
 codecov = { repository = "shawnscode/crayon", branch = "master", service = "github" }
 
-[workspace]
-members = [ "crayon-examples", "modules/imgui", "modules/3d" ]
+# [workspace]
+# members = [ "crayon-examples", "modules/imgui", "modules/3d" ]
 
 [dependencies]
 libc = "0.2.36"

@@ -12,10 +12,21 @@ pub struct BitSet {
 
 impl BitSet {
     /// Create a new BitSet with *ZERO* bit.
+    #[inline]
     pub fn new() -> Self {
         BitSet {
             bits: [0; MAX_COMPONENTS],
         }
+    }
+
+    /// Creates a new BitSet from bit serial.
+    #[inline]
+    pub fn from(idxes: &[usize]) -> Self {
+        let mut bits = Self::new();
+        for v in idxes {
+            bits.insert(*v);
+        }
+        bits
     }
 
     /// Adds a value to the set.

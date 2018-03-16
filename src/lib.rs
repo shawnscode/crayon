@@ -38,7 +38,6 @@ extern crate zip;
 #[macro_use]
 pub mod utils;
 pub mod application;
-#[macro_use]
 pub mod ecs;
 #[macro_use]
 pub mod graphics;

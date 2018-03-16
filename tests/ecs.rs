@@ -31,34 +31,34 @@ impl Component for Reference {
     type Arena = HashMapArena<Reference>;
 }
 
-struct IncXSystem {}
-struct DecXSystem {}
+// struct IncXSystem {}
+// struct DecXSystem {}
 
-impl<'a> SystemMut<'a> for IncXSystem {
-    type ViewWithMut = FetchMut<'a, Position>;
-    type ResultMut = ();
+// impl<'a> SystemMut<'a> for IncXSystem {
+//     type ViewWithMut = FetchMut<'a, Position>;
+//     type ResultMut = ();
 
-    fn run_mut(&mut self, view: View, mut arena: Self::ViewWithMut) {
-        unsafe {
-            for v in view {
-                arena.get_unchecked_mut(v).x += 1;
-            }
-        }
-    }
-}
+//     fn run_mut(&mut self, view: View, mut arena: Self::ViewWithMut) {
+//         unsafe {
+//             for v in view {
+//                 arena.get_unchecked_mut(v).x += 1;
+//             }
+//         }
+//     }
+// }
 
-impl<'a> SystemMut<'a> for DecXSystem {
-    type ViewWithMut = FetchMut<'a, Position>;
-    type ResultMut = ();
+// impl<'a> SystemMut<'a> for DecXSystem {
+//     type ViewWithMut = FetchMut<'a, Position>;
+//     type ResultMut = ();
 
-    fn run_mut(&mut self, view: View, mut arena: Self::ViewWithMut) {
-        unsafe {
-            for v in view {
-                arena.get_unchecked_mut(v).x -= 1;
-            }
-        }
-    }
-}
+//     fn run_mut(&mut self, view: View, mut arena: Self::ViewWithMut) {
+//         unsafe {
+//             for v in view {
+//                 arena.get_unchecked_mut(v).x -= 1;
+//             }
+//         }
+//     }
+// }
 
 #[test]
 fn basic() {
@@ -75,7 +75,7 @@ fn basic() {
     }
 
     {
-        let mut arena = world.arena_mut::<Position>();
+        let (_, mut arena) = world.view_w1::<Position>();
 
         let p = arena.get_mut(e1).unwrap();
         p.x = 2;
@@ -90,6 +90,15 @@ fn basic() {
     world.remove::<Position>(e1);
     assert!(!world.has::<Position>(e1));
     assert!(world.get::<Position>(e1).is_none());
+}
+
+#[test]
+#[should_panic]
+fn storage_not_registered() {
+    let mut world = World::new();
+
+    let e1 = world.create();
+    world.add::<Position>(e1, Position { x: 1, y: 2 });
 }
 
 #[test]
@@ -240,40 +249,55 @@ fn iter_with() {
     }
 
     {
-        let (view, arenas) = world.view_with_2::<Position, Reference>();
-        for e in view {
+        let (entities, a1, a2) = world.view_r2::<Position, Reference>();
+        assert_eq!((&a1, &a2).components(&entities).count(), v.len());
+    }
+
+    {
+        let (entities, a1, a2) = world.view_r2::<Position, Reference>();
+        for (e, position, _) in (&a1, &a2).join(&entities) {
             let p = Position {
                 x: e.index(),
                 y: e.version(),
             };
 
-            assert_eq!(*arenas.0.get(e).unwrap(), p);
+            assert_eq!(*position, p);
         }
     }
 
     {
-        let (view, mut arenas) = world.view_with_2::<Position, Reference>();
-        for e in view {
-            arenas.0.get_mut(e).unwrap().x += e.version();
-            *arenas.1.get_mut(e).unwrap().value.write().unwrap() += 1;
+        let (entities, mut a1, mut a2) = world.view_w2::<Position, Reference>();
+        for (e, mut position, mut reference) in (&mut a1, &mut a2).join(&entities) {
+            position.x += e.version();
+            *reference.value.write().unwrap() += 1;
         }
     }
 
     {
-        let (view, arenas) = world.view_with_2::<Position, Reference>();
-        let mut iterator = view.into_iter();
+        let (entities, a1, a2) = world.view_r2::<Position, Reference>();
+        let mut iter = (&a1, &a2).join(&entities);
         for e in &v {
-            let i = iterator.next().unwrap();
+            let (i, position, reference) = iter.next().unwrap();
             let p = Position {
                 x: e.index() + e.version(),
                 y: e.version(),
             };
 
             assert_eq!(i, *e);
-            assert_eq!(*arenas.0.get(*e).unwrap(), p);
-            assert_eq!(*arenas.1.get(*e).unwrap().value.read().unwrap(), 1);
+            assert_eq!(*position, p);
+            assert_eq!(*reference.value.read().unwrap(), 1);
         }
     }
+}
+
+#[test]
+#[should_panic]
+fn storage_already_borrowed_mutably() {
+    let mut world = World::new();
+    world.register::<Position>();
+    world.register::<Reference>();
+
+    let _ = world.view_r1w1::<Position, Position>();
 }
 
 #[test]
@@ -287,19 +311,19 @@ fn builder() {
     assert!(!world.has::<Reference>(e1));
 }
 
-#[test]
-fn system() {
-    let mut world = World::new();
-    world.register::<Position>();
-    let e1 = world.build().with_default::<Position>().finish();
+// #[test]
+// fn system() {
+//     let mut world = World::new();
+//     world.register::<Position>();
+//     let e1 = world.build().with_default::<Position>().finish();
 
-    let mut inc = IncXSystem {};
-    inc.run_mut_at(&mut world);
-    assert!(world.get::<Position>(e1).unwrap().x == 1);
+//     let mut inc = IncXSystem {};
+//     inc.run_mut_at(&mut world);
+//     assert!(world.get::<Position>(e1).unwrap().x == 1);
 
-    let mut dec = DecXSystem {};
-    dec.run_mut_at(&mut world);
-    assert!(world.get::<Position>(e1).unwrap().x == 0);
+//     let mut dec = DecXSystem {};
+//     dec.run_mut_at(&mut world);
+//     assert!(world.get::<Position>(e1).unwrap().x == 0);
 
-    // assert!(!validate(&world, &[&inc, &dec]));
-}
+//     // assert!(!validate(&world, &[&inc, &dec]));
+// }
