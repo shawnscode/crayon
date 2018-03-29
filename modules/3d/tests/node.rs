@@ -18,21 +18,21 @@ pub fn hierachy() {
     let e4 = world.build().with_default::<Node>().finish();
 
     {
-        let mut arena = world.arena_mut::<Node>();
-        Node::set_parent(&mut arena, e4, Some(e3)).unwrap();
-        Node::set_parent(&mut arena, e3, Some(e1)).unwrap();
-        Node::set_parent(&mut arena, e2, Some(e1)).unwrap();
+        let (_, mut nodes) = world.view_w1::<Node>();
+        Node::set_parent(&mut nodes, e4, Some(e3)).unwrap();
+        Node::set_parent(&mut nodes, e3, Some(e1)).unwrap();
+        Node::set_parent(&mut nodes, e2, Some(e1)).unwrap();
 
-        assert!(Node::is_ancestor(&arena, e2, e1));
-        assert!(Node::is_ancestor(&arena, e3, e1));
-        assert!(Node::is_ancestor(&arena, e4, e1));
-        assert!(Node::is_ancestor(&arena, e4, e3));
+        assert!(Node::is_ancestor(&nodes, e2, e1));
+        assert!(Node::is_ancestor(&nodes, e3, e1));
+        assert!(Node::is_ancestor(&nodes, e4, e1));
+        assert!(Node::is_ancestor(&nodes, e4, e3));
 
-        assert!(!Node::is_ancestor(&arena, e1, e1));
-        assert!(!Node::is_ancestor(&arena, e1, e2));
-        assert!(!Node::is_ancestor(&arena, e1, e3));
-        assert!(!Node::is_ancestor(&arena, e1, e4));
-        assert!(!Node::is_ancestor(&arena, e2, e4));
+        assert!(!Node::is_ancestor(&nodes, e1, e1));
+        assert!(!Node::is_ancestor(&nodes, e1, e2));
+        assert!(!Node::is_ancestor(&nodes, e1, e3));
+        assert!(!Node::is_ancestor(&nodes, e1, e4));
+        assert!(!Node::is_ancestor(&nodes, e2, e4));
     }
 
     {
@@ -67,46 +67,53 @@ fn iteration() {
     // e1 <- (e2, e3 <- e4 <- (e5, e6))
 
     {
-        let mut arena = world.arena_mut::<Node>();
-        Node::set_parent(&mut arena, e4, Some(e3)).unwrap();
-        Node::set_parent(&mut arena, e3, Some(e1)).unwrap();
-        Node::set_parent(&mut arena, e2, Some(e1)).unwrap();
-        Node::set_parent(&mut arena, e6, Some(e4)).unwrap();
-        Node::set_parent(&mut arena, e5, Some(e4)).unwrap();
+        let (_, mut nodes) = world.view_w1::<Node>();
+        Node::set_parent(&mut nodes, e4, Some(e3)).unwrap();
+        Node::set_parent(&mut nodes, e3, Some(e1)).unwrap();
+        Node::set_parent(&mut nodes, e2, Some(e1)).unwrap();
+        Node::set_parent(&mut nodes, e6, Some(e4)).unwrap();
+        Node::set_parent(&mut nodes, e5, Some(e4)).unwrap();
 
         assert_eq!(
-            Node::descendants(&arena, e1).collect::<Vec<_>>(),
+            Node::descendants(&nodes, e1).collect::<Vec<_>>(),
             [e2, e3, e4, e5, e6]
         );
-        assert_eq!(Node::children(&arena, e1).collect::<Vec<_>>(), [e2, e3]);
+        assert_eq!(Node::children(&nodes, e1).collect::<Vec<_>>(), [e2, e3]);
 
-        assert_eq!(Node::ancestors(&arena, e1).collect::<Vec<_>>(), []);
-        assert_eq!(Node::ancestors(&arena, e2).collect::<Vec<_>>(), [e1]);
-        assert_eq!(Node::ancestors(&arena, e4).collect::<Vec<_>>(), [e3, e1]);
+        assert_eq!(Node::ancestors(&nodes, e1).collect::<Vec<_>>(), []);
+        assert_eq!(Node::ancestors(&nodes, e2).collect::<Vec<_>>(), [e1]);
+        assert_eq!(Node::ancestors(&nodes, e4).collect::<Vec<_>>(), [e3, e1]);
         assert_eq!(
-            Node::ancestors(&arena, e6).collect::<Vec<_>>(),
+            Node::ancestors(&nodes, e6).collect::<Vec<_>>(),
             [e4, e3, e1]
         );
     }
 
     {
-        assert_eq!(
-            Node::ancestors_in_place(world.arena::<Node>(), e1).collect::<Vec<_>>(),
-            []
-        );
+        let (_, nodes) = world.view_r1::<Node>();
+        assert_eq!(Node::ancestors_in_place(nodes, e1).collect::<Vec<_>>(), []);
+    }
 
+    {
+        let (_, nodes) = world.view_r1::<Node>();
         assert_eq!(
-            Node::ancestors_in_place(world.arena::<Node>(), e2).collect::<Vec<_>>(),
+            Node::ancestors_in_place(nodes, e2).collect::<Vec<_>>(),
             [e1]
         );
+    }
 
+    {
+        let (_, nodes) = world.view_r1::<Node>();
         assert_eq!(
-            Node::ancestors_in_place(world.arena::<Node>(), e4).collect::<Vec<_>>(),
+            Node::ancestors_in_place(nodes, e4).collect::<Vec<_>>(),
             [e3, e1]
         );
+    }
 
+    {
+        let (_, nodes) = world.view_r1::<Node>();
         assert_eq!(
-            Node::ancestors_in_place(world.arena::<Node>(), e6).collect::<Vec<_>>(),
+            Node::ancestors_in_place(nodes, e6).collect::<Vec<_>>(),
             [e4, e3, e1]
         );
     }
@@ -126,7 +133,7 @@ fn random_iteration() {
     let mut constructed = vec![];
     constructed.push(transforms.pop().unwrap());
 
-    let mut arena = world.arena_mut::<Node>();
+    let (_, mut nodes) = world.view_w1::<Node>();
     let mut count = 0;
     for i in 0..254 {
         let idx = generator.next_u32() as usize % transforms.len();
@@ -136,17 +143,17 @@ fn random_iteration() {
             count += 1;
         }
 
-        Node::set_parent(&mut arena, transforms[idx], Some(constructed[pidx])).unwrap();
-        let len = Node::descendants(&arena, constructed[0]).count();
+        Node::set_parent(&mut nodes, transforms[idx], Some(constructed[pidx])).unwrap();
+        let len = Node::descendants(&nodes, constructed[0]).count();
         assert_eq!(len, i + 1);
 
         constructed.push(transforms[idx]);
         transforms.remove(idx);
     }
 
-    let len = Node::children(&arena, constructed[0]).count();
+    let len = Node::children(&nodes, constructed[0]).count();
     assert_eq!(len, count);
 
-    let len = Node::descendants(&arena, constructed[0]).count();
+    let len = Node::descendants(&nodes, constructed[0]).count();
     assert_eq!(len, 254);
 }

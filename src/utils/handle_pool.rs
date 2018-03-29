@@ -104,6 +104,13 @@ impl HandlePool {
         }
     }
 
+    /// Clears the `HandlePool`, removing all versions. Keeps the allocated memory
+    /// for reuse.
+    pub fn clear(&mut self) {
+        self.frees.clear();
+        self.versions.clear();
+    }
+
     /// Returns the total number of alive handle in this `HandlePool`.
     #[inline]
     pub fn len(&self) -> usize {
@@ -144,7 +151,7 @@ impl<'a> IntoIterator for &'a mut HandlePool {
 /// Immutable `HandlePool` iterator, this struct is created by `iter` method on `HandlePool`.
 #[derive(Copy, Clone)]
 pub struct Iter<'a> {
-    versions: &'a Vec<HandleIndex>,
+    versions: &'a [HandleIndex],
     start: HandleIndex,
     end: HandleIndex,
 }
@@ -183,6 +190,7 @@ impl<'a> Iter<'a> {
     }
 
     /// Divides iterator into two at mid.
+    ///
     /// The first will contain all indices from [start, mid) (excluding the index mid itself)
     /// and the second will contain all indices from [mid, end) (excluding the index end itself).
     pub fn split(&self) -> (Iter<'a>, Iter<'a>) {

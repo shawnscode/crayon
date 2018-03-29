@@ -90,6 +90,15 @@ impl BitSet {
         bs
     }
 
+    /// Checks if two bitset is disjoint.
+    #[inline]
+    pub fn is_disjoint<T>(&self, rhs: T) -> bool
+    where
+        T: Borrow<Self>,
+    {
+        self.intersect_with(rhs) == BitSet::new()
+    }
+
     /// Returns an iterator into this bit-set.
     #[inline]
     pub fn iter(&self) -> BitSetIter {

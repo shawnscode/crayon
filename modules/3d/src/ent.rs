@@ -3,7 +3,6 @@ use std::any::TypeId;
 use crayon::math;
 use crayon::math::InnerSpace;
 use crayon::ecs::prelude::*;
-use crayon::ecs::cell::{Ref, RefMut};
 
 use components::node::{AncestorsInPlace, ChildrenInPlace, DescendantsInPlace, Node};
 use components::transform::Transform;
@@ -16,11 +15,8 @@ pub trait EntReader {
     /// Gets the handle of this `Entity` in scene.
     fn id(&self) -> Entity;
 
-    /// Returns a reference to the component corresponding to the `Entity`.
-    ///
-    /// The borrow lasts until the returned `Ref` exits scope. Multiple immutable
-    /// borrows can be taken out at the same time.
-    fn component<T>(&self) -> Option<Ref<T>>
+    /// Gets a reference to the component corresponding to the `Entity`.
+    fn component<T>(&self) -> Option<&T>
     where
         T: Component,
     {
@@ -30,7 +26,7 @@ pub trait EntReader {
     /// Gets the parent node.
     fn parent(&self) -> Option<Entity> {
         unsafe {
-            let nodes = self.world().arena::<Node>();
+            let (_, nodes) = self.world().view_r1::<Node>();
             nodes.get_unchecked(self.id()).parent()
         }
     }
@@ -38,7 +34,7 @@ pub trait EntReader {
     /// Checks if this is the leaf of a hierarchy, aka. has no child.
     fn is_leaf(&self) -> bool {
         unsafe {
-            let nodes = self.world().arena::<Node>();
+            let (_, nodes) = self.world().view_r1::<Node>();
             nodes.get_unchecked(self.id()).is_leaf()
         }
     }
@@ -46,26 +42,26 @@ pub trait EntReader {
     /// Checks if this is the root of a hierarchy, aka. has no parent.
     fn is_root(&self) -> bool {
         unsafe {
-            let nodes = self.world().arena::<Node>();
+            let (_, nodes) = self.world().view_r1::<Node>();
             nodes.get_unchecked(self.id()).is_root()
         }
     }
 
     /// Gets an iterator of references to its ancestors.
     fn ancestors(&self) -> AncestorsInPlace<Fetch<Node>> {
-        let nodes = self.world().arena();
+        let (_, nodes) = self.world().view_r1::<Node>();
         Node::ancestors_in_place(nodes, self.id())
     }
 
     /// Gets an iterator of references to this node's children.
     fn children(&self) -> ChildrenInPlace<Fetch<Node>> {
-        let nodes = self.world().arena();
+        let (_, nodes) = self.world().view_r1::<Node>();
         Node::children_in_place(nodes, self.id())
     }
 
     /// Gets an iterator of references to this transform's descendants in tree order.
     fn descendants(&self) -> DescendantsInPlace<Fetch<Node>> {
-        let nodes = self.world().arena();
+        let (_, nodes) = self.world().view_r1::<Node>();
         Node::descendants_in_place(nodes, self.id())
     }
 
@@ -94,7 +90,7 @@ pub trait EntReader {
     /// Gets the scale component in local space.
     fn scale(&self) -> f32 {
         unsafe {
-            let transforms = self.world().arena::<Transform>();
+            let (_, transforms) = self.world().view_r1::<Transform>();
             transforms.get_unchecked(self.id()).scale()
         }
     }
@@ -102,7 +98,7 @@ pub trait EntReader {
     /// Gets the scale component in world space.
     fn world_scale(&self) -> f32 {
         unsafe {
-            let (nodes, transforms) = self.world().arena_r2();
+            let (_, nodes, transforms) = self.world().view_r2();
             Transform::world_scale_unchecked(&nodes, &transforms, self.id())
         }
     }
@@ -110,7 +106,7 @@ pub trait EntReader {
     /// Gets the displacement in local space.
     fn position(&self) -> math::Vector3<f32> {
         unsafe {
-            let transforms = self.world().arena::<Transform>();
+            let (_, transforms) = self.world().view_r1::<Transform>();
             transforms.get_unchecked(self.id()).position()
         }
     }
@@ -118,7 +114,7 @@ pub trait EntReader {
     /// Gets the displacement in world space.
     fn world_position(&self) -> math::Vector3<f32> {
         unsafe {
-            let (nodes, transforms) = self.world().arena_r2();
+            let (_, nodes, transforms) = self.world().view_r2();
             Transform::world_position_unchecked(&nodes, &transforms, self.id())
         }
     }
@@ -126,7 +122,7 @@ pub trait EntReader {
     /// Gets the rotation in local space.
     fn rotation(&self) -> math::Quaternion<f32> {
         unsafe {
-            let transforms = self.world().arena::<Transform>();
+            let (_, transforms) = self.world().view_r1::<Transform>();
             transforms.get_unchecked(self.id()).rotation()
         }
     }
@@ -135,7 +131,7 @@ pub trait EntReader {
     fn world_rotation(&self) -> math::Quaternion<f32> {
         unsafe {
             let id = self.id();
-            let (nodes, transforms) = self.world().arena_r2();
+            let (_, nodes, transforms) = self.world().view_r2();
             Transform::world_rotation_unchecked(&nodes, &transforms, id)
         }
     }
@@ -148,7 +144,7 @@ pub trait EntReader {
         // M = T * R * S
         unsafe {
             let id = self.id();
-            let (nodes, transforms) = self.world().arena_r2();
+            let (_, nodes, transforms) = self.world().view_r2();
             let decomposed = Transform::world_decomposed_unchecked(&nodes, &transforms, id);
             decomposed.rot * (v.into() * decomposed.scale) + decomposed.disp
         }
@@ -165,7 +161,7 @@ pub trait EntReader {
         use crayon::math::Transform as _Transform;
         unsafe {
             let id = self.id();
-            let (nodes, transforms) = self.world().arena_r2();
+            let (_, nodes, transforms) = self.world().view_r2();
             let decomposed = Transform::world_decomposed_unchecked(&nodes, &transforms, id);
             decomposed.transform_vector(v.into())
         }
@@ -181,7 +177,7 @@ pub trait EntReader {
     {
         unsafe {
             let id = self.id();
-            let (nodes, transforms) = self.world().arena_r2();
+            let (_, nodes, transforms) = self.world().view_r2();
             let rotation = Transform::world_rotation_unchecked(&nodes, &transforms, id);
             rotation * v.into()
         }
@@ -215,7 +211,7 @@ pub trait EntWriter: EntReader {
     {
         unsafe {
             let id = self.id();
-            let mut nodes = self.world_mut().arena_mut();
+            let (_, mut nodes) = self.world_mut().view_w1();
             Node::set_parent_unchecked(&mut nodes, id, parent)
         }
     }
@@ -224,7 +220,7 @@ pub trait EntWriter: EntReader {
     fn remove_from_parent(&mut self) {
         unsafe {
             let id = self.id();
-            let mut nodes = self.world_mut().arena_mut();
+            let (_, mut nodes) = self.world_mut().view_w1();
             Node::remove_from_parent_unchecked(&mut nodes, id);
         }
     }
@@ -233,7 +229,7 @@ pub trait EntWriter: EntReader {
     fn set_scale(&mut self, scale: f32) {
         unsafe {
             let id = self.id();
-            let mut transforms = self.world_mut().arena_mut::<Transform>();
+            let (_, mut transforms) = self.world_mut().view_w1::<Transform>();
             transforms.get_unchecked_mut(id).set_scale(scale);
         }
     }
@@ -242,7 +238,7 @@ pub trait EntWriter: EntReader {
     fn set_world_scale(&mut self, scale: f32) {
         unsafe {
             let id = self.id();
-            let (nodes, mut transforms) = self.world_mut().arena_r1w1();
+            let (_, nodes, mut transforms) = self.world_mut().view_r1w1();
             Transform::set_world_scale_unchecked(&nodes, &mut transforms, id, scale);
         }
     }
@@ -254,7 +250,7 @@ pub trait EntWriter: EntReader {
     {
         unsafe {
             let id = self.id();
-            let mut transforms = self.world_mut().arena_mut::<Transform>();
+            let (_, mut transforms) = self.world_mut().view_w1::<Transform>();
             transforms.get_unchecked_mut(id).set_position(position);
         }
     }
@@ -266,7 +262,7 @@ pub trait EntWriter: EntReader {
     {
         unsafe {
             let id = self.id();
-            let (nodes, mut transforms) = self.world_mut().arena_r1w1();
+            let (_, nodes, mut transforms) = self.world_mut().view_r1w1();
             Transform::set_world_position_unchecked(&nodes, &mut transforms, id, position);
         }
     }
@@ -278,7 +274,7 @@ pub trait EntWriter: EntReader {
     {
         unsafe {
             let id = self.id();
-            let mut transforms = self.world_mut().arena_mut::<Transform>();
+            let (_, mut transforms) = self.world_mut().view_w1::<Transform>();
             transforms.get_unchecked_mut(id).translate(translation);
         }
     }
@@ -290,7 +286,7 @@ pub trait EntWriter: EntReader {
     {
         unsafe {
             let id = self.id();
-            let mut transforms = self.world_mut().arena_mut::<Transform>();
+            let (_, mut transforms) = self.world_mut().view_w1::<Transform>();
             transforms.get_unchecked_mut(id).set_rotation(rotation);
         }
     }
@@ -302,7 +298,7 @@ pub trait EntWriter: EntReader {
     {
         unsafe {
             let id = self.id();
-            let (nodes, mut transforms) = self.world_mut().arena_r1w1();
+            let (_, nodes, mut transforms) = self.world_mut().view_r1w1();
             Transform::set_world_rotation_unchecked(&nodes, &mut transforms, id, rotation);
         }
     }
@@ -314,7 +310,7 @@ pub trait EntWriter: EntReader {
     {
         unsafe {
             let id = self.id();
-            let mut transforms = self.world_mut().arena_mut::<Transform>();
+            let (_, mut transforms) = self.world_mut().view_w1::<Transform>();
             transforms.get_unchecked_mut(id).rotate(rotation);
         }
     }
@@ -327,7 +323,7 @@ pub trait EntWriter: EntReader {
     {
         unsafe {
             let id = self.id();
-            let (nodes, mut transforms) = self.world_mut().arena_r1w1();
+            let (_, nodes, mut transforms) = self.world_mut().view_r1w1();
 
             let center = center.into();
             let up = up.into();
@@ -432,13 +428,11 @@ impl<'a> EntAccessorMut<'a> {
 
     /// Returns a mutable reference to the componenent corresponding to the `Entity`.
     ///
-    /// The borrow lasts until the returned `RefMut` exits scope.
-    ///
     /// # Panics
     ///
     /// Panics if trying to get `Node` component or `Transform` component mutablely.
     #[inline]
-    pub fn component_mut<T>(&mut self) -> Option<RefMut<T>>
+    pub fn component_mut<T>(&mut self) -> Option<&mut T>
     where
         T: Component,
     {

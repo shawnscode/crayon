@@ -329,6 +329,32 @@ impl<'w> Iterator for EntitiesIter<'w> {
 }
 
 macro_rules! impl_view_with {
+    ($name: ident, [$($readables: ident), *], []) => (
+        #[allow(unused_imports)]
+        mod $name {
+            use $crate::ecs::view::{Fetch};
+            use $crate::ecs::world::{World, Entities};
+            use $crate::ecs::component::Component;
+            use $crate::ecs::bitset::BitSet;
+
+            impl World {
+                /// Gets multiple storages and the `Entities` at the same time safely.
+                #[allow(unused_mut)]
+                pub fn $name<$($readables, )*>(&self) -> (Entities, $(Fetch<$readables>, )*)
+                where
+                    $($readables:Component, )*
+                {
+                    unsafe {
+                        (
+                            Entities::new(self),
+                            $( Fetch::<$readables>::new(self), )*
+                        )
+                    }
+                }
+            }
+        }
+    );
+
     ($name: ident, [$($readables: ident), *], [$($writables: ident), *]) => (
         #[allow(unused_imports)]
         mod $name {
@@ -338,7 +364,7 @@ macro_rules! impl_view_with {
             use $crate::ecs::bitset::BitSet;
 
             impl World {
-                /// Gets multiple storages and the `Entities` at the same time safely.
+                /// Gets multiple storages mutably and the `Entities` at the same time safely.
                 ///
                 /// # Pancis
                 ///
@@ -470,14 +496,6 @@ impl ArenaVec {
 }
 
 impl World {
-    #[inline]
-    pub(crate) fn mask(&self, ent: Entity) -> BitSet {
-        self.masks
-            .get(ent.index() as usize)
-            .cloned()
-            .unwrap_or(BitSet::new())
-    }
-
     #[inline]
     pub(crate) fn mask_index<T>(&self) -> usize
     where

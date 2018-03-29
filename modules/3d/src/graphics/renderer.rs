@@ -66,7 +66,7 @@ impl Renderer {
             scene: scene,
             renderer: self,
             default_surface: self.default_surface,
-        }.run_at(&scene.world)
+        }.run_with(&scene.world)
     }
 }
 
@@ -112,14 +112,14 @@ impl<'a> TaskDraw<'a> {
 }
 
 impl<'a, 'b> System<'a> for TaskDraw<'b> {
-    type ViewWith = (
+    type Data = (
         Fetch<'a, Node>,
         Fetch<'a, Transform>,
         Fetch<'a, MeshRenderer>,
     );
-    type Result = Result<()>;
+    type Err = Error;
 
-    fn run(&mut self, view: View, data: Self::ViewWith) -> Self::Result {
+    fn run(&mut self, entities: Entities, data: Self::Data) -> Result<()> {
         use self::PipelineUniformVariable as RU;
 
         unsafe {
@@ -127,7 +127,7 @@ impl<'a, 'b> System<'a> for TaskDraw<'b> {
             let surface = camera.component.surface().unwrap_or(self.default_surface);
             let projection_matrix = camera.frustum.to_matrix();
 
-            for v in view {
+            for v in entities.with_3::<Node, Transform, MeshRenderer>() {
                 let mesh = data.2.get_unchecked(v);
 
                 // Gets the underlying mesh params.

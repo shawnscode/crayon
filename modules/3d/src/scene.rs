@@ -105,14 +105,21 @@ impl Scene {
 
     /// Deletes a node and its descendants from the `Scene`.
     pub fn delete(&mut self, handle: Entity) -> Result<()> {
-        let descendants: Vec<_> = Node::descendants(&self.world.arena::<Node>(), handle).collect();
+        let descendants: Vec<_> = {
+            let (_, mut nodes) = self.world.view_w1::<Node>();
+            Node::descendants(&nodes, handle).collect()
+        };
+
         for v in descendants {
             self.world.free(v);
         }
 
-        Node::remove_from_parent(&mut self.world.arena_mut::<Node>(), handle)?;
-        self.world.free(handle);
+        {
+            let (_, mut nodes) = self.world.view_w1::<Node>();
+            Node::remove_from_parent(&mut nodes, handle)?;
+        }
 
+        self.world.free(handle);
         Ok(())
     }
 

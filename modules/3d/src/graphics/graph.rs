@@ -92,19 +92,17 @@ impl SimpleRenderGraph {
     /// Advances one frame with main camera.
     pub fn advance(&mut self, world: &World, camera: Entity) -> Result<()> {
         if let Some(v) = world.get::<Camera>(camera) {
-            let tree = world.arena::<Node>();
-            let transforms = world.arena::<Transform>();
-
+            let (_, nodes, transforms) = world.view_r2::<Node, Transform>();
             self.camera.id = camera;
             self.camera.component = *v;
-            self.camera.position = Transform::world_position(&tree, &transforms, camera)?;
-            self.camera.view_matrix = Transform::world_view_matrix(&tree, &transforms, camera)?;
+            self.camera.position = Transform::world_position(&nodes, &transforms, camera)?;
+            self.camera.view_matrix = Transform::world_view_matrix(&nodes, &transforms, camera)?;
         } else {
             return Err(Error::NonCameraFound);
         };
 
-        TaskGetVisibleEntities { graph: self }.run_at(world)?;
-        TaskGetRenderLits { graph: self }.run_at(world)?;
+        TaskGetVisibleEntities { graph: self }.run_with(world)?;
+        TaskGetRenderLits { graph: self }.run_with(world)?;
 
         Ok(())
     }
@@ -130,14 +128,14 @@ pub struct TaskGetVisibleEntities<'a> {
 }
 
 impl<'a, 'b> System<'a> for TaskGetVisibleEntities<'b> {
-    type ViewWith = (
+    type Data = (
         Fetch<'a, Node>,
         Fetch<'a, Transform>,
         Fetch<'a, MeshRenderer>,
     );
-    type Result = Result<()>;
+    type Err = Error;
 
-    fn run(&mut self, view: View, data: Self::ViewWith) -> Self::Result {
+    fn run(&mut self, entities: Entities, data: Self::Data) -> Result<()> {
         self.graph.visible_entities.clear();
 
         let cmp = self.graph.camera.component;
@@ -148,7 +146,7 @@ impl<'a, 'b> System<'a> for TaskGetVisibleEntities<'b> {
         let mut tight_clip = (clip.1, clip.0);
 
         unsafe {
-            for v in view {
+            for v in entities.with_3::<Node, Transform, MeshRenderer>() {
                 let mesh = data.2.get_unchecked(v);
 
                 // Checks if mesh is visible.
@@ -199,10 +197,10 @@ pub struct TaskGetRenderLits<'a> {
 }
 
 impl<'a, 'b> System<'a> for TaskGetRenderLits<'b> {
-    type ViewWith = (Fetch<'a, Node>, Fetch<'a, Transform>, Fetch<'a, Light>);
-    type Result = Result<()>;
+    type Data = (Fetch<'a, Node>, Fetch<'a, Transform>, Fetch<'a, Light>);
+    type Err = Error;
 
-    fn run(&mut self, view: View, data: Self::ViewWith) -> Self::Result {
+    fn run(&mut self, entities: Entities, data: Self::Data) -> Result<()> {
         unsafe {
             let view_matrix = self.graph.camera.view_matrix;
             let dir_matrix = math::Matrix3::from_cols(
@@ -217,7 +215,7 @@ impl<'a, 'b> System<'a> for TaskGetRenderLits<'b> {
             let frustum_points: math::FrustumPoints<_> = frustum.into();
 
             self.graph.lits.clear();
-            for v in view {
+            for v in entities.with_3::<Node, Transform, Light>() {
                 let lit = data.2.get_unchecked(v);
                 if !lit.enable {
                     continue;

@@ -86,8 +86,8 @@ impl Transform {
     /// Get the transform matrix from local space to world space.
     pub fn world_matrix<T1, T2>(tree: &T1, arena: &T2, handle: Entity) -> Result<math::Matrix4<f32>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         let decomposed = Transform::world_decomposed(tree, arena, handle)?;
         Ok(math::Matrix4::from(decomposed))
@@ -100,8 +100,8 @@ impl Transform {
         handle: Entity,
     ) -> Result<math::Matrix4<f32>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         let decomposed = Transform::world_decomposed(tree, arena, handle)?;
         if let Some(inverse) = decomposed.inverse_transform() {
@@ -118,8 +118,8 @@ impl Transform {
         handle: Entity,
     ) -> Result<math::Matrix4<f32>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         let decomposed = Transform::world_decomposed(tree, arena, handle)?;
         let it = math::Matrix4::from_translation(-decomposed.disp);
@@ -135,8 +135,8 @@ impl Transform {
         handle: Entity,
     ) -> Result<math::Matrix4<f32>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         let decomposed = Transform::world_decomposed(tree, arena, handle)?;
         let t = math::Matrix4::from_translation(decomposed.disp);
@@ -152,8 +152,8 @@ impl Transform {
         disp: T3,
     ) -> Result<()>
     where
-        T1: Arena<Node>,
-        T2: ArenaMut<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGetMut<Transform>,
         T3: Into<math::Vector3<f32>>,
     {
         if arena.get(handle).is_none() {
@@ -173,8 +173,8 @@ impl Transform {
         handle: Entity,
         disp: T3,
     ) where
-        T1: Arena<Node>,
-        T2: ArenaMut<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGetMut<Transform>,
         T3: Into<math::Vector3<f32>>,
     {
         let disp = disp.into();
@@ -201,8 +201,8 @@ impl Transform {
         handle: Entity,
     ) -> Result<math::Vector3<f32>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         if arena.get(handle).is_none() {
             Err(Error::NonTransformFound)
@@ -218,8 +218,8 @@ impl Transform {
         handle: Entity,
     ) -> math::Vector3<f32>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         let transform = arena.get_unchecked(handle);
         let mut disp = transform.position();
@@ -240,8 +240,8 @@ impl Transform {
         scale: f32,
     ) -> Result<()>
     where
-        T1: Arena<Node>,
-        T2: ArenaMut<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGetMut<Transform>,
     {
         if arena.get(handle).is_none() {
             return Err(Error::NonTransformFound);
@@ -260,8 +260,8 @@ impl Transform {
         handle: Entity,
         scale: f32,
     ) where
-        T1: Arena<Node>,
-        T2: ArenaMut<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGetMut<Transform>,
     {
         if tree.get(handle).is_none() {
             arena.get_unchecked_mut(handle).set_scale(scale);
@@ -286,8 +286,8 @@ impl Transform {
     /// Get the scale of `Transform` in world space.
     pub fn world_scale<T1, T2>(tree: &T1, arena: &T2, handle: Entity) -> Result<f32>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         if arena.get(handle).is_none() {
             Err(Error::NonTransformFound)
@@ -299,8 +299,8 @@ impl Transform {
     /// Get the scale of `Transform` in world space without doing bounds checking.
     pub unsafe fn world_scale_unchecked<T1, T2>(tree: &T1, arena: &T2, handle: Entity) -> f32
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         let transform = arena.get_unchecked(handle);
         let mut scale = transform.scale();
@@ -320,8 +320,8 @@ impl Transform {
         rotation: T3,
     ) -> Result<()>
     where
-        T1: Arena<Node>,
-        T2: ArenaMut<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGetMut<Transform>,
         T3: Into<math::Quaternion<f32>>,
     {
         if arena.get(handle).is_none() {
@@ -341,8 +341,8 @@ impl Transform {
         handle: Entity,
         rotation: T3,
     ) where
-        T1: Arena<Node>,
-        T2: ArenaMut<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGetMut<Transform>,
         T3: Into<math::Quaternion<f32>>,
     {
         if tree.get(handle).is_none() {
@@ -368,8 +368,8 @@ impl Transform {
         handle: Entity,
     ) -> Result<math::Quaternion<f32>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         if arena.get(handle).is_none() {
             Err(Error::NonTransformFound)
@@ -385,8 +385,8 @@ impl Transform {
         handle: Entity,
     ) -> math::Quaternion<f32>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         let transform = arena.get_unchecked(handle);
         let mut rotation = transform.rotation();
@@ -407,8 +407,8 @@ impl Transform {
         decomposed: math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>,
     ) -> Result<()>
     where
-        T1: Arena<Node>,
-        T2: ArenaMut<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGetMut<Transform>,
     {
         let relative = Transform::world_decomposed(tree, arena, handle)?;
 
@@ -428,8 +428,8 @@ impl Transform {
         handle: Entity,
     ) -> Result<math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         if arena.get(handle).is_none() {
             Err(Error::NonTransformFound)
@@ -444,8 +444,8 @@ impl Transform {
         handle: Entity,
     ) -> math::Decomposed<math::Vector3<f32>, math::Quaternion<f32>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         let transform = arena.get_unchecked(handle);
         let mut decomposed = transform.decomposed;
@@ -467,8 +467,8 @@ impl Transform {
         v: T3,
     ) -> Result<math::Vector3<f32>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
         T3: Into<math::Vector3<f32>>,
     {
         let decomposed = Transform::world_decomposed(tree, arena, handle)?;
@@ -487,8 +487,8 @@ impl Transform {
         v: T3,
     ) -> Result<math::Vector3<f32>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
         T3: Into<math::Vector3<f32>>,
     {
         let decomposed = Transform::world_decomposed(tree, arena, handle)?;
@@ -506,8 +506,8 @@ impl Transform {
         v: T3,
     ) -> Result<math::Vector3<f32>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
         T3: Into<math::Vector3<f32>>,
     {
         let rotation = Transform::world_rotation(tree, arena, handle)?;
@@ -517,8 +517,8 @@ impl Transform {
     /// Return the up direction in world space, which is looking down the positive y-axis.
     pub fn up<T1, T2>(tree: &T1, arena: &T2, handle: Entity) -> Result<math::Vector3<f32>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         Transform::transform_direction(tree, arena, handle, math::Vector3::new(0.0, 1.0, 0.0))
     }
@@ -526,8 +526,8 @@ impl Transform {
     /// Return the forward direction in world space, which is looking down the positive z-axis.
     pub fn forward<T1, T2>(tree: &T1, arena: &T2, handle: Entity) -> Result<math::Vector3<f32>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         Transform::transform_direction(tree, arena, handle, math::Vector3::new(0.0, 0.0, 1.0))
     }
@@ -535,8 +535,8 @@ impl Transform {
     /// Return the right direction in world space, which is looking down the positive x-axis.
     pub fn right<T1, T2>(tree: &T1, arena: &T2, handle: Entity) -> Result<math::Vector3<f32>>
     where
-        T1: Arena<Node>,
-        T2: Arena<Transform>,
+        T1: ArenaGet<Node>,
+        T2: ArenaGet<Transform>,
     {
         Transform::transform_direction(tree, arena, handle, math::Vector3::new(1.0, 0.0, 0.0))
     }

@@ -15,7 +15,7 @@ pub mod prelude {
     pub use assets::prelude::*;
     pub use components::prelude::*;
     pub use crayon::ecs::world::Entity;
-    pub use crayon::ecs::view::{Arena, ArenaMut, Join};
+    pub use crayon::ecs::view::{ArenaGet, ArenaGetMut, Join};
     pub use graphics::DrawOrder;
     pub use ent::{EntAccessor, EntAccessorMut, EntReader, EntWriter};
 }

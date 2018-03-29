@@ -114,6 +114,23 @@ pub trait Join: Sized {
     unsafe fn fetch_with_id_unchecked(values: &Self, id: Entity) -> Self::ItemWithId;
 }
 
+impl<'w, C: Component> Join for Fetch<'w, C> {
+    type Item = &'w C;
+    type ItemWithId = (Entity, &'w C);
+
+    unsafe fn mask<'e>(entities: &Entities<'e>) -> BitSet {
+        BitSet::from(&[entities.index::<C>()])
+    }
+
+    unsafe fn fetch_unchecked(values: &Self, id: Entity) -> Self::Item {
+        (&*(values as *const Self)).get_unchecked(id)
+    }
+
+    unsafe fn fetch_with_id_unchecked(values: &Self, id: Entity) -> Self::ItemWithId {
+        (id, (&*(values as *const Self)).get_unchecked(id))
+    }
+}
+
 impl<'f, 'w: 'f, C: Component> Join for &'f Fetch<'w, C> {
     type Item = &'f C;
     type ItemWithId = (Entity, &'f C);
@@ -128,6 +145,26 @@ impl<'f, 'w: 'f, C: Component> Join for &'f Fetch<'w, C> {
 
     unsafe fn fetch_with_id_unchecked(values: &Self, id: Entity) -> Self::ItemWithId {
         (id, values.get_unchecked(id))
+    }
+}
+
+impl<'w, C: Component> Join for FetchMut<'w, C> {
+    type Item = &'w mut C;
+    type ItemWithId = (Entity, &'w mut C);
+
+    unsafe fn mask<'e>(entities: &Entities<'e>) -> BitSet {
+        BitSet::from(&[entities.index::<C>()])
+    }
+
+    unsafe fn fetch_unchecked(values: &Self, id: Entity) -> Self::Item {
+        (&mut *(values as *const Self as *mut Self)).get_unchecked_mut(id)
+    }
+
+    unsafe fn fetch_with_id_unchecked(values: &Self, id: Entity) -> Self::ItemWithId {
+        (
+            id,
+            (&mut *(values as *const Self as *mut Self)).get_unchecked_mut(id),
+        )
     }
 }
 
@@ -223,7 +260,7 @@ impl<'w, J: Join> Iterator for JoinIter<'w, J> {
     }
 }
 
-/// The `JoinIter` iterates over a group of entities which have associated
+/// The `ComponentIter` iterates over a group of entities which have associated
 /// `Component`s, and returns `Component`s in every iteration.
 pub struct ComponentIter<'w, J: Join> {
     iter: EntitiesIter<'w>,
@@ -239,3 +276,17 @@ impl<'w, J: Join> Iterator for ComponentIter<'w, J> {
             .map(|id| unsafe { J::fetch_unchecked(&self.values, id) })
     }
 }
+
+// /// The parallel version of `JoinIter`.
+// pub struct JoinParIter<J: Join> {
+//     values: J,
+// }
+
+// impl<J: Join + Send> ParallelIterator for JoinParIter<J> {
+//     type Item = J::Item;
+//     fn drive_unindexed<C>(self, consumer: C) -> C::Result
+//     where
+//         C: UnindexedConsumer<Self::Item>,
+//     {
+//     }
+// }

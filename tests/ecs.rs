@@ -255,6 +255,7 @@ fn iter_with() {
 
     {
         let (entities, a1, a2) = world.view_r2::<Position, Reference>();
+
         for (e, position, _) in (&a1, &a2).join(&entities) {
             let p = Position {
                 x: e.index(),

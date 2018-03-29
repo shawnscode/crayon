@@ -58,7 +58,7 @@ impl Node {
     /// Attachs a new child to parent transform, before existing children.
     pub fn set_parent<T1, T2>(arena: &mut T1, child: Entity, parent: T2) -> Result<()>
     where
-        T1: ArenaMut<Node>,
+        T1: ArenaGetMut<Node>,
         T2: Into<Option<Entity>>,
     {
         if arena.get(child).is_none() {
@@ -74,7 +74,7 @@ impl Node {
     /// Attachs a new child to parent transform, before existing children.
     pub unsafe fn set_parent_unchecked<T1, T2>(arena: &mut T1, child: Entity, parent: T2)
     where
-        T1: ArenaMut<Node>,
+        T1: ArenaGetMut<Node>,
         T2: Into<Option<Entity>>,
     {
         Self::remove_from_parent_unchecked(arena, child);
@@ -97,7 +97,7 @@ impl Node {
     /// Detach a transform from its parent and siblings. Children are not affected.
     pub fn remove_from_parent<T1>(arena: &mut T1, handle: Entity) -> Result<()>
     where
-        T1: ArenaMut<Node>,
+        T1: ArenaGetMut<Node>,
     {
         if arena.get(handle).is_none() {
             Err(Error::NonTransformFound)
@@ -112,7 +112,7 @@ impl Node {
     /// Detach a transform from its parent and siblings without doing bounds checking.
     pub unsafe fn remove_from_parent_unchecked<T1>(arena: &mut T1, handle: Entity)
     where
-        T1: ArenaMut<Node>,
+        T1: ArenaGetMut<Node>,
     {
         let (parent, next_sib, prev_sib) = {
             let node = arena.get_unchecked_mut(handle);
@@ -138,7 +138,7 @@ impl Node {
     /// Returns an iterator of references to its ancestors.
     pub fn ancestors<T1>(arena: &T1, handle: Entity) -> Ancestors
     where
-        T1: Arena<Node>,
+        T1: ArenaGet<Node>,
     {
         Ancestors {
             cursor: arena.get(handle).and_then(|v| v.parent),
@@ -149,7 +149,7 @@ impl Node {
     /// Returns an iterator of references to its ancestors.
     pub fn ancestors_in_place<T1>(arena: T1, handle: Entity) -> AncestorsInPlace<T1>
     where
-        T1: Arena<Node>,
+        T1: ArenaGet<Node>,
     {
         AncestorsInPlace {
             cursor: arena.get(handle).and_then(|v| v.parent),
@@ -160,7 +160,7 @@ impl Node {
     /// Returns an iterator of references to this transform's children.
     pub fn children<T1>(arena: &T1, handle: Entity) -> Children
     where
-        T1: Arena<Node>,
+        T1: ArenaGet<Node>,
     {
         Children {
             cursor: arena.get(handle).and_then(|v| v.first_child),
@@ -171,7 +171,7 @@ impl Node {
     /// Returns an iterator of references to this transform's children.
     pub fn children_in_place<T1>(arena: T1, handle: Entity) -> ChildrenInPlace<T1>
     where
-        T1: Arena<Node>,
+        T1: ArenaGet<Node>,
     {
         ChildrenInPlace {
             cursor: arena.get(handle).and_then(|v| v.first_child),
@@ -182,7 +182,7 @@ impl Node {
     /// Returns an iterator of references to this transform's descendants in tree order.
     pub fn descendants<T1>(arena: &T1, handle: Entity) -> Descendants
     where
-        T1: Arena<Node>,
+        T1: ArenaGet<Node>,
     {
         Descendants {
             arena: arena,
@@ -194,7 +194,7 @@ impl Node {
     /// Returns an iterator of references to this transform's descendants in tree order.
     pub fn descendants_in_place<T1>(arena: T1, handle: Entity) -> DescendantsInPlace<T1>
     where
-        T1: Arena<Node>,
+        T1: ArenaGet<Node>,
     {
         DescendantsInPlace {
             cursor: arena.get(handle).and_then(|v| v.first_child),
@@ -206,7 +206,7 @@ impl Node {
     /// Return true if rhs is one of the ancestor of this `Node`.
     pub fn is_ancestor<T1>(arena: &T1, lhs: Entity, rhs: Entity) -> bool
     where
-        T1: Arena<Node>,
+        T1: ArenaGet<Node>,
     {
         for v in Node::ancestors(arena, lhs) {
             if v == rhs {
@@ -220,13 +220,13 @@ impl Node {
 
 /// An iterator of references to its ancestors.
 pub struct Ancestors<'a> {
-    arena: &'a Arena<Node>,
+    arena: &'a ArenaGet<Node>,
     cursor: Option<Entity>,
 }
 
 impl<'a> Ancestors<'a> {
     #[inline]
-    pub fn next(arena: &Arena<Node>, mut cursor: &mut Option<Entity>) -> Option<Entity> {
+    pub fn next(arena: &ArenaGet<Node>, mut cursor: &mut Option<Entity>) -> Option<Entity> {
         unsafe {
             if let Some(node) = *cursor {
                 let v = arena.get_unchecked(node);
@@ -249,7 +249,7 @@ impl<'a> Iterator for Ancestors<'a> {
 /// An iterator of references to its ancestors.
 pub struct AncestorsInPlace<T>
 where
-    T: Arena<Node>,
+    T: ArenaGet<Node>,
 {
     arena: T,
     cursor: Option<Entity>,
@@ -257,7 +257,7 @@ where
 
 impl<T> Iterator for AncestorsInPlace<T>
 where
-    T: Arena<Node>,
+    T: ArenaGet<Node>,
 {
     type Item = Entity;
 
@@ -268,13 +268,13 @@ where
 
 /// An iterator of references to its children.
 pub struct Children<'a> {
-    arena: &'a Arena<Node>,
+    arena: &'a ArenaGet<Node>,
     cursor: Option<Entity>,
 }
 
 impl<'a> Children<'a> {
     #[inline]
-    pub fn next(arena: &Arena<Node>, mut cursor: &mut Option<Entity>) -> Option<Entity> {
+    pub fn next(arena: &ArenaGet<Node>, mut cursor: &mut Option<Entity>) -> Option<Entity> {
         unsafe {
             if let Some(node) = *cursor {
                 let v = arena.get_unchecked(node);
@@ -297,7 +297,7 @@ impl<'a> Iterator for Children<'a> {
 /// An iterator of references to its children.
 pub struct ChildrenInPlace<T>
 where
-    T: Arena<Node>,
+    T: ArenaGet<Node>,
 {
     arena: T,
     cursor: Option<Entity>,
@@ -305,7 +305,7 @@ where
 
 impl<T> Iterator for ChildrenInPlace<T>
 where
-    T: Arena<Node>,
+    T: ArenaGet<Node>,
 {
     type Item = Entity;
 
@@ -316,7 +316,7 @@ where
 
 /// An iterator of references to its descendants, in tree order.
 pub struct Descendants<'a> {
-    arena: &'a Arena<Node>,
+    arena: &'a ArenaGet<Node>,
     root: Entity,
     cursor: Option<Entity>,
 }
@@ -324,7 +324,7 @@ pub struct Descendants<'a> {
 impl<'a> Descendants<'a> {
     #[inline]
     pub fn next(
-        arena: &Arena<Node>,
+        arena: &ArenaGet<Node>,
         root: Entity,
         mut cursor: &mut Option<Entity>,
     ) -> Option<Entity> {
@@ -370,7 +370,7 @@ impl<'a> Iterator for Descendants<'a> {
 /// An iterator of references to its descendants, in tree order.
 pub struct DescendantsInPlace<T>
 where
-    T: Arena<Node>,
+    T: ArenaGet<Node>,
 {
     arena: T,
     root: Entity,
@@ -379,7 +379,7 @@ where
 
 impl<T> Iterator for DescendantsInPlace<T>
 where
-    T: Arena<Node>,
+    T: ArenaGet<Node>,
 {
     type Item = Entity;
 

@@ -100,7 +100,7 @@ impl RenderShadow {
             }
         }
 
-        GenerateRenderShadow { shadow: self }.run_at(world)
+        GenerateRenderShadow { shadow: self }.run_with(world)
     }
 
     /// Gets the handle of depth buffer.
@@ -155,16 +155,16 @@ struct GenerateRenderShadow<'a> {
 }
 
 impl<'a, 'b> System<'a> for GenerateRenderShadow<'b> {
-    type ViewWith = (
+    type Data = (
         Fetch<'a, Node>,
         Fetch<'a, Transform>,
         Fetch<'a, MeshRenderer>,
     );
-    type Result = Result<()>;
+    type Err = Error;
 
-    fn run(&mut self, view: View, data: Self::ViewWith) -> Self::Result {
+    fn run(&mut self, entities: Entities, data: Self::Data) -> Result<()> {
         unsafe {
-            for handle in view {
+            for handle in entities.with_3::<Node, Transform, MeshRenderer>() {
                 let mesh = data.2.get_unchecked(handle);
 
                 if !mesh.visible || !mesh.shadow_caster {

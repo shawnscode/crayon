@@ -128,7 +128,7 @@ pub mod view;
 
 pub mod prelude {
     pub use super::component::{Component, HashMapArena, VecArena};
-    pub use super::world::{Entity, EntityBuilder, World};
-    // pub use super::system::{System, SystemMut};
+    pub use super::world::{Entities, Entity, EntityBuilder, World};
+    pub use super::system::{System, SystemData, SystemDispatcher};
     pub use super::view::{ArenaGet, ArenaGetMut, Fetch, FetchMut, Join};
 }
