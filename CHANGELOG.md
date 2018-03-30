@@ -9,9 +9,7 @@ The format is based on [Keep a Changelog][kc], and this project adheres to
 
 ## [Unreleased]
 
-### Added
-* Supports multi-file requests in single task.
-* Add access to underlying video resources as a compromise to avoid too complex interface API.
+This version introduces a lots of break changes and significant performance improvement by integrating with [rayon](https://github.com/rayon-rs/rayon). And the error handle mechanism has been refined with [failure](https://github.com/rust-lang-nursery/failure).
 
 ## [0.3.0] - 2018-02-28
 

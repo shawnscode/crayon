@@ -103,7 +103,7 @@
 //!     let (entities, labels, mut positions) = world.view_r1w1::<Label, Position>();
 //!
 //!     /// We can get entities which have both of `Position` and `Label` by joining.
-//!     for (label, mut position) in (&labels, &mut positions).components(&entities) {
+//!     for (label, mut position) in (&labels, &mut positions).join(&entities) {
 //!         if label.0 == "Enemy" {
 //!             position.0 += 1;
 //!         }
@@ -131,4 +131,5 @@ pub mod prelude {
     pub use super::world::{Entities, Entity, EntityBuilder, World};
     pub use super::system::{System, SystemData, SystemDispatcher};
     pub use super::view::{ArenaGet, ArenaGetMut, Fetch, FetchMut, Join};
+    pub use rayon::iter::ParallelIterator;
 }

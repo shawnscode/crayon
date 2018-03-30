@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::cell::UnsafeCell;
 
 use utils::{HandleIndex, HandlePool};
-use utils::handle_pool::Iter as HandleIter;
+use utils::handle_pool::Iter;
 
 use ecs::component::{Arena, Component};
 use ecs::bitset::BitSet;
@@ -230,6 +230,7 @@ impl<'a> EntityBuilder<'a> {
 }
 
 /// View into entities.
+#[derive(Copy, Clone)]
 pub struct Entities<'w> {
     world: &'w World,
 }
@@ -292,7 +293,7 @@ impl_entities_iter!(with_9, [T1, T2, T3, T4, T5, T6, T7, T8, T9]);
 
 pub struct EntitiesIter<'w> {
     masks: &'w Vec<BitSet>,
-    iter: HandleIter<'w>,
+    iter: Iter<'w>,
     bits: BitSet,
 }
 
@@ -303,6 +304,44 @@ impl<'w> EntitiesIter<'w> {
             iter: world.entities.iter(),
             bits: bits,
         }
+    }
+
+    /// Divides iterator into two with specified stripe in the first `Iter`.
+    pub fn split_at(&self, len: usize) -> (EntitiesIter<'w>, EntitiesIter<'w>) {
+        let (left, right) = self.iter.split_at(len);
+        (
+            EntitiesIter {
+                masks: self.masks,
+                iter: left,
+                bits: self.bits,
+            },
+            EntitiesIter {
+                masks: self.masks,
+                iter: right,
+                bits: self.bits,
+            },
+        )
+    }
+
+    /// Divides iterator into two at mid.
+    ///
+    /// The first will contain all indices from [start, mid) (excluding the index mid itself)
+    /// and the second will contain all indices from [mid, end) (excluding the index end itself).
+    #[inline]
+    pub fn split(&self) -> (EntitiesIter<'w>, EntitiesIter<'w>) {
+        self.split_at(self.len() / 2)
+    }
+
+    /// Returns the size of indices this iterator could reachs.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.iter.len()
+    }
+
+    /// Checks if the iterator is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.iter.is_empty()
     }
 }
 
@@ -489,7 +528,7 @@ impl ArenaVec {
 
     unsafe fn erase(&mut self, index: usize, ent: Entity) {
         (&*self.erases.get_unchecked(index).as_ref().get())(
-            (&mut *self.arenas.get_unchecked(index).as_ref().get() as &mut Any),
+            &mut *self.arenas.get_unchecked(index).as_ref().get() as &mut Any,
             ent.index(),
         )
     }

@@ -193,12 +193,14 @@ impl<'a> Iter<'a> {
     ///
     /// The first will contain all indices from [start, mid) (excluding the index mid itself)
     /// and the second will contain all indices from [mid, end) (excluding the index end itself).
+    #[inline]
     pub fn split(&self) -> (Iter<'a>, Iter<'a>) {
         let mid = (self.end - self.start) / 2;
         self.split_at(mid as usize)
     }
 
     /// Returns the size of indices this iterator could reachs.
+    #[inline]
     pub fn len(&self) -> usize {
         (self.end - self.start) as usize
     }

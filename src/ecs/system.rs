@@ -494,7 +494,9 @@ mod test {
     }
 
     #[derive(Debug, Fail)]
-    pub enum Error {}
+    pub enum Error {
+        #[fail(display = "None")] _None,
+    }
 
     struct ValueSystem {}
     impl<'w> System<'w> for ValueSystem {
@@ -502,7 +504,7 @@ mod test {
         type Err = Error;
 
         fn run(&mut self, entities: Entities, data: Self::Data) -> Result<Error> {
-            for mut v in data.components(&entities) {
+            for mut v in data.join(&entities) {
                 v.value += 1;
             }
 
@@ -552,10 +554,11 @@ mod test {
         let mut batch = SystemDispatcher::new();
 
         {
-            let handle_a = batch.add_r1(&[], |_: Entities, _: Fetch<Value>| {});
-            batch.add_w1(&[], |_: Entities, _: FetchMut<Value>| {});
-            batch.add_w1(&[], |_: Entities, _: FetchMut<OtherValue>| {});
-            batch.add_r1(&[handle_a], |_: Entities, _: Fetch<OtherValue2>| {});
+            let handle_a = batch.add_r1(&[], |_: Entities, _: Fetch<Value>| Ok(()));
+
+            batch.add_w1(&[], |_: Entities, _: FetchMut<Value>| Ok(()));
+            batch.add_w1(&[], |_: Entities, _: FetchMut<OtherValue>| Ok(()));
+            batch.add_r1(&[handle_a], |_: Entities, _: Fetch<OtherValue2>| Ok(()));
 
             unsafe {
                 let batches = batch.build(&mut world);
@@ -566,16 +569,18 @@ mod test {
         }
 
         {
-            let handle_a = batch.add_r1(&[], |_: Entities, _: Fetch<Value>| {});
+            let handle_a = batch.add_r1(&[], |_: Entities, _: Fetch<Value>| Ok(()));
             batch.add_w1(&[], |entities: Entities, a: FetchMut<Value>| {
-                for mut v in a.components(&entities) {
+                for mut v in a.join(&entities) {
                     v.value += 1;
                 }
+
+                Ok(())
             });
 
-            batch.add_w1(&[], |_: Entities, _: FetchMut<OtherValue>| {});
-            batch.add_r1(&[handle_a], |_: Entities, _: Fetch<OtherValue2>| {});
-            batch.run(&mut world);
+            batch.add_w1(&[], |_: Entities, _: FetchMut<OtherValue>| Ok(()));
+            batch.add_r1(&[handle_a], |_: Entities, _: Fetch<OtherValue2>| Ok(()));
+            batch.run(&mut world).unwrap();
 
             assert_eq!(world.get::<Value>(ent).unwrap().value, 1);
         }
@@ -599,7 +604,7 @@ mod test {
             batch.add(&[], ValueSystem {});
             batch.add(&[], OtherSystem2 {});
             batch.add(&[handle_a], OtherSystem3 {});
-            batch.run(&mut world);
+            batch.run(&mut world).unwrap();
 
             assert_eq!(world.get::<Value>(ent).unwrap().value, 2);
         }

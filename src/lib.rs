@@ -1,19 +1,21 @@
 //! # What is This?
 //!
-//! Crayon is an experimental purpose game engine, written with a minimalistic
-//! modular design philosophy. Its built from the ground up to focus on cache
-//! friendly data layouts in multicore environments with entity-component based
-//! architecture.
+//! Crayon is a small, portable and extensible game framework, which written with a minimalistic
+//! modular design philosophy. Its built from the ground up to focus on cache friendly data
+//! layouts in multicore environments with entity-component based architecture.
 //!
-//! It is loosely inspired by some amazing blogs on [bitsquid](https://bitsquid.blogspot.de)
-//! and [molecular](https://blog.molecular-matters.com). Some goals include:
+//! It is loosely inspired by some amazing some amazing blogs on [bitsquid](https://bitsquid.blogspot.de),
+//! [molecular](https://blog.molecular-matters.com) and [floooh](http://floooh.github.io/).
+//!
+//! Some goals include:
 //!
 //! - Extensible through external code modules;
-//! - Run on [x]`macOS`, [x]`Windows`, `iOS`, `Android`, `WebAssembly` from the same source;
-//! - Stateless, layered, multithread render system with OpenGL(ES) 2.0+ backends;
+//! - Run on macOS, Linux, Windows, iOS, Android from the same source;
+//! - Stateless, layered, multithread render system with OpenGL(ES) 3.0 backends;
 //! - Entity component system with a data-driven designs;
-//! - Unified access to input devices across platforms;
-//! - Asynchronous data loading from various filesystem.
+//! - Unified interface for handling input devices across platforms;
+//! - Asynchronous data loading from various filesystem;
+//! - etc.
 //!
 //! Please read the documents under modules for specific usages.
 //!

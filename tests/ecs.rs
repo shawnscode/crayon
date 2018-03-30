@@ -250,13 +250,13 @@ fn iter_with() {
 
     {
         let (entities, a1, a2) = world.view_r2::<Position, Reference>();
-        assert_eq!((&a1, &a2).components(&entities).count(), v.len());
+        assert_eq!((&a1, &a2).join(&entities).count(), v.len());
     }
 
     {
         let (entities, a1, a2) = world.view_r2::<Position, Reference>();
 
-        for (e, position, _) in (&a1, &a2).join(&entities) {
+        for (e, position, _) in (entities, &a1, &a2).join(&entities) {
             let p = Position {
                 x: e.index(),
                 y: e.version(),
@@ -268,7 +268,7 @@ fn iter_with() {
 
     {
         let (entities, mut a1, mut a2) = world.view_w2::<Position, Reference>();
-        for (e, mut position, mut reference) in (&mut a1, &mut a2).join(&entities) {
+        for (e, mut position, mut reference) in (entities, &mut a1, &mut a2).join(&entities) {
             position.x += e.version();
             *reference.value.write().unwrap() += 1;
         }
@@ -276,7 +276,7 @@ fn iter_with() {
 
     {
         let (entities, a1, a2) = world.view_r2::<Position, Reference>();
-        let mut iter = (&a1, &a2).join(&entities);
+        let mut iter = (entities, &a1, &a2).join(&entities);
         for e in &v {
             let (i, position, reference) = iter.next().unwrap();
             let p = Position {
