@@ -144,7 +144,7 @@ impl Window {
 
         let mat_wall = scene.create_material(MaterialSetup::new(shader))?;
         {
-            let mut m = scene.material_mut(mat_wall).unwrap();
+            let m = scene.material_mut(mat_wall).unwrap();
             m.bind("u_Ambient", [1.0, 1.0, 1.0])?;
             m.bind("u_Diffuse", [1.0, 1.0, 1.0])?;
             m.bind("u_Specular", [0.0, 0.0, 0.0])?;
@@ -153,7 +153,7 @@ impl Window {
 
         let mat_block = scene.create_material(MaterialSetup::new(shader))?;
         {
-            let mut m = scene.material_mut(mat_block).unwrap();
+            let m = scene.material_mut(mat_block).unwrap();
             m.bind("u_Ambient", [1.0, 1.0, 1.0])?;
             m.bind("u_Diffuse", [1.0, 1.0, 1.0])?;
             m.bind("u_Specular", [1.0, 1.0, 1.0])?;
@@ -238,7 +238,7 @@ impl Application for Window {
         }
 
         {
-            let mut m = self.scene.material_mut(self.material).unwrap();
+            let m = self.scene.material_mut(self.material).unwrap();
             m.bind("u_Ambient", *ambient)?;
             m.bind("u_Diffuse", *diffuse)?;
             m.bind("u_Specular", *specular)?;

@@ -24,21 +24,21 @@ impl<'a> PipelineSetup<'a> {
         }
     }
 
-    pub fn link<T>(&mut self, name: T, v: PipelineUniformVariable) -> Result<()>
+    pub fn link<T>(&mut self, k: PipelineUniformVariable, name: T) -> Result<()>
     where
         T: AsRef<str>,
     {
         let name = name.as_ref();
 
         if let Some(tt) = self.shader.params.uniforms.variable_type(name) {
-            if tt != v.into() {
+            if tt != k.into() {
                 return Err(Error::UniformMismatch);
             }
         } else {
             return Err(Error::UniformMismatch);
         }
 
-        self.link_uniforms.insert(v, name.into());
+        self.link_uniforms.insert(k, name.into());
         Ok(())
     }
 

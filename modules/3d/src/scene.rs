@@ -8,7 +8,7 @@ use assets::prelude::*;
 use assets::material::Material;
 use assets::pipeline::PipelineParams;
 use graphics::renderer::Renderer;
-use ent::{EntAccessor, EntAccessorMut};
+use ent::{EntRef, EntRefMut};
 use errors::*;
 
 /// `Scene`s contain the environments of your game. Its relative easy to think of each
@@ -86,18 +86,18 @@ impl Scene {
     }
 
     /// Gets the reference to entity.
-    pub fn get(&self, id: Entity) -> Option<EntAccessor> {
+    pub fn get(&self, id: Entity) -> Option<EntRef> {
         if self.world.is_alive(id) {
-            Some(EntAccessor::new(&self.world, id))
+            Some(EntRef::new(&self.world, id))
         } else {
             None
         }
     }
 
     /// Gets the mutable reference to entity.
-    pub fn get_mut(&mut self, id: Entity) -> Option<EntAccessorMut> {
+    pub fn get_mut(&mut self, id: Entity) -> Option<EntRefMut> {
         if self.world.is_alive(id) {
-            Some(EntAccessorMut::new(&mut self.world, id))
+            Some(EntRefMut::new(&mut self.world, id))
         } else {
             None
         }
@@ -161,13 +161,13 @@ impl Scene {
     }
 
     /// Gets the reference to material.
-    pub fn material(&self, h: MaterialHandle) -> Option<MatAccessor> {
-        self.materials.get(h).map(|v| MatAccessor::new(v))
+    pub fn material(&self, h: MaterialHandle) -> Option<&Material> {
+        self.materials.get(h)
     }
 
     /// Gets the mutable reference to material.
-    pub fn material_mut(&mut self, h: MaterialHandle) -> Option<MatAccessorMut> {
-        self.materials.get_mut(h).map(|v| MatAccessorMut::new(v))
+    pub fn material_mut(&mut self, h: MaterialHandle) -> Option<&mut Material> {
+        self.materials.get_mut(h)
     }
 
     /// Deletes the material instance from `Scene`. Any meshes that associated with a

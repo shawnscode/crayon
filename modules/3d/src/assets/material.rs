@@ -35,15 +35,15 @@ impl MaterialSetup {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Material {
-    pub pipeline: PipelineHandle,
-    pub variables: HashMap<HashValue<str>, UniformVariable>,
-    pub shader_params: ShaderParams,
-    pub update: bool,
+pub struct Material {
+    pub(crate) pipeline: PipelineHandle,
+    pub(crate) variables: HashMap<HashValue<str>, UniformVariable>,
+    pub(crate) shader_params: ShaderParams,
+    pub(crate) update: bool,
 }
 
 impl Material {
-    pub fn new(
+    pub(crate) fn new(
         pipeline: PipelineHandle,
         variables: HashMap<HashValue<str>, UniformVariable>,
         shader_params: ShaderParams,
@@ -76,105 +76,25 @@ impl Material {
         self.update = true;
         Ok(())
     }
-}
 
-pub trait MatReader {
-    /// Gets the uniform variable of field.
-    fn variable<T1>(&self, field: T1) -> Option<UniformVariable>
-    where
-        T1: Into<HashValue<str>>;
-
-    /// Gets the str name of field.
-    fn variable_name<T1>(&self, field: T1) -> Option<&str>
-    where
-        T1: Into<HashValue<str>>;
-
-    /// Gets the type of field.
-    fn variable_type<T1>(&self, field: T1) -> Option<UniformVariableType>
-    where
-        T1: Into<HashValue<str>>;
-}
-
-pub trait MatWriter {
-    /// Binds the field with variable.
-    fn bind<T1, T2>(&mut self, field: T1, variable: T2) -> Result<()>
-    where
-        T1: Into<HashValue<str>>,
-        T2: Into<UniformVariable>;
-}
-
-pub struct MatAccessor<'a> {
-    mat: &'a Material,
-}
-
-impl<'a> MatAccessor<'a> {
-    pub(crate) fn new(mat: &'a Material) -> Self {
-        MatAccessor { mat: mat }
-    }
-}
-
-impl<'a> MatReader for MatAccessor<'a> {
-    fn variable<T1>(&self, field: T1) -> Option<UniformVariable>
+    pub fn variable<T1>(&self, field: T1) -> Option<UniformVariable>
     where
         T1: Into<HashValue<str>>,
     {
-        self.mat.variables.get(&field.into()).cloned()
+        self.variables.get(&field.into()).cloned()
     }
 
-    fn variable_name<T1>(&self, field: T1) -> Option<&str>
+    pub fn variable_name<T1>(&self, field: T1) -> Option<&str>
     where
         T1: Into<HashValue<str>>,
     {
-        self.mat.shader_params.uniforms.variable_name(field)
+        self.shader_params.uniforms.variable_name(field)
     }
 
-    fn variable_type<T1>(&self, field: T1) -> Option<UniformVariableType>
+    pub fn variable_type<T1>(&self, field: T1) -> Option<UniformVariableType>
     where
         T1: Into<HashValue<str>>,
     {
-        self.mat.shader_params.uniforms.variable_type(field)
-    }
-}
-
-pub struct MatAccessorMut<'a> {
-    mat: &'a mut Material,
-}
-
-impl<'a> MatAccessorMut<'a> {
-    pub(crate) fn new(mat: &'a mut Material) -> Self {
-        MatAccessorMut { mat: mat }
-    }
-}
-
-impl<'a> MatReader for MatAccessorMut<'a> {
-    fn variable<T1>(&self, field: T1) -> Option<UniformVariable>
-    where
-        T1: Into<HashValue<str>>,
-    {
-        self.mat.variables.get(&field.into()).cloned()
-    }
-
-    fn variable_name<T1>(&self, field: T1) -> Option<&str>
-    where
-        T1: Into<HashValue<str>>,
-    {
-        self.mat.shader_params.uniforms.variable_name(field)
-    }
-
-    fn variable_type<T1>(&self, field: T1) -> Option<UniformVariableType>
-    where
-        T1: Into<HashValue<str>>,
-    {
-        self.mat.shader_params.uniforms.variable_type(field)
-    }
-}
-
-impl<'a> MatWriter for MatAccessorMut<'a> {
-    fn bind<T1, T2>(&mut self, field: T1, variable: T2) -> Result<()>
-    where
-        T1: Into<HashValue<str>>,
-        T2: Into<UniformVariable>,
-    {
-        self.mat.bind(field, variable)
+        self.shader_params.uniforms.variable_type(field)
     }
 }

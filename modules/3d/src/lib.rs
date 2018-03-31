@@ -17,5 +17,5 @@ pub mod prelude {
     pub use crayon::ecs::world::Entity;
     pub use crayon::ecs::view::{ArenaGet, ArenaGetMut, Join};
     pub use graphics::DrawOrder;
-    pub use ent::{EntAccessor, EntAccessorMut, EntReader, EntWriter};
+    pub use ent::{EntReader, EntRef, EntRefMut, EntWriter};
 }
