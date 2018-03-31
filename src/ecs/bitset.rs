@@ -12,10 +12,21 @@ pub struct BitSet {
 
 impl BitSet {
     /// Create a new BitSet with *ZERO* bit.
+    #[inline]
     pub fn new() -> Self {
         BitSet {
             bits: [0; MAX_COMPONENTS],
         }
+    }
+
+    /// Creates a new BitSet from bit serial.
+    #[inline]
+    pub fn from(idxes: &[usize]) -> Self {
+        let mut bits = Self::new();
+        for v in idxes {
+            bits.insert(*v);
+        }
+        bits
     }
 
     /// Adds a value to the set.
@@ -77,6 +88,15 @@ impl BitSet {
             bs.bits[i] = self.bits[i] | rhs.bits[i];
         }
         bs
+    }
+
+    /// Checks if two bitset is disjoint.
+    #[inline]
+    pub fn is_disjoint<T>(&self, rhs: T) -> bool
+    where
+        T: Borrow<Self>,
+    {
+        self.intersect_with(rhs) == BitSet::new()
     }
 
     /// Returns an iterator into this bit-set.

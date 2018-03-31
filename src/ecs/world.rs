@@ -1,13 +1,17 @@
-//! The `World` struct contains entities and its the component arenas.
+//! The `World` struct contains entities and its component storages.
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use utils::{HandleIndex, HandleIter, HandlePool};
+use std::cell::UnsafeCell;
 
-use ecs::Entity;
-use ecs::component::{Component, ComponentArena};
+use utils::{HandleIndex, HandlePool};
+use utils::handle_pool::Iter;
+
+use ecs::component::{Arena, Component};
 use ecs::bitset::BitSet;
-use ecs::cell::{Ref, RefCell, RefMut};
+
+/// `Entity` type, as seen by the user, its a alias to `Handle` internally.
+pub type Entity = ::utils::handle::Handle;
 
 /// The `World` struct are used to manage the whole entity-component system, It keeps
 /// tracks of the state of every created `Entity`s. All memthods are supposed to be
@@ -16,9 +20,8 @@ use ecs::cell::{Ref, RefCell, RefMut};
 pub struct World {
     masks: Vec<BitSet>,
     entities: HandlePool,
-
     registry: HashMap<TypeId, usize>,
-    arenas: Vec<Entry>,
+    arenas: ArenaVec,
 }
 
 /// Make sure that `World` can be used on multi-threads.
@@ -32,7 +35,7 @@ impl World {
             entities: HandlePool::new(),
             masks: Vec::new(),
             registry: HashMap::new(),
-            arenas: Vec::new(),
+            arenas: ArenaVec::default(),
         }
     }
 
@@ -40,6 +43,7 @@ impl World {
     pub fn register<T>(&mut self)
     where
         T: Component,
+        T::Arena: Default,
     {
         let id = TypeId::of::<T>();
 
@@ -49,7 +53,7 @@ impl World {
         }
 
         self.registry.insert(id, self.arenas.len());
-        self.arenas.push(Entry::new::<T>());
+        self.arenas.insert::<T>();
     }
 
     /// Creates and returns a unused Entity handle.
@@ -94,11 +98,10 @@ impl World {
     /// its version as dead.
     pub fn free(&mut self, ent: Entity) -> bool {
         if self.is_alive(ent) {
-            for x in self.masks[ent.index() as usize].iter() {
-                let v = &mut self.arenas[x];
-                let arena = &v.arena;
-                let eraser = &mut v.eraser;
-                eraser(arena.as_ref(), ent.index());
+            unsafe {
+                for x in self.masks[ent.index() as usize].iter() {
+                    self.arenas.erase(x, ent);
+                }
             }
 
             self.masks[ent.index() as usize].clear();
@@ -113,11 +116,11 @@ impl World {
     where
         T: Component,
     {
-        let index = self.index::<T>();
+        let index = self.mask_index::<T>();
 
         if self.is_alive(ent) {
             self.masks[ent.index() as usize].insert(index);
-            self.cell::<T>().borrow_mut().insert(ent.index(), value)
+            unsafe { self.arenas.get_mut::<T>(index).insert(ent.index(), value) }
         } else {
             None
         }
@@ -138,11 +141,11 @@ impl World {
     where
         T: Component,
     {
-        let index = self.index::<T>();
+        let index = self.mask_index::<T>();
 
         if self.masks[ent.index() as usize].contains(index) {
             self.masks[ent.index() as usize].remove(index);
-            self.cell::<T>().borrow_mut().remove(ent.index())
+            unsafe { self.arenas.get_mut::<T>(index).remove(ent.index()) }
         } else {
             None
         }
@@ -154,191 +157,47 @@ impl World {
     where
         T: Component,
     {
-        let index = self.index::<T>();
+        let index = self.mask_index::<T>();
         self.entities.is_alive(ent) && self.masks[ent.index() as usize].contains(index)
     }
 
     /// Returns a reference to the component corresponding to the `Entity`.
-    pub fn get<T>(&self, ent: Entity) -> Option<T>
+    ///
+    /// The borrow lasts until the returned `Ref` exits scope. Multiple immutable
+    /// borrows can be taken out at the same time.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the arena is currently mutably borrowed.
+    pub fn get<T>(&self, ent: Entity) -> Option<&T>
     where
-        T: Component + Copy,
+        T: Component,
     {
         if self.has::<T>(ent) {
-            unsafe { Some(*self.cell::<T>().borrow().get_unchecked(ent.index())) }
+            unsafe { Some(self.arena::<T>().get_unchecked(ent.index())) }
         } else {
             None
         }
     }
 
-    /// Mutably borrows the wrapped arena. The borrow lasts until the returned
-    /// `FetchMut` exits scope. The value cannot be borrowed while this borrow
-    /// is active.
+    /// Returns a mutable reference to the componenent corresponding to the `Entity`.
     ///
-    /// # Panics
-    ///
-    /// - Panics if user has not register the arena with type `T`.
-    /// - Panics if the value is currently borrowed.
-    #[inline]
-    pub fn arena_mut<T>(&self) -> FetchMut<T>
+    /// The borrow lasts until the returned `RefMut` exits scope.
+    pub fn get_mut<T>(&mut self, ent: Entity) -> Option<&mut T>
     where
         T: Component,
     {
-        FetchMut {
-            arena: self.cell::<T>().borrow_mut(),
-        }
-    }
-
-    /// Immutably borrows the arena. The borrow lasts until the returned `Fetch`
-    /// exits scope. Multiple immutable borrows can be taken out at the same time.
-    ///
-    /// # Panics
-    ///
-    /// - Panics if user has not register the arena with type `T`.
-    /// - Panics if the value is currently mutably borrowed.
-    #[inline]
-    pub fn arena<T>(&self) -> Fetch<T>
-    where
-        T: Component,
-    {
-        Fetch {
-            arena: self.cell::<T>().borrow(),
+        if self.has::<T>(ent) {
+            unsafe { Some(self.arena_mut::<T>().get_unchecked_mut(ent.index())) }
+        } else {
+            None
         }
     }
 
     /// Gets immutable `World` iterator into all of the `Entity`s.
     #[inline]
-    pub fn iter(&self) -> HandleIter {
-        self.entities.iter()
-    }
-
-    pub(crate) fn index<T>(&self) -> usize
-    where
-        T: Component,
-    {
-        *self.registry
-            .get(&TypeId::of::<T>())
-            .expect("Component has NOT been registered.")
-    }
-
-    pub(crate) fn view(&self, mask: BitSet) -> View {
-        View {
-            world: self,
-            mask: mask,
-        }
-    }
-
-    fn cell<T>(&self) -> &RefCell<T::Arena>
-    where
-        T: Component,
-    {
-        let index = self.index::<T>();
-        Self::any::<T>(self.arenas[index].arena.as_ref())
-    }
-
-    #[inline]
-    fn any<T>(v: &Any) -> &RefCell<T::Arena>
-    where
-        T: Component,
-    {
-        v.downcast_ref::<RefCell<T::Arena>>().unwrap()
-    }
-}
-
-struct Entry {
-    arena: Box<Any + Send + Sync>,
-    eraser: Box<FnMut(&Any, HandleIndex) -> () + Send + Sync>,
-}
-
-impl Entry {
-    fn new<T>() -> Self
-    where
-        T: Component,
-    {
-        let eraser = Box::new(|any: &Any, id: HandleIndex| {
-            any.downcast_ref::<RefCell<T::Arena>>()
-                .unwrap()
-                .borrow_mut()
-                .remove(id);
-        });
-        Entry {
-            arena: Box::new(RefCell::new(T::Arena::new())),
-            eraser: eraser,
-        }
-    }
-}
-
-pub trait Arena<T>
-where
-    T: Component,
-{
-    fn get(&self, ent: Entity) -> Option<&T>;
-    unsafe fn get_unchecked(&self, ent: Entity) -> &T;
-}
-
-pub struct Fetch<'a, T>
-where
-    T: Component,
-{
-    arena: Ref<'a, T::Arena>,
-}
-
-impl<'a, T> Arena<T> for Fetch<'a, T>
-where
-    T: Component,
-{
-    #[inline]
-    fn get(&self, ent: Entity) -> Option<&T> {
-        self.arena.get(ent.index())
-    }
-
-    #[inline]
-    unsafe fn get_unchecked(&self, ent: Entity) -> &T {
-        self.arena.get_unchecked(ent.index())
-    }
-}
-
-pub trait ArenaMut<T>: Arena<T>
-where
-    T: Component,
-{
-    fn get_mut(&mut self, ent: Entity) -> Option<&mut T>;
-    unsafe fn get_unchecked_mut(&mut self, ent: Entity) -> &mut T;
-}
-
-pub struct FetchMut<'a, T>
-where
-    T: Component,
-{
-    arena: RefMut<'a, T::Arena>,
-}
-
-impl<'a, T> Arena<T> for FetchMut<'a, T>
-where
-    T: Component,
-{
-    #[inline]
-    fn get(&self, ent: Entity) -> Option<&T> {
-        self.arena.get(ent.index())
-    }
-
-    #[inline]
-    unsafe fn get_unchecked(&self, ent: Entity) -> &T {
-        self.arena.get_unchecked(ent.index())
-    }
-}
-
-impl<'a, T> ArenaMut<T> for FetchMut<'a, T>
-where
-    T: Component,
-{
-    #[inline]
-    fn get_mut(&mut self, ent: Entity) -> Option<&mut T> {
-        self.arena.get_mut(ent.index())
-    }
-
-    #[inline]
-    unsafe fn get_unchecked_mut(&mut self, ent: Entity) -> &mut T {
-        self.arena.get_unchecked_mut(ent.index())
+    pub fn entities(&self) -> Entities {
+        Entities::new(self)
     }
 }
 
@@ -349,7 +208,7 @@ pub struct EntityBuilder<'a> {
 }
 
 impl<'a> EntityBuilder<'a> {
-    pub fn with<T>(&mut self, value: T) -> &mut Self
+    pub fn with<T>(self, value: T) -> Self
     where
         T: Component,
     {
@@ -357,7 +216,7 @@ impl<'a> EntityBuilder<'a> {
         self
     }
 
-    pub fn with_default<T>(&mut self) -> &mut Self
+    pub fn with_default<T>(self) -> Self
     where
         T: Component + Default,
     {
@@ -365,169 +224,345 @@ impl<'a> EntityBuilder<'a> {
         self
     }
 
-    pub fn finish(&self) -> Entity {
+    pub fn finish(self) -> Entity {
         self.entity
     }
 }
 
-/// A `View` of the underlying `Entities` in `World` with specified components.
-pub struct View<'a> {
-    world: &'a World,
-    mask: BitSet,
+/// View into entities.
+#[derive(Copy, Clone)]
+pub struct Entities<'w> {
+    world: &'w World,
 }
 
-impl<'a> IntoIterator for View<'a> {
+impl<'w> Entities<'w> {
+    #[inline]
+    fn new(world: &'w World) -> Self {
+        Entities { world: world }
+    }
+
+    #[inline]
+    pub fn index<T: Component>(&self) -> usize {
+        self.world.mask_index::<T>()
+    }
+
+    #[inline]
+    pub fn iter(&self, bits: BitSet) -> EntitiesIter {
+        EntitiesIter::new(self.world, bits)
+    }
+}
+
+impl<'a, 'w: 'a> IntoIterator for &'a Entities<'w> {
     type Item = Entity;
-    type IntoIter = ViewIter<'a>;
+    type IntoIter = EntitiesIter<'w>;
 
-    fn into_iter(self) -> ViewIter<'a> {
-        let iter = self.world.iter();
-        ViewIter {
-            view: self,
-            iterator: iter,
-        }
+    fn into_iter(self) -> Self::IntoIter {
+        EntitiesIter::new(self.world, BitSet::new())
     }
 }
 
-/// A iterator of all the entities in the `View`.
-pub struct ViewIter<'a> {
-    view: View<'a>,
-    iterator: HandleIter<'a>,
-}
-
-fn next_item<'a>(view: &View<'a>, iterator: &mut HandleIter<'a>) -> Option<Entity> {
-    loop {
-        match iterator.next() {
-            Some(ent) => {
-                let mask = unsafe { *view.world.masks.get_unchecked(ent.index() as usize) };
-
-                if mask.intersect_with(&view.mask) == view.mask {
-                    return Some(ent);
-                }
-            }
-            None => {
-                return None;
-            }
-        }
-    }
-}
-
-impl<'a> Iterator for ViewIter<'a> {
+impl<'a, 'w: 'a> IntoIterator for &'a mut Entities<'w> {
     type Item = Entity;
+    type IntoIter = EntitiesIter<'w>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        unsafe {
-            let iter = &mut self.iterator as *mut HandleIter;
-            next_item(&self.view, &mut *iter)
-        }
+    fn into_iter(self) -> Self::IntoIter {
+        EntitiesIter::new(self.world, BitSet::new())
     }
 }
 
-impl<'a> View<'a> {
-    /// View the underlying `Entities` in some range.
-    ///
-    /// This has the same lifetime as the original `View`, and so the iterator can continue
-    /// to be used while this exists.
-    pub fn as_slice(&mut self) -> ViewSlice {
-        let iter = self.world.iter();
-        ViewSlice {
-            view: self as *mut View as *mut (),
-            iterator: iter,
-        }
-    }
-}
-
-/// A dynamically-ranged iterator into a `View`
-pub struct ViewSlice<'a> {
-    view: *mut (),
-    iterator: HandleIter<'a>,
-}
-
-impl<'a> Iterator for ViewSlice<'a> {
-    type Item = Entity;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        unsafe {
-            let iter = &mut self.iterator as *mut HandleIter;
-            let view = &mut *(self.view as *mut View);
-            next_item(view, &mut *iter)
-        }
-    }
-}
-
-unsafe impl<'a> Send for ViewSlice<'a> {}
-unsafe impl<'a> Sync for ViewSlice<'a> {}
-
-impl<'a> ViewSlice<'a> {
-    /// Divides one slice into two at an index.
-    ///
-    /// The first will contain all indices from [0, mid) (excluding the index mid itself) and
-    /// the second will contain all indices from [mid, len) (excluding the index len itself).
-    pub fn split_at(&mut self, len: usize) -> (ViewSlice, ViewSlice) {
-        let (lhs, rhs) = self.iterator.split_at(len);
-        (
-            ViewSlice {
-                view: self.view,
-                iterator: lhs,
-            },
-            ViewSlice {
-                view: self.view,
-                iterator: rhs,
-            },
-        )
-    }
-
-    /// Divides one slice into two at mid.
-    pub fn split(&mut self) -> (ViewSlice, ViewSlice) {
-        let (lhs, rhs) = self.iterator.split();
-        (
-            ViewSlice {
-                view: self.view,
-                iterator: lhs,
-            },
-            ViewSlice {
-                view: self.view,
-                iterator: rhs,
-            },
-        )
-    }
-}
-
-macro_rules! build_view_with {
-    ($name: ident[$($cps: ident), *]) => (
-        mod $name {
-            use $crate::ecs::world::{View, World, FetchMut};
-            use $crate::ecs::component::Component;
-
-            impl World {
-                pub fn $name<$($cps), *>(&self) -> (View, ($(FetchMut<$cps>), *))
-                    where $($cps:Component, )*
-                {
-                    let mut mask = $crate::ecs::bitset::BitSet::new();
-                    $( mask.insert(self.index::<$cps>()); ) *
-
-                    (
-                        View {
-                            world: self,
-                            mask: mask,
-                        },
-                        ( $(self.arena_mut::<$cps>()), * )
-                    )
-                }
+macro_rules! impl_entities_iter {
+    ($METHOD:ident, [$($CMPS: ident), *]) => (
+        impl<'w> Entities<'w> {
+            pub fn $METHOD<$($CMPS: Component,)*>(&self) -> EntitiesIter {
+                let bits = BitSet::from(&[$(self.world.mask_index::<$CMPS>(),)*]);
+                EntitiesIter::new(self.world, bits)
             }
         }
     )
 }
 
-build_view_with!(view_with[T1]);
-build_view_with!(view_with_2[T1, T2]);
-build_view_with!(view_with_3[T1, T2, T3]);
-build_view_with!(view_with_4[T1, T2, T3, T4]);
-build_view_with!(view_with_5[T1, T2, T3, T4, T5]);
-build_view_with!(view_with_6[T1, T2, T3, T4, T5, T6]);
-build_view_with!(view_with_7[T1, T2, T3, T4, T5, T6, T7]);
-build_view_with!(view_with_8[T1, T2, T3, T4, T5, T6, T7, T8]);
-build_view_with!(view_with_9[T1, T2, T3, T4, T5, T6, T7, T8, T9]);
+impl_entities_iter!(with_1, [T1]);
+impl_entities_iter!(with_2, [T1, T2]);
+impl_entities_iter!(with_3, [T1, T2, T3]);
+impl_entities_iter!(with_4, [T1, T2, T3, T4]);
+impl_entities_iter!(with_5, [T1, T2, T3, T4, T5]);
+impl_entities_iter!(with_6, [T1, T2, T3, T4, T5, T6]);
+impl_entities_iter!(with_7, [T1, T2, T3, T4, T5, T6, T7]);
+impl_entities_iter!(with_8, [T1, T2, T3, T4, T5, T6, T7, T8]);
+impl_entities_iter!(with_9, [T1, T2, T3, T4, T5, T6, T7, T8, T9]);
+
+pub struct EntitiesIter<'w> {
+    masks: &'w Vec<BitSet>,
+    iter: Iter<'w>,
+    bits: BitSet,
+}
+
+impl<'w> EntitiesIter<'w> {
+    fn new(world: &'w World, bits: BitSet) -> Self {
+        EntitiesIter {
+            masks: &world.masks,
+            iter: world.entities.iter(),
+            bits: bits,
+        }
+    }
+
+    /// Divides iterator into two with specified stripe in the first `Iter`.
+    pub fn split_at(&self, len: usize) -> (EntitiesIter<'w>, EntitiesIter<'w>) {
+        let (left, right) = self.iter.split_at(len);
+        (
+            EntitiesIter {
+                masks: self.masks,
+                iter: left,
+                bits: self.bits,
+            },
+            EntitiesIter {
+                masks: self.masks,
+                iter: right,
+                bits: self.bits,
+            },
+        )
+    }
+
+    /// Divides iterator into two at mid.
+    ///
+    /// The first will contain all indices from [start, mid) (excluding the index mid itself)
+    /// and the second will contain all indices from [mid, end) (excluding the index end itself).
+    #[inline]
+    pub fn split(&self) -> (EntitiesIter<'w>, EntitiesIter<'w>) {
+        self.split_at(self.len() / 2)
+    }
+
+    /// Returns the size of indices this iterator could reachs.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.iter.len()
+    }
+
+    /// Checks if the iterator is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.iter.is_empty()
+    }
+}
+
+impl<'w> Iterator for EntitiesIter<'w> {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            loop {
+                match self.iter.next() {
+                    Some(ent) => {
+                        let mask = self.masks.get_unchecked(ent.index() as usize);
+                        if mask.intersect_with(&self.bits) == self.bits {
+                            return Some(ent);
+                        }
+                    }
+                    None => {
+                        return None;
+                    }
+                }
+            }
+        }
+    }
+}
+
+macro_rules! impl_view_with {
+    ($name: ident, [$($readables: ident), *], []) => (
+        #[allow(unused_imports)]
+        mod $name {
+            use $crate::ecs::view::{Fetch};
+            use $crate::ecs::world::{World, Entities};
+            use $crate::ecs::component::Component;
+            use $crate::ecs::bitset::BitSet;
+
+            impl World {
+                /// Gets multiple storages and the `Entities` at the same time safely.
+                #[allow(unused_mut)]
+                pub fn $name<$($readables, )*>(&self) -> (Entities, $(Fetch<$readables>, )*)
+                where
+                    $($readables:Component, )*
+                {
+                    unsafe {
+                        (
+                            Entities::new(self),
+                            $( Fetch::<$readables>::new(self), )*
+                        )
+                    }
+                }
+            }
+        }
+    );
+
+    ($name: ident, [$($readables: ident), *], [$($writables: ident), *]) => (
+        #[allow(unused_imports)]
+        mod $name {
+            use $crate::ecs::view::{Fetch, FetchMut};
+            use $crate::ecs::world::{World, Entities};
+            use $crate::ecs::component::Component;
+            use $crate::ecs::bitset::BitSet;
+
+            impl World {
+                /// Gets multiple storages mutably and the `Entities` at the same time safely.
+                ///
+                /// # Pancis
+                ///
+                /// Panics if the storage is currently mutably borrowed.
+                #[allow(unused_mut)]
+                pub fn $name<$($readables, )* $($writables, )*>(&mut self) -> (Entities, $(Fetch<$readables>, )* $(FetchMut<$writables>, )*)
+                where
+                    $($readables:Component, )*
+                    $($writables:Component, )*
+                {
+                    let rbits = BitSet::from(&[$(self.mask_index::<$readables>(),)*]);
+                    let mut wbits = BitSet::new();
+
+                    $(
+                        let index = self.mask_index::<$writables>();
+                        assert!(!wbits.contains(index),
+                            "You are trying to borrow arena that is currently mutably borrowed.");
+                        wbits.insert(index);
+                    ) *
+
+                    assert!(rbits.intersect_with(wbits).is_empty(),
+                            "You are trying to borrow arena that is currently mutably borrowed.");
+
+                    unsafe {
+                        (
+                            Entities::new(self),
+                            $( Fetch::<$readables>::new(self), )*
+                            $( FetchMut::<$writables>::new(self), )*
+                        )
+                    }
+                }
+            }
+        }
+    );
+}
+
+impl_view_with!(view_r1, [R1], []);
+impl_view_with!(view_r2, [R1, R2], []);
+impl_view_with!(view_r3, [R1, R2, R3], []);
+impl_view_with!(view_r4, [R1, R2, R3, R4], []);
+impl_view_with!(view_r5, [R1, R2, R3, R4, R5], []);
+impl_view_with!(view_r6, [R1, R2, R3, R4, R5, R6], []);
+impl_view_with!(view_r7, [R1, R2, R3, R4, R5, R6, R7], []);
+impl_view_with!(view_r8, [R1, R2, R3, R4, R5, R6, R7, R8], []);
+impl_view_with!(view_r9, [R1, R2, R3, R4, R5, R6, R7, R8, R9], []);
+
+impl_view_with!(view_w1, [], [W1]);
+impl_view_with!(view_w2, [], [W1, W2]);
+impl_view_with!(view_w3, [], [W1, W2, W3]);
+impl_view_with!(view_w4, [], [W1, W2, W3, W4]);
+impl_view_with!(view_w5, [], [W1, W2, W3, W4, W5]);
+impl_view_with!(view_w6, [], [W1, W2, W3, W4, W5, W6]);
+impl_view_with!(view_w7, [], [W1, W2, W3, W4, W5, W6, W7]);
+impl_view_with!(view_w8, [], [W1, W2, W3, W4, W5, W6, W7, W8]);
+impl_view_with!(view_w9, [], [W1, W2, W3, W4, W5, W6, W7, W8, W9]);
+
+impl_view_with!(view_r1w1, [R1], [W1]);
+impl_view_with!(view_r2w1, [R1, R2], [W1]);
+impl_view_with!(view_r3w1, [R1, R2, R3], [W1]);
+impl_view_with!(view_r4w1, [R1, R2, R3, R4], [W1]);
+
+impl_view_with!(view_r1w2, [R1], [W1, W2]);
+impl_view_with!(view_r2w2, [R1, R2], [W1, W2]);
+impl_view_with!(view_r3w2, [R1, R2, R3], [W1, W2]);
+impl_view_with!(view_r4w2, [R1, R2, R3, R4], [W1, W2]);
+
+impl_view_with!(view_r1w3, [R1], [W1, W2, W3]);
+impl_view_with!(view_r2w3, [R1, R2], [W1, W2, W3]);
+impl_view_with!(view_r3w3, [R1, R2, R3], [W1, W2, W3]);
+impl_view_with!(view_r4w3, [R1, R2, R3, R4], [W1, W2, W3]);
+
+impl_view_with!(view_r1w4, [R1], [W1, W2, W3, W4]);
+impl_view_with!(view_r2w4, [R1, R2], [W1, W2, W3, W4]);
+impl_view_with!(view_r3w4, [R1, R2, R3], [W1, W2, W3, W4]);
+impl_view_with!(view_r4w4, [R1, R2, R3, R4], [W1, W2, W3, W4]);
+
+struct ArenaVec {
+    arenas: Vec<Box<UnsafeCell<Any + Send + Sync>>>,
+    erases: Vec<Box<UnsafeCell<Fn(&mut Any, HandleIndex) -> () + Send + Sync>>>,
+}
+
+impl Default for ArenaVec {
+    fn default() -> Self {
+        ArenaVec {
+            arenas: Vec::new(),
+            erases: Vec::new(),
+        }
+    }
+}
+
+impl ArenaVec {
+    fn insert<T>(&mut self)
+    where
+        T: Component,
+        T::Arena: Default,
+    {
+        self.arenas
+            .push(Box::new(UnsafeCell::new(T::Arena::default())));
+
+        self.erases.push(Box::new(UnsafeCell::new(
+            |any: &mut Any, id: HandleIndex| {
+                any.downcast_mut::<T::Arena>().unwrap().remove(id);
+            },
+        )));
+    }
+
+    fn len(&self) -> usize {
+        self.arenas.len()
+    }
+
+    unsafe fn get<T: Component>(&self, index: usize) -> &T::Arena {
+        (&*self.arenas.get_unchecked(index).as_ref().get() as &Any)
+            .downcast_ref::<T::Arena>()
+            .unwrap()
+    }
+
+    unsafe fn get_mut<T: Component>(&self, index: usize) -> &mut T::Arena {
+        (&mut *self.arenas.get_unchecked(index).as_ref().get() as &mut Any)
+            .downcast_mut::<T::Arena>()
+            .unwrap()
+    }
+
+    unsafe fn erase(&mut self, index: usize, ent: Entity) {
+        (&*self.erases.get_unchecked(index).as_ref().get())(
+            &mut *self.arenas.get_unchecked(index).as_ref().get() as &mut Any,
+            ent.index(),
+        )
+    }
+}
+
+impl World {
+    #[inline]
+    pub(crate) fn mask_index<T>(&self) -> usize
+    where
+        T: Component,
+    {
+        *self.registry
+            .get(&TypeId::of::<T>())
+            .expect("Component has NOT been registered.")
+    }
+
+    #[inline]
+    pub(crate) unsafe fn arena<T>(&self) -> &T::Arena
+    where
+        T: Component,
+    {
+        let index = self.mask_index::<T>();
+        self.arenas.get::<T>(index)
+    }
+
+    #[inline]
+    pub(crate) unsafe fn arena_mut<T>(&self) -> &mut T::Arena
+    where
+        T: Component,
+    {
+        let index = self.mask_index::<T>();
+        self.arenas.get_mut::<T>(index)
+    }
+}
 
 #[cfg(test)]
 mod test {

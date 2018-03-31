@@ -3,7 +3,11 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::marker::PhantomData;
 
-use resource;
+use math;
+
+use resource::prelude::*;
+use resource::utils::registery::Registery;
+
 use graphics::assets::mesh::*;
 use graphics::assets::{AssetMeshState, AssetState};
 use graphics::backend::frame::{DoubleFrame, PreFrameTask};
@@ -16,6 +20,7 @@ pub struct MeshData {
     pub num_verts: usize,
     pub num_idxes: usize,
     pub sub_mesh_offsets: Vec<usize>,
+    pub aabb: math::Aabb3<f32>,
     pub verts: Vec<u8>,
     pub idxes: Vec<u8>,
 }
@@ -34,7 +39,7 @@ where
 {
     handle: MeshHandle,
     params: MeshParams,
-    state: Arc<RwLock<AssetMeshState>>,
+    meshes: Arc<RwLock<Registery<AssetMeshState>>>,
     frames: Arc<DoubleFrame>,
     _phantom: PhantomData<T>,
 }
@@ -45,26 +50,26 @@ where
 {
     pub fn new(
         handle: MeshHandle,
-        state: Arc<RwLock<AssetMeshState>>,
         params: MeshParams,
+        meshes: Arc<RwLock<Registery<AssetMeshState>>>,
         frames: Arc<DoubleFrame>,
     ) -> Self {
         MeshLoader {
             handle: handle,
             params: params,
-            state: state,
+            meshes: meshes,
             frames: frames,
             _phantom: PhantomData,
         }
     }
 }
 
-impl<T> resource::ResourceAsyncLoader for MeshLoader<T>
+impl<T> ResourceTask for MeshLoader<T>
 where
     T: MeshParser + Send + Sync + 'static,
 {
-    fn on_finished(mut self, path: &Path, result: resource::errors::Result<&[u8]>) {
-        let state = match result {
+    fn execute(mut self, driver: &mut ResourceFS, path: &Path) {
+        let state = match driver.load(path) {
             Ok(bytes) => match T::parse(bytes) {
                 Ok(mesh) => {
                     self.params.layout = mesh.layout;
@@ -73,6 +78,7 @@ where
                     self.params.num_verts = mesh.num_verts;
                     self.params.num_idxes = mesh.num_idxes;
                     self.params.sub_mesh_offsets = mesh.sub_mesh_offsets;
+                    self.params.aabb = mesh.aabb;
 
                     let mut frame = self.frames.front();
                     let vptr = Some(frame.buf.extend_from_slice(&mesh.verts));
@@ -94,6 +100,11 @@ where
             }
         };
 
-        *self.state.write().unwrap() = state;
+        {
+            let mut meshes = self.meshes.write().unwrap();
+            if let Some(mesh) = meshes.get_mut(*self.handle) {
+                *mesh = state;
+            }
+        }
     }
 }

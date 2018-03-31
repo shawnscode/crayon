@@ -37,7 +37,8 @@ pub(crate) type AssetMeshState = AssetState<self::mesh::MeshParams>;
 pub(crate) type AssetTextureState = AssetState<self::texture::TextureParams>;
 
 pub mod prelude {
-    pub use super::surface::{SurfaceHandle, SurfaceScissor, SurfaceSetup, SurfaceViewport};
+    pub use super::surface::{SurfaceHandle, SurfaceParams, SurfaceScissor, SurfaceSetup,
+                             SurfaceViewport};
 
     pub use super::shader::{Attribute, AttributeLayout, AttributeLayoutBuilder, BlendFactor,
                             BlendValue, Comparison, CullFace, Equation, FrontFaceOrder,
@@ -45,9 +46,9 @@ pub mod prelude {
                             UniformVariableLayout, UniformVariableLayoutBuilder,
                             UniformVariableType};
 
-    pub use super::texture::{RenderTextureFormat, RenderTextureHandle, RenderTextureSetup,
-                             TextureAddress, TextureFilter, TextureFormat, TextureHandle,
-                             TextureHint, TextureParams, TextureSetup};
+    pub use super::texture::{RenderTextureFormat, RenderTextureHandle, RenderTextureParams,
+                             RenderTextureSetup, TextureAddress, TextureFilter, TextureFormat,
+                             TextureHandle, TextureHint, TextureParams, TextureSetup};
 
     pub use super::mesh::{IndexFormat, MeshHandle, MeshHint, MeshIndex, MeshParams, MeshPrimitive,
                           MeshSetup, VertexFormat, VertexLayout};

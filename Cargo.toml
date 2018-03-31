@@ -1,6 +1,6 @@
 [package]
 name = "crayon"
-version = "0.3.0"
+version = "0.4.0"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 description = "An experimental entity-component-based multithread game engine."
 repository = "https://github.com/shawnscode/crayon"
@@ -17,7 +17,7 @@ appveyor = { repository = "shawnscode/crayon", branch = "master", service = "git
 codecov = { repository = "shawnscode/crayon", branch = "master", service = "github" }
 
 [workspace]
-members = [ "crayon-examples", "modules/imgui", "modules/scene" ]
+members = [ "crayon-examples", "modules/imgui", "modules/3d" ]
 
 [dependencies]
 libc = "0.2.36"
@@ -25,9 +25,9 @@ gl = "0.9.0"
 glutin = "0.12.0"
 cgmath = "0.16.0"
 failure = "0.1.1"
+rayon = "1.0.1"
 zip = "0.3.0"
 
 [dev-dependencies]
 rand = "0.4.2"
-rayon = "0.9.0"
 approx = "0.1.1"

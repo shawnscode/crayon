@@ -104,6 +104,13 @@ impl HandlePool {
         }
     }
 
+    /// Clears the `HandlePool`, removing all versions. Keeps the allocated memory
+    /// for reuse.
+    pub fn clear(&mut self) {
+        self.frees.clear();
+        self.versions.clear();
+    }
+
     /// Returns the total number of alive handle in this `HandlePool`.
     #[inline]
     pub fn len(&self) -> usize {
@@ -118,26 +125,48 @@ impl HandlePool {
 
     /// Returns an iterator over the `HandlePool`.
     #[inline]
-    pub fn iter(&self) -> HandleIter {
-        HandleIter {
-            versions: &self.versions,
-            start: 0,
-            end: self.versions.len() as u32,
-        }
+    pub fn iter(&self) -> Iter {
+        Iter::new(self)
+    }
+}
+
+impl<'a> IntoIterator for &'a HandlePool {
+    type Item = Handle;
+    type IntoIter = Iter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter::new(self)
+    }
+}
+
+impl<'a> IntoIterator for &'a mut HandlePool {
+    type Item = Handle;
+    type IntoIter = Iter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter::new(self)
     }
 }
 
 /// Immutable `HandlePool` iterator, this struct is created by `iter` method on `HandlePool`.
 #[derive(Copy, Clone)]
-pub struct HandleIter<'a> {
-    versions: &'a Vec<HandleIndex>,
+pub struct Iter<'a> {
+    versions: &'a [HandleIndex],
     start: HandleIndex,
     end: HandleIndex,
 }
 
-impl<'a> HandleIter<'a> {
-    /// Divides iterator into two with specified stripe in the first `HandleIter`.
-    pub fn split_at(&self, len: usize) -> (HandleIter<'a>, HandleIter<'a>) {
+impl<'a> Iter<'a> {
+    fn new(handles: &'a HandlePool) -> Self {
+        Iter {
+            versions: &handles.versions,
+            start: 0,
+            end: handles.versions.len() as u32,
+        }
+    }
+
+    /// Divides iterator into two with specified stripe in the first `Iter`.
+    pub fn split_at(&self, len: usize) -> (Iter<'a>, Iter<'a>) {
         let len = len as HandleIndex;
         let mid = if self.start + len >= self.end {
             self.end
@@ -145,13 +174,13 @@ impl<'a> HandleIter<'a> {
             self.start + len
         };
 
-        let left = HandleIter {
+        let left = Iter {
             versions: self.versions,
             start: self.start,
             end: mid,
         };
 
-        let right = HandleIter {
+        let right = Iter {
             versions: self.versions,
             start: mid,
             end: self.end,
@@ -161,14 +190,17 @@ impl<'a> HandleIter<'a> {
     }
 
     /// Divides iterator into two at mid.
+    ///
     /// The first will contain all indices from [start, mid) (excluding the index mid itself)
     /// and the second will contain all indices from [mid, end) (excluding the index end itself).
-    pub fn split(&self) -> (HandleIter<'a>, HandleIter<'a>) {
+    #[inline]
+    pub fn split(&self) -> (Iter<'a>, Iter<'a>) {
         let mid = (self.end - self.start) / 2;
         self.split_at(mid as usize)
     }
 
     /// Returns the size of indices this iterator could reachs.
+    #[inline]
     pub fn len(&self) -> usize {
         (self.end - self.start) as usize
     }
@@ -180,7 +212,7 @@ impl<'a> HandleIter<'a> {
     }
 }
 
-impl<'a> Iterator for HandleIter<'a> {
+impl<'a> Iterator for Iter<'a> {
     type Item = Handle;
 
     fn next(&mut self) -> Option<Handle> {

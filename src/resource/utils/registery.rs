@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::borrow::Borrow;
 
 use utils::{Handle, HandlePool};
 use super::location::LocationAtom;
@@ -33,7 +34,7 @@ where
 
 impl<T> Registery<T>
 where
-    T: Sized,
+    T: Sized + 'static,
 {
     /// Construct a new, empty `Registery`.
     pub fn new() -> Self {
@@ -74,14 +75,19 @@ where
         }
 
         if location.is_shared() {
-            self.locations.insert(location, handle);
+            self.locations.insert(location, handle.clone());
         }
 
         handle
     }
 
     /// Increase the reference count of resource matched `handle`.
-    pub fn inc_rc(&mut self, handle: Handle) {
+    pub fn inc_rc<H>(&mut self, handle: H)
+    where
+        H: Borrow<Handle>,
+    {
+        let handle = handle.borrow();
+
         if !self.handles.is_alive(handle) {
             return;
         }
@@ -97,7 +103,12 @@ where
 
     /// Decrease the reference count of resource matched `handle`. If reference count is zero
     /// after decreasing, it will be deleted from this `Registery`.
-    pub fn dec_rc(&mut self, handle: Handle) -> Option<T> {
+    pub fn dec_rc<H>(&mut self, handle: H) -> Option<T>
+    where
+        H: Borrow<Handle>,
+    {
+        let handle = handle.borrow();
+
         if !self.handles.is_alive(handle) {
             return None;
         }
@@ -122,6 +133,7 @@ where
                     self.locations.remove(&v.location);
                 }
 
+                let handle = (*handle).into();
                 if let Some(recycle) = self.recycle.as_mut() {
                     recycle.push(handle);
                 } else {
@@ -159,7 +171,11 @@ where
 
     /// Get mutable reference to internal value with `Handle`.
     #[inline]
-    pub fn get_mut(&mut self, handle: Handle) -> Option<&mut T> {
+    pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
+    where
+        H: Borrow<Handle>,
+    {
+        let handle = handle.borrow();
         if self.handles.is_alive(handle) {
             self.entries[handle.index() as usize]
                 .as_mut()
@@ -171,7 +187,11 @@ where
 
     /// Get immutable reference to internal value with `Handle`.
     #[inline]
-    pub fn get(&self, handle: Handle) -> Option<&T> {
+    pub fn get<H>(&self, handle: H) -> Option<&T>
+    where
+        H: Borrow<Handle>,
+    {
+        let handle = handle.borrow();
         if self.handles.is_alive(handle) {
             self.entries[handle.index() as usize]
                 .as_ref()
@@ -184,7 +204,10 @@ where
     /// Return true if this `Handle` was created by `Registery`, and has not been
     /// freed yet.
     #[inline]
-    pub fn is_alive(&self, handle: Handle) -> bool {
+    pub fn is_alive<H>(&self, handle: H) -> bool
+    where
+        H: Borrow<Handle>,
+    {
         self.handles.is_alive(handle)
     }
 

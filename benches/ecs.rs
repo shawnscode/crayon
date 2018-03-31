@@ -1,110 +1,105 @@
 #![feature(test)]
 extern crate crayon;
-extern crate rayon;
+#[macro_use]
+extern crate failure;
 extern crate test;
 
 use test::Bencher;
-use crayon::prelude::*;
+use crayon::ecs::prelude::*;
 
 use std::thread;
 use std::time;
 
+#[derive(Debug, Fail)]
+pub enum Error {
+    #[fail(display = "None")] _None,
+}
+
+pub type Result<E> = ::std::result::Result<(), E>;
+
 fn execute() {
-    thread::sleep(time::Duration::from_millis(1));
+    thread::sleep(time::Duration::new(0, 1000));
 }
 
 fn setup() -> World {
     let mut world = World::new();
-    world.register::<PlaceHolderCMP>();
+    world.register::<Value>();
 
-    for _ in 1..3 {
-        world.build().with_default::<PlaceHolderCMP>();
+    for _ in 1..20 {
+        world.build().with_default::<Value>();
     }
 
     world
 }
 
 #[derive(Debug, Copy, Clone, Default)]
-struct PlaceHolderCMP {}
+struct Value {}
 
-impl Component for PlaceHolderCMP {
-    type Arena = ecs::VecArena<PlaceHolderCMP>;
+impl Component for Value {
+    type Arena = VecArena<Value>;
 }
 
-#[derive(Copy, Clone)]
-struct HeavyCPU {}
+struct Execution {}
 
-impl<'a> System<'a> for HeavyCPU {
-    type ViewWith = Fetch<'a, PlaceHolderCMP>;
-    type Result = ();
+impl<'a> System<'a> for Execution {
+    type Data = Fetch<'a, Value>;
+    type Err = Error;
 
-    fn run(&self, view: View, _: Self::ViewWith) {
-        for _ in view {
+    fn run(&mut self, entities: Entities, values: Self::Data) -> Result<Self::Err> {
+        for _ in values.join(&entities) {
             execute();
         }
+
+        Ok(())
     }
 }
 
-#[derive(Copy, Clone)]
-struct HeavyCPUWithRayon {}
+struct ParExecution {}
 
-impl<'a> System<'a> for HeavyCPUWithRayon {
-    type ViewWith = Fetch<'a, PlaceHolderCMP>;
-    type Result = ();
+impl<'a> System<'a> for ParExecution {
+    type Data = Fetch<'a, Value>;
+    type Err = Error;
 
-    fn run(&self, view: View, _: Self::ViewWith) {
-        rayon::scope(|s| {
-            //
-            for _ in view {
-                s.spawn(|_| execute());
-            }
-        })
+    fn run(&mut self, entities: Entities, values: Self::Data) -> Result<Self::Err> {
+        values.par_join(&entities, 3).map(|_| execute()).count();
+        Ok(())
     }
 }
 
 #[bench]
-fn bench_sequence_execution(b: &mut Bencher) {
+fn seq_execution(b: &mut Bencher) {
     b.iter(|| {
         let world = setup();
-        let s1 = HeavyCPU {};
-        let s2 = HeavyCPU {};
-        let s3 = HeavyCPU {};
-        s1.run_at(&world);
-        s2.run_at(&world);
-        s3.run_at(&world);
+        let mut s1 = Execution {};
+        let mut s2 = Execution {};
+        let mut s3 = Execution {};
+        s1.run_with(&world).unwrap();
+        s2.run_with(&world).unwrap();
+        s3.run_with(&world).unwrap();
     });
 }
 
 #[bench]
-fn bench_parralle_execution(b: &mut Bencher) {
+fn par_execution(b: &mut Bencher) {
     b.iter(|| {
         let world = setup();
-        let s1 = HeavyCPU {};
-        let s2 = HeavyCPU {};
-        let s3 = HeavyCPU {};
-
-        rayon::scope(|s| {
-            //
-            s.spawn(|_| s1.run_at(&world));
-            s.spawn(|_| s2.run_at(&world));
-            s.spawn(|_| s3.run_at(&world));
-        });
+        let mut s1 = ParExecution {};
+        let mut s2 = ParExecution {};
+        let mut s3 = ParExecution {};
+        s1.run_with(&world).unwrap();
+        s2.run_with(&world).unwrap();
+        s3.run_with(&world).unwrap();
     });
 }
 
 #[bench]
-fn bench_parralle_execution_2(b: &mut Bencher) {
+fn batch_par_execution(b: &mut Bencher) {
     b.iter(|| {
-        let world = setup();
-        let s1 = HeavyCPUWithRayon {};
-        let s2 = HeavyCPUWithRayon {};
-        let s3 = HeavyCPUWithRayon {};
-
-        rayon::scope(|s| {
-            //
-            s.spawn(|_| s1.run_at(&world));
-            s.spawn(|_| s2.run_at(&world));
-            s.spawn(|_| s3.run_at(&world));
-        });
+        let mut world = setup();
+        let mut dispatcher = SystemDispatcher::new();
+        dispatcher.add(&[], ParExecution {});
+        dispatcher.add(&[], ParExecution {});
+        dispatcher.add(&[], ParExecution {});
+        dispatcher.run(&mut world).unwrap();
     });
 }

@@ -4,7 +4,7 @@ use std::path::{Component, Components, Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
 use zip;
 
@@ -23,8 +23,7 @@ pub trait Filesystem: Sync + Send {
 /// The driver of the virtual filesystem (VFS).
 #[derive(Default)]
 pub struct FilesystemDriver {
-    filesystems: HashMap<HashValue<str>, Arc<Box<Filesystem>>>,
-    buf: Vec<u8>,
+    filesystems: HashMap<HashValue<str>, Box<Filesystem>>,
 }
 
 impl FilesystemDriver {
@@ -33,7 +32,6 @@ impl FilesystemDriver {
     pub fn new() -> FilesystemDriver {
         FilesystemDriver {
             filesystems: HashMap::new(),
-            buf: Vec::new(),
         }
     }
 
@@ -49,7 +47,7 @@ impl FilesystemDriver {
             return Err(Error::DriveIdentDuplicated);
         }
 
-        self.filesystems.insert(hash, Arc::new(Box::new(fs)));
+        self.filesystems.insert(hash, Box::new(fs));
         Ok(())
     }
 
@@ -79,8 +77,8 @@ impl FilesystemDriver {
             .unwrap_or(false)
     }
 
-    /// Read all bytes until EOF in this source.
-    pub fn load_into<P>(&self, path: P, buf: &mut Vec<u8>) -> Result<&[u8]>
+    /// Reads all bytes until EOF in this source, and placing them into `buf`.
+    pub fn load_into<P>(&self, path: P, buf: &mut Vec<u8>) -> Result<()>
     where
         P: AsRef<Path> + Sync,
     {
@@ -88,7 +86,7 @@ impl FilesystemDriver {
             let hash = HashValue::from(bundle);
             if let Some(fs) = self.filesystems.get(&hash) {
                 fs.load_into(file, buf)?;
-                return Ok(&self.buf[..]);
+                return Ok(());
             }
 
             Err(Error::DriveNotFound(bundle.into()))

@@ -1,5 +1,6 @@
 //! Immutable or dynamic vertex and index data.
 
+use math;
 use graphics::MAX_VERTEX_ATTRIBUTES;
 use graphics::errors::{Error, Result};
 use graphics::assets::shader::Attribute;
@@ -62,6 +63,8 @@ pub struct MeshParams {
     pub num_idxes: usize,
     /// The start indices of sub-meshes.
     pub sub_mesh_offsets: Vec<usize>,
+    /// The axis-aligned bounding boxes.
+    pub aabb: math::Aabb3<f32>,
 }
 
 impl Default for MeshParams {
@@ -74,6 +77,7 @@ impl Default for MeshParams {
             num_verts: 0,
             num_idxes: 0,
             sub_mesh_offsets: Vec::new(),
+            aabb: math::Aabb3::zero(),
         }
     }
 }
