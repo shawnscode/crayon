@@ -56,38 +56,38 @@ impl Node {
 
 impl Node {
     /// Attachs a new child to parent transform, before existing children.
-    pub fn set_parent<T1, T2>(arena: &mut T1, child: Entity, parent: T2) -> Result<()>
+    pub fn set_parent<T1, T2>(nodes: &mut T1, child: Entity, parent: T2) -> Result<()>
     where
         T1: ArenaGetMut<Node>,
         T2: Into<Option<Entity>>,
     {
-        if arena.get(child).is_none() {
+        if nodes.get(child).is_none() {
             Err(Error::NonTransformFound)
         } else {
             unsafe {
-                Self::set_parent_unchecked(arena, child, parent);
+                Self::set_parent_unchecked(nodes, child, parent);
                 Ok(())
             }
         }
     }
 
     /// Attachs a new child to parent transform, before existing children.
-    pub unsafe fn set_parent_unchecked<T1, T2>(arena: &mut T1, child: Entity, parent: T2)
+    pub unsafe fn set_parent_unchecked<T1, T2>(nodes: &mut T1, child: Entity, parent: T2)
     where
         T1: ArenaGetMut<Node>,
         T2: Into<Option<Entity>>,
     {
-        Self::remove_from_parent_unchecked(arena, child);
+        Self::remove_from_parent_unchecked(nodes, child);
 
         let parent = parent.into();
         if let Some(parent) = parent {
             if parent != child {
                 let next_sib = {
-                    let node = arena.get_unchecked_mut(parent);
+                    let node = nodes.get_unchecked_mut(parent);
                     ::std::mem::replace(&mut node.first_child, Some(child))
                 };
 
-                let child = arena.get_unchecked_mut(child);
+                let child = nodes.get_unchecked_mut(child);
                 child.parent = Some(parent);
                 child.next_sib = next_sib;
             }
@@ -95,27 +95,27 @@ impl Node {
     }
 
     /// Detach a transform from its parent and siblings. Children are not affected.
-    pub fn remove_from_parent<T1>(arena: &mut T1, handle: Entity) -> Result<()>
+    pub fn remove_from_parent<T1>(nodes: &mut T1, handle: Entity) -> Result<()>
     where
         T1: ArenaGetMut<Node>,
     {
-        if arena.get(handle).is_none() {
+        if nodes.get(handle).is_none() {
             Err(Error::NonTransformFound)
         } else {
             unsafe {
-                Self::remove_from_parent_unchecked(arena, handle);
+                Self::remove_from_parent_unchecked(nodes, handle);
                 Ok(())
             }
         }
     }
 
     /// Detach a transform from its parent and siblings without doing bounds checking.
-    pub unsafe fn remove_from_parent_unchecked<T1>(arena: &mut T1, handle: Entity)
+    pub unsafe fn remove_from_parent_unchecked<T1>(nodes: &mut T1, handle: Entity)
     where
         T1: ArenaGetMut<Node>,
     {
         let (parent, next_sib, prev_sib) = {
-            let node = arena.get_unchecked_mut(handle);
+            let node = nodes.get_unchecked_mut(handle);
             (
                 node.parent.take(),
                 node.next_sib.take(),
@@ -124,91 +124,91 @@ impl Node {
         };
 
         if let Some(next_sib) = next_sib {
-            arena.get_unchecked_mut(next_sib).prev_sib = prev_sib;
+            nodes.get_unchecked_mut(next_sib).prev_sib = prev_sib;
         }
 
         if let Some(prev_sib) = prev_sib {
-            arena.get_unchecked_mut(prev_sib).next_sib = next_sib;
+            nodes.get_unchecked_mut(prev_sib).next_sib = next_sib;
         } else if let Some(parent) = parent {
             // Take this transform as the first child of parent if there is no previous sibling.
-            arena.get_unchecked_mut(parent).first_child = next_sib;
+            nodes.get_unchecked_mut(parent).first_child = next_sib;
         }
     }
 
     /// Returns an iterator of references to its ancestors.
-    pub fn ancestors<T1>(arena: &T1, handle: Entity) -> Ancestors
+    pub fn ancestors<T1>(nodes: &T1, handle: Entity) -> Ancestors
     where
         T1: ArenaGet<Node>,
     {
         Ancestors {
-            cursor: arena.get(handle).and_then(|v| v.parent),
-            arena: arena,
+            cursor: nodes.get(handle).and_then(|v| v.parent),
+            nodes: nodes,
         }
     }
 
     /// Returns an iterator of references to its ancestors.
-    pub fn ancestors_in_place<T1>(arena: T1, handle: Entity) -> AncestorsInPlace<T1>
+    pub fn ancestors_in_place<T1>(nodes: T1, handle: Entity) -> AncestorsInPlace<T1>
     where
         T1: ArenaGet<Node>,
     {
         AncestorsInPlace {
-            cursor: arena.get(handle).and_then(|v| v.parent),
-            arena: arena,
+            cursor: nodes.get(handle).and_then(|v| v.parent),
+            nodes: nodes,
         }
     }
 
     /// Returns an iterator of references to this transform's children.
-    pub fn children<T1>(arena: &T1, handle: Entity) -> Children
+    pub fn children<T1>(nodes: &T1, handle: Entity) -> Children
     where
         T1: ArenaGet<Node>,
     {
         Children {
-            cursor: arena.get(handle).and_then(|v| v.first_child),
-            arena: arena,
+            cursor: nodes.get(handle).and_then(|v| v.first_child),
+            nodes: nodes,
         }
     }
 
     /// Returns an iterator of references to this transform's children.
-    pub fn children_in_place<T1>(arena: T1, handle: Entity) -> ChildrenInPlace<T1>
+    pub fn children_in_place<T1>(nodes: T1, handle: Entity) -> ChildrenInPlace<T1>
     where
         T1: ArenaGet<Node>,
     {
         ChildrenInPlace {
-            cursor: arena.get(handle).and_then(|v| v.first_child),
-            arena: arena,
+            cursor: nodes.get(handle).and_then(|v| v.first_child),
+            nodes: nodes,
         }
     }
 
     /// Returns an iterator of references to this transform's descendants in tree order.
-    pub fn descendants<T1>(arena: &T1, handle: Entity) -> Descendants
+    pub fn descendants<T1>(nodes: &T1, handle: Entity) -> Descendants
     where
         T1: ArenaGet<Node>,
     {
         Descendants {
-            arena: arena,
+            nodes: nodes,
             root: handle,
-            cursor: arena.get(handle).and_then(|v| v.first_child),
+            cursor: nodes.get(handle).and_then(|v| v.first_child),
         }
     }
 
     /// Returns an iterator of references to this transform's descendants in tree order.
-    pub fn descendants_in_place<T1>(arena: T1, handle: Entity) -> DescendantsInPlace<T1>
+    pub fn descendants_in_place<T1>(nodes: T1, handle: Entity) -> DescendantsInPlace<T1>
     where
         T1: ArenaGet<Node>,
     {
         DescendantsInPlace {
-            cursor: arena.get(handle).and_then(|v| v.first_child),
-            arena: arena,
+            cursor: nodes.get(handle).and_then(|v| v.first_child),
+            nodes: nodes,
             root: handle,
         }
     }
 
     /// Return true if rhs is one of the ancestor of this `Node`.
-    pub fn is_ancestor<T1>(arena: &T1, lhs: Entity, rhs: Entity) -> bool
+    pub fn is_ancestor<T1>(nodes: &T1, lhs: Entity, rhs: Entity) -> bool
     where
         T1: ArenaGet<Node>,
     {
-        for v in Node::ancestors(arena, lhs) {
+        for v in Node::ancestors(nodes, lhs) {
             if v == rhs {
                 return true;
             }
@@ -220,16 +220,16 @@ impl Node {
 
 /// An iterator of references to its ancestors.
 pub struct Ancestors<'a> {
-    arena: &'a ArenaGet<Node>,
+    nodes: &'a ArenaGet<Node>,
     cursor: Option<Entity>,
 }
 
 impl<'a> Ancestors<'a> {
     #[inline]
-    pub fn next(arena: &ArenaGet<Node>, mut cursor: &mut Option<Entity>) -> Option<Entity> {
+    pub fn next(nodes: &ArenaGet<Node>, mut cursor: &mut Option<Entity>) -> Option<Entity> {
         unsafe {
             if let Some(node) = *cursor {
-                let v = arena.get_unchecked(node);
+                let v = nodes.get_unchecked(node);
                 return ::std::mem::replace(&mut cursor, v.parent);
             }
 
@@ -242,7 +242,7 @@ impl<'a> Iterator for Ancestors<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Ancestors::next(self.arena, &mut self.cursor)
+        Ancestors::next(self.nodes, &mut self.cursor)
     }
 }
 
@@ -251,7 +251,7 @@ pub struct AncestorsInPlace<T>
 where
     T: ArenaGet<Node>,
 {
-    arena: T,
+    nodes: T,
     cursor: Option<Entity>,
 }
 
@@ -262,22 +262,22 @@ where
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Ancestors::next(&self.arena, &mut self.cursor)
+        Ancestors::next(&self.nodes, &mut self.cursor)
     }
 }
 
 /// An iterator of references to its children.
 pub struct Children<'a> {
-    arena: &'a ArenaGet<Node>,
+    nodes: &'a ArenaGet<Node>,
     cursor: Option<Entity>,
 }
 
 impl<'a> Children<'a> {
     #[inline]
-    pub fn next(arena: &ArenaGet<Node>, mut cursor: &mut Option<Entity>) -> Option<Entity> {
+    pub fn next(nodes: &ArenaGet<Node>, mut cursor: &mut Option<Entity>) -> Option<Entity> {
         unsafe {
             if let Some(node) = *cursor {
-                let v = arena.get_unchecked(node);
+                let v = nodes.get_unchecked(node);
                 return ::std::mem::replace(&mut cursor, v.next_sib);
             }
 
@@ -290,7 +290,7 @@ impl<'a> Iterator for Children<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Children::next(self.arena, &mut self.cursor)
+        Children::next(self.nodes, &mut self.cursor)
     }
 }
 
@@ -299,7 +299,7 @@ pub struct ChildrenInPlace<T>
 where
     T: ArenaGet<Node>,
 {
-    arena: T,
+    nodes: T,
     cursor: Option<Entity>,
 }
 
@@ -310,13 +310,13 @@ where
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Children::next(&self.arena, &mut self.cursor)
+        Children::next(&self.nodes, &mut self.cursor)
     }
 }
 
 /// An iterator of references to its descendants, in tree order.
 pub struct Descendants<'a> {
-    arena: &'a ArenaGet<Node>,
+    nodes: &'a ArenaGet<Node>,
     root: Entity,
     cursor: Option<Entity>,
 }
@@ -324,13 +324,13 @@ pub struct Descendants<'a> {
 impl<'a> Descendants<'a> {
     #[inline]
     pub fn next(
-        arena: &ArenaGet<Node>,
+        nodes: &ArenaGet<Node>,
         root: Entity,
         mut cursor: &mut Option<Entity>,
     ) -> Option<Entity> {
         unsafe {
             if let Some(node) = *cursor {
-                let mut v = *arena.get_unchecked(node);
+                let mut v = *nodes.get_unchecked(node);
 
                 // Deep first search when iterating children recursively.
                 if v.first_child.is_some() {
@@ -347,7 +347,7 @@ impl<'a> Descendants<'a> {
                         break;
                     }
 
-                    v = *arena.get_unchecked(v.parent.unwrap());
+                    v = *nodes.get_unchecked(v.parent.unwrap());
                     if v.next_sib.is_some() {
                         return ::std::mem::replace(&mut cursor, v.next_sib);
                     }
@@ -363,7 +363,7 @@ impl<'a> Iterator for Descendants<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Descendants::next(self.arena, self.root, &mut self.cursor)
+        Descendants::next(self.nodes, self.root, &mut self.cursor)
     }
 }
 
@@ -372,7 +372,7 @@ pub struct DescendantsInPlace<T>
 where
     T: ArenaGet<Node>,
 {
-    arena: T,
+    nodes: T,
     root: Entity,
     cursor: Option<Entity>,
 }
@@ -384,6 +384,6 @@ where
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Descendants::next(&self.arena, self.root, &mut self.cursor)
+        Descendants::next(&self.nodes, self.root, &mut self.cursor)
     }
 }

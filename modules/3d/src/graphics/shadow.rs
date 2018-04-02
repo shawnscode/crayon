@@ -4,19 +4,15 @@ use crayon::application::Context;
 use crayon::ecs::prelude::*;
 use crayon::graphics::prelude::*;
 use crayon::graphics::assets::prelude::*;
+use crayon::rayon::prelude::*;
+use crayon::math;
 
-use graphics::DrawOrder;
-use graphics::graph::{RenderShadowCaster, SimpleRenderGraph};
+use graphics::{DrawOrder, DrawSetup};
+use graphics::data::{RenderData, RenderShadowCaster};
 
 use assets::factory;
 use components::prelude::*;
 use errors::*;
-
-#[derive(Debug, Clone, Copy)]
-struct ShadowSurface {
-    render_texture: RenderTextureHandle,
-    surface: SurfaceHandle,
-}
 
 /// A shadow mapping builder.
 ///
@@ -27,7 +23,6 @@ pub struct RenderShadow {
     video: GraphicsSystemGuard,
     depth_shader: ShaderHandle,
     draw_shader: ShaderHandle,
-
     shadow_casters: HashMap<Entity, (ShadowSurface, RenderShadowCaster)>,
     shadow_surfaces: Vec<ShadowSurface>,
 }
@@ -87,22 +82,6 @@ impl RenderShadow {
         })
     }
 
-    /// Advances one frame, builds the depth buffer of shadow mapping technique.
-    pub fn advance(&mut self, world: &World, graph: &SimpleRenderGraph) -> Result<()> {
-        for (_, v) in self.shadow_casters.drain() {
-            self.shadow_surfaces.push(v.0);
-        }
-
-        for lit in graph.lits() {
-            if let Some(caster) = lit.shadow {
-                let surface = self.alloc_surface()?;
-                self.shadow_casters.insert(lit.handle, (surface, caster));
-            }
-        }
-
-        GenerateRenderShadow { shadow: self }.run_with(world)
-    }
-
     /// Gets the handle of depth buffer.
     pub fn depth_render_texture(&self, caster: Entity) -> Option<RenderTextureHandle> {
         if let Some(&(ss, _)) = self.shadow_casters.get(&caster) {
@@ -110,6 +89,25 @@ impl RenderShadow {
         } else {
             None
         }
+    }
+
+    /// Advances one frame, builds the depth buffer of shadow mapping technique.
+    pub fn build(&mut self, world: &World, data: &RenderData, setup: DrawSetup) -> Result<()> {
+        for (_, v) in self.shadow_casters.drain() {
+            self.shadow_surfaces.push(v.0);
+        }
+
+        for lit in &data.lits {
+            if let Some(caster) = lit.shadow {
+                let surface = self.alloc_surface(setup.max_shadow_resolution)?;
+                self.shadow_casters.insert(lit.handle, (surface, caster));
+            }
+        }
+
+        TaskGenShadow {
+            data: data,
+            shadow: self,
+        }.run_with(world)
     }
 
     /// Draw the underlying depth buffer into the `surface`.
@@ -126,15 +124,14 @@ impl RenderShadow {
         Ok(())
     }
 
-    fn alloc_surface(&mut self) -> Result<ShadowSurface> {
+    fn alloc_surface(&mut self, resolution: (u16, u16)) -> Result<ShadowSurface> {
         if let Some(surface) = self.shadow_surfaces.pop() {
             return Ok(surface);
         }
 
         let mut setup = RenderTextureSetup::default();
         setup.format = RenderTextureFormat::Depth16;
-        // FIXME: The dimensions of shadow texture should be configuratable.
-        setup.dimensions = (256, 256);
+        setup.dimensions = resolution;
         let render_texture = self.video.create_render_texture(setup)?;
 
         let mut setup = SurfaceSetup::default();
@@ -150,11 +147,18 @@ impl RenderShadow {
     }
 }
 
-struct GenerateRenderShadow<'a> {
+#[derive(Debug, Clone, Copy)]
+struct ShadowSurface {
+    render_texture: RenderTextureHandle,
+    surface: SurfaceHandle,
+}
+
+struct TaskGenShadow<'a> {
+    data: &'a RenderData,
     shadow: &'a RenderShadow,
 }
 
-impl<'a, 'b> System<'a> for GenerateRenderShadow<'b> {
+impl<'a, 'b> System<'a> for TaskGenShadow<'b> {
     type Data = (
         Fetch<'a, Node>,
         Fetch<'a, Transform>,
@@ -163,35 +167,43 @@ impl<'a, 'b> System<'a> for GenerateRenderShadow<'b> {
     type Err = Error;
 
     fn run(&mut self, entities: Entities, data: Self::Data) -> Result<()> {
-        unsafe {
-            for handle in entities.with_3::<Node, Transform, MeshRenderer>() {
-                let mesh = data.2.get_unchecked(handle);
+        let video = &self.shadow.video;
+        let world_transforms = &self.data.world_transforms;
+        let shader = self.shadow.depth_shader;
 
-                if !mesh.visible || !mesh.shadow_caster {
-                    continue;
-                }
+        self.shadow
+            .shadow_casters
+            .par_iter()
+            .for_each(|(_, &(ss, shadow))| {
+                (entities, &data.0, &data.1, &data.2)
+                    .par_join(&entities, 128)
+                    .for_each(|(v, _, _, mesh)| {
+                        if !mesh.visible || !mesh.shadow_caster {
+                            return;
+                        }
 
-                // Gets the underlying mesh params.
-                let mso = if let Some(mso) = self.shadow.video.mesh(mesh.mesh) {
-                    mso
-                } else {
-                    continue;
-                };
+                        // Gets the underlying mesh params.
+                        let mso = if let Some(mso) = video.mesh(mesh.mesh) {
+                            mso
+                        } else {
+                            return;
+                        };
 
-                for (_, &(ss, rsc)) in &self.shadow.shadow_casters {
-                    let m = Transform::world_matrix(&data.0, &data.1, handle)?;
-                    let mvp = rsc.shadow_space_matrix * m;
+                        // // Checks if mesh is visible for shadow frustum.
+                        let m = world_transforms[&v].matrix();
+                        let aabb = mso.aabb.transform(&(shadow.shadow_view_matrix * m));
+                        if shadow.shadow_frustum.contains(&aabb) == math::PlaneRelation::Out {
+                            return;
+                        }
 
-                    let mut dc = DrawCall::new(self.shadow.depth_shader, mesh.mesh);
-                    dc.set_uniform_variable("u_MVPMatrix", mvp);
+                        let mvp = shadow.shadow_space_matrix * m;
+                        let mut dc = DrawCall::new(shader, mesh.mesh);
+                        dc.set_uniform_variable("u_MVPMatrix", mvp);
 
-                    for i in 0..mso.sub_mesh_offsets.len() {
-                        let sdc = dc.build_sub_mesh(i)?;
-                        self.shadow.video.submit(ss.surface, 0u64, sdc)?;
-                    }
-                }
-            }
-        }
+                        let sdc = dc.build(MeshIndex::All).unwrap();
+                        video.submit(ss.surface, 0u64, sdc).unwrap();
+                    });
+            });
 
         Ok(())
     }

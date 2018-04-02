@@ -5,53 +5,57 @@ use crayon::math::{Matrix, SquareMatrix};
 use crayon::graphics::prelude::*;
 use crayon::graphics::assets::prelude::*;
 use crayon::utils::Handle;
+use crayon::rayon::prelude::*;
 
 use components::prelude::*;
 use assets::prelude::*;
 use errors::*;
 
+use graphics::DrawSetup;
 use graphics::shadow::RenderShadow;
-use graphics::graph::SimpleRenderGraph;
+use graphics::data::RenderData;
 
-use scene::Scene;
+use resources::Resources;
 use assets::material::Material;
 use assets::pipeline::PipelineParams;
 
-pub struct RendererSetup {
-    pub max_dir_lits: usize,
-    pub max_point_lits: usize,
-    pub max_shadow_casters: usize,
-}
-
 pub struct Renderer {
     video: GraphicsSystemGuard,
-    graph: SimpleRenderGraph,
+    data: RenderData,
+
     shadow: RenderShadow,
     default_surface: SurfaceHandle,
+    default_material: MaterialHandle,
+
+    setup: DrawSetup,
 }
 
 impl Renderer {
-    pub fn new(ctx: &Context) -> Result<Renderer> {
+    pub fn new(ctx: &Context, resources: &mut Resources, setup: DrawSetup) -> Result<Renderer> {
         let mut video = GraphicsSystemGuard::new(ctx.shared::<GraphicsSystem>().clone());
-        let setup = SurfaceSetup::default();
-        let surface = video.create_surface(setup)?;
+        let surface = video.create_surface(SurfaceSetup::default())?;
+
+        let undefined = factory::pipeline::undefined(resources)?;
+        let mat = resources.create_material(MaterialSetup::new(undefined))?;
 
         Ok(Renderer {
             video: video,
-            graph: SimpleRenderGraph::new(ctx)?,
+            data: RenderData::new(ctx),
             shadow: RenderShadow::new(ctx)?,
             default_surface: surface,
+            default_material: mat,
+            setup: setup,
         })
     }
 
     pub fn advance(&mut self, world: &World, camera: Entity) -> Result<()> {
-        self.graph.advance(world, camera)?;
-        self.shadow.advance(world, &self.graph)?;
+        self.data.build(world, camera, self.setup)?;
+        self.shadow.build(world, &self.data, self.setup)?;
         Ok(())
     }
 
     pub fn draw_shadow(&self, surface: Option<SurfaceHandle>) -> Result<()> {
-        for v in self.graph.lits() {
+        for v in &self.data.lits {
             if v.shadow.is_some() {
                 let surface = surface.unwrap_or(self.default_surface);
                 return self.shadow.draw(v.handle, surface);
@@ -61,37 +65,36 @@ impl Renderer {
         Ok(())
     }
 
-    pub fn draw(&self, scene: &Scene) -> Result<()> {
-        TaskDraw {
-            scene: scene,
+    pub fn draw(&self, world: &World, resources: &Resources) -> Result<()> {
+        TaskDrawCall {
+            resources: resources,
             renderer: self,
-            default_surface: self.default_surface,
-        }.run_with(&scene.world)
+        }.run_with(world)
     }
 }
 
-struct TaskDraw<'a> {
-    scene: &'a Scene,
+struct TaskDrawCall<'a> {
+    resources: &'a Resources,
     renderer: &'a Renderer,
-    default_surface: SurfaceHandle,
 }
 
-impl<'a> TaskDraw<'a> {
-    fn material(&self, handle: MaterialHandle) -> (&PipelineParams, &Material) {
-        if let Some(mat) = self.scene.materials.get(handle) {
-            if let Some(pipeline) = self.scene.pipelines.get(mat.pipeline) {
-                if self.scene.video.is_shader_alive(pipeline.shader) {
+impl<'a> TaskDrawCall<'a> {
+    fn material(
+        video: &GraphicsSystemShared,
+        resources: &'a Resources,
+        handle: MaterialHandle,
+        fallback: MaterialHandle,
+    ) -> (&'a PipelineParams, &'a Material) {
+        if let Some(mat) = resources.materials.get(handle) {
+            if let Some(pipeline) = resources.pipelines.get(mat.pipeline) {
+                if video.is_shader_alive(pipeline.shader) {
                     return (pipeline, mat);
                 }
             }
         }
 
-        let mat = self.scene
-            .materials
-            .get(self.scene.fallback.unwrap())
-            .unwrap();
-
-        let pipeline = self.scene.pipelines.get(mat.pipeline).unwrap();
+        let mat = resources.materials.get(fallback).unwrap();
+        let pipeline = resources.pipelines.get(mat.pipeline).unwrap();
         (pipeline, mat)
     }
 
@@ -111,52 +114,77 @@ impl<'a> TaskDraw<'a> {
     }
 }
 
-impl<'a, 'b> System<'a> for TaskDraw<'b> {
+impl<'a, 'b> System<'a> for TaskDrawCall<'b> {
     type Data = (
         Fetch<'a, Node>,
         Fetch<'a, Transform>,
         Fetch<'a, MeshRenderer>,
     );
+
     type Err = Error;
 
-    fn run(&mut self, entities: Entities, data: Self::Data) -> Result<()> {
+    fn run(&mut self, _: Entities, cmps: Self::Data) -> Result<()> {
         use self::PipelineUniformVariable as RU;
 
-        unsafe {
-            let camera = self.renderer.graph.camera();
-            let surface = camera.component.surface().unwrap_or(self.default_surface);
-            let projection_matrix = camera.frustum.to_matrix();
+        let camera = self.renderer.data.camera;
+        let surface = camera
+            .component
+            .surface()
+            .unwrap_or(self.renderer.default_surface);
+        let projection_matrix = camera.frustum.to_matrix();
 
-            for v in entities.with_3::<Node, Transform, MeshRenderer>() {
-                let mesh = data.2.get_unchecked(v);
+        let data = &self.renderer.data;
+        let video = &self.renderer.video;
+        let default_material = self.renderer.default_material;
+        let resources = &self.resources;
 
-                // Gets the underlying mesh params.
-                let mso = if let Some(mso) = self.scene.video.mesh(mesh.mesh) {
-                    mso
+        self.renderer
+            .data
+            .visible_entities
+            .par_iter()
+            .for_each(|&id| {
+                let mesh = if let Some(v) = cmps.2.get(id) {
+                    v
                 } else {
-                    continue;
+                    return;
                 };
 
-                // Gets the model matrix.
-                let model = Transform::world_matrix(&data.0, &data.1, v).unwrap();
+                let transform = data.world_transforms[&id];
 
-                // Checks if mesh is visible.
-                if !mesh.visible {
-                    continue;
-                }
+                // Gets the underlying mesh params.
+                let mso = if let Some(mso) = video.mesh(mesh.mesh) {
+                    if mso.sub_mesh_offsets.len() <= 0 {
+                        return;
+                    }
+                    mso
+                } else {
+                    return;
+                };
 
-                // let aabb = mso.aabb.transform(&model);
-                // if !mesh.visible || camera.frustum.contains(&aabb) == math::PlaneRelation::Out {
-                //     continue;
-                // }
+                let fallback = mesh.materials
+                    .get(0)
+                    .cloned()
+                    .unwrap_or(Handle::nil().into());
 
                 // Iterates and draws the sub-meshes with corresponding material.
-                for i in 0..mso.sub_mesh_offsets.len() {
-                    let (pipeline, mat) =
-                        self.material(*mesh.materials.get(i).unwrap_or(&Handle::nil().into()));
+                let mut from = mso.sub_mesh_offsets[0];
+                let mut current_mat = fallback;
 
-                    let p = Transform::world_position(&data.0, &data.1, v).unwrap();
-                    let mut csp = camera.view_matrix * math::Vector4::new(p.x, p.y, p.z, 1.0);
+                for i in 0..mso.sub_mesh_offsets.len() {
+                    let len = if i == mso.sub_mesh_offsets.len() - 1 {
+                        mso.num_idxes - from
+                    } else {
+                        let mat = mesh.materials.get(i + 1).cloned().unwrap_or(fallback);
+                        if current_mat == mat {
+                            continue;
+                        }
+
+                        mso.sub_mesh_offsets[i + 1] - from
+                    };
+
+                    let (pipeline, mat) =
+                        Self::material(video, resources, current_mat, default_material);
+                    let mut csp = camera.view_matrix * transform.position().extend(1.0);
                     csp /= csp.w;
 
                     // Generate packed draw order.
@@ -172,12 +200,13 @@ impl<'a, 'b> System<'a> for TaskDraw<'b> {
                         dc.set_uniform_variable(*k, *v);
                     }
 
-                    let mv = camera.view_matrix * model;
+                    let m = transform.matrix();
+                    let mv = camera.view_matrix * m;
                     let mvp = projection_matrix * mv;
                     let n = mv.invert().and_then(|v| Some(v.transpose())).unwrap_or(mv);
 
                     // Model matrix.
-                    Self::bind(&mut dc, pipeline, RU::ModelMatrix, model);
+                    Self::bind(&mut dc, pipeline, RU::ModelMatrix, m);
                     // Model view matrix.
                     Self::bind(&mut dc, pipeline, RU::ModelViewMatrix, mv);
                     // Mode view projection matrix.
@@ -187,8 +216,8 @@ impl<'a, 'b> System<'a> for TaskDraw<'b> {
 
                     // FIXME: The lits that affected object should be determined by the distance.
                     let (mut dir_index, mut point_index) = (0, 0);
-                    for l in self.renderer.graph.lits() {
-                        let color: [f32; 4] = l.lit.color.into();
+                    for l in &self.renderer.data.lits {
+                        let color: [f32; 4] = l.lit.color.rgba();
                         let color = [color[0], color[1], color[2]];
 
                         match l.lit.source {
@@ -206,7 +235,7 @@ impl<'a, 'b> System<'a> for TaskDraw<'b> {
                                         // Shadow depth texture.
                                         Self::bind(&mut dc, pipeline, uniforms[2], rt);
                                         // Shadow space matrix.
-                                        let ssm = shadow.shadow_space_matrix * model;
+                                        let ssm = shadow.shadow_space_matrix * m;
                                         Self::bind(&mut dc, pipeline, uniforms[3], ssm);
                                     }
                                 }
@@ -238,11 +267,14 @@ impl<'a, 'b> System<'a> for TaskDraw<'b> {
                     }
 
                     // Submit.
-                    let sdc = dc.build_sub_mesh(i)?;
-                    self.renderer.video.submit(surface, order, sdc)?;
+                    let sdc = dc.build_from(from, len).unwrap();
+                    video.submit(surface, order, sdc).unwrap();
+
+                    //
+                    from = from + len;
+                    current_mat = mesh.materials.get(i + 1).cloned().unwrap_or(fallback);
                 }
-            }
-        }
+            });
 
         Ok(())
     }

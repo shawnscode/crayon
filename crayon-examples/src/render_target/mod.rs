@@ -136,7 +136,7 @@ impl Application for Window {
 
     fn on_update(&mut self, _: &Context) -> Result<()> {
         {
-            let mut dc = DrawCall::new(self.pass.shader, self.pass.mesh);
+            let dc = DrawCall::new(self.pass.shader, self.pass.mesh);
             let cmd = dc.build_from(0, 3)?;
             self.video.submit(self.pass.surface, 0u64, cmd)?;
         }

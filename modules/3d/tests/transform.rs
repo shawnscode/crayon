@@ -67,13 +67,13 @@ pub fn hierachy() {
         Transform::set_world_rotation(&tree, &mut arena, e4, rotation).unwrap();
 
         let v = [1.0, 0.0, 0.0];
-        let dir = Transform::transform_direction(&tree, &arena, e4, v).unwrap();
+        let dir = Transform::world_transform_direction(&tree, &arena, e4, v).unwrap();
         assert!(ulps_eq!(dir, math::Vector3::new(0.0, 1.0, 0.0)));
 
-        let vec = Transform::transform_vector(&tree, &arena, e4, v).unwrap();
+        let vec = Transform::world_transform_vector(&tree, &arena, e4, v).unwrap();
         assert!(ulps_eq!(vec, math::Vector3::new(0.0, 2.0, 0.0)));
 
-        let pos = Transform::transform_point(&tree, &arena, e4, v).unwrap();
+        let pos = Transform::world_transform_point(&tree, &arena, e4, v).unwrap();
         assert!(ulps_eq!(pos, math::Vector3::new(1.0, 2.0, 2.0)));
     }
 }
@@ -89,6 +89,6 @@ fn look_at() {
     Transform::set_world_position(&tree, &mut arena, e1, [0.0, 0.0, -5.0]).unwrap();
 
     let v = [0.0, 0.0, 1.0];
-    let pos = Transform::transform_point(&tree, &arena, e1, v).unwrap();
+    let pos = Transform::world_transform_point(&tree, &arena, e1, v).unwrap();
     assert!(ulps_eq!(pos, math::Vector3::new(0.0, 0.0, -4.0)));
 }

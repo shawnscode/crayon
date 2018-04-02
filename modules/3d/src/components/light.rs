@@ -1,5 +1,5 @@
+use crayon::math;
 use crayon::ecs::prelude::*;
-use crayon::utils::Color;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Light {
@@ -8,7 +8,7 @@ pub struct Light {
     /// Is this light casting shadow.
     pub shadow_caster: bool,
     /// Color of the light.
-    pub color: Color,
+    pub color: math::Color<f32>,
     /// Brightness of the light source, in lumens.
     pub intensity: f32,
     /// Light source
@@ -38,7 +38,7 @@ impl Default for Light {
         Light {
             enable: true,
             shadow_caster: false,
-            color: Color::white(),
+            color: math::Color::white(),
             intensity: 1.0,
             source: LitSource::Dir,
         }
