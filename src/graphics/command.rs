@@ -2,8 +2,8 @@ use super::*;
 use super::errors::*;
 
 use graphics::assets::prelude::*;
-
-use utils::{HashValue, Rect};
+use math;
+use utils::HashValue;
 
 /// `Command` will be executed in sequential order.
 pub enum Command<'a> {
@@ -37,7 +37,7 @@ impl<'a> Command<'a> {
         Command::IndexBufferUpdate(task)
     }
 
-    pub fn update_texture(texture: TextureHandle, rect: Rect, data: &[u8]) -> Command {
+    pub fn update_texture(texture: TextureHandle, rect: math::Aabb2<f32>, data: &[u8]) -> Command {
         let task = TextureUpdate {
             texture: texture,
             rect: rect,
@@ -91,7 +91,7 @@ pub struct IndexBufferUpdate<'a> {
 #[derive(Debug, Copy, Clone)]
 pub struct TextureUpdate<'a> {
     pub(crate) texture: TextureHandle,
-    pub(crate) rect: Rect,
+    pub(crate) rect: math::Aabb2<f32>,
     pub(crate) data: &'a [u8],
 }
 

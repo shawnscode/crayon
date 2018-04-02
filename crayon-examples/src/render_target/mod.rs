@@ -59,7 +59,7 @@ impl Window {
             let mut setup = SurfaceSetup::default();
             setup.set_attachments(&[rendered_texture], None)?;
             setup.set_order(0);
-            setup.set_clear(Color::gray(), None, None);
+            setup.set_clear(math::Color::gray(), None, None);
             let surface = video.create_surface(setup)?;
 
             // Create shader state.

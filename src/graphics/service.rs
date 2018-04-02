@@ -3,10 +3,9 @@
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use utils::Rect;
-
 use resource::prelude::*;
 use resource::utils::prelude::*;
+use math;
 
 use graphics::errors::{Error, Result};
 use graphics::assets::prelude::*;
@@ -696,7 +695,12 @@ impl GraphicsSystemShared {
     }
 
     /// Update a contiguous subregion of an existing two-dimensional texture object.
-    pub fn update_texture(&self, handle: TextureHandle, rect: Rect, data: &[u8]) -> Result<()> {
+    pub fn update_texture(
+        &self,
+        handle: TextureHandle,
+        rect: math::Aabb2<f32>,
+        data: &[u8],
+    ) -> Result<()> {
         if let Some(state) = self.textures.read().unwrap().get(handle) {
             if let AssetState::Ready(ref texture) = *state {
                 if texture.hint == TextureHint::Immutable {

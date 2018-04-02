@@ -5,8 +5,7 @@ use std::collections::HashMap;
 use gl;
 use gl::types::*;
 
-use utils::{Color, Rect};
-
+use math;
 use graphics::MAX_UNIFORM_TEXTURE_SLOTS;
 use graphics::assets::prelude::*;
 
@@ -249,7 +248,7 @@ impl OpenGLVisitor {
 
     pub unsafe fn clear<C, D, S>(&self, color: C, depth: D, stencil: S) -> Result<()>
     where
-        C: Into<Option<Color>>,
+        C: Into<Option<math::Color<f32>>>,
         D: Into<Option<f32>>,
         S: Into<Option<i32>>,
     {
@@ -260,7 +259,7 @@ impl OpenGLVisitor {
         let mut bits = 0;
         if let Some(v) = color {
             bits |= gl::COLOR_BUFFER_BIT;
-            gl::ClearColor(v.0, v.1, v.2, v.3);
+            gl::ClearColor(v.r, v.g, v.b, v.a);
         }
 
         if let Some(v) = depth {
@@ -632,7 +631,7 @@ impl OpenGLVisitor {
         id: GLuint,
         format: GLenum,
         tt: GLenum,
-        rect: Rect,
+        rect: math::Aabb2<f32>,
         data: &[u8],
     ) -> Result<()> {
         self.bind_texture(0, id)?;
@@ -640,10 +639,10 @@ impl OpenGLVisitor {
         gl::TexSubImage2D(
             gl::TEXTURE_2D,
             0,
-            rect.min.x,
-            rect.min.y,
-            rect.width(),
-            rect.height(),
+            rect.min.x as i32,
+            rect.min.y as i32,
+            rect.dim().x as i32,
+            rect.dim().y as i32,
             format,
             tt,
             &data[0] as *const u8 as *const ::std::os::raw::c_void,

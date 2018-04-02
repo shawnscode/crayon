@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::borrow::Borrow;
 
-use utils;
-
 /// Where we store all the intermediate bytes.
 #[derive(Debug, Clone)]
 pub struct DataBuffer(Vec<u8>, HashMap<u64, DataBufferPtr<str>>);
@@ -55,19 +53,25 @@ impl DataBuffer {
     where
         T: Borrow<str>,
     {
-        let v = utils::hash(&value.borrow());
-        if let Some(ptr) = self.1.get(&v) {
+        use std::hash::{Hash, Hasher};
+        use std::collections::hash_map::DefaultHasher;
+
+        let value = value.borrow();
+        let mut s = DefaultHasher::new();
+        value.hash(&mut s);
+        let hash_value = s.finish();
+        if let Some(ptr) = self.1.get(&hash_value) {
             return *ptr;
         }
 
-        let slice = self.extend_from_slice(value.borrow().as_bytes());
+        let slice = self.extend_from_slice(value.as_bytes());
         let ptr = DataBufferPtr {
             position: slice.position,
             size: slice.size,
             _phantom: PhantomData,
         };
 
-        self.1.insert(v, ptr);
+        self.1.insert(hash_value, ptr);
         ptr
     }
 

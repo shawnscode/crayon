@@ -2,8 +2,6 @@ use std::path::Path;
 use std::marker::PhantomData;
 use std::hash::{Hash, Hasher};
 
-use utils::hash;
-
 #[derive(Debug, Eq)]
 pub struct HashValue<T>(u64, PhantomData<T>)
 where
@@ -88,6 +86,14 @@ where
     fn eq(&self, rhs: &T) -> bool {
         hash(&rhs.as_ref()) == self.0
     }
+}
+
+fn hash<T: Hash>(t: &T) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
 }
 
 #[cfg(test)]

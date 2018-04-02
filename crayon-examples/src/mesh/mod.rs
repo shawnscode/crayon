@@ -32,7 +32,7 @@ impl Window {
         let video = ctx.shared::<GraphicsSystem>().clone();
 
         // Create scene.
-        let mut scene = Scene::new(ctx)?;
+        let mut scene = Scene::new(ctx, SceneSetup::default())?;
 
         let camera = {
             let camera = scene.create();
@@ -75,7 +75,12 @@ impl Window {
         let mesh = factory::mesh::cube(video)?;
 
         let mut lits = [Entity::nil(); 4];
-        let colors = [Color::red(), Color::blue(), Color::green(), Color::cyan()];
+        let colors = [
+            math::Color::red(),
+            math::Color::blue(),
+            math::Color::green(),
+            math::Color::cyan(),
+        ];
         let positions = [
             [1.0, 0.5, 0.0],
             [-1.0, 0.5, 0.0],
@@ -104,7 +109,7 @@ impl Window {
                 ent.set_position(positions[i]);
             }
 
-            let color: [f32; 4] = colors[i].into();
+            let color: [f32; 4] = colors[i].rgba();
             let mat = scene.create_material(MaterialSetup::new(shader))?;
             {
                 let mut m = scene.material_mut(mat).unwrap();

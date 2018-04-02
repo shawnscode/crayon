@@ -22,7 +22,7 @@ impl Window {
         let canvas = Canvas::new(ctx).unwrap();
 
         let mut setup = SurfaceSetup::default();
-        setup.set_clear(Color::white(), None, None);
+        setup.set_clear(math::Color::white(), None, None);
         setup.set_sequence(true);
         let surface = ctx.shared::<GraphicsSystem>().create_surface(setup)?;
 

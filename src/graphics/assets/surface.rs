@@ -1,7 +1,7 @@
 //! Named bucket of draw calls with the wrapping of rendering operations to a render
 //! target, clearing, MSAA resolving and so on.
 
-use utils::Color;
+use math;
 use graphics::MAX_FRAMEBUFFER_ATTACHMENTS;
 use graphics::errors::{Error, Result};
 use graphics::assets::texture::RenderTextureHandle;
@@ -21,7 +21,7 @@ use graphics::assets::texture::RenderTextureHandle;
 pub struct SurfaceSetup {
     pub(crate) colors: [Option<RenderTextureHandle>; MAX_FRAMEBUFFER_ATTACHMENTS],
     pub(crate) depth_stencil: Option<RenderTextureHandle>,
-    pub(crate) clear_color: Option<Color>,
+    pub(crate) clear_color: Option<math::Color<f32>>,
     pub(crate) clear_depth: Option<f32>,
     pub(crate) clear_stencil: Option<i32>,
     pub(crate) order: u64,
@@ -33,7 +33,7 @@ impl Default for SurfaceSetup {
         SurfaceSetup {
             colors: [None; MAX_FRAMEBUFFER_ATTACHMENTS],
             depth_stencil: None,
-            clear_color: Some(Color::black()),
+            clear_color: Some(math::Color::black()),
             clear_depth: Some(1.0),
             clear_stencil: None,
             sequence: false,
@@ -87,7 +87,7 @@ impl SurfaceSetup {
     #[inline]
     pub fn set_clear<C, D, S>(&mut self, color: C, depth: D, stentil: S)
     where
-        C: Into<Option<Color>>,
+        C: Into<Option<math::Color<f32>>>,
         D: Into<Option<f32>>,
         S: Into<Option<i32>>,
     {

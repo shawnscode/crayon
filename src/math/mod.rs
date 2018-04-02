@@ -10,3 +10,6 @@ pub use self::aabb::{Aabb2, Aabb3};
 
 pub mod frustum;
 pub use self::frustum::{Frustum, FrustumPoints, Projection};
+
+pub mod color;
+pub use self::color::Color;

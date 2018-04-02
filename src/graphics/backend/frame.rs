@@ -4,14 +4,15 @@ use graphics::assets::prelude::*;
 use super::errors::*;
 use super::device::Device;
 
-use utils::{DataBuffer, DataBufferPtr, HashValue, Rect};
+use math;
+use utils::{DataBuffer, DataBufferPtr, HashValue};
 
 #[derive(Debug, Clone)]
 pub(crate) enum PreFrameTask {
     CreateSurface(SurfaceHandle, SurfaceSetup),
     CreatePipeline(ShaderHandle, ShaderParams, String, String),
     CreateTexture(TextureHandle, TextureParams, Option<DataBufferPtr<[u8]>>),
-    UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),
+    UpdateTexture(TextureHandle, math::Aabb2<f32>, DataBufferPtr<[u8]>),
     CreateRenderTexture(RenderTextureHandle, RenderTextureSetup),
     CreateMesh(
         MeshHandle,
@@ -30,7 +31,7 @@ pub(crate) enum FrameTask {
     UpdateSurfaceViewport(SurfaceViewport),
     UpdateVertexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
     UpdateIndexBuffer(MeshHandle, usize, DataBufferPtr<[u8]>),
-    UpdateTexture(TextureHandle, Rect, DataBufferPtr<[u8]>),
+    UpdateTexture(TextureHandle, math::Aabb2<f32>, DataBufferPtr<[u8]>),
 }
 
 #[derive(Debug, Clone, Copy)]
