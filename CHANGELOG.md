@@ -9,7 +9,11 @@ The format is based on [Keep a Changelog][kc], and this project adheres to
 
 ## [Unreleased]
 
-This version introduces a lots of break changes and significant performance improvement by integrating with [rayon](https://github.com/rayon-rs/rayon). And the error handle mechanism has been refined with [failure](https://github.com/rust-lang-nursery/failure).
+## [0.4.0] - 2018-04-03
+
+* This version introduces a lots of break changes and significant performance improvement by integrating with [rayon](https://github.com/rayon-rs/rayon).
+
+* The error handle mechanism has been refined with [failure](https://github.com/rust-lang-nursery/failure).
 
 ## [0.3.0] - 2018-02-28
 
@@ -64,4 +68,5 @@ This version introduces a lots of break changes and significant performance impr
 [0.2.0]: https://github.com/shawnscode/crayon/compare/v0.1.0...v0.2.0
 [0.2.1]: https://github.com/shawnscode/crayon/compare/v0.1.0...v0.2.1
 [0.3.0]: https://github.com/shawnscode/crayon/compare/v0.2.1...v0.3.0
-[Unreleased]: https://github.com/shawnscode/crayon/compare/v0.3.0...HEAD
+[0.4.0]: https://github.com/shawnscode/crayon/compare/v0.3.0...v0.4.0
+[Unreleased]: https://github.com/shawnscode/crayon/compare/v0.4.0...HEAD
