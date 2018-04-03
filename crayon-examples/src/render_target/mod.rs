@@ -59,7 +59,7 @@ impl Window {
             let mut setup = SurfaceSetup::default();
             setup.set_attachments(&[rendered_texture], None)?;
             setup.set_order(0);
-            setup.set_clear(Color::gray(), None, None);
+            setup.set_clear(math::Color::gray(), None, None);
             let surface = video.create_surface(setup)?;
 
             // Create shader state.
@@ -136,7 +136,7 @@ impl Application for Window {
 
     fn on_update(&mut self, _: &Context) -> Result<()> {
         {
-            let mut dc = DrawCall::new(self.pass.shader, self.pass.mesh);
+            let dc = DrawCall::new(self.pass.shader, self.pass.mesh);
             let cmd = dc.build_from(0, 3)?;
             self.video.submit(self.pass.surface, 0u64, cmd)?;
         }

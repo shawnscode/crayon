@@ -7,7 +7,8 @@ use std::collections::HashMap;
 use gl;
 use gl::types::*;
 
-use utils::{Color, DataBuffer, Handle, HashValue, Rect};
+use math;
+use utils::{DataBuffer, Handle, HashValue};
 use graphics::assets::prelude::*;
 
 use super::errors::*;
@@ -97,7 +98,7 @@ impl Device {
     pub unsafe fn run_one_frame(&self) -> Result<()> {
         self.active_shader.set(None);
         self.visitor.bind_framebuffer(0, false)?;
-        self.visitor.clear(Color::black(), None, None)?;
+        self.visitor.clear(math::Color::black(), None, None)?;
         self.visitor.set_scissor(SurfaceScissor::Disable)?;
 
         *self.frame_info.borrow_mut() = FrameInfo::default();
@@ -525,14 +526,15 @@ impl Device {
     pub unsafe fn update_texture(
         &mut self,
         handle: TextureHandle,
-        rect: Rect,
+        rect: math::Aabb2<f32>,
         data: &[u8],
     ) -> Result<()> {
         if let Some(texture) = self.textures.get(handle) {
-            if data.len() > rect.size() as usize || rect.min.x < 0
-                || rect.min.x as u16 >= texture.params.dimensions.0 || rect.min.y < 0
-                || rect.min.y as u16 >= texture.params.dimensions.1 || rect.max.x < 0
-                || rect.max.y < 0
+            if data.len() > rect.volume() as usize || rect.min.x < 0.0
+                || rect.min.x as u16 >= texture.params.dimensions.0
+                || rect.min.y < 0.0
+                || rect.min.y as u16 >= texture.params.dimensions.1
+                || rect.max.x < 0.0 || rect.max.y < 0.0
             {
                 return Err(Error::OutOfBounds);
             }

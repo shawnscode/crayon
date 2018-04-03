@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crayon::{application, utils};
+use crayon::{application, math};
 
 use crayon::graphics::errors::*;
 use crayon::graphics::prelude::*;
@@ -92,7 +92,7 @@ impl Renderer {
         let mut verts = Vec::with_capacity(tasks.vtx_buffer.len());
 
         for v in tasks.vtx_buffer {
-            let color = utils::Color::from_abgr_u32(v.col).into();
+            let color = math::Color::from_abgr_u32(v.col).into();
             verts.push(CanvasVertex::new(
                 [v.pos.x, v.pos.y],
                 [v.uv.x, v.uv.y],

@@ -18,18 +18,18 @@ pub type Result<E> = ::std::result::Result<(), E>;
 ///
 /// Notes that the decision of whether or not to execute systems in paralle is made
 /// dynamically, based on their dependencies and resource accessing requests.
-pub struct SystemDispatcher<E: failure::Fail> {
+pub struct SystemDispatcher<'scope, E: failure::Fail> {
     handles: HandlePool,
-    systems: Vec<Option<SystemDispatcherItem<E>>>,
+    systems: Vec<Option<SystemDispatcherItem<'scope, E>>>,
 }
 
-struct SystemDispatcherItem<E: failure::Fail> {
-    system: Box<for<'w> Executable<'w, Err = E> + Send>,
+struct SystemDispatcherItem<'scope, E: failure::Fail> {
+    system: Box<for<'w> Executable<'w, Err = E> + Send + 'scope>,
     children: Vec<Handle>,
     dependencies: Vec<Handle>,
 }
 
-impl<E: failure::Fail> SystemDispatcher<E> {
+impl<'scope, E: failure::Fail> SystemDispatcher<'scope, E> {
     pub fn new() -> Self {
         SystemDispatcher {
             handles: HandlePool::new(),
@@ -43,7 +43,7 @@ impl<E: failure::Fail> SystemDispatcher<E> {
     /// Returns a `Handle` as the unique identifier of this system.
     pub fn add<T>(&mut self, dependencies: &[Handle], system: T) -> Handle
     where
-        T: for<'w> System<'w, Err = E> + Send + 'static,
+        T: for<'w> System<'w, Err = E> + Send + 'scope,
     {
         self.add_executable(dependencies, system)
     }
@@ -89,7 +89,10 @@ impl<E: failure::Fail> SystemDispatcher<E> {
         }
     }
 
-    unsafe fn build(&mut self, world: &mut World) -> Vec<Vec<Box<Executable<Err = E> + Send>>> {
+    unsafe fn build(
+        &mut self,
+        world: &mut World,
+    ) -> Vec<Vec<Box<Executable<Err = E> + Send + 'scope>>> {
         let mut dependents = HashMap::new();
         for k in &self.handles {
             let item = self.systems
@@ -187,7 +190,7 @@ impl<E: failure::Fail> SystemDispatcher<E> {
 
     fn add_executable<T1>(&mut self, dependencies: &[Handle], system: T1) -> Handle
     where
-        T1: for<'w> Executable<'w, Err = E> + Send + 'static,
+        T1: for<'w> Executable<'w, Err = E> + Send + 'scope,
     {
         let deps: HashSet<Handle> = dependencies
             .iter()
@@ -224,7 +227,7 @@ impl<E: failure::Fail> SystemDispatcher<E> {
 
 macro_rules! impl_run_closure {
     ($name: ident, [$($readables: ident),*], [$($writables: ident),*]) => (
-        impl<E: failure::Fail> SystemDispatcher<E> {
+        impl<'scope, E: failure::Fail> SystemDispatcher<'scope, E> {
             /// Queues a new system into the command buffer.
             ///
             /// Each system queued within a single `SystemDispatcher` may be executed
@@ -234,7 +237,7 @@ macro_rules! impl_run_closure {
             where
                 $($readables: Component,)*
                 $($writables: Component,)*
-                F: for<'a> FnMut(Entities<'a>, $(Fetch<'a, $readables>,)* $(FetchMut<'a, $writables>,)*) -> Result<E> + Send + 'static
+                F: for<'a> FnMut(Entities<'a>, $(Fetch<'a, $readables>,)* $(FetchMut<'a, $writables>,)*) -> Result<E> + Send + 'scope
             {
                 let closure = move |world: &World| {
                     // Safety of these fetches is ensured by the system scheduler.
@@ -398,9 +401,9 @@ where
 
 /// A `SystemData` addresses a set of resources which are required for the execution
 /// of some kind of `System`.
-pub trait SystemData<'w> {
+pub trait SystemData<'s> {
     #[doc(hidden)]
-    unsafe fn fetch(world: &'w World) -> Self;
+    unsafe fn fetch(world: &'s World) -> Self;
 
     #[doc(hidden)]
     unsafe fn readables(world: &World) -> BitSet;

@@ -3,7 +3,7 @@ pub mod pipeline {
     use crayon::resource::prelude::*;
     use self::UniformVariableType as UVT;
 
-    use scene::Scene;
+    use resources::Resources;
     use assets::pipeline::{PipelineHandle, PipelineSetup};
     use errors::*;
 
@@ -12,9 +12,9 @@ pub mod pipeline {
     pub const UNDEFINED: &str = "__Core/Scene/Shader/UNDEFINED";
     pub const COLOR: &str = "__Core/Scene/Shader/COLOR";
 
-    pub fn pbr(scene: &mut Scene) -> Result<PipelineHandle> {
+    pub fn pbr(resources: &mut Resources) -> Result<PipelineHandle> {
         let location = Location::shared(PBR);
-        if let Some(pipeline) = scene.lookup_pipeline(location) {
+        if let Some(pipeline) = resources.lookup_pipeline(location) {
             return Ok(pipeline);
         }
 
@@ -44,12 +44,12 @@ pub mod pipeline {
         setup.params.uniforms = uniforms;
 
         let pipeline_setup = PipelineSetup::new(setup);
-        scene.create_pipeline(pipeline_setup)
+        resources.create_pipeline(pipeline_setup)
     }
 
-    pub fn phong(scene: &mut Scene) -> Result<PipelineHandle> {
+    pub fn phong(resources: &mut Resources) -> Result<PipelineHandle> {
         let location = Location::shared(PHONG);
-        if let Some(pipeline) = scene.lookup_pipeline(location) {
+        if let Some(pipeline) = resources.lookup_pipeline(location) {
             return Ok(pipeline);
         }
 
@@ -100,12 +100,12 @@ pub mod pipeline {
         setup.params.uniforms = uniforms;
 
         let pipeline_setup = PipelineSetup::new(setup);
-        scene.create_pipeline(pipeline_setup)
+        resources.create_pipeline(pipeline_setup)
     }
 
-    pub fn color(scene: &mut Scene) -> Result<PipelineHandle> {
+    pub fn color(resources: &mut Resources) -> Result<PipelineHandle> {
         let location = Location::shared(COLOR);
-        if let Some(pipeline) = scene.lookup_pipeline(location) {
+        if let Some(pipeline) = resources.lookup_pipeline(location) {
             return Ok(pipeline);
         }
 
@@ -133,12 +133,12 @@ pub mod pipeline {
         setup.params.uniforms = uniforms;
 
         let pipeline_setup = PipelineSetup::new(setup);
-        scene.create_pipeline(pipeline_setup)
+        resources.create_pipeline(pipeline_setup)
     }
 
-    pub fn undefined(scene: &mut Scene) -> Result<PipelineHandle> {
+    pub fn undefined(resources: &mut Resources) -> Result<PipelineHandle> {
         let location = Location::shared(UNDEFINED);
-        if let Some(pipeline) = scene.lookup_pipeline(location) {
+        if let Some(pipeline) = resources.lookup_pipeline(location) {
             return Ok(pipeline);
         }
 
@@ -165,7 +165,7 @@ pub mod pipeline {
         setup.params.uniforms = uniforms;
 
         let pipeline_setup = PipelineSetup::new(setup);
-        scene.create_pipeline(pipeline_setup)
+        resources.create_pipeline(pipeline_setup)
     }
 }
 

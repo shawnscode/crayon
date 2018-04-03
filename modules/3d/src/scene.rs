@@ -3,13 +3,18 @@ use crayon::ecs::prelude::*;
 use crayon::graphics::prelude::*;
 use crayon::resource::utils::prelude::*;
 
-use components::prelude::*;
 use assets::prelude::*;
-use assets::material::Material;
-use assets::pipeline::PipelineParams;
-use graphics::renderer::Renderer;
+use components::prelude::*;
+use graphics::prelude::*;
+
+use resources::Resources;
 use ent::{EntRef, EntRefMut};
 use errors::*;
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SceneSetup {
+    draw: DrawSetup,
+}
 
 /// `Scene`s contain the environments of your game. Its relative easy to think of each
 /// unique scene as a unique level. In each `Scene`, you place your envrionments,
@@ -40,20 +45,15 @@ use errors::*;
 /// ```
 ///
 pub struct Scene {
+    pub resources: Resources,
+
     pub(crate) world: World,
-
-    pub(crate) video: GraphicsSystemGuard,
-    pub(crate) materials: Registery<Material>,
-    pub(crate) pipelines: Registery<PipelineParams>,
-
     pub(crate) renderer: Renderer,
-    pub(crate) fallback: Option<MaterialHandle>,
 }
 
 impl Scene {
     /// Creates a new `Scene`.
-    pub fn new(ctx: &Context) -> Result<Self> {
-        let video = GraphicsSystemGuard::new(ctx.shared::<GraphicsSystem>().clone());
+    pub fn new(ctx: &Context, setup: SceneSetup) -> Result<Self> {
         let mut world = World::new();
         world.register::<Node>();
         world.register::<Transform>();
@@ -62,15 +62,12 @@ impl Scene {
         world.register::<Light>();
         world.register::<MeshRenderer>();
 
+        let mut resources = Resources::new(ctx);
+
         let scene = Scene {
             world: world,
-            video: video,
-
-            pipelines: Registery::new(),
-            materials: Registery::new(),
-            fallback: None,
-
-            renderer: Renderer::new(ctx)?,
+            renderer: Renderer::new(ctx, &mut resources, setup.draw)?,
+            resources: resources,
         };
 
         Ok(scene)
@@ -123,61 +120,6 @@ impl Scene {
         Ok(())
     }
 
-    /// Lookups pipeline object from location.
-    pub fn lookup_pipeline(&self, location: Location) -> Option<PipelineHandle> {
-        self.pipelines.lookup(location).map(|v| v.into())
-    }
-
-    /// Creates a new pipeline object that indicates the whole render pipeline of `Scene`.
-    pub fn create_pipeline(&mut self, setup: PipelineSetup) -> Result<PipelineHandle> {
-        if let Some(handle) = self.lookup_pipeline(setup.location()) {
-            self.pipelines.inc_rc(handle);
-            return Ok(handle.into());
-        }
-
-        let (location, setup, links) = setup.into();
-        let params = setup.params.clone();
-        let shader = self.video.create_shader(setup)?;
-
-        Ok(self.pipelines
-            .create(location, PipelineParams::new(shader, params, links))
-            .into())
-    }
-
-    /// Deletes a pipelie object.
-    pub fn delete_pipeline(&mut self, handle: PipelineHandle) {
-        self.pipelines.dec_rc(handle);
-    }
-
-    /// Creates a new material instance from shader.
-    pub fn create_material(&mut self, setup: MaterialSetup) -> Result<MaterialHandle> {
-        if let Some(po) = self.pipelines.get(setup.pipeline) {
-            let location = Location::unique("");
-            let material = Material::new(setup.pipeline, setup.variables, po.shader_params.clone());
-            Ok(self.materials.create(location, material).into())
-        } else {
-            Err(Error::PipelineHandleInvalid(setup.pipeline))
-        }
-    }
-
-    /// Gets the reference to material.
-    pub fn material(&self, h: MaterialHandle) -> Option<&Material> {
-        self.materials.get(h)
-    }
-
-    /// Gets the mutable reference to material.
-    pub fn material_mut(&mut self, h: MaterialHandle) -> Option<&mut Material> {
-        self.materials.get_mut(h)
-    }
-
-    /// Deletes the material instance from `Scene`. Any meshes that associated with a
-    /// invalid/deleted material handle will be drawed with a fallback material marked
-    /// with purple color.
-    #[inline]
-    pub fn delete_material(&mut self, handle: MaterialHandle) {
-        self.materials.dec_rc(handle);
-    }
-
     /// Advance to next frame.
     pub fn advance(&mut self, camera: Entity) -> Result<()> {
         self.renderer.advance(&self.world, camera)?;
@@ -194,13 +136,54 @@ impl Scene {
     }
 
     /// Renders objects into `Surface` from `Camera`.
-    pub fn draw(&mut self, camera: Entity) -> Result<()> {
-        if self.fallback.is_none() {
-            let undefined = factory::pipeline::undefined(self)?;
-            self.fallback = Some(self.create_material(MaterialSetup::new(undefined))?);
-        }
-
-        self.renderer.draw(self)?;
+    pub fn draw(&self, _: Entity) -> Result<()> {
+        self.renderer.draw(&self.world, &self.resources)?;
         Ok(())
+    }
+}
+
+impl Scene {
+    /// Lookups pipeline object from location.
+    #[inline]
+    pub fn lookup_pipeline(&self, location: Location) -> Option<PipelineHandle> {
+        self.resources.lookup_pipeline(location)
+    }
+
+    /// Creates a new pipeline object that indicates the whole render pipeline of `Scene`.
+    #[inline]
+    pub fn create_pipeline(&mut self, setup: PipelineSetup) -> Result<PipelineHandle> {
+        self.resources.create_pipeline(setup)
+    }
+
+    /// Deletes a pipelie object.
+    #[inline]
+    pub fn delete_pipeline(&mut self, handle: PipelineHandle) {
+        self.resources.delete_pipeline(handle)
+    }
+
+    /// Creates a new material instance from shader.
+    #[inline]
+    pub fn create_material(&mut self, setup: MaterialSetup) -> Result<MaterialHandle> {
+        self.resources.create_material(setup)
+    }
+
+    /// Gets the reference to material.
+    #[inline]
+    pub fn material(&self, handle: MaterialHandle) -> Option<&Material> {
+        self.resources.material(handle)
+    }
+
+    /// Gets the mutable reference to material.
+    #[inline]
+    pub fn material_mut(&mut self, handle: MaterialHandle) -> Option<&mut Material> {
+        self.resources.material_mut(handle)
+    }
+
+    /// Deletes the material instance from `Scene`. Any meshes that associated with a
+    /// invalid/deleted material handle will be drawed with a fallback material marked
+    /// with purple color.
+    #[inline]
+    pub fn delete_material(&mut self, handle: MaterialHandle) {
+        self.resources.delete_material(handle)
     }
 }

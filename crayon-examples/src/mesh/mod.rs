@@ -32,7 +32,7 @@ impl Window {
         let video = ctx.shared::<GraphicsSystem>().clone();
 
         // Create scene.
-        let mut scene = Scene::new(ctx)?;
+        let mut scene = Scene::new(ctx, SceneSetup::default())?;
 
         let camera = {
             let camera = scene.create();
@@ -71,11 +71,16 @@ impl Window {
     }
 
     fn create_lits(scene: &mut Scene, video: &GraphicsSystemShared) -> Result<[Entity; 4]> {
-        let shader = factory::pipeline::color(scene)?;
+        let shader = factory::pipeline::color(&mut scene.resources)?;
         let mesh = factory::mesh::cube(video)?;
 
         let mut lits = [Entity::nil(); 4];
-        let colors = [Color::red(), Color::blue(), Color::green(), Color::cyan()];
+        let colors = [
+            math::Color::red(),
+            math::Color::blue(),
+            math::Color::green(),
+            math::Color::cyan(),
+        ];
         let positions = [
             [1.0, 0.5, 0.0],
             [-1.0, 0.5, 0.0],
@@ -104,10 +109,11 @@ impl Window {
                 ent.set_position(positions[i]);
             }
 
-            let color: [f32; 4] = colors[i].into();
-            let mat = scene.create_material(MaterialSetup::new(shader))?;
+            let color: [f32; 4] = colors[i].rgba();
+            let mat = scene.resources.create_material(MaterialSetup::new(shader))?;
+
             {
-                let mut m = scene.material_mut(mat).unwrap();
+                let mut m = scene.resources.material_mut(mat).unwrap();
                 m.bind("u_Color", color)?;
             }
 
@@ -136,24 +142,24 @@ impl Window {
         scene: &mut Scene,
         video: &GraphicsSystemShared,
     ) -> Result<(Entity, MaterialHandle)> {
-        let shader = factory::pipeline::phong(scene)?;
+        let shader = factory::pipeline::phong(&mut scene.resources)?;
 
         let mut setup = MeshSetup::default();
         setup.location = Location::shared("/std/cornell_box.obj");
         let mesh = video.create_mesh_from_file::<OBJParser>(setup)?;
 
-        let mat_wall = scene.create_material(MaterialSetup::new(shader))?;
+        let mat_wall = scene.resources.create_material(MaterialSetup::new(shader))?;
         {
-            let m = scene.material_mut(mat_wall).unwrap();
+            let m = scene.resources.material_mut(mat_wall).unwrap();
             m.bind("u_Ambient", [1.0, 1.0, 1.0])?;
             m.bind("u_Diffuse", [1.0, 1.0, 1.0])?;
             m.bind("u_Specular", [0.0, 0.0, 0.0])?;
             m.bind("u_Shininess", 0.0)?;
         }
 
-        let mat_block = scene.create_material(MaterialSetup::new(shader))?;
+        let mat_block = scene.resources.create_material(MaterialSetup::new(shader))?;
         {
-            let m = scene.material_mut(mat_block).unwrap();
+            let m = scene.resources.material_mut(mat_block).unwrap();
             m.bind("u_Ambient", [1.0, 1.0, 1.0])?;
             m.bind("u_Diffuse", [1.0, 1.0, 1.0])?;
             m.bind("u_Specular", [1.0, 1.0, 1.0])?;
@@ -238,7 +244,7 @@ impl Application for Window {
         }
 
         {
-            let m = self.scene.material_mut(self.material).unwrap();
+            let m = self.scene.resources.material_mut(self.material).unwrap();
             m.bind("u_Ambient", *ambient)?;
             m.bind("u_Diffuse", *diffuse)?;
             m.bind("u_Specular", *specular)?;
@@ -251,6 +257,7 @@ impl Application for Window {
         } else {
             self.scene.draw_shadow(None)?;
         }
+
         Ok(())
     }
 

@@ -1,4 +1,6 @@
 extern crate crayon;
+#[macro_use]
+extern crate failure;
 extern crate rand;
 
 use crayon::ecs::prelude::*;
@@ -30,35 +32,6 @@ impl Component for Position {
 impl Component for Reference {
     type Arena = HashMapArena<Reference>;
 }
-
-// struct IncXSystem {}
-// struct DecXSystem {}
-
-// impl<'a> SystemMut<'a> for IncXSystem {
-//     type ViewWithMut = FetchMut<'a, Position>;
-//     type ResultMut = ();
-
-//     fn run_mut(&mut self, view: View, mut arena: Self::ViewWithMut) {
-//         unsafe {
-//             for v in view {
-//                 arena.get_unchecked_mut(v).x += 1;
-//             }
-//         }
-//     }
-// }
-
-// impl<'a> SystemMut<'a> for DecXSystem {
-//     type ViewWithMut = FetchMut<'a, Position>;
-//     type ResultMut = ();
-
-//     fn run_mut(&mut self, view: View, mut arena: Self::ViewWithMut) {
-//         unsafe {
-//             for v in view {
-//                 arena.get_unchecked_mut(v).x -= 1;
-//             }
-//         }
-//     }
-// }
 
 #[test]
 fn basic() {
@@ -312,19 +285,109 @@ fn builder() {
     assert!(!world.has::<Reference>(e1));
 }
 
-// #[test]
-// fn system() {
-//     let mut world = World::new();
-//     world.register::<Position>();
-//     let e1 = world.build().with_default::<Position>().finish();
+#[derive(Debug, Fail)]
+pub enum Error {
+    #[fail(display = "None")] _None,
+}
 
-//     let mut inc = IncXSystem {};
-//     inc.run_mut_at(&mut world);
-//     assert!(world.get::<Position>(e1).unwrap().x == 1);
+pub type Result = ::std::result::Result<(), Error>;
 
-//     let mut dec = DecXSystem {};
-//     dec.run_mut_at(&mut world);
-//     assert!(world.get::<Position>(e1).unwrap().x == 0);
+struct IncXSystem<'s> {
+    value: &'s u32,
+}
 
-//     // assert!(!validate(&world, &[&inc, &dec]));
-// }
+impl<'a, 's> System<'a> for IncXSystem<'s> {
+    type Data = FetchMut<'a, Position>;
+    type Err = Error;
+
+    fn run(&mut self, entities: Entities, data: Self::Data) -> Result {
+        for mut v in data.join(&entities) {
+            v.x += *self.value;
+        }
+
+        Ok(())
+    }
+}
+
+struct MulXSystem {}
+
+impl<'a> System<'a> for MulXSystem {
+    type Data = FetchMut<'a, Position>;
+    type Err = Error;
+
+    fn run(&mut self, entities: Entities, data: Self::Data) -> Result {
+        for mut v in data.join(&entities) {
+            v.x *= 2;
+        }
+
+        Ok(())
+    }
+}
+
+#[test]
+fn system() {
+    let mut world = World::new();
+    world.register::<Position>();
+    let e1 = world.build().with_default::<Position>().finish();
+
+    let value = 1;
+    let mut v1 = 0;
+
+    {
+        let mut dispatcher = SystemDispatcher::new();
+
+        dispatcher.add_w1(
+            &[],
+            |entities: Entities, positions: FetchMut<Position>| -> Result {
+                for mut v in positions.join(&entities) {
+                    v.x += value;
+                }
+
+                v1 = 1;
+                Ok(())
+            },
+        );
+
+        dispatcher.run(&mut world).unwrap();
+    }
+    assert_eq!(world.get::<Position>(e1).unwrap().x, 1);
+    assert_eq!(v1, 1);
+
+    {
+        let mut inc = IncXSystem { value: &value };
+        inc.run_with_mut(&mut world).unwrap();
+    }
+    assert_eq!(world.get::<Position>(e1).unwrap().x, 2);
+
+    {
+        let mut dispatcher = SystemDispatcher::new();
+        dispatcher.add(&[], IncXSystem { value: &value });
+        dispatcher.run(&mut world).unwrap();
+    }
+    assert_eq!(world.get::<Position>(e1).unwrap().x, 3);
+}
+
+#[test]
+fn system_dependencies() {
+    let mut world = World::new();
+    world.register::<Position>();
+    let e1 = world.build().with_default::<Position>().finish();
+
+    let value = 1;
+
+    {
+        let mut dispatcher = SystemDispatcher::new();
+        let s1 = dispatcher.add(&[], IncXSystem { value: &value });
+        dispatcher.add(&[s1], MulXSystem {});
+        dispatcher.run(&mut world).unwrap();
+        assert_eq!(world.get::<Position>(e1).unwrap().x, 2);
+    }
+
+    {
+        let mut dispatcher = SystemDispatcher::new();
+        let s1 = dispatcher.add(&[], MulXSystem {});
+        dispatcher.add(&[s1], IncXSystem { value: &value });
+        dispatcher.run(&mut world).unwrap();
+        assert_eq!(world.get::<Position>(e1).unwrap().x, 5);
+    }
+}
