@@ -1,15 +1,15 @@
 //! The virtual file-system module that allows user to load data asynchronously.
 
-use std::path::{Component, Components, Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
+use std::path::{Component, Components, Path, PathBuf};
 use std::sync::RwLock;
 
 use zip;
 
-use utils::HashValue;
 use super::errors::*;
+use utils::HashValue;
 
 /// `Filesystem` enumerates all the io operations that should be supported.
 pub trait Filesystem: Sync + Send {

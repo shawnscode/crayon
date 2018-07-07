@@ -1,9 +1,8 @@
 /// Convenient wrapers to access underlying entities in scene.
-
 use std::any::TypeId;
 
-use crayon::math;
 use crayon::ecs::prelude::*;
+use crayon::math;
 
 use components::node::{AncestorsInPlace, ChildrenInPlace, DescendantsInPlace, Node};
 use components::transform::Transform;

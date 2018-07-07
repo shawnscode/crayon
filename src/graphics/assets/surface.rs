@@ -1,10 +1,10 @@
 //! Named bucket of draw calls with the wrapping of rendering operations to a render
 //! target, clearing, MSAA resolving and so on.
 
-use math;
-use graphics::MAX_FRAMEBUFFER_ATTACHMENTS;
-use graphics::errors::{Error, Result};
 use graphics::assets::texture::RenderTextureHandle;
+use graphics::errors::{Error, Result};
+use graphics::MAX_FRAMEBUFFER_ATTACHMENTS;
+use math;
 
 /// The setup data of `Surface` which wraps common rendering operations to a render-target.
 /// Likes clearing, MSAA resolves, etc.. The `RenderTarget` is the window framebuffer as

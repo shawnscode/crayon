@@ -1,13 +1,13 @@
-use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
 use std::sync::mpsc;
+use std::sync::{Arc, RwLock};
 use std::thread;
+use std::time::{Duration, Instant};
 
+use super::context::{Context, ContextSystem};
 use super::*;
 use graphics;
-use resource;
 use input;
-use super::context::{Context, ContextSystem};
+use resource;
 
 impl ContextSystem for resource::ResourceSystem {
     type Shared = resource::ResourceSystemShared;

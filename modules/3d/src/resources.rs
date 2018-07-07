@@ -2,10 +2,10 @@ use crayon::application::Context;
 use crayon::graphics::prelude::*;
 use crayon::resource::utils::prelude::*;
 
-use errors::*;
-use assets::prelude::*;
 use assets::material::Material;
 use assets::pipeline::PipelineParams;
+use assets::prelude::*;
+use errors::*;
 
 pub struct Resources {
     video: GraphicsSystemGuard,

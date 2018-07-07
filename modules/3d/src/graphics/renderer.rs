@@ -1,23 +1,23 @@
 use crayon::application::Context;
 use crayon::ecs::prelude::*;
+use crayon::graphics::assets::prelude::*;
+use crayon::graphics::prelude::*;
 use crayon::math;
 use crayon::math::{Matrix, SquareMatrix};
-use crayon::graphics::prelude::*;
-use crayon::graphics::assets::prelude::*;
-use crayon::utils::Handle;
 use crayon::rayon::prelude::*;
+use crayon::utils::Handle;
 
-use components::prelude::*;
 use assets::prelude::*;
+use components::prelude::*;
 use errors::*;
 
-use graphics::DrawSetup;
-use graphics::shadow::RenderShadow;
 use graphics::data::RenderData;
+use graphics::shadow::RenderShadow;
+use graphics::DrawSetup;
 
-use resources::Resources;
 use assets::material::Material;
 use assets::pipeline::PipelineParams;
+use resources::Resources;
 
 pub struct Renderer {
     video: GraphicsSystemGuard,

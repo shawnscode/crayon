@@ -1,6 +1,6 @@
-use std::sync::Arc;
-use std::path::Path;
 use std::collections::HashMap;
+use std::path::Path;
+use std::sync::Arc;
 
 use utils::HashValue;
 

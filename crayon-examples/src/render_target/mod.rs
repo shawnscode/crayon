@@ -1,5 +1,5 @@
-use crayon::prelude::*;
 use crayon::graphics::assets::prelude::*;
+use crayon::prelude::*;
 use errors::*;
 
 impl_vertex!{

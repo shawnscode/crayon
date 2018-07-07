@@ -1,13 +1,13 @@
-use std::str;
-use std::os::raw::c_void;
-use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
 use gl;
 use gl::types::*;
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
+use std::os::raw::c_void;
+use std::str;
 
-use math;
-use graphics::MAX_UNIFORM_TEXTURE_SLOTS;
 use graphics::assets::prelude::*;
+use graphics::MAX_UNIFORM_TEXTURE_SLOTS;
+use math;
 
 use super::errors::*;
 

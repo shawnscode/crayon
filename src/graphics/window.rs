@@ -280,32 +280,37 @@ fn check_minimal_requirements(caps: &Capabilities) -> Result<()> {
     }
 
     if caps.version < Version::GL(2, 0) && caps.version < Version::ES(2, 0)
-        && (!caps.extensions.gl_arb_shader_objects || !caps.extensions.gl_arb_vertex_shader
+        && (!caps.extensions.gl_arb_shader_objects
+            || !caps.extensions.gl_arb_vertex_shader
             || !caps.extensions.gl_arb_fragment_shader)
     {
         return Err(Error::Requirement("shader objects".into()));
     }
 
-    if caps.version < Version::GL(3, 0) && caps.version < Version::ES(2, 0)
+    if caps.version < Version::GL(3, 0)
+        && caps.version < Version::ES(2, 0)
         && !caps.extensions.gl_ext_framebuffer_object
         && !caps.extensions.gl_arb_framebuffer_object
     {
         return Err(Error::Requirement("framebuffer objects".into()));
     }
 
-    if caps.version < Version::ES(2, 0) && caps.version < Version::GL(3, 0)
+    if caps.version < Version::ES(2, 0)
+        && caps.version < Version::GL(3, 0)
         && !caps.extensions.gl_ext_framebuffer_blit
     {
         return Err(Error::Requirement("blitting framebuffer".into()));
     }
 
-    if caps.version < Version::GL(3, 1) && caps.version < Version::ES(3, 0)
+    if caps.version < Version::GL(3, 1)
+        && caps.version < Version::ES(3, 0)
         && !caps.extensions.gl_arb_uniform_buffer_object
     {
         return Err(Error::Requirement("uniform buffer objects.".into()));
     }
 
-    if caps.version < Version::GL(3, 0) && caps.version < Version::ES(3, 0)
+    if caps.version < Version::GL(3, 0)
+        && caps.version < Version::ES(3, 0)
         && !caps.extensions.gl_arb_vertex_array_object
         && !caps.extensions.gl_apple_vertex_array_object
         && !caps.extensions.gl_oes_vertex_array_object

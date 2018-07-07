@@ -5,8 +5,8 @@ extern crate rand;
 
 use crayon::ecs::prelude::*;
 
-use std::sync::{Arc, RwLock};
 use rand::{Rng, SeedableRng, XorShiftRng};
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
 struct Position {
@@ -287,7 +287,8 @@ fn builder() {
 
 #[derive(Debug, Fail)]
 pub enum Error {
-    #[fail(display = "None")] _None,
+    #[fail(display = "None")]
+    _None,
 }
 
 pub type Result = ::std::result::Result<(), Error>;

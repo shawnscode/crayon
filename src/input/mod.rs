@@ -147,8 +147,8 @@ pub use self::service::{InputSetup, InputSystem, InputSystemShared};
 pub const MAX_TOUCHES: usize = 4;
 
 pub mod prelude {
-    pub use super::{InputSetup, InputSystem, InputSystemShared};
     pub use super::keyboard::KeyboardSetup;
     pub use super::mouse::MouseSetup;
     pub use super::touchpad::{GesturePan, GestureTap, TouchPadSetup};
+    pub use super::{InputSetup, InputSystem, InputSystemShared};
 }

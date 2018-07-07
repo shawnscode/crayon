@@ -1,11 +1,11 @@
 //! Responsible for converting window messages to input state and internal events.
 
-use std::slice::Iter;
 use glutin;
 use math;
+use std::slice::Iter;
 
-pub use glutin::VirtualKeyCode as KeyboardButton;
 pub use glutin::MouseButton;
+pub use glutin::VirtualKeyCode as KeyboardButton;
 
 /// The status of application.
 #[derive(Debug, Clone, Copy)]

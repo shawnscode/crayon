@@ -1,8 +1,8 @@
 use std::sync::{Mutex, MutexGuard, RwLock};
 
-use graphics::assets::prelude::*;
-use super::errors::*;
 use super::device::Device;
+use super::errors::*;
+use graphics::assets::prelude::*;
 
 use math;
 use utils::{DataBuffer, DataBufferPtr, HashValue};

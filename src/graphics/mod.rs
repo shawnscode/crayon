@@ -192,10 +192,10 @@ pub const MAX_UNIFORM_TEXTURE_SLOTS: usize = 8;
 
 #[macro_use]
 pub mod assets;
-pub mod errors;
-pub mod window;
-pub mod guard;
 pub mod command;
+pub mod errors;
+pub mod guard;
+pub mod window;
 
 mod backend;
 mod service;
@@ -203,12 +203,12 @@ mod service;
 pub use self::service::{GraphicsFrameInfo, GraphicsSystem, GraphicsSystemShared};
 
 pub mod prelude {
-    pub use super::{GraphicsFrameInfo, GraphicsSystem, GraphicsSystemShared};
     pub use super::guard::GraphicsSystemGuard;
+    pub use super::{GraphicsFrameInfo, GraphicsSystem, GraphicsSystemShared};
 
-    pub use super::command::{Command, DrawCall};
     pub use super::assets::mesh::{MeshHandle, MeshIndex};
     pub use super::assets::shader::ShaderHandle;
     pub use super::assets::surface::{SurfaceHandle, SurfaceScissor, SurfaceViewport};
     pub use super::assets::texture::{RenderTextureHandle, TextureHandle};
+    pub use super::command::{Command, DrawCall};
 }

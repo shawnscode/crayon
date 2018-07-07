@@ -3,11 +3,11 @@
 use std::cell::UnsafeCell;
 
 use ecs::bitset::BitSet;
-use ecs::world::{Entities, EntitiesIter, Entity, World};
 use ecs::component::{Arena, Component};
+use ecs::world::{Entities, EntitiesIter, Entity, World};
 
-use rayon::iter::ParallelIterator;
 use rayon::iter::plumbing::{bridge_unindexed, Folder, UnindexedConsumer, UnindexedProducer};
+use rayon::iter::ParallelIterator;
 
 /// A arena with immutable read access into underlying components.
 pub trait ArenaGet<T: Component> {

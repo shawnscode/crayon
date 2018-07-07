@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use crayon::application::Context;
 use crayon::ecs::prelude::*;
-use crayon::graphics::prelude::*;
 use crayon::graphics::assets::prelude::*;
-use crayon::rayon::prelude::*;
+use crayon::graphics::prelude::*;
 use crayon::math;
+use crayon::rayon::prelude::*;
 
-use graphics::{DrawOrder, DrawSetup};
 use graphics::data::{RenderData, RenderShadowCaster};
+use graphics::{DrawOrder, DrawSetup};
 
 use assets::factory;
 use components::prelude::*;

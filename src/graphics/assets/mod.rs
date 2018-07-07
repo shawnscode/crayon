@@ -1,5 +1,5 @@
-pub mod surface;
 pub mod shader;
+pub mod surface;
 pub mod texture;
 pub mod texture_loader;
 #[macro_use]
@@ -37,21 +37,26 @@ pub(crate) type AssetMeshState = AssetState<self::mesh::MeshParams>;
 pub(crate) type AssetTextureState = AssetState<self::texture::TextureParams>;
 
 pub mod prelude {
-    pub use super::surface::{SurfaceHandle, SurfaceParams, SurfaceScissor, SurfaceSetup,
-                             SurfaceViewport};
+    pub use super::surface::{
+        SurfaceHandle, SurfaceParams, SurfaceScissor, SurfaceSetup, SurfaceViewport,
+    };
 
-    pub use super::shader::{Attribute, AttributeLayout, AttributeLayoutBuilder, BlendFactor,
-                            BlendValue, Comparison, CullFace, Equation, FrontFaceOrder,
-                            RenderState, ShaderHandle, ShaderParams, ShaderSetup, UniformVariable,
-                            UniformVariableLayout, UniformVariableLayoutBuilder,
-                            UniformVariableType};
+    pub use super::shader::{
+        Attribute, AttributeLayout, AttributeLayoutBuilder, BlendFactor, BlendValue, Comparison,
+        CullFace, Equation, FrontFaceOrder, RenderState, ShaderHandle, ShaderParams, ShaderSetup,
+        UniformVariable, UniformVariableLayout, UniformVariableLayoutBuilder, UniformVariableType,
+    };
 
-    pub use super::texture::{RenderTextureFormat, RenderTextureHandle, RenderTextureParams,
-                             RenderTextureSetup, TextureAddress, TextureFilter, TextureFormat,
-                             TextureHandle, TextureHint, TextureParams, TextureSetup};
+    pub use super::texture::{
+        RenderTextureFormat, RenderTextureHandle, RenderTextureParams, RenderTextureSetup,
+        TextureAddress, TextureFilter, TextureFormat, TextureHandle, TextureHint, TextureParams,
+        TextureSetup,
+    };
 
-    pub use super::mesh::{IndexFormat, MeshHandle, MeshHint, MeshIndex, MeshParams, MeshPrimitive,
-                          MeshSetup, VertexFormat, VertexLayout};
+    pub use super::mesh::{
+        IndexFormat, MeshHandle, MeshHint, MeshIndex, MeshParams, MeshPrimitive, MeshSetup,
+        VertexFormat, VertexLayout,
+    };
 
     pub(crate) use super::{AssetMeshState, AssetState, AssetTextureState};
 }

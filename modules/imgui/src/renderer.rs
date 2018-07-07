@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use crayon::{application, math};
 
+use crayon::graphics::assets::prelude::*;
 use crayon::graphics::errors::*;
 use crayon::graphics::prelude::*;
-use crayon::graphics::assets::prelude::*;
 
 use imgui::{DrawList, ImGui, Ui};
 

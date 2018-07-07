@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use crayon::graphics::assets::prelude::*;
 use crayon::utils::HashValue;
 
-use errors::*;
 use assets::pipeline::PipelineHandle;
+use errors::*;
 
 impl_handle!(MaterialHandle);
 

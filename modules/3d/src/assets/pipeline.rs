@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
+use crayon::graphics::assets::shader::{
+    ShaderHandle, ShaderParams, ShaderSetup, UniformVariableType,
+};
 use crayon::resource::utils::location::Location;
-use crayon::graphics::assets::shader::{ShaderHandle, ShaderParams, ShaderSetup,
-                                       UniformVariableType};
 use crayon::utils::HashValue;
 use errors::{Error, Result};
 
@@ -180,12 +181,10 @@ impl PipelineUniformVariable {
         ],
     ];
 
-    pub const DIR_LIT_UNIFORMS: [[PipelineUniformVariable; 4]; 1] = [
-        [
-            PipelineUniformVariable::DirLitViewDir0,
-            PipelineUniformVariable::DirLitColor0,
-            PipelineUniformVariable::DirLitShadowTexture0,
-            PipelineUniformVariable::DirLitShadowSpaceMatrix0,
-        ],
-    ];
+    pub const DIR_LIT_UNIFORMS: [[PipelineUniformVariable; 4]; 1] = [[
+        PipelineUniformVariable::DirLitViewDir0,
+        PipelineUniformVariable::DirLitColor0,
+        PipelineUniformVariable::DirLitShadowTexture0,
+        PipelineUniformVariable::DirLitShadowSpaceMatrix0,
+    ]];
 }

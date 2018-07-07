@@ -1,6 +1,6 @@
-use std::ops::Deref;
 use std::borrow::Borrow;
 use std::fmt;
+use std::ops::Deref;
 
 /// `HandleIndex` type is arbitrary. Keeping it 32-bits allows for
 /// a single 64-bits word per `Handle`.
@@ -90,9 +90,9 @@ impl fmt::Display for Handle {
 
 #[macro_export]
 macro_rules! impl_handle {
-    ($name: ident) => (
+    ($name:ident) => {
         #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        pub struct $name ($crate::utils::handle::Handle);
+        pub struct $name($crate::utils::handle::Handle);
 
         impl From<$name> for $crate::utils::handle::Handle {
             fn from(handle: $name) -> Self {
@@ -124,7 +124,7 @@ macro_rules! impl_handle {
                 write!(f, "$name ({}, {})", self.index(), self.version())
             }
         }
-    )
+    };
 }
 
 #[cfg(test)]

@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
+use application::event;
 use math;
 use math::MetricSpace;
-use application::event;
 
 /// The setup parameters of mouse device.
 ///

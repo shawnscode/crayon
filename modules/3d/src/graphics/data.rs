@@ -1,11 +1,11 @@
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crayon::application::Context;
 use crayon::ecs::prelude::*;
+use crayon::graphics::prelude::*;
 use crayon::math;
 use crayon::math::{InnerSpace, SquareMatrix};
-use crayon::graphics::prelude::*;
 
 use components::prelude::*;
 use errors::*;

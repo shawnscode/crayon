@@ -1,6 +1,6 @@
-use crayon::prelude::*;
 use crayon::graphics::assets::prelude::*;
 use crayon::graphics::assets::{mesh_loader, texture_loader};
+use crayon::prelude::*;
 
 use image;
 use image::GenericImage;

@@ -1,6 +1,6 @@
-use crayon::graphics::prelude::*;
-use crayon::ecs::prelude::*;
 use assets::prelude::*;
+use crayon::ecs::prelude::*;
+use crayon::graphics::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct MeshRenderer {

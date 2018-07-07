@@ -1,15 +1,15 @@
 //! Pipeline state object that containing immutable render state and vertex-layout.
 
-use std::collections::HashMap;
 use std::collections::hash_map::Values;
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use math;
 
-use graphics::{MAX_UNIFORM_VARIABLES, MAX_VERTEX_ATTRIBUTES};
-use graphics::errors::{Error, Result};
-use graphics::assets::texture::{RenderTextureHandle, TextureHandle};
 use graphics::assets::mesh::VertexLayout;
+use graphics::assets::texture::{RenderTextureHandle, TextureHandle};
+use graphics::errors::{Error, Result};
+use graphics::{MAX_UNIFORM_VARIABLES, MAX_VERTEX_ATTRIBUTES};
 use resource::utils::location::Location;
 use utils::HashValue;
 

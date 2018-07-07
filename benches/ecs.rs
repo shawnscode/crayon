@@ -4,15 +4,16 @@ extern crate crayon;
 extern crate failure;
 extern crate test;
 
-use test::Bencher;
 use crayon::ecs::prelude::*;
+use test::Bencher;
 
 use std::thread;
 use std::time;
 
 #[derive(Debug, Fail)]
 pub enum Error {
-    #[fail(display = "None")] _None,
+    #[fail(display = "None")]
+    _None,
 }
 
 pub type Result<E> = ::std::result::Result<(), E>;

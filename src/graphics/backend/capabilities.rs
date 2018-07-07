@@ -1,10 +1,10 @@
-use std::ffi;
 use std::cmp;
+use std::ffi;
 use std::mem;
 
+use super::errors::*;
 use gl;
 use gl::types::*;
-use super::errors::*;
 
 /// Describes the OpenGL context profile.
 #[derive(Debug, Copy, Clone)]
@@ -302,8 +302,10 @@ impl Capabilities {
 
     #[inline]
     unsafe fn parse_color_attachments(version: Version, exts: &Extensions) -> u32 {
-        if version >= Version::GL(3, 0) || version >= Version::ES(3, 0)
-            || exts.gl_arb_framebuffer_object || exts.gl_ext_framebuffer_object
+        if version >= Version::GL(3, 0)
+            || version >= Version::ES(3, 0)
+            || exts.gl_arb_framebuffer_object
+            || exts.gl_ext_framebuffer_object
             || exts.gl_nv_fbo_color_attachments
         {
             let mut val = 4;

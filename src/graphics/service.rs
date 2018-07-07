@@ -3,18 +3,18 @@
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
+use math;
 use resource::prelude::*;
 use resource::utils::prelude::*;
-use math;
 
-use graphics::errors::{Error, Result};
 use graphics::assets::prelude::*;
+use graphics::errors::{Error, Result};
 
 use super::assets::mesh_loader::{MeshLoader, MeshParser};
 use super::assets::texture_loader::{TextureLoader, TextureParser};
 
-use super::backend::frame::*;
 use super::backend::device::Device;
+use super::backend::frame::*;
 use super::command::*;
 use super::window::Window;
 

@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use std::borrow::Borrow;
+use std::collections::HashMap;
 
-use utils::{Handle, HandlePool};
 use super::location::LocationAtom;
+use utils::{Handle, HandlePool};
 
 struct Entry<T: Sized + 'static> {
     value: T,

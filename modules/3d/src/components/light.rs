@@ -1,5 +1,5 @@
-use crayon::math;
 use crayon::ecs::prelude::*;
+use crayon::math;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Light {

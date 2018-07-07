@@ -1,10 +1,10 @@
 use std::ops::{Deref, DerefMut};
 
-use imgui;
 use crayon::application;
 use crayon::application::Result;
 use crayon::graphics::prelude::*;
 use crayon::input::prelude::*;
+use imgui;
 use renderer::Renderer;
 
 pub struct FrameGuard<'a> {

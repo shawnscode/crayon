@@ -1,19 +1,19 @@
-use std::str;
-use std::cell::{Cell, RefCell};
 use std::borrow::Borrow;
+use std::cell::{Cell, RefCell};
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::str;
 
 use gl;
 use gl::types::*;
 
+use graphics::assets::prelude::*;
 use math;
 use utils::{DataBuffer, Handle, HashValue};
-use graphics::assets::prelude::*;
 
 use super::errors::*;
-use super::visitor::*;
 use super::frame::{FrameDrawCall, FrameTask};
+use super::visitor::*;
 
 type ResourceID = GLuint;
 type UniformID = GLint;
@@ -530,11 +530,13 @@ impl Device {
         data: &[u8],
     ) -> Result<()> {
         if let Some(texture) = self.textures.get(handle) {
-            if data.len() > rect.volume() as usize || rect.min.x < 0.0
+            if data.len() > rect.volume() as usize
+                || rect.min.x < 0.0
                 || rect.min.x as u16 >= texture.params.dimensions.0
                 || rect.min.y < 0.0
                 || rect.min.y as u16 >= texture.params.dimensions.1
-                || rect.max.x < 0.0 || rect.max.y < 0.0
+                || rect.max.x < 0.0
+                || rect.max.y < 0.0
             {
                 return Err(Error::OutOfBounds);
             }

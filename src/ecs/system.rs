@@ -3,14 +3,14 @@
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 
-use rayon::prelude::*;
 use failure;
+use rayon::prelude::*;
 
-use utils::{Handle, HandlePool};
-use ecs::component::Component;
-use ecs::world::{Entities, World};
-use ecs::view::{Fetch, FetchMut};
 use ecs::bitset::BitSet;
+use ecs::component::Component;
+use ecs::view::{Fetch, FetchMut};
+use ecs::world::{Entities, World};
+use utils::{Handle, HandlePool};
 
 pub type Result<E> = ::std::result::Result<(), E>;
 
@@ -474,9 +474,9 @@ impl_system_data!([T1, T2, T3, T4, T5, T6, T7, T8, T9]);
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use super::super::component::VecArena;
     use super::super::view::Join;
+    use super::*;
 
     struct Value {
         value: i32,
@@ -498,7 +498,8 @@ mod test {
 
     #[derive(Debug, Fail)]
     pub enum Error {
-        #[fail(display = "None")] _None,
+        #[fail(display = "None")]
+        _None,
     }
 
     struct ValueSystem {}

@@ -1,6 +1,6 @@
 mod data;
-mod shadow;
 pub mod renderer;
+mod shadow;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DrawOrder {
@@ -31,6 +31,6 @@ impl Default for DrawSetup {
 }
 
 pub mod prelude {
-    pub use graphics::{DrawOrder, DrawSetup};
     pub use graphics::renderer::Renderer;
+    pub use graphics::{DrawOrder, DrawSetup};
 }

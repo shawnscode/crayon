@@ -1,8 +1,8 @@
 extern crate crayon;
 extern crate rand;
 
-use std::cmp::min;
 use rand::{Rng, SeedableRng, XorShiftRng};
+use std::cmp::min;
 
 use crayon::utils::*;
 

@@ -34,8 +34,8 @@ extern crate cgmath;
 extern crate failure;
 extern crate gl;
 extern crate glutin;
-extern crate zip;
 pub extern crate rayon;
+extern crate zip;
 
 #[macro_use]
 pub mod utils;
@@ -43,7 +43,7 @@ pub mod application;
 pub mod ecs;
 #[macro_use]
 pub mod graphics;
-pub mod resource;
 pub mod input;
-pub mod prelude;
 pub mod math;
+pub mod prelude;
+pub mod resource;

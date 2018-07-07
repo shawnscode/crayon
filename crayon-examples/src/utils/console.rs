@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use crayon::prelude::*;
 use crayon::graphics::assets::prelude::*;
+use crayon::prelude::*;
 
 use crayon_imgui;
 use crayon_imgui::prelude::*;
 
-use utils;
 use errors::*;
+use utils;
 
 pub struct ConsoleCanvas {
     canvas: Canvas,

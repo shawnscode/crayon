@@ -1,5 +1,5 @@
-use std::time::{Duration, Instant};
 use std::cmp::Ordering;
+use std::time::{Duration, Instant};
 
 use application::event::{TouchEvent, TouchState};
 use math;

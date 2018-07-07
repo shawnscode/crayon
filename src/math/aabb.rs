@@ -8,9 +8,9 @@
 use std::cmp::{Ordering, PartialOrd};
 use std::fmt;
 
-use math::{Plane, PlaneBound, PlaneRelation};
 use cgmath::prelude::*;
 use cgmath::{BaseFloat, BaseNum, Point2, Point3, Vector2, Vector3};
+use math::{Plane, PlaneBound, PlaneRelation};
 
 /// A two-dimensional AABB, aka a rectangle.
 #[derive(Copy, Clone, PartialEq)]

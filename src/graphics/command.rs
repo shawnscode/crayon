@@ -1,5 +1,5 @@
-use super::*;
 use super::errors::*;
+use super::*;
 
 use graphics::assets::prelude::*;
 use math;

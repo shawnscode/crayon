@@ -7,9 +7,9 @@ use assets::prelude::*;
 use components::prelude::*;
 use graphics::prelude::*;
 
-use resources::Resources;
 use ent::{EntRef, EntRefMut};
 use errors::*;
+use resources::Resources;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SceneSetup {

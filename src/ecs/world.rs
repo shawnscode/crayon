@@ -1,14 +1,14 @@
 //! The `World` struct contains entities and its component storages.
 
 use std::any::{Any, TypeId};
-use std::collections::HashMap;
 use std::cell::UnsafeCell;
+use std::collections::HashMap;
 
-use utils::{HandleIndex, HandlePool};
 use utils::handle_pool::Iter;
+use utils::{HandleIndex, HandlePool};
 
-use ecs::component::{Arena, Component};
 use ecs::bitset::BitSet;
+use ecs::component::{Arena, Component};
 
 /// `Entity` type, as seen by the user, its a alias to `Handle` internally.
 pub type Entity = ::utils::handle::Handle;

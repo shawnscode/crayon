@@ -122,14 +122,14 @@
 
 pub mod bitset;
 pub mod component;
-pub mod world;
 pub mod system;
 pub mod view;
+pub mod world;
 
 pub mod prelude {
     pub use super::component::{Component, HashMapArena, VecArena};
-    pub use super::world::{Entities, Entity, EntityBuilder, World};
     pub use super::system::{System, SystemData, SystemDispatcher};
     pub use super::view::{ArenaGet, ArenaGetMut, Fetch, FetchMut, Join};
+    pub use super::world::{Entities, Entity, EntityBuilder, World};
     pub use rayon::iter::ParallelIterator;
 }

@@ -1,7 +1,7 @@
 use std;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
-use std::marker::PhantomData;
 
 use resource::prelude::*;
 use resource::utils::registery::Registery;

@@ -14,13 +14,13 @@ use std::io;
 use std::io::prelude::*;
 use std::process::exit;
 
-mod utils;
-mod texture;
-mod render_target;
+mod errors;
 mod imgui;
 mod input;
 mod mesh;
-mod errors;
+mod render_target;
+mod texture;
+mod utils;
 
 const USAGE: &str = "";
 

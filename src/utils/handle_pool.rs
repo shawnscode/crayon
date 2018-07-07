@@ -1,6 +1,6 @@
+use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::binary_heap::BinaryHeap;
-use std::borrow::Borrow;
 
 use super::{Handle, HandleIndex};
 

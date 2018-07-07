@@ -1,5 +1,5 @@
-use std::path::Path;
 use std::hash::{Hash, Hasher};
+use std::path::Path;
 
 use utils::HashValue;
 
@@ -177,8 +177,8 @@ impl Default for LocationAtom {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
     use super::*;
+    use std::collections::HashSet;
 
     #[test]
     fn basic() {

@@ -1,12 +1,12 @@
 //! Timing and stepping system.
 
 use std;
-use std::time::{Duration, Instant};
 use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
 
-use application::Result;
 use application::settings::EngineSettings;
+use application::Result;
 
 /// `TimeSystem`
 pub struct TimeSystem {

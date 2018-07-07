@@ -1,12 +1,12 @@
-use std::sync::Arc;
-use std::ops::Deref;
 use std::collections::HashMap;
+use std::ops::Deref;
+use std::sync::Arc;
 
-use graphics::GraphicsSystemShared;
-use graphics::errors::Result;
+use graphics::assets::mesh_loader::MeshParser;
 use graphics::assets::prelude::*;
 use graphics::assets::texture_loader::TextureParser;
-use graphics::assets::mesh_loader::MeshParser;
+use graphics::errors::Result;
+use graphics::GraphicsSystemShared;
 
 pub struct GraphicsSystemGuard {
     stack: HashMap<Resource, u32>,

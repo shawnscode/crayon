@@ -1,10 +1,10 @@
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
-use std::sync::mpsc;
 
-use super::filesystem::{Filesystem, FilesystemDriver};
 use super::errors::*;
+use super::filesystem::{Filesystem, FilesystemDriver};
 
 /// A buffered filesystem driver.
 pub struct ResourceFS<'a> {

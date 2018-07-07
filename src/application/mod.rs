@@ -25,15 +25,15 @@
 //! essential systems in a central place, and responsible for running the main loop.
 //!
 
-pub mod settings;
 pub mod context;
 pub mod event;
+pub mod settings;
 
 pub mod time;
 pub use self::time::TimeSystem;
 
-pub use self::settings::Settings;
 pub use self::context::Context;
+pub use self::settings::Settings;
 
 mod engine;
 pub use self::engine::Engine;
@@ -41,8 +41,8 @@ pub use self::engine::Engine;
 pub type Result<T> = ::std::result::Result<T, ::failure::Error>;
 
 use graphics::GraphicsFrameInfo;
-use std::time::Duration;
 use std::result::Result as StdResult;
+use std::time::Duration;
 
 /// The collected information during last frame.
 #[derive(Debug, Copy, Clone, Default)]

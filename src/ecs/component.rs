@@ -1,10 +1,10 @@
 //! Abstract `Component` trait and some common storage stratedy.
 
-use std::ptr;
 use std::collections::HashMap;
+use std::ptr;
 
-use utils::handle::HandleIndex;
 use ecs::bitset::DynamicBitSet;
+use utils::handle::HandleIndex;
 
 /// Abstract component trait with associated storage type.
 pub trait Component: Sized + 'static {

@@ -1,9 +1,9 @@
 //! Immutable or dynamic vertex and index data.
 
-use math;
-use graphics::MAX_VERTEX_ATTRIBUTES;
-use graphics::errors::{Error, Result};
 use graphics::assets::shader::Attribute;
+use graphics::errors::{Error, Result};
+use graphics::MAX_VERTEX_ATTRIBUTES;
+use math;
 use resource::utils::location::Location;
 
 impl_handle!(MeshHandle);
@@ -435,13 +435,11 @@ pub mod macros {
 
     #[macro_export]
     macro_rules! offset_of {
-        ($ty:ty, $field:ident) => {
-            {
-                use std;
-                let ptr: *const $ty = std::ptr::null();
-                unsafe { &(*ptr).$field as *const _ as usize }
-            }
-        }
+        ($ty:ty, $field:ident) => {{
+            use std;
+            let ptr: *const $ty = std::ptr::null();
+            unsafe { &(*ptr).$field as *const _ as usize }
+        }};
     }
 
     #[macro_export]
@@ -497,21 +495,51 @@ pub mod macros {
 
     #[macro_export]
     macro_rules! impl_vertex_field {
-        (VertexFormat::Byte, 2) => ([i8; 2]);
-        (VertexFormat::Byte, 3) => ([i8; 3]);
-        (VertexFormat::Byte, 4) => ([i8; 4]);
-        (VertexFormat::UByte, 2) => ([u8; 2]);
-        (VertexFormat::UByte, 3) => ([u8; 3]);
-        (VertexFormat::UByte, 4) => ([u8; 4]);
-        (VertexFormat::Short, 2) => ([i16; 2]);
-        (VertexFormat::Short, 3) => ([i16; 3]);
-        (VertexFormat::Short, 4) => ([i16; 4]);
-        (VertexFormat::UShort, 2) => ([u16; 2]);
-        (VertexFormat::UShort, 3) => ([u16; 3]);
-        (VertexFormat::UShort, 4) => ([u16; 4]);
-        (VertexFormat::Float, 2) => ([f32; 2]);
-        (VertexFormat::Float, 3) => ([f32; 3]);
-        (VertexFormat::Float, 4) => ([f32; 4]);
+        (VertexFormat::Byte,2) => {
+            [i8; 2]
+        };
+        (VertexFormat::Byte,3) => {
+            [i8; 3]
+        };
+        (VertexFormat::Byte,4) => {
+            [i8; 4]
+        };
+        (VertexFormat::UByte,2) => {
+            [u8; 2]
+        };
+        (VertexFormat::UByte,3) => {
+            [u8; 3]
+        };
+        (VertexFormat::UByte,4) => {
+            [u8; 4]
+        };
+        (VertexFormat::Short,2) => {
+            [i16; 2]
+        };
+        (VertexFormat::Short,3) => {
+            [i16; 3]
+        };
+        (VertexFormat::Short,4) => {
+            [i16; 4]
+        };
+        (VertexFormat::UShort,2) => {
+            [u16; 2]
+        };
+        (VertexFormat::UShort,3) => {
+            [u16; 3]
+        };
+        (VertexFormat::UShort,4) => {
+            [u16; 4]
+        };
+        (VertexFormat::Float,2) => {
+            [f32; 2]
+        };
+        (VertexFormat::Float,3) => {
+            [f32; 3]
+        };
+        (VertexFormat::Float,4) => {
+            [f32; 4]
+        };
     }
 
     #[cfg(test)]

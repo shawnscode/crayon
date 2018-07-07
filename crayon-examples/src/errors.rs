@@ -3,9 +3,12 @@ use crayon_3d;
 
 #[derive(Debug, Fail)]
 pub enum Error {
-    #[fail(display = "{}", _0)] Graphics(graphics::errors::Error),
-    #[fail(display = "{}", _0)] Resource(resource::errors::Error),
-    #[fail(display = "{}", _0)] Scene(crayon_3d::errors::Error),
+    #[fail(display = "{}", _0)]
+    Graphics(graphics::errors::Error),
+    #[fail(display = "{}", _0)]
+    Resource(resource::errors::Error),
+    #[fail(display = "{}", _0)]
+    Scene(crayon_3d::errors::Error),
 }
 
 pub type Result<T> = ::std::result::Result<T, Error>;

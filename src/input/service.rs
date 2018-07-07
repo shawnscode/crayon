@@ -1,8 +1,8 @@
 use std::sync::{Arc, RwLock};
 
-use math;
-use application::event;
 use super::{keyboard, mouse, touchpad};
+use application::event;
+use math;
 
 /// The setup parameters of all supported input devices.
 #[derive(Debug, Clone, Copy, Default)]
