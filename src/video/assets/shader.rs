@@ -6,10 +6,10 @@ use std::str::FromStr;
 
 use math;
 
-use graphics::assets::mesh::VertexLayout;
-use graphics::assets::texture::{RenderTextureHandle, TextureHandle};
-use graphics::errors::{Error, Result};
-use graphics::{MAX_UNIFORM_VARIABLES, MAX_VERTEX_ATTRIBUTES};
+use video::assets::mesh::VertexLayout;
+use video::assets::texture::{RenderTextureHandle, TextureHandle};
+use video::errors::{Error, Result};
+use video::{MAX_UNIFORM_VARIABLES, MAX_VERTEX_ATTRIBUTES};
 use resource::utils::location::Location;
 use utils::HashValue;
 
@@ -311,7 +311,7 @@ pub enum UniformVariableType {
     Matrix4f,
 }
 
-/// Uniform variable for graphics program object. Each matrix based `UniformVariable`
+/// Uniform variable for video program object. Each matrix based `UniformVariable`
 /// is assumed to be supplied in row major order with a optional transpose.
 #[derive(Debug, Copy, Clone)]
 pub enum UniformVariable {

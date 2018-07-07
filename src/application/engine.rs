@@ -4,9 +4,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use super::*;
-use graphics;
 use input;
 use resource;
+use video;
 
 #[derive(Default, Copy, Clone)]
 struct ContextData {
@@ -19,7 +19,7 @@ pub struct Context {
     pub resource: Arc<resource::ResourceSystemShared>,
     pub input: Arc<input::InputSystemShared>,
     pub time: Arc<time::TimeSystemShared>,
-    pub video: Arc<graphics::GraphicsSystemShared>,
+    pub video: Arc<video::VideoSystemShared>,
 
     data: Arc<RwLock<ContextData>>,
 }
@@ -41,10 +41,10 @@ impl Context {
 /// management.
 pub struct Engine {
     pub events_loop: event::EventsLoop,
-    pub window: Arc<graphics::window::Window>,
+    pub window: Arc<video::window::Window>,
 
     pub input: input::InputSystem,
-    pub graphics: graphics::GraphicsSystem,
+    pub video: video::VideoSystem,
     pub resource: resource::ResourceSystem,
     pub time: time::TimeSystem,
 
@@ -60,7 +60,7 @@ impl Engine {
 
     /// Setup engine with specified settings.
     pub fn new_with(settings: &Settings) -> Result<Self> {
-        let mut wb = graphics::window::WindowBuilder::new();
+        let mut wb = video::window::WindowBuilder::new();
         wb.with_title(settings.window.title.clone())
             .with_dimensions(settings.window.width, settings.window.height);
 
@@ -73,8 +73,8 @@ impl Engine {
         let resource = resource::ResourceSystem::new()?;
         let resource_shared = resource.shared();
 
-        let graphics = graphics::GraphicsSystem::new(window.clone(), resource_shared.clone())?;
-        let graphics_shared = graphics.shared();
+        let video = video::VideoSystem::new(window.clone(), resource_shared.clone())?;
+        let video_shared = video.shared();
 
         let time = time::TimeSystem::new(settings.engine)?;
         let time_shared = time.shared();
@@ -83,7 +83,7 @@ impl Engine {
             resource: resource_shared,
             input: input_shared,
             time: time_shared,
-            video: graphics_shared,
+            video: video_shared,
             data: Arc::new(RwLock::new(ContextData::default())),
         };
 
@@ -91,7 +91,7 @@ impl Engine {
             events_loop: events_loop,
             input: input,
             window: window,
-            graphics: graphics,
+            video: video,
             resource: resource,
             time: time,
 
@@ -152,16 +152,16 @@ impl Engine {
             }
 
             self.time.advance();
-            self.graphics.swap_frames();
+            self.video.swap_frames();
 
             let (video_info, duration) = {
                 // Perform update and render submitting for frame [x], and drawing
                 // frame [x-1] at the same time.
                 task_sender.send(true).unwrap();
 
-                // This will block the main-thread until all the graphics commands
+                // This will block the main-thread until all the video commands
                 // is finished by GPU.
-                let video_info = self.graphics.advance()?;
+                let video_info = self.video.advance()?;
                 let duration = join_receiver.recv().unwrap()?;
                 (video_info, duration)
             };

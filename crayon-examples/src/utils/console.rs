@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use crayon::graphics::assets::prelude::*;
 use crayon::prelude::*;
+use crayon::video::assets::prelude::*;
 
 use crayon_imgui;
 use crayon_imgui::prelude::*;
@@ -13,7 +13,7 @@ pub struct ConsoleCanvas {
     canvas: Canvas,
     info: FrameInfo,
     surface: SurfaceHandle,
-    video: Arc<GraphicsSystemShared>,
+    video: Arc<VideoSystemShared>,
 }
 
 impl Drop for ConsoleCanvas {

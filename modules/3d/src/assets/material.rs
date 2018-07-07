@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crayon::graphics::assets::prelude::*;
 use crayon::utils::HashValue;
+use crayon::video::assets::prelude::*;
 
 use assets::pipeline::PipelineHandle;
 use errors::*;

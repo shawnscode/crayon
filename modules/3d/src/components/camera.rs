@@ -1,8 +1,8 @@
 //! A device through which the player views the world.
 
 use crayon::ecs::prelude::*;
-use crayon::graphics::assets::surface::SurfaceHandle;
 use crayon::math;
+use crayon::video::assets::surface::SurfaceHandle;
 
 /// A `Camera` is a device through which the player views the world.
 #[derive(Debug, Clone, Copy)]

@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use crayon::{application, math};
 
-use crayon::graphics::assets::prelude::*;
-use crayon::graphics::errors::*;
-use crayon::graphics::prelude::*;
+use crayon::video::assets::prelude::*;
+use crayon::video::errors::*;
+use crayon::video::prelude::*;
 
 use imgui::{DrawList, ImGui, Ui};
 
@@ -17,7 +17,7 @@ impl_vertex!{
 }
 
 pub struct Renderer {
-    video: Arc<GraphicsSystemShared>,
+    video: Arc<VideoSystemShared>,
 
     shader: ShaderHandle,
     texture: TextureHandle,

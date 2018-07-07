@@ -1,7 +1,7 @@
 pub mod pipeline {
     use self::UniformVariableType as UVT;
-    use crayon::graphics::assets::prelude::*;
     use crayon::resource::prelude::*;
+    use crayon::video::assets::prelude::*;
 
     use assets::pipeline::{PipelineHandle, PipelineSetup};
     use errors::*;
@@ -170,11 +170,11 @@ pub mod pipeline {
 }
 
 pub mod mesh {
-    use crayon::graphics::assets::prelude::*;
-    use crayon::graphics::errors::*;
-    use crayon::graphics::prelude::*;
     use crayon::math;
     use crayon::resource::prelude::*;
+    use crayon::video::assets::prelude::*;
+    use crayon::video::errors::*;
+    use crayon::video::prelude::*;
 
     impl_vertex! {
         PrimitiveVertex {
@@ -188,7 +188,7 @@ pub mod mesh {
     pub const QUAD: &str = "__Core/Scene/Mesh/QUAD";
     pub const CUBE: &str = "__Core/Scene/Mesh/CUBE";
 
-    pub fn quad(video: &GraphicsSystemShared) -> Result<MeshHandle> {
+    pub fn quad(video: &VideoSystemShared) -> Result<MeshHandle> {
         let location = Location::shared(QUAD);
         if let Some(quad) = video.lookup_mesh(location) {
             return Ok(quad);
@@ -226,7 +226,7 @@ pub mod mesh {
         video.create_mesh(setup)
     }
 
-    pub fn cube(video: &GraphicsSystemShared) -> Result<MeshHandle> {
+    pub fn cube(video: &VideoSystemShared) -> Result<MeshHandle> {
         let location = Location::shared(CUBE);
         if let Some(cube) = video.lookup_mesh(location) {
             return Ok(cube);

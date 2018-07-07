@@ -38,14 +38,14 @@ pub use self::engine::{Context, Engine};
 
 pub type Result<T> = ::std::result::Result<T, ::failure::Error>;
 
-use graphics::GraphicsFrameInfo;
 use std::result::Result as StdResult;
 use std::time::Duration;
+use video::VideoFrameInfo;
 
 /// The collected information during last frame.
 #[derive(Debug, Copy, Clone, Default)]
 pub struct FrameInfo {
-    pub video: GraphicsFrameInfo,
+    pub video: VideoFrameInfo,
     pub duration: Duration,
     pub fps: u32,
 }

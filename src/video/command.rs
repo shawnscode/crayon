@@ -1,9 +1,9 @@
 use super::errors::*;
 use super::*;
 
-use graphics::assets::prelude::*;
 use math;
 use utils::HashValue;
+use video::assets::prelude::*;
 
 /// `Command` will be executed in sequential order.
 pub enum Command<'a> {

@@ -1,6 +1,6 @@
 use crayon::application::Context;
-use crayon::graphics::prelude::*;
 use crayon::resource::utils::prelude::*;
+use crayon::video::prelude::*;
 
 use assets::material::Material;
 use assets::pipeline::PipelineParams;
@@ -8,7 +8,7 @@ use assets::prelude::*;
 use errors::*;
 
 pub struct Resources {
-    video: GraphicsSystemGuard,
+    video: VideoSystemGuard,
     pub(crate) materials: Registery<Material>,
     pub(crate) pipelines: Registery<PipelineParams>,
 }
@@ -16,7 +16,7 @@ pub struct Resources {
 impl Resources {
     pub fn new(ctx: &Context) -> Self {
         Resources {
-            video: GraphicsSystemGuard::new(ctx.video.clone()),
+            video: VideoSystemGuard::new(ctx.video.clone()),
             pipelines: Registery::new(),
             materials: Registery::new(),
         }

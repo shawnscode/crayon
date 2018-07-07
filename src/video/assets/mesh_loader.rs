@@ -8,9 +8,9 @@ use math;
 use resource::prelude::*;
 use resource::utils::registery::Registery;
 
-use graphics::assets::mesh::*;
-use graphics::assets::{AssetMeshState, AssetState};
-use graphics::backend::frame::{DoubleFrame, PreFrameTask};
+use video::assets::mesh::*;
+use video::assets::{AssetMeshState, AssetState};
+use video::backend::frame::{DoubleFrame, PreFrameTask};
 
 /// Parsed mesh from `MeshParser`.
 pub struct MeshData {

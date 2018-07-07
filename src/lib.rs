@@ -42,7 +42,7 @@ pub mod utils;
 pub mod application;
 pub mod ecs;
 #[macro_use]
-pub mod graphics;
+pub mod video;
 pub mod input;
 pub mod math;
 pub mod prelude;

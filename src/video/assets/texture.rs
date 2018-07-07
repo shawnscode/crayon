@@ -1,7 +1,7 @@
 //! Immutable or dynamic 2D texture.
 
-use graphics::errors::{Error, Result};
 use resource::utils::location::Location;
+use video::errors::{Error, Result};
 
 /// A texture is a container of one or more images. It can be the source of a texture
 /// access from a Shader.

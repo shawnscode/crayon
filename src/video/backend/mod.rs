@@ -1,5 +1,5 @@
 //! The backend of renderer, which should be responsible for only one thing:
-//! submitting draw-calls using low-level OpenGL graphics APIs.
+//! submitting draw-calls using low-level OpenGL video APIs.
 
 pub mod capabilities;
 pub mod device;

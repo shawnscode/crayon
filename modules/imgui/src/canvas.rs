@@ -2,8 +2,8 @@ use std::ops::{Deref, DerefMut};
 
 use crayon::application;
 use crayon::application::Result;
-use crayon::graphics::prelude::*;
 use crayon::input::prelude::*;
+use crayon::video::prelude::*;
 use imgui;
 use renderer::Renderer;
 

@@ -7,8 +7,8 @@ use math;
 use resource::prelude::*;
 use resource::utils::prelude::*;
 
-use graphics::assets::prelude::*;
-use graphics::errors::{Error, Result};
+use video::assets::prelude::*;
+use video::errors::{Error, Result};
 
 use super::assets::mesh_loader::{MeshLoader, MeshParser};
 use super::assets::texture_loader::{TextureLoader, TextureParser};
@@ -18,9 +18,9 @@ use super::backend::frame::*;
 use super::command::*;
 use super::window::Window;
 
-/// The information of graphics module during last frame.
+/// The information of video module during last frame.
 #[derive(Debug, Copy, Clone, Default)]
-pub struct GraphicsFrameInfo {
+pub struct VideoFrameInfo {
     pub duration: Duration,
     pub drawcall: u32,
     pub triangles: u32,
@@ -31,18 +31,18 @@ pub struct GraphicsFrameInfo {
 }
 
 /// The centralized management of video sub-system.
-pub struct GraphicsSystem {
+pub struct VideoSystem {
     window: Arc<Window>,
     device: Device,
     frames: Arc<DoubleFrame>,
-    shared: Arc<GraphicsSystemShared>,
+    shared: Arc<VideoSystemShared>,
 
     last_dimensions: (u32, u32),
     last_hidpi: f32,
 }
 
-impl GraphicsSystem {
-    /// Create a new `GraphicsSystem` with one `Window` context.
+impl VideoSystem {
+    /// Create a new `VideoSystem` with one `Window` context.
     pub fn new(window: Arc<Window>, resource: Arc<ResourceSystemShared>) -> Result<Self> {
         let device = unsafe { Device::new() };
         let frames = Arc::new(DoubleFrame::with_capacity(64 * 1024));
@@ -51,9 +51,9 @@ impl GraphicsSystem {
         let dimensions_in_pixels = window.dimensions_in_pixels().ok_or(Error::WindowNotExists)?;
 
         let shared =
-            GraphicsSystemShared::new(resource, frames.clone(), dimensions, dimensions_in_pixels);
+            VideoSystemShared::new(resource, frames.clone(), dimensions, dimensions_in_pixels);
 
-        Ok(GraphicsSystem {
+        Ok(VideoSystem {
             last_dimensions: dimensions,
             last_hidpi: window.hidpi_factor(),
 
@@ -64,8 +64,8 @@ impl GraphicsSystem {
         })
     }
 
-    /// Returns the multi-thread friendly parts of `GraphicsSystem`.
-    pub fn shared(&self) -> Arc<GraphicsSystemShared> {
+    /// Returns the multi-thread friendly parts of `VideoSystem`.
+    pub fn shared(&self) -> Arc<VideoSystemShared> {
         self.shared.clone()
     }
 
@@ -79,7 +79,7 @@ impl GraphicsSystem {
     ///
     /// Notes that this method MUST be called at main thread, and will NOT return
     /// until all commands is finished by GPU.
-    pub fn advance(&mut self) -> Result<GraphicsFrameInfo> {
+    pub fn advance(&mut self) -> Result<VideoFrameInfo> {
         use std::time;
 
         unsafe {
@@ -114,7 +114,7 @@ impl GraphicsSystem {
             }
 
             self.window.swap_buffers()?;
-            let mut info = GraphicsFrameInfo::default();
+            let mut info = VideoFrameInfo::default();
             {
                 let v = self.device.frame_info();
                 info.drawcall = v.drawcall;
@@ -143,8 +143,8 @@ impl GraphicsSystem {
     }
 }
 
-/// The multi-thread friendly parts of `GraphicsSystem`.
-pub struct GraphicsSystemShared {
+/// The multi-thread friendly parts of `VideoSystem`.
+pub struct VideoSystemShared {
     resource: Arc<ResourceSystemShared>,
     frames: Arc<DoubleFrame>,
     dimensions: RwLock<((u32, u32), (u32, u32))>,
@@ -156,15 +156,15 @@ pub struct GraphicsSystemShared {
     textures: Arc<RwLock<Registery<AssetTextureState>>>,
 }
 
-impl GraphicsSystemShared {
-    /// Create a new `GraphicsSystem` with one `Window` context.
+impl VideoSystemShared {
+    /// Create a new `VideoSystem` with one `Window` context.
     fn new(
         resource: Arc<ResourceSystemShared>,
         frames: Arc<DoubleFrame>,
         dimensions: (u32, u32),
         dimensions_in_pixels: (u32, u32),
     ) -> Self {
-        GraphicsSystemShared {
+        VideoSystemShared {
             resource: resource,
             frames: frames,
             dimensions: RwLock::new((dimensions, dimensions_in_pixels)),
@@ -385,7 +385,7 @@ impl GraphicsSystemShared {
     }
 }
 
-impl GraphicsSystemShared {
+impl VideoSystemShared {
     /// Creates an view with `SurfaceSetup`.
     pub fn create_surface(&self, setup: SurfaceSetup) -> Result<SurfaceHandle> {
         let location = Location::unique("");
@@ -422,7 +422,7 @@ impl GraphicsSystemShared {
     }
 }
 
-impl GraphicsSystemShared {
+impl VideoSystemShared {
     /// Lookup shader object from location.
     pub fn lookup_shader(&self, location: Location) -> Option<ShaderHandle> {
         self.shaders
@@ -472,7 +472,7 @@ impl GraphicsSystemShared {
     }
 }
 
-impl GraphicsSystemShared {
+impl VideoSystemShared {
     /// Lookup mesh object from location.
     pub fn lookup_mesh(&self, location: Location) -> Option<MeshHandle> {
         self.meshes
@@ -611,7 +611,7 @@ impl GraphicsSystemShared {
     }
 }
 
-impl GraphicsSystemShared {
+impl VideoSystemShared {
     /// Lookup texture object from location.
     pub fn lookup_texture(&self, location: Location) -> Option<TextureHandle> {
         self.textures
@@ -730,7 +730,7 @@ impl GraphicsSystemShared {
     }
 }
 
-impl GraphicsSystemShared {
+impl VideoSystemShared {
     /// Create render texture object, which could be attached with a framebuffer.
     pub fn create_render_texture(&self, setup: RenderTextureSetup) -> Result<RenderTextureHandle> {
         let location = Location::unique("");

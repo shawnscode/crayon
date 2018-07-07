@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crayon::graphics::assets::shader::{
+use crayon::video::assets::shader::{
     ShaderHandle, ShaderParams, ShaderSetup, UniformVariableType,
 };
 use crayon::resource::utils::location::Location;

@@ -2,28 +2,28 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use graphics::assets::mesh_loader::MeshParser;
-use graphics::assets::prelude::*;
-use graphics::assets::texture_loader::TextureParser;
-use graphics::errors::Result;
-use graphics::GraphicsSystemShared;
+use video::assets::mesh_loader::MeshParser;
+use video::assets::prelude::*;
+use video::assets::texture_loader::TextureParser;
+use video::errors::Result;
+use video::VideoSystemShared;
 
-pub struct GraphicsSystemGuard {
+pub struct VideoSystemGuard {
     stack: HashMap<Resource, u32>,
-    video: Arc<GraphicsSystemShared>,
+    video: Arc<VideoSystemShared>,
 }
 
-impl Deref for GraphicsSystemGuard {
-    type Target = GraphicsSystemShared;
+impl Deref for VideoSystemGuard {
+    type Target = VideoSystemShared;
 
     fn deref(&self) -> &Self::Target {
         &self.video
     }
 }
 
-impl GraphicsSystemGuard {
-    pub fn new(video: Arc<GraphicsSystemShared>) -> Self {
-        GraphicsSystemGuard {
+impl VideoSystemGuard {
+    pub fn new(video: Arc<VideoSystemShared>) -> Self {
+        VideoSystemGuard {
             stack: HashMap::new(),
             video: video,
         }
@@ -114,7 +114,7 @@ impl GraphicsSystemGuard {
             *v -= 1;
             *v <= 0
         } else {
-            panic!("Trying to delete resource that do not belongs to this `GraphicsSystemGuard`.");
+            panic!("Trying to delete resource that do not belongs to this `VideoSystemGuard`.");
         };
 
         if delete {
@@ -131,7 +131,7 @@ impl GraphicsSystemGuard {
         resource
     }
 
-    fn delete(video: &GraphicsSystemShared, handle: Resource) {
+    fn delete(video: &VideoSystemShared, handle: Resource) {
         match handle {
             Resource::Texture(handle) => video.delete_texture(handle),
             Resource::RenderTexture(handle) => video.delete_render_texture(handle),
@@ -142,7 +142,7 @@ impl GraphicsSystemGuard {
     }
 }
 
-impl Drop for GraphicsSystemGuard {
+impl Drop for VideoSystemGuard {
     fn drop(&mut self) {
         for v in self.stack.keys() {
             Self::delete(&self.video, *v);

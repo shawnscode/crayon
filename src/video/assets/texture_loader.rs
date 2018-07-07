@@ -6,9 +6,9 @@ use std::sync::{Arc, RwLock};
 use resource::prelude::*;
 use resource::utils::registery::Registery;
 
-use graphics::assets::texture::*;
-use graphics::assets::{AssetState, AssetTextureState};
-use graphics::backend::frame::{DoubleFrame, PreFrameTask};
+use video::assets::texture::*;
+use video::assets::{AssetState, AssetTextureState};
+use video::backend::frame::{DoubleFrame, PreFrameTask};
 
 /// Parsed texture from `TextureParser`.
 pub struct TextureData {

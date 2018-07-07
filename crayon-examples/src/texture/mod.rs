@@ -1,5 +1,5 @@
-use crayon::graphics::assets::prelude::*;
 use crayon::prelude::*;
+use crayon::video::assets::prelude::*;
 
 use errors::*;
 use utils::*;
@@ -15,7 +15,7 @@ struct Window {
     shader: ShaderHandle,
     mesh: MeshHandle,
     texture: TextureHandle,
-    video: GraphicsSystemGuard,
+    video: VideoSystemGuard,
 }
 
 impl Window {
@@ -24,7 +24,7 @@ impl Window {
         engine.resource.mount("std", DirectoryFS::new(assets)?)?;
 
         let ctx = engine.context();
-        let mut video = GraphicsSystemGuard::new(ctx.video.clone());
+        let mut video = VideoSystemGuard::new(ctx.video.clone());
 
         let verts: [Vertex; 4] = [
             Vertex::new([-1.0, -1.0]),

@@ -1,5 +1,5 @@
-use crayon::graphics::assets::prelude::*;
 use crayon::prelude::*;
+use crayon::video::assets::prelude::*;
 
 use crayon_3d::prelude::*;
 use crayon_imgui::prelude::*;
@@ -70,7 +70,7 @@ impl Window {
         })
     }
 
-    fn create_lits(scene: &mut Scene, video: &GraphicsSystemShared) -> Result<[Entity; 4]> {
+    fn create_lits(scene: &mut Scene, video: &VideoSystemShared) -> Result<[Entity; 4]> {
         let shader = factory::pipeline::color(&mut scene.resources)?;
         let mesh = factory::mesh::cube(video)?;
 
@@ -140,7 +140,7 @@ impl Window {
 
     fn create_room(
         scene: &mut Scene,
-        video: &GraphicsSystemShared,
+        video: &VideoSystemShared,
     ) -> Result<(Entity, MaterialHandle)> {
         let shader = factory::pipeline::phong(&mut scene.resources)?;
 

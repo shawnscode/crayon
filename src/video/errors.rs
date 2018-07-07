@@ -1,7 +1,7 @@
-use graphics::assets::mesh::MeshHandle;
-use graphics::assets::shader::ShaderHandle;
-use graphics::assets::surface::SurfaceHandle;
-use graphics::assets::texture::{RenderTextureHandle, TextureHandle};
+use video::assets::mesh::MeshHandle;
+use video::assets::shader::ShaderHandle;
+use video::assets::surface::SurfaceHandle;
+use video::assets::texture::{RenderTextureHandle, TextureHandle};
 
 use super::backend;
 use glutin;

@@ -1,10 +1,10 @@
 //! Immutable or dynamic vertex and index data.
 
-use graphics::assets::shader::Attribute;
-use graphics::errors::{Error, Result};
-use graphics::MAX_VERTEX_ATTRIBUTES;
 use math;
 use resource::utils::location::Location;
+use video::assets::shader::Attribute;
+use video::errors::{Error, Result};
+use video::MAX_VERTEX_ATTRIBUTES;
 
 impl_handle!(MeshHandle);
 
@@ -459,12 +459,12 @@ pub mod macros {
                 }
 
                 #[allow(dead_code)]
-                pub fn layout() -> $crate::graphics::assets::mesh::VertexLayout {
-                    let mut builder = $crate::graphics::assets::mesh::macros::CustomVertexLayoutBuilder::new();
+                pub fn layout() -> $crate::video::assets::mesh::VertexLayout {
+                    let mut builder = $crate::video::assets::mesh::macros::CustomVertexLayoutBuilder::new();
 
                     $( builder.with(
-                        $crate::graphics::assets::shader::Attribute::$attribute,
-                        $crate::graphics::assets::mesh::VertexFormat::$format,
+                        $crate::video::assets::shader::Attribute::$attribute,
+                        $crate::video::assets::mesh::VertexFormat::$format,
                         $size,
                         $normalized,
                         offset_of!($name, $field) as u8); ) *
@@ -473,12 +473,12 @@ pub mod macros {
                 }
 
                 #[allow(dead_code)]
-                pub fn attributes() -> $crate::graphics::assets::shader::AttributeLayout {
-                    let builder = $crate::graphics::assets::shader::AttributeLayoutBuilder::new();
+                pub fn attributes() -> $crate::video::assets::shader::AttributeLayout {
+                    let builder = $crate::video::assets::shader::AttributeLayoutBuilder::new();
 
                     $(
                         let builder = builder.with(
-                            $crate::graphics::assets::shader::Attribute::$attribute,
+                            $crate::video::assets::shader::Attribute::$attribute,
                             $size);
                     ) *
 

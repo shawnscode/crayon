@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use crayon::application::Context;
 use crayon::ecs::prelude::*;
-use crayon::graphics::prelude::*;
 use crayon::math;
 use crayon::math::{InnerSpace, SquareMatrix};
+use crayon::video::prelude::*;
 
 use components::prelude::*;
 use errors::*;
@@ -83,7 +83,7 @@ pub struct RenderData {
     /// The world transforms.
     pub world_transforms: HashMap<Entity, Transform>,
 
-    video: Arc<GraphicsSystemShared>,
+    video: Arc<VideoSystemShared>,
 }
 
 impl RenderData {
@@ -136,7 +136,7 @@ struct TaskGetVisibleEntities<'a> {
     world_transforms: &'a HashMap<Entity, Transform>,
     camera: &'a mut RenderCamera,
     visible_entities: &'a mut Vec<Entity>,
-    video: &'a GraphicsSystemShared,
+    video: &'a VideoSystemShared,
     setup: DrawSetup,
 }
 

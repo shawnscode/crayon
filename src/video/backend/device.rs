@@ -7,7 +7,7 @@ use std::str;
 use gl;
 use gl::types::*;
 
-use graphics::assets::prelude::*;
+use video::assets::prelude::*;
 use math;
 use utils::{DataBuffer, Handle, HashValue};
 

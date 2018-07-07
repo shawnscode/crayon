@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::os::raw::c_void;
 use std::str;
 
-use graphics::assets::prelude::*;
-use graphics::MAX_UNIFORM_TEXTURE_SLOTS;
+use video::assets::prelude::*;
+use video::MAX_UNIFORM_TEXTURE_SLOTS;
 use math;
 
 use super::errors::*;

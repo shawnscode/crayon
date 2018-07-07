@@ -1,4 +1,4 @@
-use crayon::graphics::assets::prelude::*;
+use crayon::video::assets::prelude::*;
 use crayon::prelude::*;
 use crayon_imgui::prelude::*;
 

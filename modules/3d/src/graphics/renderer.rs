@@ -1,11 +1,11 @@
 use crayon::application::Context;
 use crayon::ecs::prelude::*;
-use crayon::graphics::assets::prelude::*;
-use crayon::graphics::prelude::*;
 use crayon::math;
 use crayon::math::{Matrix, SquareMatrix};
 use crayon::rayon::prelude::*;
 use crayon::utils::Handle;
+use crayon::video::assets::prelude::*;
+use crayon::video::prelude::*;
 
 use assets::prelude::*;
 use components::prelude::*;
@@ -20,7 +20,7 @@ use assets::pipeline::PipelineParams;
 use resources::Resources;
 
 pub struct Renderer {
-    video: GraphicsSystemGuard,
+    video: VideoSystemGuard,
     data: RenderData,
 
     shadow: RenderShadow,
@@ -32,7 +32,7 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new(ctx: &Context, resources: &mut Resources, setup: DrawSetup) -> Result<Renderer> {
-        let mut video = GraphicsSystemGuard::new(ctx.video.clone());
+        let mut video = VideoSystemGuard::new(ctx.video.clone());
         let surface = video.create_surface(SurfaceSetup::default())?;
 
         let undefined = factory::pipeline::undefined(resources)?;
@@ -80,7 +80,7 @@ struct TaskDrawCall<'a> {
 
 impl<'a> TaskDrawCall<'a> {
     fn material(
-        video: &GraphicsSystemShared,
+        video: &VideoSystemShared,
         resources: &'a Resources,
         handle: MaterialHandle,
         fallback: MaterialHandle,

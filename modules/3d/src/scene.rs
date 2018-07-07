@@ -1,7 +1,7 @@
 use crayon::application::Context;
 use crayon::ecs::prelude::*;
-use crayon::graphics::prelude::*;
 use crayon::resource::utils::prelude::*;
+use crayon::video::prelude::*;
 
 use assets::prelude::*;
 use components::prelude::*;
@@ -34,7 +34,7 @@ pub struct SceneSetup {
 /// And besides the spatial representation, `Element` is used to provide graphical data
 /// that could be used to render on the screen. A `Element` could be one of `Camera`
 /// `Lit` or `MeshRenderer`. Everytime you call the `Scene::render` with proper defined
-/// scene, a list of drawcalls will be generated and submitted to `GraphicsSystem`.
+/// scene, a list of drawcalls will be generated and submitted to `VideoSystem`.
 ///
 /// ```rust,ignore
 /// let _mesh_node = scene.build(MeshRenderer { ... });

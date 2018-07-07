@@ -1,5 +1,5 @@
-use crayon::graphics::assets::prelude::*;
 use crayon::prelude::*;
+use crayon::video::assets::prelude::*;
 use errors::*;
 
 impl_vertex!{
@@ -15,7 +15,7 @@ struct Pass {
 }
 
 struct Window {
-    video: GraphicsSystemGuard,
+    video: VideoSystemGuard,
     pass: Pass,
     post_effect: Pass,
     texture: RenderTextureHandle,
@@ -25,7 +25,7 @@ struct Window {
 impl Window {
     pub fn new(engine: &mut Engine) -> Result<Self> {
         let ctx = engine.context();
-        let mut video = GraphicsSystemGuard::new(ctx.video.clone());
+        let mut video = VideoSystemGuard::new(ctx.video.clone());
 
         let attributes = AttributeLayoutBuilder::new()
             .with(Attribute::Position, 2)

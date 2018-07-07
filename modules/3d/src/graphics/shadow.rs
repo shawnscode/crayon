@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use crayon::application::Context;
 use crayon::ecs::prelude::*;
-use crayon::graphics::assets::prelude::*;
-use crayon::graphics::prelude::*;
 use crayon::math;
 use crayon::rayon::prelude::*;
+use crayon::video::assets::prelude::*;
+use crayon::video::prelude::*;
 
 use graphics::data::{RenderData, RenderShadowCaster};
 use graphics::{DrawOrder, DrawSetup};
@@ -20,7 +20,7 @@ use errors::*;
 /// https://msdn.microsoft.com/en-us/library/windows/desktop/ee416324(v=vs.85).aspx
 ///
 pub struct RenderShadow {
-    video: GraphicsSystemGuard,
+    video: VideoSystemGuard,
     depth_shader: ShaderHandle,
     draw_shader: ShaderHandle,
     shadow_casters: HashMap<Entity, (ShadowSurface, RenderShadowCaster)>,
@@ -30,7 +30,7 @@ pub struct RenderShadow {
 impl RenderShadow {
     /// Craetes a new `RenderShadow`.
     pub fn new(ctx: &Context) -> Result<Self> {
-        let mut video = GraphicsSystemGuard::new(ctx.video.clone());
+        let mut video = VideoSystemGuard::new(ctx.video.clone());
 
         let shader = {
             let attributes = AttributeLayout::build()

@@ -1,8 +1,8 @@
-//! A stateless, layered, multithread graphics system with OpenGL backends.
+//! A stateless, layered, multithread video system with OpenGL backends.
 //!
 //! # Overview and Goals
 //!
-//! The management of graphics effects has become an important topic and key feature of
+//! The management of video effects has become an important topic and key feature of
 //! rendering engines. With the increasing number of effects it is not sufficient anymore
 //! to only support them, but also to integrate them into the rendering engine in a clean
 //! and extensible way.
@@ -18,7 +18,7 @@
 //!
 //! Ideally, crayon should be able to run on macOS, windows and popular mobile-platforms.
 //! There still are a huge number of performance and feature limited devices, so this
-//! graphics module will always be limited by lower-end 3D APIs like OpenGL ES2.0.
+//! video module will always be limited by lower-end 3D APIs like OpenGL ES2.0.
 //!
 //! ### Stateless Pipeline
 //!
@@ -58,7 +58,7 @@
 //! # Resource Objects
 //!
 //! Render state and data, which are combined into final render pipeline, are bundled into a
-//! few, precompiled resource objects in graphics module.
+//! few, precompiled resource objects in video module.
 //!
 //! All resources types can be created instantly from data in memory, and meshes, textures
 //! can also be loaded asynchronously from the filesystem.
@@ -95,16 +95,16 @@
 //! // NDC(normalized device coordinates) to normalized window coordinates.
 //! setup.set_viewport((0.0, 0.0), (1.0, 1.0));
 //! // Creats a `SurfaceObject` by handing the setup parameters.
-//! let surface = graphics.create_surface(setup).unwrap();
+//! let surface = video.create_surface(setup).unwrap();
 //!
 //! // Deletes surface object.
-//! graphics.delete_surface(surface);
+//! video.delete_surface(surface);
 //! ```
 //!
 //! ### Shader Object
 //!
 //! `ShahderObject` is introduced to encapsulate all stateful things we need to configurate
-//! graphics pipeline. This would also enable us to easily change the order of draw calls
+//! video pipeline. This would also enable us to easily change the order of draw calls
 //! and get rid of redundant state changes.
 //!
 //! ```rust,ignore
@@ -115,10 +115,10 @@
 //! setup.fs = /* The source of pixel shader. */
 //! setup.render_state = /* Configurable render state like blending, depth_test, etc. */
 //! // Creats a `ShaderObject` by handing the setup parameters.
-//! let shader = graphics.create_shader(setup).unwrap();
+//! let shader = video.create_shader(setup).unwrap();
 //!
 //! // Deletes shader object.
-//! graphics.delete_shader(setup);
+//! video.delete_shader(setup);
 //! ```
 //!
 //! _TODO_: SPIRV based shader compiling and information generations.
@@ -150,20 +150,20 @@
 //! // Updates the vertex buffer object.
 //! let slice = Vertex::as_bytes(vertices);
 //! let cmd = Command::update_vertex_buffer(vbo, 0, slice);
-//! graphics.submit(surface, 0, cmd).unwrap();
+//! video.submit(surface, 0, cmd).unwrap();
 //!
 //! // Update the index buffer object.
 //! let slice = IndexFormat::encode(indices);
 //! let cmd = Command::update_index_buffer(ibo, 0, slice);
-//! graphics.submit(surface, 1, cmd).unwrap();
+//! video.submit(surface, 1, cmd).unwrap();
 //!
 //! // Update the texture object.
 //! let cmd = Command::update_texture(texture, rect, data);
-//! graphics.submit(surface, 0, cmd).unwrap();
+//! video.submit(surface, 0, cmd).unwrap();
 //!
 //! // Set the scissor state.
-//! let scissor = graphics::SurfaceScissor::Enable(scissor_pos, scissor_size);
-//! let cmd = graphics::Command::set_scissor(scissor);
+//! let scissor = video::SurfaceScissor::Enable(scissor_pos, scissor_size);
+//! let cmd = video::Command::set_scissor(scissor);
 //! self.video.submit(surface, 0, cmd).unwrap();
 //! ```
 //!
@@ -172,7 +172,7 @@
 //!
 //! ```rust,ignore
 //! // Creates a DrawCall buidler from shader.
-//! let mut dc = graphics::DrawCall::new(self.shader, mesh);
+//! let mut dc = video::DrawCall::new(self.shader, mesh);
 //! // Sets the specified uniform variable.
 //! dc.set_uniform_variable("matrix", matrix);
 //! dc.set_uniform_variable("texture", texture);
@@ -200,11 +200,11 @@ pub mod window;
 mod backend;
 mod service;
 
-pub use self::service::{GraphicsFrameInfo, GraphicsSystem, GraphicsSystemShared};
+pub use self::service::{VideoFrameInfo, VideoSystem, VideoSystemShared};
 
 pub mod prelude {
-    pub use super::guard::GraphicsSystemGuard;
-    pub use super::{GraphicsFrameInfo, GraphicsSystem, GraphicsSystemShared};
+    pub use super::guard::VideoSystemGuard;
+    pub use super::{VideoFrameInfo, VideoSystem, VideoSystemShared};
 
     pub use super::assets::mesh::{MeshHandle, MeshIndex};
     pub use super::assets::shader::ShaderHandle;

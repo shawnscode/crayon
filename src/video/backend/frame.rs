@@ -2,7 +2,7 @@ use std::sync::{Mutex, MutexGuard, RwLock};
 
 use super::device::Device;
 use super::errors::*;
-use graphics::assets::prelude::*;
+use video::assets::prelude::*;
 
 use math;
 use utils::{DataBuffer, DataBufferPtr, HashValue};
