@@ -29,7 +29,7 @@ impl Window {
         engine.input.set_touch_emulation(true);
 
         let ctx = engine.context();
-        let video = ctx.shared::<GraphicsSystem>().clone();
+        let video = ctx.video.clone();
 
         // Create scene.
         let mut scene = Scene::new(ctx, SceneSetup::default())?;
@@ -227,7 +227,7 @@ impl Application for Window {
         };
 
         if !capture {
-            let input = ctx.shared::<InputSystem>();
+            let input = ctx.input.clone();
 
             if let GesturePan::Move { movement, .. } = input.finger_pan() {
                 self.rotation.y -= movement.y;

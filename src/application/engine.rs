@@ -3,26 +3,37 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::context::{Context, ContextSystem};
 use super::*;
 use graphics;
 use input;
 use resource;
 
-impl ContextSystem for resource::ResourceSystem {
-    type Shared = resource::ResourceSystemShared;
+#[derive(Default, Copy, Clone)]
+struct ContextData {
+    shutdown: bool,
 }
 
-impl ContextSystem for graphics::GraphicsSystem {
-    type Shared = graphics::GraphicsSystemShared;
+/// The context of sub-systems that could be accessed from multi-thread environments safely.
+#[derive(Clone)]
+pub struct Context {
+    pub resource: Arc<resource::ResourceSystemShared>,
+    pub input: Arc<input::InputSystemShared>,
+    pub time: Arc<time::TimeSystemShared>,
+    pub video: Arc<graphics::GraphicsSystemShared>,
+
+    data: Arc<RwLock<ContextData>>,
 }
 
-impl ContextSystem for input::InputSystem {
-    type Shared = input::InputSystemShared;
-}
+impl Context {
+    /// Shutdown the whole application at the end of this frame.
+    pub fn shutdown(&self) {
+        self.data.write().unwrap().shutdown = true;
+    }
 
-impl ContextSystem for time::TimeSystem {
-    type Shared = time::TimeSystemShared;
+    /// Returns true if we are going to shutdown the application at the end of this frame.
+    pub fn is_shutdown(&self) -> bool {
+        self.data.read().unwrap().shutdown
+    }
 }
 
 /// `Engine` is the root object of the game application. It binds various sub-systems in
@@ -37,7 +48,7 @@ pub struct Engine {
     pub resource: resource::ResourceSystem,
     pub time: time::TimeSystem,
 
-    context: Arc<Context>,
+    context: Context,
     headless: bool,
 }
 
@@ -68,11 +79,13 @@ impl Engine {
         let time = time::TimeSystem::new(settings.engine)?;
         let time_shared = time.shared();
 
-        let mut context = Context::new();
-        context.insert::<resource::ResourceSystem>(resource_shared);
-        context.insert::<graphics::GraphicsSystem>(graphics_shared);
-        context.insert::<input::InputSystem>(input_shared);
-        context.insert::<time::TimeSystem>(time_shared);
+        let context = Context {
+            resource: resource_shared,
+            input: input_shared,
+            time: time_shared,
+            video: graphics_shared,
+            data: Arc::new(RwLock::new(ContextData::default())),
+        };
 
         Ok(Engine {
             events_loop: events_loop,
@@ -82,7 +95,7 @@ impl Engine {
             resource: resource,
             time: time,
 
-            context: Arc::new(context),
+            context: context,
             headless: settings.headless,
         })
     }
@@ -179,7 +192,7 @@ impl Engine {
     fn main_thread<T>(
         receiver: mpsc::Receiver<bool>,
         sender: mpsc::Sender<Result<Duration>>,
-        context: Arc<Context>,
+        context: Context,
         application: Arc<RwLock<T>>,
     ) where
         T: Application + Send + Sync + 'static,

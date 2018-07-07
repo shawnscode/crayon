@@ -25,7 +25,7 @@ struct Window {
 impl Window {
     pub fn new(engine: &mut Engine) -> Result<Self> {
         let ctx = engine.context();
-        let mut video = GraphicsSystemGuard::new(ctx.shared::<GraphicsSystem>().clone());
+        let mut video = GraphicsSystemGuard::new(ctx.video.clone());
 
         let attributes = AttributeLayoutBuilder::new()
             .with(Attribute::Position, 2)

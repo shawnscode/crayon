@@ -19,7 +19,7 @@ impl Window {
         let mut setup = SurfaceSetup::default();
         setup.set_clear(math::Color::white(), None, None);
         setup.set_sequence(true);
-        let surface = ctx.shared::<GraphicsSystem>().create_surface(setup)?;
+        let surface = ctx.video.create_surface(setup)?;
 
         Ok(Window {
             canvas: canvas,

@@ -30,7 +30,7 @@ pub struct RenderShadow {
 impl RenderShadow {
     /// Craetes a new `RenderShadow`.
     pub fn new(ctx: &Context) -> Result<Self> {
-        let mut video = GraphicsSystemGuard::new(ctx.shared::<GraphicsSystem>().clone());
+        let mut video = GraphicsSystemGuard::new(ctx.video.clone());
 
         let shader = {
             let attributes = AttributeLayout::build()

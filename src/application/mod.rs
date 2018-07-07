@@ -25,18 +25,16 @@
 //! essential systems in a central place, and responsible for running the main loop.
 //!
 
-pub mod context;
 pub mod event;
 pub mod settings;
 
 pub mod time;
 pub use self::time::TimeSystem;
 
-pub use self::context::Context;
 pub use self::settings::Settings;
 
 mod engine;
-pub use self::engine::Engine;
+pub use self::engine::{Context, Engine};
 
 pub type Result<T> = ::std::result::Result<T, ::failure::Error>;
 

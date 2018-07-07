@@ -93,7 +93,7 @@ impl RenderData {
             visible_entities: Vec::new(),
             camera: RenderCamera::default(),
             world_transforms: HashMap::new(),
-            video: ctx.shared::<GraphicsSystem>().clone(),
+            video: ctx.video.clone(),
         }
     }
 

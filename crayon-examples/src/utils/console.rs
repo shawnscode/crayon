@@ -24,7 +24,7 @@ impl Drop for ConsoleCanvas {
 
 impl ConsoleCanvas {
     pub fn new(order: u64, ctx: &Context) -> Result<Self> {
-        let video = ctx.shared::<GraphicsSystem>().clone();
+        let video = ctx.video.clone();
         let canvas = Canvas::new(ctx).unwrap();
 
         let mut setup = SurfaceSetup::default();

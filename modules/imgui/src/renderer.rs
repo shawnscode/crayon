@@ -29,8 +29,6 @@ impl Renderer {
     /// Creates a new `CanvasRenderer`. This will allocates essential video
     /// resources in background.
     pub fn new(ctx: &application::Context, imgui: &mut ImGui) -> Result<Self> {
-        let video = ctx.shared::<GraphicsSystem>();
-
         let layout = AttributeLayout::build()
             .with(Attribute::Position, 2)
             .with(Attribute::Texcoord0, 2)
@@ -57,7 +55,7 @@ impl Renderer {
         setup.params.render_state = render_state;
         setup.vs = include_str!("../assets/imgui.vs").to_owned();
         setup.fs = include_str!("../assets/imgui.fs").to_owned();
-        let shader = video.create_shader(setup)?;
+        let shader = ctx.video.create_shader(setup)?;
 
         let texture = imgui.prepare_texture(|v| {
             let mut setup = TextureSetup::default();
@@ -65,13 +63,13 @@ impl Renderer {
             setup.params.filter = TextureFilter::Nearest;
             setup.params.format = TextureFormat::U8U8U8U8;
             setup.data = Some(v.pixels);
-            video.create_texture(setup)
+            ctx.video.create_texture(setup)
         })?;
 
         imgui.set_texture_id(**texture as usize);
 
         Ok(Renderer {
-            video: video.clone(),
+            video: ctx.video.clone(),
             shader: shader,
             texture: texture,
             mesh: None,

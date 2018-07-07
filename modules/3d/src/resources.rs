@@ -16,7 +16,7 @@ pub struct Resources {
 impl Resources {
     pub fn new(ctx: &Context) -> Self {
         Resources {
-            video: GraphicsSystemGuard::new(ctx.shared::<GraphicsSystem>().clone()),
+            video: GraphicsSystemGuard::new(ctx.video.clone()),
             pipelines: Registery::new(),
             materials: Registery::new(),
         }

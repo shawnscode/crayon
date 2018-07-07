@@ -60,16 +60,14 @@ impl Canvas {
         ctx: &application::Context,
     ) -> FrameGuard<'a> {
         // Update input device states.
-        let input = ctx.shared::<InputSystem>();
-        Self::update_mouse_state(&mut self.ctx, &input);
-        Self::update_keycode_state(&mut self.ctx, &input);
+        Self::update_mouse_state(&mut self.ctx, &ctx.input);
+        Self::update_keycode_state(&mut self.ctx, &ctx.input);
 
         // Generates frame builder.
-        let v = ctx.shared::<GraphicsSystem>();
-        let duration = ctx.shared::<application::TimeSystem>().frame_delta();
+        let duration = ctx.time.frame_delta();
         let ts = duration.as_secs() as f32 + duration.subsec_nanos() as f32 / 1_000_000_000.0;
 
-        let (dp, d) = (v.dimensions_in_pixels(), v.dimensions());
+        let (dp, d) = (ctx.video.dimensions_in_pixels(), ctx.video.dimensions());
 
         FrameGuard {
             renderer: &mut self.renderer,

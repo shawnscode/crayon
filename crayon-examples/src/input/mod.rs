@@ -24,7 +24,7 @@ impl Window {
         let mut setup = SurfaceSetup::default();
         setup.set_clear(math::Color::white(), None, None);
         setup.set_sequence(true);
-        let surface = ctx.shared::<GraphicsSystem>().create_surface(setup)?;
+        let surface = ctx.video.create_surface(setup)?;
 
         Ok(Window {
             canvas: canvas,
@@ -42,7 +42,7 @@ impl Application for Window {
     type Error = Error;
 
     fn on_update(&mut self, ctx: &Context) -> Result<()> {
-        let input = ctx.shared::<InputSystem>().clone();
+        let input = ctx.input.clone();
 
         self.text += &input.text();
 
