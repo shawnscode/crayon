@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use std::os::raw::c_void;
 use std::str;
 
+use math;
 use video::assets::prelude::*;
 use video::MAX_UNIFORM_TEXTURE_SLOTS;
-use math;
 
 use super::errors::*;
 
@@ -31,7 +31,7 @@ pub(crate) struct OpenGLVisitor {
     depth_write_offset: Cell<Option<(f32, f32)>>,
     color_blend: Cell<Option<(Equation, BlendFactor, BlendFactor)>>,
     color_write: Cell<(bool, bool, bool, bool)>,
-    viewport: Cell<((u16, u16), (u16, u16))>,
+    viewport: Cell<SurfaceViewport>,
     scissor: Cell<SurfaceScissor>,
 
     active_bufs: RefCell<HashMap<GLenum, GLuint>>,
@@ -69,7 +69,10 @@ impl OpenGLVisitor {
             depth_write_offset: Cell::new(None),
             color_blend: Cell::new(None),
             color_write: Cell::new((true, true, true, true)),
-            viewport: Cell::new(((0, 0), (128, 128))),
+            viewport: Cell::new(SurfaceViewport {
+                position: math::Vector2::new(0, 0),
+                size: math::Vector2::new(0, 0),
+            }),
             scissor: Cell::new(SurfaceScissor::Disable),
 
             active_bufs: RefCell::new(HashMap::new()),
@@ -277,15 +280,16 @@ impl OpenGLVisitor {
     }
 
     /// Set the viewport relative to the top-lef corner of th window, in pixels.
-    pub unsafe fn set_viewport(&self, position: (u16, u16), size: (u16, u16)) -> Result<()> {
-        if self.viewport.get().0 != position || self.viewport.get().1 != size {
+    pub unsafe fn set_viewport(&self, vp: SurfaceViewport) -> Result<()> {
+        if self.viewport.get() != vp {
             gl::Viewport(
-                i32::from(position.0),
-                i32::from(position.1),
-                i32::from(size.0),
-                i32::from(size.1),
+                GLint::from(vp.position.x),
+                GLint::from(vp.position.y),
+                vp.size.x as i32,
+                vp.size.y as i32,
             );
-            self.viewport.set((position, size));
+
+            self.viewport.set(vp);
             check()
         } else {
             Ok(())
@@ -298,16 +302,16 @@ impl OpenGLVisitor {
             SurfaceScissor::Disable => if self.scissor.get() != SurfaceScissor::Disable {
                 gl::Disable(gl::SCISSOR_TEST);
             },
-            SurfaceScissor::Enable(position, size) => {
+            SurfaceScissor::Enable { position, size } => {
                 if self.scissor.get() == SurfaceScissor::Disable {
                     gl::Enable(gl::SCISSOR_TEST);
                 }
 
                 gl::Scissor(
-                    GLint::from(position.0),
-                    GLint::from(position.1),
-                    GLsizei::from(size.0),
-                    GLsizei::from(size.1),
+                    GLint::from(position.x),
+                    GLint::from(position.y),
+                    size.x as i32,
+                    size.y as i32,
                 );
             }
         }
@@ -526,8 +530,8 @@ impl OpenGLVisitor {
                 setup.address,
                 setup.filter,
                 false,
-                setup.dimensions.0,
-                setup.dimensions.1,
+                setup.dimensions.x,
+                setup.dimensions.y,
                 None,
             )?
         } else {
@@ -539,8 +543,8 @@ impl OpenGLVisitor {
             gl::RenderbufferStorage(
                 gl::RENDERBUFFER,
                 internal_format,
-                setup.dimensions.0 as GLint,
-                setup.dimensions.1 as GLint,
+                setup.dimensions.x as GLint,
+                setup.dimensions.y as GLint,
             );
             id
         };
@@ -590,8 +594,8 @@ impl OpenGLVisitor {
         address: TextureAddress,
         filter: TextureFilter,
         mipmap: bool,
-        width: u16,
-        height: u16,
+        width: u32,
+        height: u32,
         data: Option<&[u8]>,
     ) -> Result<(GLuint)> {
         let mut id = 0;

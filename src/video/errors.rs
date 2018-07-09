@@ -34,12 +34,8 @@ pub enum Error {
     TooManyColorAttachments,
     #[fail(display = "Trying to update immutable buffer.")]
     UpdateImmutableBuffer,
-    #[fail(display = "Remote object must be immutable.")]
-    CreateMutableRemoteObject,
     #[fail(display = "Shared object must be immutable.")]
     CreateMutableSharedObject,
-    #[fail(display = "Window not exists.")]
-    WindowNotExists,
     #[fail(display = "Out of bounds.")]
     OutOfBounds,
 }

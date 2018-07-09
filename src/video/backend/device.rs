@@ -7,10 +7,12 @@ use std::str;
 use gl;
 use gl::types::*;
 
-use video::assets::prelude::*;
+use application::window;
 use math;
 use utils::{DataBuffer, Handle, HashValue};
+use video::assets::prelude::*;
 
+use super::capabilities::{Capabilities, Version};
 use super::errors::*;
 use super::frame::{FrameDrawCall, FrameTask};
 use super::visitor::*;
@@ -42,7 +44,7 @@ struct SurfaceObject {
 #[derive(Debug, Copy, Clone)]
 struct FrameBufferObject {
     id: ResourceID,
-    dimensions: (u16, u16),
+    dimensions: math::Vector2<u32>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -79,9 +81,65 @@ pub(crate) struct Device {
 unsafe impl Send for Device {}
 unsafe impl Sync for Device {}
 
+fn check_minimal_requirements(caps: &Capabilities) -> Result<()> {
+    if caps.version < Version::GL(1, 5) && caps.version < Version::ES(2, 0)
+        && (!caps.extensions.gl_arb_vertex_buffer_object
+            || !caps.extensions.gl_arb_map_buffer_range)
+    {
+        return Err(Error::Requirement("vertex buffer objects".into()));
+    }
+
+    if caps.version < Version::GL(2, 0) && caps.version < Version::ES(2, 0)
+        && (!caps.extensions.gl_arb_shader_objects
+            || !caps.extensions.gl_arb_vertex_shader
+            || !caps.extensions.gl_arb_fragment_shader)
+    {
+        return Err(Error::Requirement("shader objects".into()));
+    }
+
+    if caps.version < Version::GL(3, 0)
+        && caps.version < Version::ES(2, 0)
+        && !caps.extensions.gl_ext_framebuffer_object
+        && !caps.extensions.gl_arb_framebuffer_object
+    {
+        return Err(Error::Requirement("framebuffer objects".into()));
+    }
+
+    if caps.version < Version::ES(2, 0)
+        && caps.version < Version::GL(3, 0)
+        && !caps.extensions.gl_ext_framebuffer_blit
+    {
+        return Err(Error::Requirement("blitting framebuffer".into()));
+    }
+
+    if caps.version < Version::GL(3, 1)
+        && caps.version < Version::ES(3, 0)
+        && !caps.extensions.gl_arb_uniform_buffer_object
+    {
+        return Err(Error::Requirement("uniform buffer objects.".into()));
+    }
+
+    if caps.version < Version::GL(3, 0)
+        && caps.version < Version::ES(3, 0)
+        && !caps.extensions.gl_arb_vertex_array_object
+        && !caps.extensions.gl_apple_vertex_array_object
+        && !caps.extensions.gl_oes_vertex_array_object
+    {
+        return Err(Error::Requirement("vertex array objects.".into()));
+    }
+
+    Ok(())
+}
+
 impl Device {
-    pub unsafe fn new() -> Self {
-        Device {
+    pub unsafe fn new(window: &window::Window) -> Result<Self> {
+        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
+
+        let capabilities = Capabilities::parse()?;
+        println!("{:#?}", capabilities);
+        check_minimal_requirements(&capabilities)?;
+
+        let device = Device {
             visitor: OpenGLVisitor::new(),
             meshes: DataVec::new(),
             shaders: DataVec::new(),
@@ -90,7 +148,9 @@ impl Device {
             render_textures: DataVec::new(),
             active_shader: Cell::new(None),
             frame_info: RefCell::new(FrameInfo::default()),
-        }
+        };
+
+        Ok(device)
     }
 }
 
@@ -113,8 +173,7 @@ impl Device {
         &mut self,
         tasks: &mut [(SurfaceHandle, u64, FrameTask)],
         buf: &DataBuffer,
-        dimensions: (u32, u32),
-        hidpi: f32,
+        dimensions: math::Vector2<u32>,
     ) -> Result<()> {
         // Sort frame tasks by user defined priorities. Notes that Slice::sort_by
         // is stable, which means it does not reorder equal elements, so it will
@@ -131,25 +190,24 @@ impl Device {
             ord
         });
 
-        let dimensions = (dimensions.0 as u16, dimensions.1 as u16);
         unsafe {
             // Submit real OpenGL drawcall in order.
             let mut surface = None;
             for v in tasks {
                 if surface != Some(v.0) {
                     surface = Some(v.0);
-                    self.bind_surface(v.0, dimensions, hidpi)?;
+                    self.bind_surface(v.0, dimensions)?;
                 }
 
                 match v.2 {
                     FrameTask::DrawCall(dc) => self.draw(dc, buf)?,
 
                     FrameTask::UpdateSurfaceScissor(scissor) => {
-                        self.update_surface_scissor(scissor, hidpi)?
+                        self.update_surface_scissor(scissor)?
                     }
 
                     FrameTask::UpdateSurfaceViewport(viewport) => {
-                        self.update_surface_viewport(viewport, hidpi)?
+                        self.update_surface_viewport(viewport)?
                     }
 
                     FrameTask::UpdateVertexBuffer(vbo, offset, ptr) => {
@@ -270,64 +328,37 @@ impl Device {
         check()
     }
 
-    unsafe fn update_surface_scissor(&self, scissor: SurfaceScissor, hidpi: f32) -> Result<()> {
-        match scissor {
-            SurfaceScissor::Enable(position, size) => {
-                let position = (
-                    (f32::from(position.0) * hidpi) as u16,
-                    (f32::from(position.1) * hidpi) as u16,
-                );
-
-                let size = (
-                    (f32::from(size.0) * hidpi) as u16,
-                    (f32::from(size.1) * hidpi) as u16,
-                );
-
-                self.visitor
-                    .set_scissor(SurfaceScissor::Enable(position, size))
-            }
-            SurfaceScissor::Disable => self.visitor.set_scissor(SurfaceScissor::Disable),
-        }
+    unsafe fn update_surface_scissor(&self, scissor: SurfaceScissor) -> Result<()> {
+        self.visitor.set_scissor(scissor)
     }
 
-    unsafe fn update_surface_viewport(&self, viewport: SurfaceViewport, hidpi: f32) -> Result<()> {
-        let position = (
-            (f32::from(viewport.position.0) * hidpi) as u16,
-            (f32::from(viewport.position.1) * hidpi) as u16,
-        );
-
-        let size = (
-            (f32::from(viewport.size.0) * hidpi) as u16,
-            (f32::from(viewport.size.1) * hidpi) as u16,
-        );
-
-        self.visitor.set_viewport(position, size)
+    unsafe fn update_surface_viewport(&self, viewport: SurfaceViewport) -> Result<()> {
+        self.visitor.set_viewport(viewport)
     }
 
     unsafe fn bind_surface(
         &self,
         handle: SurfaceHandle,
-        dimensions: (u16, u16),
-        hidpi: f32,
+        dimensions: math::Vector2<u32>,
     ) -> Result<()> {
         let surface = self.surfaces.get(handle).ok_or(Error::HandleInvalid)?;
 
         // Bind frame buffer.
-        let (dimensions, hidpi) = if let Some(fbo) = surface.framebuffer {
+        let dimensions = if let Some(fbo) = surface.framebuffer {
             self.visitor.bind_framebuffer(fbo.id, true)?;
-            (fbo.dimensions, 1.0)
+            fbo.dimensions
         } else {
             self.visitor.bind_framebuffer(0, false)?;
-            (dimensions, hidpi)
+            dimensions
         };
 
-        let dimensions = (
-            (f32::from(dimensions.0) * hidpi) as u16,
-            (f32::from(dimensions.1) * hidpi) as u16,
-        );
-
         // Reset the viewport and scissor box.
-        self.visitor.set_viewport((0, 0), dimensions)?;
+        let vp = SurfaceViewport {
+            position: math::Vector2::new(0, 0),
+            size: dimensions,
+        };
+
+        self.visitor.set_viewport(vp)?;
         self.visitor.set_scissor(SurfaceScissor::Disable)?;
 
         // Sets depth write enable to make sure that we can clear depth buffer properly.
@@ -508,8 +539,8 @@ impl Device {
             params.address,
             params.filter,
             params.mipmap,
-            params.dimensions.0,
-            params.dimensions.1,
+            params.dimensions.x,
+            params.dimensions.y,
             data,
         )?;
 
@@ -532,9 +563,9 @@ impl Device {
         if let Some(texture) = self.textures.get(handle) {
             if data.len() > rect.volume() as usize
                 || rect.min.x < 0.0
-                || rect.min.x as u16 >= texture.params.dimensions.0
+                || rect.min.x as u32 >= texture.params.dimensions.x
                 || rect.min.y < 0.0
-                || rect.min.y as u16 >= texture.params.dimensions.1
+                || rect.min.y as u32 >= texture.params.dimensions.y
                 || rect.max.x < 0.0
                 || rect.max.y < 0.0
             {

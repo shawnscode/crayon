@@ -85,8 +85,7 @@ impl Frame {
     pub unsafe fn dispatch(
         &mut self,
         device: &mut Device,
-        dimensions: (u32, u32),
-        hidpi: f32,
+        dimensions: math::Vector2<u32>,
     ) -> Result<()> {
         for v in self.pre.drain(..) {
             match v {
@@ -125,7 +124,7 @@ impl Frame {
             }
         }
 
-        device.flush(&mut self.tasks, &self.buf, dimensions, hidpi)?;
+        device.flush(&mut self.tasks, &self.buf, dimensions)?;
 
         for v in self.post.drain(..) {
             match v {

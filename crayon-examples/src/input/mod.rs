@@ -1,5 +1,5 @@
-use crayon::video::assets::prelude::*;
 use crayon::prelude::*;
+use crayon::video::assets::prelude::*;
 use crayon_imgui::prelude::*;
 
 use errors::*;
@@ -149,8 +149,7 @@ impl Application for Window {
 }
 
 pub fn main(mut settings: Settings) {
-    settings.window.width = 500;
-    settings.window.height = 500;
+    settings.window.size = math::Vector2::new(500, 500);
 
     let mut engine = Engine::new_with(&settings).unwrap();
     let window = Window::new(&mut engine).unwrap();

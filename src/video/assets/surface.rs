@@ -115,7 +115,10 @@ impl SurfaceSetup {
 /// scissor box can be modified by drawing commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SurfaceScissor {
-    Enable((u16, u16), (u16, u16)),
+    Enable {
+        position: math::Vector2<i32>,
+        size: math::Vector2<u32>,
+    },
     Disable,
 }
 
@@ -124,6 +127,6 @@ pub enum SurfaceScissor {
 /// NDC(normalized device coordinates) to normalized window coordinates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SurfaceViewport {
-    pub position: (u16, u16),
-    pub size: (u16, u16),
+    pub position: math::Vector2<i32>,
+    pub size: math::Vector2<u32>,
 }

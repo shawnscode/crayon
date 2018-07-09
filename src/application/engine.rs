@@ -20,6 +20,7 @@ pub struct Context {
     pub input: Arc<input::InputSystemShared>,
     pub time: Arc<time::TimeSystemShared>,
     pub video: Arc<video::VideoSystemShared>,
+    pub window: Arc<window::WindowShared>,
 
     data: Arc<RwLock<ContextData>>,
 }
@@ -41,8 +42,7 @@ impl Context {
 /// management.
 pub struct Engine {
     pub events_loop: event::EventsLoop,
-    pub window: Arc<video::window::Window>,
-
+    pub window: window::Window,
     pub input: input::InputSystem,
     pub video: video::VideoSystem,
     pub resource: resource::ResourceSystem,
@@ -60,20 +60,16 @@ impl Engine {
 
     /// Setup engine with specified settings.
     pub fn new_with(settings: &Settings) -> Result<Self> {
-        let mut wb = video::window::WindowBuilder::new();
-        wb.with_title(settings.window.title.clone())
-            .with_dimensions(settings.window.width, settings.window.height);
-
         let input = input::InputSystem::new(settings.input);
         let input_shared = input.shared();
 
         let events_loop = event::EventsLoop::new();
-        let window = Arc::new(wb.build(events_loop.underlaying())?);
+        let window = window::Window::new(settings.window.clone(), events_loop.underlaying())?;
 
         let resource = resource::ResourceSystem::new()?;
         let resource_shared = resource.shared();
 
-        let video = video::VideoSystem::new(window.clone(), resource_shared.clone())?;
+        let video = video::VideoSystem::new(&window, resource_shared.clone())?;
         let video_shared = video.shared();
 
         let time = time::TimeSystem::new(settings.engine)?;
@@ -84,6 +80,7 @@ impl Engine {
             input: input_shared,
             time: time_shared,
             video: video_shared,
+            window: window.shared(),
             data: Arc::new(RwLock::new(ContextData::default())),
         };
 
@@ -126,7 +123,8 @@ impl Engine {
 
         let mut alive = true;
         while alive {
-            self.input.advance(self.window.hidpi_factor());
+            self.window.advance();
+            self.input.advance(self.window.hidpi());
 
             // Poll any possible events first.
             for v in self.events_loop.advance() {
@@ -161,7 +159,7 @@ impl Engine {
 
                 // This will block the main-thread until all the video commands
                 // is finished by GPU.
-                let video_info = self.video.advance()?;
+                let video_info = self.video.advance(&self.window)?;
                 let duration = join_receiver.recv().unwrap()?;
                 (video_info, duration)
             };

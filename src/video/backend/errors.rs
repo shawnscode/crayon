@@ -42,6 +42,8 @@ pub enum Error {
     SurfaceCreationFailure(String),
     #[fail(display = "Failed to draw, errors:\n{}\n", _0)]
     DrawFailure(String),
+    #[fail(display = "OpenGL implementation doesn\'t support {}.", _0)]
+    Requirement(String),
 }
 
 pub type Result<T> = ::std::result::Result<T, Error>;

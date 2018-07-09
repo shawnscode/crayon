@@ -3,20 +3,18 @@
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
+use application::window::Window;
 use math;
 use resource::prelude::*;
 use resource::utils::prelude::*;
-
 use video::assets::prelude::*;
 use video::errors::{Error, Result};
 
 use super::assets::mesh_loader::{MeshLoader, MeshParser};
 use super::assets::texture_loader::{TextureLoader, TextureParser};
-
 use super::backend::device::Device;
 use super::backend::frame::*;
 use super::command::*;
-use super::window::Window;
 
 /// The information of video module during last frame.
 #[derive(Debug, Copy, Clone, Default)]
@@ -32,32 +30,23 @@ pub struct VideoFrameInfo {
 
 /// The centralized management of video sub-system.
 pub struct VideoSystem {
-    window: Arc<Window>,
     device: Device,
     frames: Arc<DoubleFrame>,
     shared: Arc<VideoSystemShared>,
 
-    last_dimensions: (u32, u32),
-    last_hidpi: f32,
+    last_dimensions: math::Vector2<u32>,
 }
 
 impl VideoSystem {
     /// Create a new `VideoSystem` with one `Window` context.
-    pub fn new(window: Arc<Window>, resource: Arc<ResourceSystemShared>) -> Result<Self> {
-        let device = unsafe { Device::new() };
+    pub fn new(window: &Window, resource: Arc<ResourceSystemShared>) -> Result<Self> {
+        let device = unsafe { Device::new(window)? };
         let frames = Arc::new(DoubleFrame::with_capacity(64 * 1024));
-
-        let dimensions = window.dimensions().ok_or(Error::WindowNotExists)?;
-        let dimensions_in_pixels = window.dimensions_in_pixels().ok_or(Error::WindowNotExists)?;
-
-        let shared =
-            VideoSystemShared::new(resource, frames.clone(), dimensions, dimensions_in_pixels);
+        let shared = VideoSystemShared::new(resource, frames.clone());
 
         Ok(VideoSystem {
-            last_dimensions: dimensions,
-            last_hidpi: window.hidpi_factor(),
+            last_dimensions: window.dimensions(),
 
-            window: window,
             device: device,
             frames: frames,
             shared: Arc::new(shared),
@@ -79,41 +68,30 @@ impl VideoSystem {
     ///
     /// Notes that this method MUST be called at main thread, and will NOT return
     /// until all commands is finished by GPU.
-    pub fn advance(&mut self) -> Result<VideoFrameInfo> {
+    pub fn advance(&mut self, window: &Window) -> Result<VideoFrameInfo> {
         use std::time;
 
         unsafe {
             let ts = time::Instant::now();
-
-            let dimensions = self.window.dimensions().ok_or(Error::WindowNotExists)?;
-            let dimensions_in_pixels = self.window
-                .dimensions_in_pixels()
-                .ok_or(Error::WindowNotExists)?;
-
-            let hidpi = self.window.hidpi_factor();
+            let dimensions = window.dimensions();
 
             // Resize the window, which would recreate the underlying framebuffer.
-            if dimensions != self.last_dimensions
-                || (self.last_hidpi - hidpi).abs() > ::std::f32::EPSILON
-            {
+            if dimensions != self.last_dimensions {
                 self.last_dimensions = dimensions;
-                self.last_hidpi = hidpi;
-                self.window.resize(dimensions);
+                window.resize(window.physical_dimensions());
             }
-
-            *self.shared.dimensions.write().unwrap() = (dimensions, dimensions_in_pixels);
 
             {
                 self.device.run_one_frame()?;
 
                 {
                     let mut frame = self.frames.back();
-                    frame.dispatch(&mut self.device, dimensions, hidpi)?;
+                    frame.dispatch(&mut self.device, dimensions)?;
                     frame.clear();
                 }
             }
 
-            self.window.swap_buffers()?;
+            window.swap_buffers()?;
             let mut info = VideoFrameInfo::default();
             {
                 let v = self.device.frame_info();
@@ -147,7 +125,6 @@ impl VideoSystem {
 pub struct VideoSystemShared {
     resource: Arc<ResourceSystemShared>,
     frames: Arc<DoubleFrame>,
-    dimensions: RwLock<((u32, u32), (u32, u32))>,
 
     surfaces: RwLock<Registery<SurfaceParams>>,
     render_textures: RwLock<Registery<RenderTextureParams>>,
@@ -158,16 +135,10 @@ pub struct VideoSystemShared {
 
 impl VideoSystemShared {
     /// Create a new `VideoSystem` with one `Window` context.
-    fn new(
-        resource: Arc<ResourceSystemShared>,
-        frames: Arc<DoubleFrame>,
-        dimensions: (u32, u32),
-        dimensions_in_pixels: (u32, u32),
-    ) -> Self {
+    fn new(resource: Arc<ResourceSystemShared>, frames: Arc<DoubleFrame>) -> Self {
         VideoSystemShared {
             resource: resource,
             frames: frames,
-            dimensions: RwLock::new((dimensions, dimensions_in_pixels)),
 
             surfaces: RwLock::new(Registery::passive()),
             shaders: RwLock::new(Registery::passive()),
@@ -175,23 +146,6 @@ impl VideoSystemShared {
             textures: Arc::new(RwLock::new(Registery::passive())),
             render_textures: RwLock::new(Registery::passive()),
         }
-    }
-
-    /// Returns the size in points of the client area of the window.
-    ///
-    /// The client area is the content of the window, excluding the title bar and borders.
-    #[inline]
-    pub fn dimensions(&self) -> (u32, u32) {
-        self.dimensions.read().unwrap().0
-    }
-
-    /// Returns the size in pixels of the client area of the window.
-    ///
-    /// The client area is the content of the window, excluding the title bar and borders.
-    /// These are the dimensions of the frame buffer.
-    #[inline]
-    pub fn dimensions_in_pixels(&self) -> (u32, u32) {
-        self.dimensions.read().unwrap().1
     }
 
     /// Submit a task into named bucket.

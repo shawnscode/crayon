@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crayon::{application, math};
 
+use crayon::application::window;
 use crayon::video::assets::prelude::*;
 use crayon::video::errors::*;
 use crayon::video::prelude::*;
@@ -18,6 +19,7 @@ impl_vertex!{
 
 pub struct Renderer {
     video: Arc<VideoSystemShared>,
+    window: Arc<window::WindowShared>,
 
     shader: ShaderHandle,
     texture: TextureHandle,
@@ -59,7 +61,7 @@ impl Renderer {
 
         let texture = imgui.prepare_texture(|v| {
             let mut setup = TextureSetup::default();
-            setup.params.dimensions = (v.width as u16, v.height as u16);
+            setup.params.dimensions = (v.width, v.height).into();
             setup.params.filter = TextureFilter::Nearest;
             setup.params.format = TextureFormat::U8U8U8U8;
             setup.data = Some(v.pixels);
@@ -70,6 +72,8 @@ impl Renderer {
 
         Ok(Renderer {
             video: ctx.video.clone(),
+            window: ctx.window.clone(),
+
             shader: shader,
             texture: texture,
             mesh: None,
@@ -117,17 +121,26 @@ impl Renderer {
 
         let font_texture_id = **self.texture as usize;
         let mut idx_start = 0;
+        let hidpi = self.window.hidpi();
+
         for cmd in tasks.cmd_buffer {
             assert!(font_texture_id == cmd.texture_id as usize);
 
-            let scissor_pos = (cmd.clip_rect.x as u16, (height - cmd.clip_rect.w) as u16);
-            let scissor_size = (
-                (cmd.clip_rect.z - cmd.clip_rect.x) as u16,
-                (cmd.clip_rect.w - cmd.clip_rect.y) as u16,
+            let scissor_pos = math::Vector2::new(
+                (cmd.clip_rect.x as f32 * hidpi) as i32,
+                ((height - cmd.clip_rect.w) as f32 * hidpi) as i32,
+            );
+
+            let scissor_size = math::Vector2::new(
+                ((cmd.clip_rect.z - cmd.clip_rect.x) as f32 * hidpi) as u32,
+                ((cmd.clip_rect.w - cmd.clip_rect.y) as f32 * hidpi) as u32,
             );
 
             {
-                let scissor = SurfaceScissor::Enable(scissor_pos, scissor_size);
+                let scissor = SurfaceScissor::Enable {
+                    position: scissor_pos,
+                    size: scissor_size,
+                };
                 let cmd = Command::set_scissor(scissor);
                 self.video.submit(surface, 0u64, cmd)?;
             }

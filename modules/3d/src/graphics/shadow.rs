@@ -124,7 +124,7 @@ impl RenderShadow {
         Ok(())
     }
 
-    fn alloc_surface(&mut self, resolution: (u16, u16)) -> Result<ShadowSurface> {
+    fn alloc_surface(&mut self, resolution: math::Vector2<u32>) -> Result<ShadowSurface> {
         if let Some(surface) = self.shadow_surfaces.pop() {
             return Ok(surface);
         }

@@ -195,7 +195,6 @@ pub mod assets;
 pub mod command;
 pub mod errors;
 pub mod guard;
-pub mod window;
 
 mod backend;
 mod service;

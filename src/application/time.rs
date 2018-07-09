@@ -5,7 +5,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
-use application::settings::EngineSettings;
+use application::settings::EngineParams;
 use application::Result;
 
 /// `TimeSystem`
@@ -23,7 +23,7 @@ pub struct TimeSystem {
 
 impl TimeSystem {
     /// Creates a `TimeSystem` from settings.
-    pub fn new(setup: EngineSettings) -> Result<Self> {
+    pub fn new(setup: EngineParams) -> Result<Self> {
         let shared = TimeSystemShared::new(setup);
         Ok(TimeSystem {
             min_fps: setup.min_fps,
@@ -106,7 +106,7 @@ pub struct TimeSystemShared {
 }
 
 impl TimeSystemShared {
-    pub fn new(setup: EngineSettings) -> Self {
+    pub fn new(setup: EngineParams) -> Self {
         TimeSystemShared {
             min_fps: RwLock::new(setup.min_fps),
             max_fps: RwLock::new(setup.max_fps),

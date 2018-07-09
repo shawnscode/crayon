@@ -67,11 +67,13 @@ impl Canvas {
         let duration = ctx.time.frame_delta();
         let ts = duration.as_secs() as f32 + duration.subsec_nanos() as f32 / 1_000_000_000.0;
 
-        let (dp, d) = (ctx.video.dimensions_in_pixels(), ctx.video.dimensions());
-
         FrameGuard {
             renderer: &mut self.renderer,
-            frame: Some(self.ctx.frame(d, dp, ts)),
+            frame: Some(self.ctx.frame(
+                ctx.window.physical_dimensions().into(),
+                ctx.window.dimensions().into(),
+                ts,
+            )),
             surface: surface,
         }
     }

@@ -9,8 +9,8 @@ use super::MAX_TOUCHES;
 
 /// The setup parameters of touch pad device.
 ///
-/// Notes that the `distance` series paramters will be multiplied by `HiDPI`
-/// factor before recognizing processes.
+/// Notes that the `distance` series paramters are measured by physical dimensions and will be
+/// multiplied by `HiDPI` factor before recognizing processes.
 #[derive(Debug, Clone, Copy)]
 pub struct TouchPadSetup {
     /// The minimum distance before a touch is recognized as panning.
@@ -41,7 +41,6 @@ impl Default for TouchPadSetup {
 
 pub struct TouchPad {
     record: TouchesRecord,
-    inv_hidpi: f32,
 
     pan_detector: GesturePanDetector,
     pan: GesturePan,
@@ -57,7 +56,6 @@ impl TouchPad {
     pub fn new(setup: TouchPadSetup) -> Self {
         TouchPad {
             record: TouchesRecord::default(),
-            inv_hidpi: 1.0,
 
             pan_detector: GesturePanDetector::new(setup),
             pan: GesturePan::None,
@@ -71,8 +69,6 @@ impl TouchPad {
     }
 
     pub fn advance(&mut self, hidpi: f32) {
-        self.inv_hidpi = 1.0 / hidpi;
-
         self.pan = GesturePan::None;
         self.pan_detector.set_hidpi_factor(hidpi);
 
@@ -93,8 +89,7 @@ impl TouchPad {
         self.double_tap = GestureTap::None;
     }
 
-    pub fn on_touch(&mut self, mut touch: TouchEvent) {
-        touch.position *= self.inv_hidpi;
+    pub fn on_touch(&mut self, touch: TouchEvent) {
         self.record.update_touch(touch);
 
         self.pan = self.pan_detector.detect(&self.record);
@@ -333,7 +328,7 @@ impl GesturePanDetector {
                         position: self.position,
                         movement: movement,
                     }
-                } else if self.start_position.distance(self.position) < min_distance {
+                } else if self.start_position.distance(self.position) >= min_distance {
                     // Checks if min-distance is reached before starting panning.
                     self.pan = true;
                     GesturePan::Start {

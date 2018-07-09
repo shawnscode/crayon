@@ -1,5 +1,6 @@
 //! Immutable or dynamic 2D texture.
 
+use math;
 use resource::utils::location::Location;
 use video::errors::{Error, Result};
 
@@ -31,7 +32,7 @@ pub struct TextureParams {
     pub filter: TextureFilter,
     pub hint: TextureHint,
     pub mipmap: bool,
-    pub dimensions: (u16, u16),
+    pub dimensions: math::Vector2<u32>,
 }
 
 impl_handle!(TextureHandle);
@@ -44,7 +45,7 @@ impl Default for TextureParams {
             filter: TextureFilter::Linear,
             hint: TextureHint::Immutable,
             mipmap: false,
-            dimensions: (0, 0),
+            dimensions: math::Vector2::new(0, 0),
         }
     }
 }
@@ -58,7 +59,7 @@ pub struct RenderTextureSetup {
     pub format: RenderTextureFormat,
     pub address: TextureAddress,
     pub filter: TextureFilter,
-    pub dimensions: (u16, u16),
+    pub dimensions: math::Vector2<u32>,
     pub sampler: bool,
 }
 
@@ -68,7 +69,7 @@ impl Default for RenderTextureSetup {
             format: RenderTextureFormat::RGB8,
             address: TextureAddress::Clamp,
             filter: TextureFilter::Linear,
-            dimensions: (0, 0),
+            dimensions: math::Vector2::new(0, 0),
             sampler: true,
         }
     }

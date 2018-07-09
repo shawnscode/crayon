@@ -3,9 +3,9 @@ use std::marker::PhantomData;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
+use math;
 use resource::prelude::*;
 use resource::utils::registery::Registery;
-
 use video::assets::texture::*;
 use video::assets::{AssetState, AssetTextureState};
 use video::backend::frame::{DoubleFrame, PreFrameTask};
@@ -13,7 +13,7 @@ use video::backend::frame::{DoubleFrame, PreFrameTask};
 /// Parsed texture from `TextureParser`.
 pub struct TextureData {
     pub format: TextureFormat,
-    pub dimensions: (u16, u16),
+    pub dimensions: math::Vector2<u32>,
     pub data: Vec<u8>,
 }
 

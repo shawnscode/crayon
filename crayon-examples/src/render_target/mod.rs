@@ -52,7 +52,7 @@ impl Window {
             // Create render texture for post effect.
             let mut setup = RenderTextureSetup::default();
             setup.format = RenderTextureFormat::RGBA8;
-            setup.dimensions = (568, 320);
+            setup.dimensions = (568, 320).into();
             let rendered_texture = video.create_render_texture(setup)?;
 
             // Create the surface state for pass 1.
@@ -155,8 +155,7 @@ impl Application for Window {
 }
 
 pub fn main(mut settings: Settings) {
-    settings.window.width = 568;
-    settings.window.height = 320;
+    settings.window.size = math::Vector2::new(568, 320);
 
     let mut engine = Engine::new_with(&settings).unwrap();
     let window = Window::new(&mut engine).unwrap();

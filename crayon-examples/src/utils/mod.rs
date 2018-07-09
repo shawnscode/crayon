@@ -24,7 +24,7 @@ impl texture_loader::TextureParser for TextureParser {
         let dimensions = dynamic.dimensions();
         Ok(texture_loader::TextureData {
             format: TextureFormat::U8U8U8U8,
-            dimensions: (dimensions.0 as u16, dimensions.1 as u16),
+            dimensions: (dimensions.0, dimensions.1).into(),
             data: dynamic.to_rgba().into_raw(),
         })
     }
