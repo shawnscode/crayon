@@ -1,24 +1,50 @@
 //! An OpenGL context and the environment around it.
 
+use std::slice::Iter;
 use std::sync::{Arc, RwLock};
 
 use glutin;
 use glutin::GlContext;
 
-use application::settings::WindowParams;
 use math;
-use video::errors::*;
+
+use super::event::*;
+use super::settings::WindowParams;
+
+#[derive(Debug, Fail)]
+pub enum Error {
+    #[fail(display = "[GLUTIN] {}", _0)]
+    Context(String),
+    #[fail(display = "[GLUTIN] {}", _0)]
+    Creation(String),
+}
+
+impl From<glutin::CreationError> for Error {
+    fn from(err: glutin::CreationError) -> Error {
+        Error::Creation(format!("{}", err))
+    }
+}
+
+impl From<glutin::ContextError> for Error {
+    fn from(err: glutin::ContextError) -> Error {
+        Error::Context(format!("{}", err))
+    }
+}
+
+pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// Represents an OpenGL context and the window or environment around it, its just
 /// simple wrappers to [glutin](https://github.com/tomaka/glutin) right now.
 pub struct Window {
     window: glutin::GlWindow,
+    events_loop: glutin::EventsLoop,
+    events: Vec<Event>,
     shared: Arc<WindowShared>,
 }
 
 impl Window {
     /// Creates a new `WindowSytstem` and initalize OpenGL context.
-    pub fn new(params: WindowParams, events: &glutin::EventsLoop) -> Result<Self> {
+    pub fn new(params: WindowParams) -> Result<Self> {
         let builder = glutin::WindowBuilder::new()
             .with_title(params.title)
             .with_dimensions(params.size.x, params.size.y)
@@ -30,16 +56,19 @@ impl Window {
             .with_gl(glutin::GlRequest::Latest)
             .with_vsync(params.vsync);
 
-        let device = glutin::GlWindow::new(builder, context, events)?;
+        let events_loop = glutin::EventsLoop::new();
+        let device = glutin::GlWindow::new(builder, context, &events_loop)?;
         unsafe {
             device.make_current()?;
         }
 
         let window = Window {
             window: device,
+            events_loop: events_loop,
+            events: Vec::new(),
             shared: Arc::new(WindowShared {
                 dimensions: RwLock::new(math::Vector2::new(0, 0)),
-                physical_dimensions: RwLock::new(math::Vector2::new(0, 0)),
+                dimensions_in_points: RwLock::new(math::Vector2::new(0, 0)),
                 hidpi: RwLock::new(1.0),
             }),
         };
@@ -87,12 +116,25 @@ impl Window {
         self.window.is_current()
     }
 
-    /// Advance to next frame.
-    #[inline]
-    pub fn advance(&self) {
-        *self.shared.physical_dimensions.write().unwrap() = self.physical_dimensions();
+    /// Polls events from window, and returns the iterator over them.
+    pub fn advance(&mut self) -> Iter<Event> {
+        *self.shared.dimensions_in_points.write().unwrap() = self.dimensions_in_points();
         *self.shared.dimensions.write().unwrap() = self.dimensions();
         *self.shared.hidpi.write().unwrap() = self.hidpi();
+
+        self.events.clear();
+
+        {
+            let dims = self.dimensions();
+            let events = &mut self.events;
+            self.events_loop.poll_events(|evt| {
+                if let Some(v) = from_event(evt, dims) {
+                    events.push(v);
+                }
+            });
+        }
+
+        self.events.iter()
     }
 
     /// Swaps the buffers in case of double or triple buffering.
@@ -120,16 +162,16 @@ impl Window {
         self.window.get_proc_address(addr)
     }
 
-    /// Returns the position of the top-left hand corner of the window relative to the top-left
-    /// hand corner of the desktop. Note that the top-left hand corner of the desktop is not
+    /// Returns the position of the lower-left hand corner of the window relative to the lower-left
+    /// hand corner of the desktop. Note that the lower-left hand corner of the desktop is not
     /// necessarily the same as the screen. If the user uses a desktop with multiple monitors,
-    /// the top-left hand corner of the desktop is the top-left hand corner of the monitor at
-    /// the top-left of the desktop.
+    /// the lower-left hand corner of the desktop is the lower-left hand corner of the monitor at
+    /// the lower-left of the desktop.
     ///
-    /// The coordinates can be negative if the top-left hand corner of the window is outside of
+    /// The coordinates can be negative if the lower-left hand corner of the window is outside of
     /// the visible screen region.
     #[inline]
-    pub fn position(&self) -> math::Vector2<i32> {
+    pub fn position_in_points(&self) -> math::Vector2<i32> {
         self.window.get_position().unwrap().into()
     }
 
@@ -138,14 +180,14 @@ impl Window {
     /// The client area is the content of the window, excluding the title bar and borders. These are
     /// the size of the frame buffer.
     #[inline]
-    pub fn physical_dimensions(&self) -> math::Vector2<u32> {
+    pub fn dimensions_in_points(&self) -> math::Vector2<u32> {
         self.window.get_inner_size().unwrap().into()
     }
 
     /// Returns the size in *pixels* of the client area of the window.
     #[inline]
     pub fn dimensions(&self) -> math::Vector2<u32> {
-        let size = self.physical_dimensions();
+        let size = self.dimensions_in_points();
         let hi = self.hidpi();
         math::Vector2::new((size.x as f32 * hi) as u32, (size.y as f32 * hi) as u32)
     }
@@ -159,7 +201,7 @@ impl Window {
 }
 
 pub struct WindowShared {
-    physical_dimensions: RwLock<math::Vector2<u32>>,
+    dimensions_in_points: RwLock<math::Vector2<u32>>,
     dimensions: RwLock<math::Vector2<u32>>,
     hidpi: RwLock<f32>,
 }
@@ -170,8 +212,8 @@ impl WindowShared {
     /// The client area is the content of the window, excluding the title bar and borders. These are
     /// the size of the frame buffer.
     #[inline]
-    pub fn physical_dimensions(&self) -> math::Vector2<u32> {
-        *self.physical_dimensions.read().unwrap()
+    pub fn dimensions_in_points(&self) -> math::Vector2<u32> {
+        *self.dimensions_in_points.read().unwrap()
     }
 
     /// Returns the size in *pixels* of the client area of the window.

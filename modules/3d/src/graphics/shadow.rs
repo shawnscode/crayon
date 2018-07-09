@@ -129,12 +129,12 @@ impl RenderShadow {
             return Ok(surface);
         }
 
-        let mut setup = RenderTextureSetup::default();
+        let mut setup = RenderTextureParams::default();
         setup.format = RenderTextureFormat::Depth16;
         setup.dimensions = resolution;
         let render_texture = self.video.create_render_texture(setup)?;
 
-        let mut setup = SurfaceSetup::default();
+        let mut setup = SurfaceParams::default();
         setup.set_attachments(&[], render_texture)?;
         setup.set_clear(None, 1.0, None);
         setup.set_order(DrawOrder::Shadow as u64);

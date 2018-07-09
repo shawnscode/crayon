@@ -16,8 +16,11 @@ struct Pass {
 
 struct Window {
     video: VideoSystemGuard,
+
     pass: Pass,
     post_effect: Pass,
+
+    batch: Batch,
     texture: RenderTextureHandle,
     time: f32,
 }
@@ -41,33 +44,32 @@ impl Window {
             let idxes: [u16; 3] = [0, 1, 2];
 
             // Create vertex buffer object.
-            let mut setup = MeshSetup::default();
-            setup.params.num_verts = 3;
-            setup.params.num_idxes = 3;
-            setup.params.layout = Vertex::layout();
-            setup.verts = Some(Vertex::encode(&verts[..]));
-            setup.idxes = Some(IndexFormat::encode(&idxes));
-            let mesh = video.create_mesh(setup)?;
+            let mut params = MeshParams::default();
+            params.num_verts = 3;
+            params.num_idxes = 3;
+            params.layout = Vertex::layout();
+            let vptr = Some(Vertex::encode(&verts[..]));
+            let iptr = Some(IndexFormat::encode(&idxes));
+            let mesh = video.create_mesh(params, vptr, iptr)?;
 
             // Create render texture for post effect.
-            let mut setup = RenderTextureSetup::default();
-            setup.format = RenderTextureFormat::RGBA8;
-            setup.dimensions = (568, 320).into();
-            let rendered_texture = video.create_render_texture(setup)?;
+            let mut params = RenderTextureParams::default();
+            params.format = RenderTextureFormat::RGBA8;
+            params.dimensions = (568, 320).into();
+            let rendered_texture = video.create_render_texture(params)?;
 
             // Create the surface state for pass 1.
-            let mut setup = SurfaceSetup::default();
-            setup.set_attachments(&[rendered_texture], None)?;
-            setup.set_order(0);
-            setup.set_clear(math::Color::gray(), None, None);
-            let surface = video.create_surface(setup)?;
+            let mut params = SurfaceParams::default();
+            params.set_attachments(&[rendered_texture], None)?;
+            params.set_clear(math::Color::gray(), None, None);
+            let surface = video.create_surface(params)?;
 
             // Create shader state.
-            let mut setup = ShaderSetup::default();
-            setup.vs = include_str!("../../assets/render_target_p1.vs").to_owned();
-            setup.fs = include_str!("../../assets/render_target_p1.fs").to_owned();
-            setup.params.attributes = attributes;
-            let shader = video.create_shader(setup)?;
+            let mut params = ShaderParams::default();
+            params.attributes = attributes;
+            let vs = include_str!("../../assets/render_target_p1.vs").to_owned();
+            let fs = include_str!("../../assets/render_target_p1.fs").to_owned();
+            let shader = video.create_shader(params, vs, fs)?;
 
             (
                 Pass {
@@ -88,29 +90,29 @@ impl Window {
             ];
             let idxes: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
-            let mut setup = MeshSetup::default();
-            setup.params.num_verts = 4;
-            setup.params.num_idxes = 6;
-            setup.params.layout = Vertex::layout();
-            setup.verts = Some(Vertex::encode(&verts[..]));
-            setup.idxes = Some(IndexFormat::encode(&idxes));
-            let mesh = video.create_mesh(setup)?;
+            let mut params = MeshParams::default();
+            params.num_verts = 4;
+            params.num_idxes = 6;
+            params.layout = Vertex::layout();
 
-            let mut setup = SurfaceSetup::default();
-            setup.set_order(1);
-            let surface = video.create_surface(setup)?;
+            let vptr = Some(Vertex::encode(&verts[..]));
+            let iptr = Some(IndexFormat::encode(&idxes));
+            let mesh = video.create_mesh(params, vptr, iptr)?;
+
+            let params = SurfaceParams::default();
+            let surface = video.create_surface(params)?;
 
             let uniforms = UniformVariableLayout::build()
                 .with("renderedTexture", UniformVariableType::RenderTexture)
                 .with("time", UniformVariableType::F32)
                 .finish();
 
-            let mut setup = ShaderSetup::default();
-            setup.vs = include_str!("../../assets/render_target_p2.vs").to_owned();
-            setup.fs = include_str!("../../assets/render_target_p2.fs").to_owned();
-            setup.params.attributes = attributes;
-            setup.params.uniforms = uniforms;
-            let shader = video.create_shader(setup)?;
+            let mut params = ShaderParams::default();
+            params.attributes = attributes;
+            params.uniforms = uniforms;
+            let vs = include_str!("../../assets/render_target_p2.vs").to_owned();
+            let fs = include_str!("../../assets/render_target_p2.fs").to_owned();
+            let shader = video.create_shader(params, vs, fs)?;
 
             Pass {
                 surface: surface,
@@ -122,6 +124,7 @@ impl Window {
         Ok(Window {
             video: video,
 
+            batch: Batch::new(),
             pass: pass,
             post_effect: post_effect,
             texture: rendered_texture,
@@ -134,20 +137,18 @@ impl Window {
 impl Application for Window {
     type Error = Error;
 
-    fn on_update(&mut self, _: &Context) -> Result<()> {
-        {
-            let dc = DrawCall::new(self.pass.shader, self.pass.mesh);
-            let cmd = dc.build_from(0, 3)?;
-            self.video.submit(self.pass.surface, 0u64, cmd)?;
-        }
+    fn on_update(&mut self, ctx: &Context) -> Result<()> {
+        let surface = self.pass.surface;
+        let dc = DrawCall::new(self.pass.shader, self.pass.mesh);
+        self.batch.draw(dc);
+        self.batch.submit(&ctx.video, surface)?;
 
-        {
-            let mut dc = DrawCall::new(self.post_effect.shader, self.post_effect.mesh);
-            dc.set_uniform_variable("renderedTexture", self.texture);
-            dc.set_uniform_variable("time", self.time);
-            let cmd = dc.build_from(0, 6)?;
-            self.video.submit(self.post_effect.surface, 1u64, cmd)?;
-        }
+        let surface = self.post_effect.surface;
+        let mut dc = DrawCall::new(self.post_effect.shader, self.post_effect.mesh);
+        dc.set_uniform_variable("renderedTexture", self.texture);
+        dc.set_uniform_variable("time", self.time);
+        self.batch.draw(dc);
+        self.batch.submit(&ctx.video, surface)?;
 
         self.time += 0.05;
         Ok(())

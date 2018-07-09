@@ -1,50 +1,10 @@
 //! Immutable or dynamic vertex and index data.
 
-use math;
-use resource::utils::location::Location;
 use video::assets::shader::Attribute;
 use video::errors::{Error, Result};
 use video::MAX_VERTEX_ATTRIBUTES;
 
 impl_handle!(MeshHandle);
-
-#[derive(Debug, Clone, Default)]
-pub struct MeshSetup<'a> {
-    pub location: Location<'a>,
-    pub params: MeshParams,
-    pub verts: Option<&'a [u8]>,
-    pub idxes: Option<&'a [u8]>,
-}
-
-impl<'a> MeshSetup<'a> {
-    pub fn validate(&self) -> Result<()> {
-        if self.location.is_shared() {
-            if self.params.hint != MeshHint::Immutable {
-                return Err(Error::CreateMutableSharedObject);
-            }
-        }
-
-        if let Some(buf) = self.verts.as_ref() {
-            if buf.len() > self.params.vertex_buffer_len() {
-                return Err(Error::OutOfBounds);
-            }
-        }
-
-        if let Some(buf) = self.idxes.as_ref() {
-            if buf.len() > self.params.index_buffer_len() {
-                return Err(Error::OutOfBounds);
-            }
-        }
-
-        for v in &self.params.sub_mesh_offsets {
-            if *v >= self.params.num_idxes {
-                return Err(Error::OutOfBounds);
-            }
-        }
-
-        Ok(())
-    }
-}
 
 /// The setup parameters of mesh object.
 #[derive(Debug, Clone)]
@@ -63,8 +23,6 @@ pub struct MeshParams {
     pub num_idxes: usize,
     /// The start indices of sub-meshes.
     pub sub_mesh_offsets: Vec<usize>,
-    /// The axis-aligned bounding boxes.
-    pub aabb: math::Aabb3<f32>,
 }
 
 impl Default for MeshParams {
@@ -77,12 +35,33 @@ impl Default for MeshParams {
             num_verts: 0,
             num_idxes: 0,
             sub_mesh_offsets: Vec::new(),
-            aabb: math::Aabb3::zero(),
         }
     }
 }
 
 impl MeshParams {
+    pub fn validate(&self, verts: Option<&[u8]>, idxes: Option<&[u8]>) -> Result<()> {
+        if let Some(buf) = verts.as_ref() {
+            if buf.len() > self.vertex_buffer_len() {
+                return Err(Error::OutOfBounds);
+            }
+        }
+
+        if let Some(buf) = idxes.as_ref() {
+            if buf.len() > self.index_buffer_len() {
+                return Err(Error::OutOfBounds);
+            }
+        }
+
+        for v in &self.sub_mesh_offsets {
+            if *v >= self.num_idxes {
+                return Err(Error::OutOfBounds);
+            }
+        }
+
+        Ok(())
+    }
+
     #[inline]
     pub fn vertex_buffer_len(&self) -> usize {
         self.num_verts * self.layout.stride() as usize

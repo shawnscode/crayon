@@ -7,7 +7,6 @@ use utils;
 
 struct Window {
     canvas: Canvas,
-    surface: SurfaceHandle,
     info: FrameInfo,
     text: String,
     repeat_count: u32,
@@ -21,14 +20,8 @@ impl Window {
         let ctx = engine.context();
         let canvas = Canvas::new(ctx).unwrap();
 
-        let mut setup = SurfaceSetup::default();
-        setup.set_clear(math::Color::white(), None, None);
-        setup.set_sequence(true);
-        let surface = ctx.video.create_surface(setup)?;
-
         Ok(Window {
             canvas: canvas,
-            surface: surface,
             info: Default::default(),
             text: String::new(),
             repeat_count: 0,
@@ -58,7 +51,7 @@ impl Application for Window {
             self.double_click_count += 1;
         }
 
-        let ui = self.canvas.frame(self.surface, ctx);
+        let ui = self.canvas.frame(ctx, None);
         let info = self.info;
         let text = &self.text;
         let rc = self.repeat_count;
@@ -137,6 +130,8 @@ impl Application for Window {
 
                     ui.text_wrapped(im_str!("Text: {:?}.", text));
                 };
+
+                if ui.collapsing_header(im_str!("Touch Pad")).build() {}
             });
 
         Ok(())

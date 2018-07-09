@@ -9,8 +9,7 @@ use super::MAX_TOUCHES;
 
 /// The setup parameters of touch pad device.
 ///
-/// Notes that the `distance` series paramters are measured by physical dimensions and will be
-/// multiplied by `HiDPI` factor before recognizing processes.
+/// Notes that the `distance` series paramters are measured by points.
 #[derive(Debug, Clone, Copy)]
 pub struct TouchPadSetup {
     /// The minimum distance before a touch is recognized as panning.

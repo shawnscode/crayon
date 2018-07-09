@@ -63,7 +63,7 @@ impl InputSystem {
                     let touch = event::TouchEvent {
                         id: 255,
                         state: event::TouchState::Move,
-                        position: self.shared.mouse.read().unwrap().position_in_pixel(),
+                        position: self.shared.mouse.read().unwrap().position(),
                     };
 
                     self.shared.touchpad.write().unwrap().on_touch(touch);
@@ -79,7 +79,7 @@ impl InputSystem {
                     let touch = event::TouchEvent {
                         id: 255,
                         state: event::TouchState::Start,
-                        position: self.shared.mouse.read().unwrap().position_in_pixel(),
+                        position: self.shared.mouse.read().unwrap().position(),
                     };
 
                     self.shared.touchpad.write().unwrap().on_touch(touch);
@@ -95,7 +95,7 @@ impl InputSystem {
                     let touch = event::TouchEvent {
                         id: 255,
                         state: event::TouchState::End,
-                        position: self.shared.mouse.read().unwrap().position_in_pixel(),
+                        position: self.shared.mouse.read().unwrap().position(),
                     };
 
                     self.shared.touchpad.write().unwrap().on_touch(touch);
@@ -231,16 +231,28 @@ impl InputSystemShared {
         self.mouse.read().unwrap().is_button_double_click(button)
     }
 
-    /// Gets the mouse position relative to the top-left hand corner of the window.
+    /// Gets the mouse position in pixels relative to the lower-left hand corner of the window.
     #[inline]
     pub fn mouse_position(&self) -> math::Vector2<f32> {
         self.mouse.read().unwrap().position()
+    }
+
+    /// Gets the mouse position relative to the lower-left hand corner of the window.
+    #[inline]
+    pub fn mouse_position_in_points(&self) -> math::Vector2<f32> {
+        self.mouse.read().unwrap().position_in_points()
     }
 
     /// Gets mouse movement in pixels since last frame.
     #[inline]
     pub fn mouse_movement(&self) -> math::Vector2<f32> {
         self.mouse.read().unwrap().movement()
+    }
+
+    /// Gets mouse movement since last frame.
+    #[inline]
+    pub fn mousel_movement_in_points(&self) -> math::Vector2<f32> {
+        self.mouse.read().unwrap().movement_in_points()
     }
 
     /// Gets the scroll movement of mouse in pixels, usually provided by mouse wheel.

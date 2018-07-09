@@ -7,7 +7,6 @@ use utils;
 
 struct Window {
     canvas: Canvas,
-    surface: SurfaceHandle,
     info: FrameInfo,
 }
 
@@ -16,14 +15,8 @@ impl Window {
         let ctx = engine.context();
         let canvas = Canvas::new(ctx).unwrap();
 
-        let mut setup = SurfaceSetup::default();
-        setup.set_clear(math::Color::white(), None, None);
-        setup.set_sequence(true);
-        let surface = ctx.video.create_surface(setup)?;
-
         Ok(Window {
             canvas: canvas,
-            surface: surface,
             info: Default::default(),
         })
     }
@@ -33,7 +26,7 @@ impl Application for Window {
     type Error = Error;
 
     fn on_update(&mut self, ctx: &Context) -> Result<()> {
-        let ui = self.canvas.frame(self.surface, ctx);
+        let ui = self.canvas.frame(ctx, None);
         let info = self.info;
         ui.window(im_str!("ImGui & Crayon"))
             .movable(false)

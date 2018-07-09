@@ -21,9 +21,10 @@ pub struct Renderer {
     video: Arc<VideoSystemShared>,
     window: Arc<window::WindowShared>,
 
+    surface: SurfaceHandle,
     shader: ShaderHandle,
     texture: TextureHandle,
-
+    batch: Batch,
     mesh: Option<(usize, usize, MeshHandle)>,
 }
 
@@ -31,6 +32,10 @@ impl Renderer {
     /// Creates a new `CanvasRenderer`. This will allocates essential video
     /// resources in background.
     pub fn new(ctx: &application::Context, imgui: &mut ImGui) -> Result<Self> {
+        let mut params = SurfaceParams::default();
+        params.set_clear(math::Color::white(), None, None);
+        let surface = ctx.video.create_surface(params)?;
+
         let layout = AttributeLayout::build()
             .with(Attribute::Position, 2)
             .with(Attribute::Texcoord0, 2)
@@ -51,21 +56,20 @@ impl Renderer {
             BlendFactor::OneMinusValue(BlendValue::SourceAlpha),
         ));
 
-        let mut setup = ShaderSetup::default();
-        setup.params.attributes = layout;
-        setup.params.uniforms = uniforms;
-        setup.params.render_state = render_state;
-        setup.vs = include_str!("../assets/imgui.vs").to_owned();
-        setup.fs = include_str!("../assets/imgui.fs").to_owned();
-        let shader = ctx.video.create_shader(setup)?;
+        let mut params = ShaderParams::default();
+        params.attributes = layout;
+        params.uniforms = uniforms;
+        params.state = render_state;
+        let vs = include_str!("../assets/imgui.vs").to_owned();
+        let fs = include_str!("../assets/imgui.fs").to_owned();
+        let shader = ctx.video.create_shader(params, vs, fs)?;
 
         let texture = imgui.prepare_texture(|v| {
-            let mut setup = TextureSetup::default();
-            setup.params.dimensions = (v.width, v.height).into();
-            setup.params.filter = TextureFilter::Nearest;
-            setup.params.format = TextureFormat::U8U8U8U8;
-            setup.data = Some(v.pixels);
-            ctx.video.create_texture(setup)
+            let mut params = TextureParams::default();
+            params.dimensions = (v.width, v.height).into();
+            params.filter = TextureFilter::Nearest;
+            params.format = TextureFormat::U8U8U8U8;
+            ctx.video.create_texture(params, v.pixels)
         })?;
 
         imgui.set_texture_id(**texture as usize);
@@ -74,13 +78,16 @@ impl Renderer {
             video: ctx.video.clone(),
             window: ctx.window.clone(),
 
+            batch: Batch::new(),
             shader: shader,
             texture: texture,
+            surface: surface,
             mesh: None,
         })
     }
 
-    pub fn render<'a>(&mut self, surface: SurfaceHandle, ui: Ui<'a>) -> Result<()> {
+    pub fn draw(&mut self, surface: Option<SurfaceHandle>, ui: Ui) -> Result<()> {
+        let surface = surface.unwrap_or(self.surface);
         ui.render(|ui, dcs| self.render_draw_list(surface, ui, &dcs))?;
         Ok(())
     }
@@ -102,7 +109,7 @@ impl Renderer {
             ));
         }
 
-        let mesh = self.update_mesh(surface, &verts, &tasks.idx_buffer)?;
+        let mesh = self.update_mesh(&verts, &tasks.idx_buffer)?;
         let (width, height) = ui.imgui().display_size();
 
         if width == 0.0 || height == 0.0 {
@@ -141,43 +148,35 @@ impl Renderer {
                     position: scissor_pos,
                     size: scissor_size,
                 };
-                let cmd = Command::set_scissor(scissor);
-                self.video.submit(surface, 0u64, cmd)?;
+
+                self.batch.update_scissor(scissor);
             }
 
             {
                 let mut dc = DrawCall::new(self.shader, mesh);
                 dc.set_uniform_variable("matrix", matrix);
                 dc.set_uniform_variable("texture", self.texture);
-                let cmd = dc.build_from(idx_start, cmd.elem_count as usize)?;
-                self.video.submit(surface, 0u64, cmd)?;
+                dc.mesh_index = MeshIndex::Ptr(idx_start, cmd.elem_count as usize);
+                self.batch.draw(dc);
             }
 
             idx_start += cmd.elem_count as usize;
         }
 
         let scissor = SurfaceScissor::Disable;
-        let cmd = Command::set_scissor(scissor);
-        self.video.submit(surface, 0u64, cmd)?;
+        self.batch.update_scissor(scissor);
+        self.batch.submit(&self.video, surface)?;
         Ok(())
     }
 
-    fn update_mesh(
-        &mut self,
-        surface: SurfaceHandle,
-        verts: &[CanvasVertex],
-        idxes: &[u16],
-    ) -> Result<MeshHandle> {
+    fn update_mesh(&mut self, verts: &[CanvasVertex], idxes: &[u16]) -> Result<MeshHandle> {
         if let Some((nv, ni, handle)) = self.mesh {
             if nv >= verts.len() && ni >= idxes.len() {
                 let slice = CanvasVertex::encode(verts);
-                let cmd = Command::update_vertex_buffer(handle, 0, slice);
-                self.video.submit(surface, 0u64, cmd)?;
+                self.batch.update_vertex_buffer(handle, 0, slice);
 
                 let slice = IndexFormat::encode(idxes);
-                let cmd = Command::update_index_buffer(handle, 0, slice);
-                self.video.submit(surface, 0u64, cmd)?;
-
+                self.batch.update_index_buffer(handle, 0, slice);
                 return Ok(handle);
             }
 
@@ -194,17 +193,17 @@ impl Renderer {
             ni *= 2;
         }
 
-        let mut setup = MeshSetup::default();
-        setup.params.hint = MeshHint::Stream;
-        setup.params.layout = CanvasVertex::layout();
-        setup.params.index_format = IndexFormat::U16;
-        setup.params.primitive = MeshPrimitive::Triangles;
-        setup.params.num_verts = nv;
-        setup.params.num_idxes = ni;
-        setup.verts = Some(CanvasVertex::encode(verts));
-        setup.idxes = Some(IndexFormat::encode(idxes));
+        let mut params = MeshParams::default();
+        params.hint = MeshHint::Stream;
+        params.layout = CanvasVertex::layout();
+        params.index_format = IndexFormat::U16;
+        params.primitive = MeshPrimitive::Triangles;
+        params.num_verts = nv;
+        params.num_idxes = ni;
+        let vptr = Some(CanvasVertex::encode(verts));
+        let iptr = Some(IndexFormat::encode(idxes));
 
-        let mesh = self.video.create_mesh(setup)?;
+        let mesh = self.video.create_mesh(params, vptr, iptr)?;
         self.mesh = Some((nv, ni, mesh));
         Ok(mesh)
     }
@@ -214,6 +213,7 @@ impl Drop for Renderer {
     fn drop(&mut self) {
         self.video.delete_shader(self.shader);
         self.video.delete_texture(self.texture);
+        self.video.delete_surface(self.surface);
 
         if let Some((_, _, mesh)) = self.mesh.take() {
             self.video.delete_mesh(mesh);

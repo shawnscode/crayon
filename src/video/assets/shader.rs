@@ -5,56 +5,46 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use math;
-
+use utils::HashValue;
 use video::assets::mesh::VertexLayout;
 use video::assets::texture::{RenderTextureHandle, TextureHandle};
 use video::errors::{Error, Result};
 use video::{MAX_UNIFORM_VARIABLES, MAX_VERTEX_ATTRIBUTES};
-use resource::utils::location::Location;
-use utils::HashValue;
 
 impl_handle!(ShaderHandle);
 
-/// A `ShaderSetup` encapusulate all the informations we need to configurate
+/// A `ShaderParams` encapusulate all the informations we need to configurate
 /// OpenGL before real drawing, like shaders, render states, etc.
 #[derive(Debug, Clone, Default)]
-pub struct ShaderSetup<'a> {
-    pub location: Location<'a>,
-    pub params: ShaderParams,
-    pub vs: String,
-    pub fs: String,
+pub struct ShaderParams {
+    pub attributes: AttributeLayout,
+    pub uniforms: UniformVariableLayout,
+    pub state: RenderState,
 }
 
-impl<'a> ShaderSetup<'a> {
-    pub fn validate(&self) -> Result<()> {
-        if self.params.uniforms.len() > MAX_UNIFORM_VARIABLES {
-            return Err(Error::ShaderCreationFailure(format!(
+impl ShaderParams {
+    pub fn validate(&self, vs: &str, fs: &str) -> Result<()> {
+        if self.uniforms.len() > MAX_UNIFORM_VARIABLES {
+            return Err(Error::ShaderInvalid(format!(
                 "Too many uniform variables (>= {:?}).",
                 MAX_UNIFORM_VARIABLES
             )));
         }
 
-        if self.vs.is_empty() {
-            return Err(Error::ShaderCreationFailure(
+        if vs.is_empty() {
+            return Err(Error::ShaderInvalid(
                 "Vertex shader is required to describe a proper render pipeline.".into(),
             ));
         }
 
-        if self.fs.is_empty() {
-            return Err(Error::ShaderCreationFailure(
+        if fs.is_empty() {
+            return Err(Error::ShaderInvalid(
                 "Fragment shader is required to describe a proper render pipeline.".into(),
             ));
         }
 
         Ok(())
     }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct ShaderParams {
-    pub attributes: AttributeLayout,
-    pub uniforms: UniformVariableLayout,
-    pub render_state: RenderState,
 }
 
 /// The possible pre-defined and named attributes in the vertex component, describing
@@ -111,7 +101,7 @@ impl FromStr for Attribute {
             "Texcoord1" => Ok(Attribute::Texcoord1),
             "Texcoord2" => Ok(Attribute::Texcoord2),
             "Texcoord3" => Ok(Attribute::Texcoord3),
-            _ => Err(Error::AttributeParseFailure(s.into())),
+            _ => Err(Error::AttributeUndefined(s.into())),
         }
     }
 }

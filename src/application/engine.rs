@@ -41,7 +41,6 @@ impl Context {
 /// a central place and takes take of trivial tasks like the execution order or life-time
 /// management.
 pub struct Engine {
-    pub events_loop: event::EventsLoop,
     pub window: window::Window,
     pub input: input::InputSystem,
     pub video: video::VideoSystem,
@@ -63,13 +62,12 @@ impl Engine {
         let input = input::InputSystem::new(settings.input);
         let input_shared = input.shared();
 
-        let events_loop = event::EventsLoop::new();
-        let window = window::Window::new(settings.window.clone(), events_loop.underlaying())?;
+        let window = window::Window::new(settings.window.clone())?;
 
         let resource = resource::ResourceSystem::new()?;
         let resource_shared = resource.shared();
 
-        let video = video::VideoSystem::new(&window, resource_shared.clone())?;
+        let video = video::VideoSystem::new(&window)?;
         let video_shared = video.shared();
 
         let time = time::TimeSystem::new(settings.engine)?;
@@ -85,7 +83,6 @@ impl Engine {
         };
 
         Ok(Engine {
-            events_loop: events_loop,
             input: input,
             window: window,
             video: video,
@@ -110,7 +107,7 @@ impl Engine {
         let application = Arc::new(RwLock::new(application));
 
         let dir = ::std::env::current_dir()?;
-        println!("Run crayon-runtim with working directory {:?}.", dir);
+        println!("CWD: {:?}.", dir);
 
         let (task_sender, task_receiver) = mpsc::channel();
         let (join_sender, join_receiver) = mpsc::channel();
@@ -120,14 +117,14 @@ impl Engine {
             self.context.clone(),
             application.clone(),
         );
+        task_sender.send(true).unwrap();
 
         let mut alive = true;
         while alive {
-            self.window.advance();
             self.input.advance(self.window.hidpi());
 
             // Poll any possible events first.
-            for v in self.events_loop.advance() {
+            for v in self.window.advance() {
                 match *v {
                     event::Event::Application(value) => {
                         {
@@ -153,16 +150,17 @@ impl Engine {
             self.video.swap_frames();
 
             let (video_info, duration) = {
+                let duration = join_receiver.recv().unwrap()?;
+
                 // Perform update and render submitting for frame [x], and drawing
                 // frame [x-1] at the same time.
                 task_sender.send(true).unwrap();
-
-                // This will block the main-thread until all the video commands
-                // is finished by GPU.
+                // This will block the main-thread until all the video commands is finished by GPU.
                 let video_info = self.video.advance(&self.window)?;
-                let duration = join_receiver.recv().unwrap()?;
                 (video_info, duration)
             };
+
+            self.window.swap_buffers()?;
 
             {
                 let info = FrameInfo {

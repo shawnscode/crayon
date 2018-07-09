@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use video::assets::mesh_loader::MeshParser;
+// use video::assets::mesh_loader::MeshParser;
 use video::assets::prelude::*;
-use video::assets::texture_loader::TextureParser;
+// use video::assets::texture_loader::TextureParser;
 use video::errors::Result;
 use video::VideoSystemShared;
 
@@ -30,8 +30,8 @@ impl VideoSystemGuard {
     }
 
     #[inline]
-    pub fn create_surface(&mut self, setup: SurfaceSetup) -> Result<SurfaceHandle> {
-        let v = self.video.create_surface(setup)?;
+    pub fn create_surface(&mut self, params: SurfaceParams) -> Result<SurfaceHandle> {
+        let v = self.video.create_surface(params)?;
         Ok(self.push(v))
     }
 
@@ -41,8 +41,13 @@ impl VideoSystemGuard {
     }
 
     #[inline]
-    pub fn create_shader(&mut self, setup: ShaderSetup) -> Result<ShaderHandle> {
-        let v = self.video.create_shader(setup)?;
+    pub fn create_shader(
+        &mut self,
+        params: ShaderParams,
+        vs: String,
+        fs: String,
+    ) -> Result<ShaderHandle> {
+        let v = self.video.create_shader(params, vs, fs)?;
         Ok(self.push(v))
     }
 
@@ -52,17 +57,17 @@ impl VideoSystemGuard {
     }
 
     #[inline]
-    pub fn create_mesh_from_file<T>(&mut self, setup: MeshSetup) -> Result<MeshHandle>
+    pub fn create_mesh<'a, 'b, T1, T2>(
+        &mut self,
+        params: MeshParams,
+        verts: T1,
+        idxes: T2,
+    ) -> Result<MeshHandle>
     where
-        T: MeshParser + Send + Sync + 'static,
+        T1: Into<Option<&'a [u8]>>,
+        T2: Into<Option<&'b [u8]>>,
     {
-        let v = self.video.create_mesh_from_file::<T>(setup)?;
-        Ok(self.push(v))
-    }
-
-    #[inline]
-    pub fn create_mesh(&mut self, setup: MeshSetup) -> Result<MeshHandle> {
-        let v = self.video.create_mesh(setup)?;
+        let v = self.video.create_mesh(params, verts, idxes)?;
         Ok(self.push(v))
     }
 
@@ -72,17 +77,11 @@ impl VideoSystemGuard {
     }
 
     #[inline]
-    pub fn create_texture_from_file<T>(&mut self, setup: TextureSetup) -> Result<TextureHandle>
+    pub fn create_texture<'a, T>(&mut self, params: TextureParams, data: T) -> Result<TextureHandle>
     where
-        T: TextureParser + Send + Sync + 'static,
+        T: Into<Option<&'a [u8]>>,
     {
-        let v = self.video.create_texture_from_file::<T>(setup)?;
-        Ok(self.push(v))
-    }
-
-    #[inline]
-    pub fn create_texture(&mut self, setup: TextureSetup) -> Result<TextureHandle> {
-        let v = self.video.create_texture(setup)?;
+        let v = self.video.create_texture(params, data)?;
         Ok(self.push(v))
     }
 
@@ -94,9 +93,9 @@ impl VideoSystemGuard {
     #[inline]
     pub fn create_render_texture(
         &mut self,
-        setup: RenderTextureSetup,
+        params: RenderTextureParams,
     ) -> Result<RenderTextureHandle> {
-        let v = self.video.create_render_texture(setup)?;
+        let v = self.video.create_render_texture(params)?;
         Ok(self.push(v))
     }
 

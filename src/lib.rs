@@ -46,4 +46,6 @@ pub mod video;
 pub mod input;
 pub mod math;
 pub mod prelude;
+pub mod res;
 pub mod resource;
+pub mod task;

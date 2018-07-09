@@ -1,37 +1,24 @@
-//! Immutable or dynamic 2D texture.
-
+//! Immutable or dynamic 2D texture. A texture is a container of one or more images. It
+//! can be the source of a texture access from a Shader.
 use math;
-use resource::utils::location::Location;
 use video::errors::{Error, Result};
 
-/// A texture is a container of one or more images. It can be the source of a texture
-/// access from a Shader.
-#[derive(Debug, Clone, Default)]
-pub struct TextureSetup<'a> {
-    pub location: Location<'a>,
-    pub params: TextureParams,
-    pub data: Option<&'a [u8]>,
-}
+pub type Texture = TextureHandle;
 
-impl<'a> TextureSetup<'a> {
-    pub fn validate(&self) -> Result<()> {
-        if self.location.is_shared() {
-            if self.params.hint != TextureHint::Immutable {
-                return Err(Error::CreateMutableSharedObject);
-            }
-        }
-
-        Ok(())
-    }
-}
-
+/// The parameters of a texture object.
 #[derive(Debug, Copy, Clone)]
 pub struct TextureParams {
-    pub format: TextureFormat,
-    pub address: TextureAddress,
-    pub filter: TextureFilter,
+    /// Hint abouts the intended update strategy of the data.
     pub hint: TextureHint,
+    /// Sets the wrap parameter for texture.
+    pub wrap: TextureWrap,
+    /// Specify how the texture is used whenever the pixel being sampled.
+    pub filter: TextureFilter,
+    /// Should we generates a complete set of mipmaps for a texture object.
     pub mipmap: bool,
+    /// Sets the format of data.
+    pub format: TextureFormat,
+    /// Sets the dimensions of texture.
     pub dimensions: math::Vector2<u32>,
 }
 
@@ -41,7 +28,7 @@ impl Default for TextureParams {
     fn default() -> Self {
         TextureParams {
             format: TextureFormat::U8U8U8U8,
-            address: TextureAddress::Clamp,
+            wrap: TextureWrap::Clamp,
             filter: TextureFilter::Linear,
             hint: TextureHint::Immutable,
             mipmap: false,
@@ -50,24 +37,37 @@ impl Default for TextureParams {
     }
 }
 
+impl TextureParams {
+    pub fn validate(&self, data: Option<&[u8]>) -> Result<()> {
+        if let Some(buf) = data.as_ref() {
+            let len = self.format.size() as u32 * self.dimensions.x * self.dimensions.y;
+            if buf.len() > len as usize {
+                return Err(Error::OutOfBounds);
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// A `RenderTexture` object is basicly texture object with special format. It can
 /// be used as a render target. If the `sampler` field is true, it can also be ther
 /// source of a texture access from a __shader__.
 ///
 #[derive(Debug, Copy, Clone)]
-pub struct RenderTextureSetup {
+pub struct RenderTextureParams {
     pub format: RenderTextureFormat,
-    pub address: TextureAddress,
+    pub wrap: TextureWrap,
     pub filter: TextureFilter,
     pub dimensions: math::Vector2<u32>,
     pub sampler: bool,
 }
 
-impl Default for RenderTextureSetup {
+impl Default for RenderTextureParams {
     fn default() -> Self {
-        RenderTextureSetup {
+        RenderTextureParams {
             format: RenderTextureFormat::RGB8,
-            address: TextureAddress::Clamp,
+            wrap: TextureWrap::Clamp,
             filter: TextureFilter::Linear,
             dimensions: math::Vector2::new(0, 0),
             sampler: true,
@@ -75,10 +75,10 @@ impl Default for RenderTextureSetup {
     }
 }
 
-pub type RenderTextureParams = RenderTextureSetup;
 impl_handle!(RenderTextureHandle);
 
 /// Hint abouts the intended update strategy of the data.
+#[repr(u8)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TextureHint {
     /// The resource is initialized with data and cannot be changed later, this
@@ -94,6 +94,7 @@ pub enum TextureHint {
 }
 
 /// Specify how the texture is used whenever the pixel being sampled.
+#[repr(u8)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TextureFilter {
     /// Returns the value of the texture element that is nearest (in Manhattan distance)
@@ -105,8 +106,9 @@ pub enum TextureFilter {
 }
 
 /// Sets the wrap parameter for texture.
+#[repr(u8)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum TextureAddress {
+pub enum TextureWrap {
     /// Samples at coord x + 1 map to coord x.
     Repeat,
     /// Samples at coord x + 1 map to coord 1 - x.
@@ -123,6 +125,7 @@ pub enum TextureAddress {
 /// Each element of `Depth` is a single depth value. The `Graphics` converts it to
 /// floating point, multiplies by the signed scale factor, adds the signed bias, and
 /// clamps to the range [0,1].
+#[repr(u8)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum RenderTextureFormat {
     RGB8,
@@ -134,7 +137,16 @@ pub enum RenderTextureFormat {
     Depth24Stencil8,
 }
 
+impl RenderTextureFormat {
+    pub fn is_color(&self) -> bool {
+        *self == RenderTextureFormat::RGB8
+            || *self == RenderTextureFormat::RGBA4
+            || *self == RenderTextureFormat::RGBA8
+    }
+}
+
 /// List of all the possible formats of input data when uploading to texture.
+#[repr(u8)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TextureFormat {
     U8,

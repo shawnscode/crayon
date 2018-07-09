@@ -124,10 +124,7 @@ where
     _phantom: PhantomData<T>,
 }
 
-impl<T> Clone for DataBufferPtr<T>
-where
-    T: ?Sized,
-{
+impl<T: ?Sized> Clone for DataBufferPtr<T> {
     fn clone(&self) -> Self {
         DataBufferPtr {
             position: self.position,
@@ -137,11 +134,7 @@ where
     }
 }
 
-impl<T> Copy for DataBufferPtr<T>
-where
-    T: ?Sized,
-{
-}
+impl<T: ?Sized> Copy for DataBufferPtr<T> {}
 
 #[cfg(test)]
 mod test {

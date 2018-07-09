@@ -12,32 +12,16 @@ use utils;
 pub struct ConsoleCanvas {
     canvas: Canvas,
     info: FrameInfo,
-    surface: SurfaceHandle,
-    video: Arc<VideoSystemShared>,
-}
-
-impl Drop for ConsoleCanvas {
-    fn drop(&mut self) {
-        self.video.delete_surface(self.surface);
-    }
 }
 
 impl ConsoleCanvas {
-    pub fn new(order: u64, ctx: &Context) -> Result<Self> {
+    pub fn new(ctx: &Context) -> Result<Self> {
         let video = ctx.video.clone();
         let canvas = Canvas::new(ctx).unwrap();
 
-        let mut setup = SurfaceSetup::default();
-        setup.set_clear(None, None, None);
-        setup.set_sequence(true);
-        setup.set_order(order);
-        let surface = video.create_surface(setup)?;
-
         Ok(ConsoleCanvas {
-            surface: surface,
             canvas: canvas,
             info: Default::default(),
-            video: video,
         })
     }
 
@@ -46,7 +30,7 @@ impl ConsoleCanvas {
     }
 
     pub fn render<'a>(&'a mut self, ctx: &Context) -> crayon_imgui::canvas::FrameGuard<'a> {
-        let ui = self.canvas.frame(self.surface, ctx);
+        let ui = self.canvas.frame(ctx, None);
         let info = self.info;
         ui.window(im_str!("ImGui & Crayon"))
             .movable(false)

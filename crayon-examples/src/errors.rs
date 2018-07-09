@@ -1,5 +1,5 @@
 use crayon::{resource, video};
-use crayon_3d;
+// use crayon_3d;
 
 #[derive(Debug, Fail)]
 pub enum Error {
@@ -7,8 +7,8 @@ pub enum Error {
     Graphics(video::errors::Error),
     #[fail(display = "{}", _0)]
     Resource(resource::errors::Error),
-    #[fail(display = "{}", _0)]
-    Scene(crayon_3d::errors::Error),
+    // #[fail(display = "{}", _0)]
+    // Scene(crayon_3d::errors::Error),
 }
 
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -25,8 +25,8 @@ impl From<resource::errors::Error> for Error {
     }
 }
 
-impl From<crayon_3d::errors::Error> for Error {
-    fn from(err: crayon_3d::errors::Error) -> Self {
-        Error::Scene(err)
-    }
-}
+// impl From<crayon_3d::errors::Error> for Error {
+//     fn from(err: crayon_3d::errors::Error) -> Self {
+//         Error::Scene(err)
+//     }
+// }

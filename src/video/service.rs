@@ -5,16 +5,17 @@ use std::time::Duration;
 
 use application::window::Window;
 use math;
-use resource::prelude::*;
-use resource::utils::prelude::*;
-use video::assets::prelude::*;
-use video::errors::{Error, Result};
+use utils::object_pool;
 
-use super::assets::mesh_loader::{MeshLoader, MeshParser};
-use super::assets::texture_loader::{TextureLoader, TextureParser};
-use super::backend::device::Device;
-use super::backend::frame::*;
-use super::command::*;
+use super::assets::prelude::*;
+use super::batch::DrawCall;
+use super::errors::*;
+
+// use super::assets::mesh_loader::{MeshLoader, MeshParser};
+// use super::assets::texture_loader::{TextureLoader, TextureParser};
+use super::backends::frame::*;
+use super::backends::gl::visitor::GLVisitor;
+use super::backends::Visitor;
 
 /// The information of video module during last frame.
 #[derive(Debug, Copy, Clone, Default)]
@@ -30,24 +31,23 @@ pub struct VideoFrameInfo {
 
 /// The centralized management of video sub-system.
 pub struct VideoSystem {
-    device: Device,
+    visitor: Box<Visitor>,
     frames: Arc<DoubleFrame>,
     shared: Arc<VideoSystemShared>,
-
     last_dimensions: math::Vector2<u32>,
 }
 
 impl VideoSystem {
     /// Create a new `VideoSystem` with one `Window` context.
-    pub fn new(window: &Window, resource: Arc<ResourceSystemShared>) -> Result<Self> {
-        let device = unsafe { Device::new(window)? };
+    pub fn new(window: &Window) -> Result<Self> {
         let frames = Arc::new(DoubleFrame::with_capacity(64 * 1024));
-        let shared = VideoSystemShared::new(resource, frames.clone());
+        let shared = VideoSystemShared::new(frames.clone());
+        let visitor = unsafe { Box::new(GLVisitor::glutin(window)?) };
 
         Ok(VideoSystem {
             last_dimensions: window.dimensions(),
+            visitor: visitor,
 
-            device: device,
             frames: frames,
             shared: Arc::new(shared),
         })
@@ -71,339 +71,146 @@ impl VideoSystem {
     pub fn advance(&mut self, window: &Window) -> Result<VideoFrameInfo> {
         use std::time;
 
-        unsafe {
-            let ts = time::Instant::now();
-            let dimensions = window.dimensions();
+        let ts = time::Instant::now();
+        let dimensions = window.dimensions();
 
-            // Resize the window, which would recreate the underlying framebuffer.
-            if dimensions != self.last_dimensions {
-                self.last_dimensions = dimensions;
-                window.resize(window.physical_dimensions());
-            }
-
-            {
-                self.device.run_one_frame()?;
-
-                {
-                    let mut frame = self.frames.back();
-                    frame.dispatch(&mut self.device, dimensions)?;
-                    frame.clear();
-                }
-            }
-
-            window.swap_buffers()?;
-            let mut info = VideoFrameInfo::default();
-            {
-                let v = self.device.frame_info();
-                info.drawcall = v.drawcall;
-                info.triangles = v.triangles;
-            }
-
-            {
-                let s = &self.shared;
-                info.alive_surfaces = Self::clear(&mut s.surfaces.write().unwrap());
-                info.alive_shaders = Self::clear(&mut s.shaders.write().unwrap());
-                info.alive_meshes = Self::clear(&mut s.meshes.write().unwrap());
-                info.alive_textures = Self::clear(&mut s.textures.write().unwrap());
-            }
-
-            info.duration = time::Instant::now() - ts;
-            Ok(info)
+        // Resize the window, which would recreate the underlying framebuffer.
+        if dimensions != self.last_dimensions {
+            self.last_dimensions = dimensions;
+            window.resize(window.dimensions_in_points());
         }
-    }
 
-    fn clear<T>(v: &mut Registery<T>) -> u32
-    where
-        T: Sized,
-    {
-        v.clear();
-        v.len() as u32
+        let (dc, tris) = self.frames
+            .back()
+            .dispatch(self.visitor.as_mut(), dimensions)?;
+        let mut info = VideoFrameInfo::default();
+
+        {
+            let s = &self.shared;
+            info.alive_surfaces = s.surfaces.write().unwrap().len() as u32;
+            info.alive_shaders = s.shaders.write().unwrap().len() as u32;
+            info.alive_meshes = s.meshes.write().unwrap().len() as u32;
+            info.alive_textures = s.textures.write().unwrap().len() as u32;
+            info.drawcall = dc;
+            info.triangles = tris;
+        }
+
+        info.duration = time::Instant::now() - ts;
+        Ok(info)
     }
 }
 
 /// The multi-thread friendly parts of `VideoSystem`.
 pub struct VideoSystemShared {
-    resource: Arc<ResourceSystemShared>,
-    frames: Arc<DoubleFrame>,
+    pub(crate) frames: Arc<DoubleFrame>,
 
-    surfaces: RwLock<Registery<SurfaceParams>>,
-    render_textures: RwLock<Registery<RenderTextureParams>>,
-    shaders: RwLock<Registery<ShaderParams>>,
-    meshes: Arc<RwLock<Registery<AssetMeshState>>>,
-    textures: Arc<RwLock<Registery<AssetTextureState>>>,
+    surfaces: RwLock<object_pool::ObjectPool<SurfaceParams>>,
+    shaders: RwLock<object_pool::ObjectPool<ShaderParams>>,
+    textures: RwLock<object_pool::ObjectPool<TextureParams>>,
+    render_textures: RwLock<object_pool::ObjectPool<RenderTextureParams>>,
+    meshes: RwLock<object_pool::ObjectPool<MeshParams>>,
 }
 
 impl VideoSystemShared {
     /// Create a new `VideoSystem` with one `Window` context.
-    fn new(resource: Arc<ResourceSystemShared>, frames: Arc<DoubleFrame>) -> Self {
+    fn new(frames: Arc<DoubleFrame>) -> Self {
         VideoSystemShared {
-            resource: resource,
             frames: frames,
 
-            surfaces: RwLock::new(Registery::passive()),
-            shaders: RwLock::new(Registery::passive()),
-            meshes: Arc::new(RwLock::new(Registery::passive())),
-            textures: Arc::new(RwLock::new(Registery::passive())),
-            render_textures: RwLock::new(Registery::passive()),
+            surfaces: RwLock::new(object_pool::ObjectPool::new()),
+            shaders: RwLock::new(object_pool::ObjectPool::new()),
+            meshes: RwLock::new(object_pool::ObjectPool::new()),
+            textures: RwLock::new(object_pool::ObjectPool::new()),
+            render_textures: RwLock::new(object_pool::ObjectPool::new()),
         }
     }
 
-    /// Submit a task into named bucket.
+    /// Draws ur mesh.
     ///
-    /// Tasks inside bucket will be executed in sequential order.
-    pub fn submit<'a, T1, T2>(&self, s: SurfaceHandle, o: T1, task: T2) -> Result<()>
-    where
-        T1: Into<u64>,
-        T2: Into<Command<'a>>,
-    {
-        if !self.surfaces.read().unwrap().is_alive(s) {
-            return Err(Error::SurfaceHandleInvalid(s));
-        }
-
-        let o = o.into();
-        match task.into() {
-            Command::DrawCall(dc) => self.submit_drawcall(s, o, &dc),
-            Command::VertexBufferUpdate(vbu) => self.submit_update_vertex_buffer(s, o, &vbu),
-            Command::IndexBufferUpdate(ibu) => self.submit_update_index_buffer(s, o, &ibu),
-            Command::TextureUpdate(tu) => self.submit_update_texture(s, o, &tu),
-            Command::SetScissor(sc) => self.submit_set_scissor(s, o, &sc),
-            Command::SetViewport(vp) => self.submit_set_viewport(s, o, &vp),
-        }
-    }
-
-    fn submit_drawcall<'a>(
-        &self,
-        surface: SurfaceHandle,
-        order: u64,
-        dc: &SliceDrawCall<'a>,
-    ) -> Result<()> {
-        if !self.surfaces.read().unwrap().is_alive(surface) {
-            return Err(Error::SurfaceHandleInvalid(surface));
-        }
-
-        if let Some(state) = self.meshes.read().unwrap().get(dc.mesh) {
-            if !state.is_ready() {
-                return Ok(());
-            }
-        } else {
-            return Err(Error::MeshHandleInvalid(dc.mesh));
-        }
-
+    /// Notes that you should use [Batch](crate::video::batch::Batch) if possible.
+    #[inline]
+    pub fn draw(&mut self, handle: SurfaceHandle, dc: DrawCall) {
         let mut frame = self.frames.front();
-        let uniforms = {
-            let mut pack = Vec::new();
-            if let Some(params) = self.shaders.read().unwrap().get(dc.shader) {
-                for &(n, v) in dc.uniforms {
-                    if let Some(tt) = params.uniforms.variable_type(n) {
-                        if tt == v.variable_type() {
-                            pack.push((n, frame.buf.extend(&v)));
-                        } else {
-                            let name = params.uniforms.variable_name(n).unwrap();
-                            return Err(Error::DrawFailure(format!(
-                                "Unmatched uniform variable: [{:?}]{:?} ({:?} required).",
-                                v.variable_type(),
-                                name,
-                                tt
-                            )));
-                        }
-                    } else {
-                        return Err(Error::DrawFailure(format!(
-                            "Undefined uniform variable: {:?}.",
-                            n
-                        )));
-                    }
-                }
-            } else {
-                return Err(Error::ShaderHandleInvalid(dc.shader));
-            }
+        let len = dc.uniforms_len;
+        let ptr = frame.bufs.extend_from_slice(&dc.uniforms[0..len]);
+        let cmd = Command::Draw(dc.shader, dc.mesh, dc.mesh_index, ptr);
 
-            frame.buf.extend_from_slice(&pack)
-        };
-
-        let dc = FrameDrawCall {
-            shader: dc.shader,
-            uniforms: uniforms,
-            mesh: dc.mesh,
-            index: dc.index,
-        };
-
-        frame.tasks.push((surface, order, FrameTask::DrawCall(dc)));
-        Ok(())
+        frame.cmds.push(Command::Bind(handle));
+        frame.cmds.push(cmd);
     }
 
-    fn submit_set_scissor(
-        &self,
-        surface: SurfaceHandle,
-        order: u64,
-        su: &ScissorUpdate,
-    ) -> Result<()> {
-        if !self.surfaces.read().unwrap().is_alive(surface) {
-            return Err(Error::SurfaceHandleInvalid(surface));
-        }
-
+    /// Updates the scissor test of surface.
+    ///
+    /// The test is initially disabled. While the test is enabled, only pixels that lie within
+    /// the scissor box can be modified by drawing commands.
+    ///
+    /// Notes that you should use [Batch](crate::video::batch::Batch) if possible.
+    #[inline]
+    pub fn update_scissor(&mut self, handle: SurfaceHandle, scissor: SurfaceScissor) {
         let mut frame = self.frames.front();
-        let task = FrameTask::UpdateSurfaceScissor(*su);
-        frame.tasks.push((surface, order, task));
-        Ok(())
+        frame.cmds.push(Command::Bind(handle));
+        frame.cmds.push(Command::UpdateScissor(scissor));
     }
 
-    fn submit_set_viewport(
-        &self,
-        surface: SurfaceHandle,
-        order: u64,
-        vp: &ViewportUpdate,
-    ) -> Result<()> {
-        if !self.surfaces.read().unwrap().is_alive(surface) {
-            return Err(Error::SurfaceHandleInvalid(surface));
-        }
-
+    /// Updates the scissor test of surface.
+    ///
+    /// The test is initially disabled. While the test is enabled, only pixels that lie within
+    /// the scissor box can be modified by drawing commands.
+    ///
+    /// Notes that you should use [Batch](crate::video::batch::Batch) if possible.
+    #[inline]
+    pub fn update_viewport(&mut self, handle: SurfaceHandle, viewport: SurfaceViewport) {
         let mut frame = self.frames.front();
-        let task = FrameTask::UpdateSurfaceViewport(*vp);
-        frame.tasks.push((surface, order, task));
-        Ok(())
-    }
-
-    fn submit_update_vertex_buffer(
-        &self,
-        surface: SurfaceHandle,
-        order: u64,
-        vbu: &VertexBufferUpdate,
-    ) -> Result<()> {
-        if !self.surfaces.read().unwrap().is_alive(surface) {
-            return Err(Error::SurfaceHandleInvalid(surface));
-        }
-
-        if let Some(state) = self.meshes.read().unwrap().get(vbu.mesh) {
-            if !state.is_ready() {
-                unreachable!();
-            } else {
-                let mut frame = self.frames.front();
-                let ptr = frame.buf.extend_from_slice(vbu.data);
-                let task = FrameTask::UpdateVertexBuffer(vbu.mesh, vbu.offset, ptr);
-                frame.tasks.push((surface, order, task));
-                Ok(())
-            }
-        } else {
-            Err(Error::MeshHandleInvalid(vbu.mesh))
-        }
-    }
-
-    fn submit_update_index_buffer(
-        &self,
-        surface: SurfaceHandle,
-        order: u64,
-        ibu: &IndexBufferUpdate,
-    ) -> Result<()> {
-        if !self.surfaces.read().unwrap().is_alive(surface) {
-            return Err(Error::SurfaceHandleInvalid(surface));
-        }
-
-        if let Some(state) = self.meshes.read().unwrap().get(ibu.mesh) {
-            if !state.is_ready() {
-                unreachable!();
-            } else {
-                let mut frame = self.frames.front();
-                let ptr = frame.buf.extend_from_slice(ibu.data);
-                let task = FrameTask::UpdateIndexBuffer(ibu.mesh, ibu.offset, ptr);
-                frame.tasks.push((surface, order, task));
-                Ok(())
-            }
-        } else {
-            Err(Error::MeshHandleInvalid(ibu.mesh))
-        }
-    }
-
-    fn submit_update_texture(
-        &self,
-        surface: SurfaceHandle,
-        order: u64,
-        tu: &TextureUpdate,
-    ) -> Result<()> {
-        if !self.surfaces.read().unwrap().is_alive(surface) {
-            return Err(Error::SurfaceHandleInvalid(surface));
-        }
-
-        if let Some(state) = self.textures.read().unwrap().get(tu.texture) {
-            if !state.is_ready() {
-                unreachable!();
-            } else {
-                let mut frame = self.frames.front();
-                let ptr = frame.buf.extend_from_slice(tu.data);
-                let task = FrameTask::UpdateTexture(tu.texture, tu.rect, ptr);
-                frame.tasks.push((surface, order, task));
-                Ok(())
-            }
-        } else {
-            Err(Error::TextureHandleInvalid(tu.texture))
-        }
+        frame.cmds.push(Command::Bind(handle));
+        frame.cmds.push(Command::UpdateViewport(viewport));
     }
 }
 
 impl VideoSystemShared {
-    /// Creates an view with `SurfaceSetup`.
-    pub fn create_surface(&self, setup: SurfaceSetup) -> Result<SurfaceHandle> {
-        let location = Location::unique("");
-        let handle = self.surfaces
-            .write()
-            .unwrap()
-            .create(location, setup)
-            .into();
+    /// Creates an view with `SurfaceParams`.
+    pub fn create_surface(&self, params: SurfaceParams) -> Result<SurfaceHandle> {
+        let handle = self.surfaces.write().unwrap().create(params).into();
 
         {
-            let task = PreFrameTask::CreateSurface(handle, setup);
-            self.frames.front().pre.push(task);
+            let cmd = Command::CreateSurface(handle, params);
+            self.frames.front().cmds.push(cmd);
         }
 
         Ok(handle)
     }
 
     /// Gets the `SurfaceParams` if available.
-    pub fn surface(&self, handle: MeshHandle) -> Option<SurfaceParams> {
+    pub fn surface(&self, handle: SurfaceHandle) -> Option<SurfaceParams> {
         self.surfaces.read().unwrap().get(handle).cloned()
     }
 
-    /// Returns true if shader is exists.
-    pub fn is_surface_alive(&self, handle: SurfaceHandle) -> bool {
-        self.surfaces.read().unwrap().is_alive(handle)
-    }
-
-    /// Delete surface object.
+    /// Deletes surface object.
     pub fn delete_surface(&self, handle: SurfaceHandle) {
-        if self.surfaces.write().unwrap().dec_rc(handle).is_some() {
-            let task = PostFrameTask::DeleteSurface(handle);
-            self.frames.front().post.push(task);
+        if self.surfaces.write().unwrap().free(handle).is_some() {
+            let cmd = Command::DeleteSurface(handle);
+            self.frames.front().cmds.push(cmd);
         }
     }
 }
 
 impl VideoSystemShared {
-    /// Lookup shader object from location.
-    pub fn lookup_shader(&self, location: Location) -> Option<ShaderHandle> {
-        self.shaders
-            .read()
-            .unwrap()
-            .lookup(location)
-            .map(|v| v.into())
-    }
+    /// Create a shader with initial shaders and render state. It encapusulates all the
+    /// informations we need to configurate graphics pipeline before real drawing.
+    pub fn create_shader(
+        &self,
+        params: ShaderParams,
+        vs: String,
+        fs: String,
+    ) -> Result<ShaderHandle> {
+        params.validate(&vs, &fs)?;
 
-    /// Create a shader with initial shaders and render state. Pipeline encapusulate
-    /// all the informations we need to configurate OpenGL before real drawing.
-    pub fn create_shader(&self, setup: ShaderSetup) -> Result<ShaderHandle> {
-        setup.validate()?;
+        let handle = self.shaders.write().unwrap().create(params.clone()).into();
 
-        let handle = {
-            let mut shaders = self.shaders.write().unwrap();
-            let location = setup.location;
-            if let Some(handle) = shaders.lookup(location) {
-                shaders.inc_rc(handle);
-                return Ok(handle.into());
-            }
+        {
+            let cmd = Command::CreateShader(handle, params, vs, fs);
+            self.frames.front().cmds.push(cmd);
+        }
 
-            shaders.create(location, setup.params.clone()).into()
-        };
-
-        let task = PreFrameTask::CreatePipeline(handle, setup.params, setup.vs, setup.fs);
-        self.frames.front().pre.push(task);
         Ok(handle)
     }
 
@@ -412,219 +219,119 @@ impl VideoSystemShared {
         self.shaders.read().unwrap().get(handle).cloned()
     }
 
-    /// Returns true if shader is exists.
-    pub fn is_shader_alive(&self, handle: ShaderHandle) -> bool {
-        self.shaders.read().unwrap().is_alive(handle)
-    }
-
     /// Delete shader state object.
     pub fn delete_shader(&self, handle: ShaderHandle) {
-        if self.shaders.write().unwrap().dec_rc(handle).is_some() {
-            let task = PostFrameTask::DeletePipeline(handle);
-            self.frames.front().post.push(task);
+        if self.shaders.write().unwrap().free(handle).is_some() {
+            let cmd = Command::DeleteShader(handle);
+            self.frames.front().cmds.push(cmd);
         }
     }
 }
 
 impl VideoSystemShared {
-    /// Lookup mesh object from location.
-    pub fn lookup_mesh(&self, location: Location) -> Option<MeshHandle> {
-        self.meshes
-            .read()
-            .unwrap()
-            .lookup(location)
-            .map(|v| v.into())
-    }
-
-    /// Create a new mesh object from location.
-    pub fn create_mesh_from_file<T>(&self, setup: MeshSetup) -> Result<MeshHandle>
-    where
-        T: MeshParser + Send + Sync + 'static,
-    {
-        setup.validate()?;
-
-        let handle = {
-            let mut meshes = self.meshes.write().unwrap();
-            if let Some(handle) = meshes.lookup(setup.location) {
-                meshes.inc_rc(handle);
-                return Ok(handle.into());
-            }
-
-            let state = AssetState::NotReady;
-            meshes.create(setup.location, state).into()
-        };
-
-        let loader = MeshLoader::<T>::new(
-            handle,
-            setup.params,
-            self.meshes.clone(),
-            self.frames.clone(),
-        );
-
-        self.resource.load_async(loader, setup.location.uri());
-        Ok(handle)
-    }
-
     /// Create a new mesh object.
-    pub fn create_mesh(&self, setup: MeshSetup) -> Result<MeshHandle> {
-        setup.validate()?;
+    pub fn create_mesh<'a, 'b, T1, T2>(
+        &self,
+        params: MeshParams,
+        verts: T1,
+        idxes: T2,
+    ) -> Result<MeshHandle>
+    where
+        T1: Into<Option<&'a [u8]>>,
+        T2: Into<Option<&'b [u8]>>,
+    {
+        let verts = verts.into();
+        let idxes = idxes.into();
+        params.validate(verts, idxes)?;
 
-        let handle = {
-            let mut meshes = self.meshes.write().unwrap();
-            if let Some(handle) = meshes.lookup(setup.location) {
-                meshes.inc_rc(handle);
-                return Ok(handle.into());
-            }
+        let handle = self.meshes.write().unwrap().create(params.clone()).into();
 
-            let state = AssetState::ready(setup.params.clone());
-            meshes.create(setup.location, state).into()
-        };
+        {
+            let mut frame = self.frames.front();
+            let vptr = verts.map(|v| frame.bufs.extend_from_slice(v));
+            let iptr = idxes.map(|v| frame.bufs.extend_from_slice(v));
+            let cmd = Command::CreateMesh(handle, params, vptr, iptr);
+            frame.cmds.push(cmd);
+        }
 
-        let mut frame = self.frames.front();
-        let verts_ptr = setup.verts.map(|v| frame.buf.extend_from_slice(v));
-        let idxes_ptr = setup.idxes.map(|v| frame.buf.extend_from_slice(v));
-        let task = PreFrameTask::CreateMesh(handle, setup.params, verts_ptr, idxes_ptr);
-        frame.pre.push(task);
         Ok(handle)
     }
 
     /// Gets the `MeshParams` if available.
-    ///
-    /// Notes that this function might returns `None` even if `is_mesh_alive` returns
-    /// true. The underlying object might be still in creation process and can not be
-    /// provided yet.
-    pub fn mesh(&self, handle: MeshHandle) -> Option<Arc<MeshParams>> {
-        self.meshes.read().unwrap().get(handle).and_then(|v| {
-            if let &AssetState::Ready(ref mso) = v {
-                Some(mso.clone())
-            } else {
-                None
-            }
-        })
-    }
-
-    /// Checks whether the mesh is exists.
-    pub fn is_mesh_alive(&self, handle: MeshHandle) -> bool {
-        self.meshes.read().unwrap().is_alive(handle)
+    pub fn mesh(&self, handle: MeshHandle) -> Option<MeshParams> {
+        self.meshes.read().unwrap().get(handle).cloned()
     }
 
     /// Update a subset of dynamic vertex buffer. Use `offset` specifies the offset
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
-    pub fn update_vertex_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
-        if let Some(state) = self.meshes.read().unwrap().get(mesh) {
-            if let &AssetState::Ready(ref mso) = state {
-                if mso.hint == MeshHint::Immutable {
-                    return Err(Error::UpdateImmutableBuffer);
-                }
-
-                let mut frame = self.frames.front();
-                let ptr = frame.buf.extend_from_slice(data);
-                let task = PreFrameTask::UpdateVertexBuffer(mesh, offset, ptr);
-                frame.pre.push(task);
-            } else {
-                unreachable!();
-            }
+    pub fn update_vertex_buffer(
+        &self,
+        handle: MeshHandle,
+        offset: usize,
+        data: &[u8],
+    ) -> Result<()> {
+        if let Some(_) = self.meshes.read().unwrap().get(handle) {
+            let mut frame = self.frames.front();
+            let ptr = frame.bufs.extend_from_slice(data);
+            let cmd = Command::UpdateVertexBuffer(handle, offset, ptr);
+            frame.cmds.push(cmd);
 
             Ok(())
         } else {
-            Err(Error::MeshHandleInvalid(mesh))
+            Err(Error::HandleInvalid(format!("{:?}", handle)))
         }
     }
 
     /// Update a subset of dynamic index buffer. Use `offset` specifies the offset
     /// into the buffer object's data store where data replacement will begin, measured
     /// in bytes.
-    pub fn update_index_buffer(&self, mesh: MeshHandle, offset: usize, data: &[u8]) -> Result<()> {
-        if let Some(state) = self.meshes.read().unwrap().get(mesh) {
-            if let &AssetState::Ready(ref mso) = state {
-                if mso.hint == MeshHint::Immutable {
-                    return Err(Error::UpdateImmutableBuffer);
-                }
-
-                let mut frame = self.frames.front();
-                let ptr = frame.buf.extend_from_slice(data);
-                let task = PreFrameTask::UpdateIndexBuffer(mesh, offset, ptr);
-                frame.pre.push(task);
-            } else {
-                unreachable!();
-            }
+    pub fn update_index_buffer(
+        &self,
+        handle: MeshHandle,
+        offset: usize,
+        data: &[u8],
+    ) -> Result<()> {
+        if let Some(_) = self.meshes.read().unwrap().get(handle) {
+            let mut frame = self.frames.front();
+            let ptr = frame.bufs.extend_from_slice(data);
+            let cmd = Command::UpdateIndexBuffer(handle, offset, ptr);
+            frame.cmds.push(cmd);
 
             Ok(())
         } else {
-            Err(Error::MeshHandleInvalid(mesh))
+            Err(Error::HandleInvalid(format!("{:?}", handle)))
         }
     }
 
     /// Delete mesh object.
-    pub fn delete_mesh(&self, mesh: MeshHandle) {
-        if self.meshes.write().unwrap().dec_rc(mesh).is_some() {
-            let task = PostFrameTask::DeleteMesh(mesh);
-            self.frames.front().post.push(task);
+    pub fn delete_mesh(&self, handle: MeshHandle) {
+        if self.meshes.write().unwrap().free(handle).is_some() {
+            let cmd = Command::DeleteMesh(handle);
+            self.frames.front().cmds.push(cmd);
         }
     }
 }
 
 impl VideoSystemShared {
-    /// Lookup texture object from location.
-    pub fn lookup_texture(&self, location: Location) -> Option<TextureHandle> {
-        self.textures
-            .read()
-            .unwrap()
-            .lookup(location)
-            .map(|v| v.into())
-    }
-
-    /// Create texture object from location.
-    pub fn create_texture_from_file<T>(&self, setup: TextureSetup) -> Result<TextureHandle>
-    where
-        T: TextureParser + Send + Sync + 'static,
-    {
-        setup.validate()?;
-
-        let handle = {
-            let mut textures = self.textures.write().unwrap();
-            if let Some(handle) = textures.lookup(setup.location) {
-                textures.inc_rc(handle);
-                return Ok(handle.into());
-            }
-
-            let state = AssetState::NotReady;
-            let handle = textures.create(setup.location, state).into();
-            handle
-        };
-
-        let loader = TextureLoader::<T>::new(
-            handle,
-            setup.params,
-            self.textures.clone(),
-            self.frames.clone(),
-        );
-
-        self.resource.load_async(loader, setup.location.uri());
-        Ok(handle)
-    }
-
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
-    pub fn create_texture(&self, setup: TextureSetup) -> Result<TextureHandle> {
-        setup.validate()?;
+    pub fn create_texture<'a, T>(&self, params: TextureParams, data: T) -> Result<TextureHandle>
+    where
+        T: Into<Option<&'a [u8]>>,
+    {
+        let data = data.into();
+        params.validate(data)?;
 
-        let handle = {
-            let mut textures = self.textures.write().unwrap();
-            if let Some(handle) = textures.lookup(setup.location) {
-                textures.inc_rc(handle);
-                return Ok(handle.into());
-            }
+        let handle = self.textures.write().unwrap().create(params).into();
 
-            let state = AssetState::ready(setup.params.clone());
-            textures.create(setup.location, state).into()
-        };
+        {
+            let mut frame = self.frames.front();
+            let ptr = data.map(|v| frame.bufs.extend_from_slice(v));
+            let task = Command::CreateTexture(handle, params, ptr);
+            frame.cmds.push(task);
+        }
 
-        let mut frame = self.frames.front();
-        let ptr = setup.data.map(|v| frame.buf.extend_from_slice(v));
-        let task = PreFrameTask::CreateTexture(handle, setup.params, ptr);
-        frame.pre.push(task);
         Ok(handle)
     }
 
@@ -634,94 +341,63 @@ impl VideoSystemShared {
     /// true. The underlying object might be still in creation process and can not be
     /// provided yet.
     pub fn texture(&self, handle: TextureHandle) -> Option<TextureParams> {
-        self.textures.read().unwrap().get(handle).and_then(|v| {
-            if let &AssetState::Ready(ref texture) = v {
-                Some(*texture.as_ref())
-            } else {
-                None
-            }
-        })
-    }
-
-    /// Returns true if texture is exists.
-    pub fn is_texture_alive(&self, handle: TextureHandle) -> bool {
-        self.textures.read().unwrap().is_alive(handle)
+        self.textures.read().unwrap().get(handle).cloned()
     }
 
     /// Update a contiguous subregion of an existing two-dimensional texture object.
     pub fn update_texture(
         &self,
         handle: TextureHandle,
-        rect: math::Aabb2<f32>,
+        area: math::Aabb2<u32>,
         data: &[u8],
     ) -> Result<()> {
-        if let Some(state) = self.textures.read().unwrap().get(handle) {
-            if let AssetState::Ready(ref texture) = *state {
-                if texture.hint == TextureHint::Immutable {
-                    return Err(Error::UpdateImmutableBuffer);
-                }
-
-                let mut frame = self.frames.front();
-                let ptr = frame.buf.extend_from_slice(data);
-                let task = PreFrameTask::UpdateTexture(handle, rect, ptr);
-                frame.pre.push(task);
-            } else {
-                unreachable!()
-            }
+        if let Some(_) = self.textures.read().unwrap().get(handle) {
+            let mut frame = self.frames.front();
+            let ptr = frame.bufs.extend_from_slice(data);
+            let cmd = Command::UpdateTexture(handle, area, ptr);
+            frame.cmds.push(cmd);
 
             Ok(())
         } else {
-            Err(Error::TextureHandleInvalid(handle))
+            Err(Error::HandleInvalid(format!("{:?}", handle)))
         }
     }
 
     /// Delete the texture object.
     pub fn delete_texture(&self, handle: TextureHandle) {
-        if self.textures.write().unwrap().dec_rc(handle).is_some() {
-            let task = PostFrameTask::DeleteTexture(handle);
-            self.frames.front().post.push(task);
+        if self.textures.write().unwrap().free(handle).is_some() {
+            let cmd = Command::DeleteTexture(handle);
+            self.frames.front().cmds.push(cmd);
         }
     }
 }
 
 impl VideoSystemShared {
     /// Create render texture object, which could be attached with a framebuffer.
-    pub fn create_render_texture(&self, setup: RenderTextureSetup) -> Result<RenderTextureHandle> {
-        let location = Location::unique("");
-        let handle = self.render_textures
-            .write()
-            .unwrap()
-            .create(location, setup)
-            .into();
+    pub fn create_render_texture(
+        &self,
+        params: RenderTextureParams,
+    ) -> Result<RenderTextureHandle> {
+        let handle = self.render_textures.write().unwrap().create(params).into();
 
         {
-            let task = PreFrameTask::CreateRenderTexture(handle, setup);
-            self.frames.front().pre.push(task);
+            let cmd = Command::CreateRenderTexture(handle, params);
+            self.frames.front().cmds.push(cmd);
         }
 
         Ok(handle)
     }
 
     /// Gets the `RenderTextureParams` if available.
-    pub fn render_texture(&self, handle: MeshHandle) -> Option<RenderTextureParams> {
+    pub fn render_texture(&self, handle: RenderTextureHandle) -> Option<RenderTextureParams> {
         self.render_textures.read().unwrap().get(handle).cloned()
-    }
-
-    /// Returns true if texture is exists.
-    pub fn is_render_texture_alive(&self, handle: RenderTextureHandle) -> bool {
-        self.render_textures.read().unwrap().is_alive(handle)
     }
 
     /// Delete the render texture object.
     pub fn delete_render_texture(&self, handle: RenderTextureHandle) {
-        if self.render_textures
-            .write()
-            .unwrap()
-            .dec_rc(handle)
-            .is_some()
-        {
-            let task = PostFrameTask::DeleteRenderTexture(handle);
-            self.frames.front().post.push(task);
+        if self.render_textures.write().unwrap().free(handle).is_some() {
+            let cmd = Command::DeleteRenderTexture(handle);
+            self.frames.front().cmds.push(cmd);
         }
     }
 }

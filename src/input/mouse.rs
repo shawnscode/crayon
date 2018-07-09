@@ -161,18 +161,23 @@ impl Mouse {
     }
 
     #[inline]
-    pub fn position(&self) -> math::Vector2<f32> {
+    pub fn position_in_points(&self) -> math::Vector2<f32> {
         self.position * self.inv_hidpi
     }
 
     #[inline]
-    pub fn position_in_pixel(&self) -> math::Vector2<f32> {
+    pub fn position(&self) -> math::Vector2<f32> {
         self.position
     }
 
     #[inline]
-    pub fn movement(&self) -> math::Vector2<f32> {
+    pub fn movement_in_points(&self) -> math::Vector2<f32> {
         (self.position - self.last_position) * self.inv_hidpi
+    }
+
+    #[inline]
+    pub fn movement(&self) -> math::Vector2<f32> {
+        self.position - self.last_position
     }
 
     #[inline]

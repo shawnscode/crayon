@@ -33,7 +33,7 @@ pub struct Renderer {
 impl Renderer {
     pub fn new(ctx: &Context, resources: &mut Resources, setup: DrawSetup) -> Result<Renderer> {
         let mut video = VideoSystemGuard::new(ctx.video.clone());
-        let surface = video.create_surface(SurfaceSetup::default())?;
+        let surface = video.create_surface(SurfaceParams::default())?;
 
         let undefined = factory::pipeline::undefined(resources)?;
         let mat = resources.create_material(MaterialSetup::new(undefined))?;

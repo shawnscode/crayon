@@ -6,57 +6,22 @@ pub mod texture_loader;
 pub mod mesh;
 pub mod mesh_loader;
 
-use std::sync::Arc;
-
-pub(crate) enum AssetState<T>
-where
-    T: Sized + 'static,
-{
-    NotReady,
-    Ready(Arc<T>),
-    Err(String),
-}
-
-impl<T> AssetState<T>
-where
-    T: Sized,
-{
-    pub fn ready(v: T) -> Self {
-        AssetState::Ready(Arc::new(v))
-    }
-
-    pub fn is_ready(&self) -> bool {
-        match *self {
-            AssetState::Ready(_) => true,
-            _ => false,
-        }
-    }
-}
-
-pub(crate) type AssetMeshState = AssetState<self::mesh::MeshParams>;
-pub(crate) type AssetTextureState = AssetState<self::texture::TextureParams>;
-
 pub mod prelude {
-    pub use super::surface::{
-        SurfaceHandle, SurfaceParams, SurfaceScissor, SurfaceSetup, SurfaceViewport,
-    };
+    pub use super::surface::{SurfaceHandle, SurfaceParams, SurfaceScissor, SurfaceViewport};
 
     pub use super::shader::{
         Attribute, AttributeLayout, AttributeLayoutBuilder, BlendFactor, BlendValue, Comparison,
-        CullFace, Equation, FrontFaceOrder, RenderState, ShaderHandle, ShaderParams, ShaderSetup,
+        CullFace, Equation, FrontFaceOrder, RenderState, ShaderHandle, ShaderParams,
         UniformVariable, UniformVariableLayout, UniformVariableLayoutBuilder, UniformVariableType,
     };
 
     pub use super::texture::{
-        RenderTextureFormat, RenderTextureHandle, RenderTextureParams, RenderTextureSetup,
-        TextureAddress, TextureFilter, TextureFormat, TextureHandle, TextureHint, TextureParams,
-        TextureSetup,
+        RenderTextureFormat, RenderTextureHandle, RenderTextureParams, TextureFilter,
+        TextureFormat, TextureHandle, TextureHint, TextureParams, TextureWrap,
     };
 
     pub use super::mesh::{
-        IndexFormat, MeshHandle, MeshHint, MeshIndex, MeshParams, MeshPrimitive, MeshSetup,
-        VertexFormat, VertexLayout,
+        IndexFormat, MeshHandle, MeshHint, MeshIndex, MeshParams, MeshPrimitive, VertexFormat,
+        VertexLayout,
     };
-
-    pub(crate) use super::{AssetMeshState, AssetState, AssetTextureState};
 }

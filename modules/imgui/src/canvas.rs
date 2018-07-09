@@ -10,7 +10,7 @@ use renderer::Renderer;
 pub struct FrameGuard<'a> {
     renderer: &'a mut Renderer,
     frame: Option<imgui::Ui<'a>>,
-    surface: SurfaceHandle,
+    surface: Option<SurfaceHandle>,
 }
 
 impl<'a> Deref for FrameGuard<'a> {
@@ -30,7 +30,7 @@ impl<'a> DerefMut for FrameGuard<'a> {
 impl<'a> Drop for FrameGuard<'a> {
     fn drop(&mut self) {
         if let Some(ui) = self.frame.take() {
-            self.renderer.render(self.surface, ui).unwrap();
+            self.renderer.draw(self.surface, ui).unwrap();
         }
     }
 }
@@ -54,13 +54,12 @@ impl Canvas {
         })
     }
 
-    pub fn frame<'a>(
-        &'a mut self,
-        surface: SurfaceHandle,
-        ctx: &application::Context,
-    ) -> FrameGuard<'a> {
+    pub fn frame<T>(&mut self, ctx: &application::Context, surface: T) -> FrameGuard
+    where
+        T: Into<Option<SurfaceHandle>>,
+    {
         // Update input device states.
-        Self::update_mouse_state(&mut self.ctx, &ctx.input);
+        Self::update_mouse_state(&mut self.ctx, &ctx);
         Self::update_keycode_state(&mut self.ctx, &ctx.input);
 
         // Generates frame builder.
@@ -70,15 +69,13 @@ impl Canvas {
         FrameGuard {
             renderer: &mut self.renderer,
             frame: Some(self.ctx.frame(
-                ctx.window.physical_dimensions().into(),
+                ctx.window.dimensions_in_points().into(),
                 ctx.window.dimensions().into(),
                 ts,
             )),
-            surface: surface,
+            surface: surface.into(),
         }
     }
-
-    pub fn render(&mut self) {}
 
     fn bind_keycode(imgui: &mut imgui::ImGui) {
         use imgui::ImGuiKey;
@@ -144,17 +141,18 @@ impl Canvas {
         imgui.set_key_super(lwin || rwin);
     }
 
-    fn update_mouse_state(imgui: &mut imgui::ImGui, input: &InputSystemShared) {
+    fn update_mouse_state(imgui: &mut imgui::ImGui, ctx: &application::Context) {
         use self::application::event::MouseButton;
 
-        let pos = input.mouse_position();
-        imgui.set_mouse_pos(pos.x, pos.y);
+        let dims = ctx.window.dimensions_in_points();
+        let pos = ctx.input.mouse_position_in_points();
+        imgui.set_mouse_pos(pos.x, dims.y as f32 - pos.y);
 
-        let l = input.is_mouse_down(MouseButton::Left);
-        let r = input.is_mouse_down(MouseButton::Right);
-        let m = input.is_mouse_down(MouseButton::Middle);
+        let l = ctx.input.is_mouse_down(MouseButton::Left);
+        let r = ctx.input.is_mouse_down(MouseButton::Right);
+        let m = ctx.input.is_mouse_down(MouseButton::Middle);
         imgui.set_mouse_down(&[l, r, m, false, false]);
 
-        imgui.set_mouse_wheel(input.mouse_scroll().y);
+        imgui.set_mouse_wheel(ctx.input.mouse_scroll().y);
     }
 }
