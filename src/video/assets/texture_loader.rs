@@ -27,7 +27,6 @@ impl ::res::ResourceHandle for TextureHandle {
 }
 
 impl ::res::ResourceLoader for TextureLoader {
-    const SCHEMA: &'static str = "vtex";
     type Handle = TextureHandle;
 
     fn create(&self) -> Result<Self::Handle> {

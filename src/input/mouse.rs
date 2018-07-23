@@ -10,7 +10,7 @@ use math::MetricSpace;
 /// Notes that the `distance` series paramters will be multiplied by `HiDPI`
 /// factor before recognizing processes.
 #[derive(Debug, Clone, Copy)]
-pub struct MouseSetup {
+pub struct MouseParams {
     pub press_timeout: Duration,
     pub max_press_distance: f32,
 
@@ -18,9 +18,9 @@ pub struct MouseSetup {
     pub max_click_distance: f32,
 }
 
-impl Default for MouseSetup {
+impl Default for MouseParams {
     fn default() -> Self {
-        MouseSetup {
+        MouseParams {
             press_timeout: Duration::from_millis(500),
             max_press_distance: 25.0,
 
@@ -39,11 +39,11 @@ pub struct Mouse {
     position: math::Vector2<f32>,
     scrol: math::Vector2<f32>,
     click_detectors: HashMap<event::MouseButton, ClickDetector>,
-    setup: MouseSetup,
+    setup: MouseParams,
 }
 
 impl Mouse {
-    pub fn new(setup: MouseSetup) -> Self {
+    pub fn new(setup: MouseParams) -> Self {
         Mouse {
             downs: HashSet::new(),
             presses: HashSet::new(),
@@ -196,12 +196,12 @@ struct ClickDetector {
     clicks: u32,
     frame_clicks: u32,
 
-    setup: MouseSetup,
+    setup: MouseParams,
     hidpi: f32,
 }
 
 impl ClickDetector {
-    pub fn new(setup: MouseSetup) -> Self {
+    pub fn new(setup: MouseParams) -> Self {
         ClickDetector {
             last_press_time: Instant::now(),
             last_press_position: math::Vector2::new(0.0, 0.0),

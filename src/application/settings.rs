@@ -10,7 +10,7 @@ use math;
 pub struct Settings {
     pub engine: EngineParams,
     pub window: WindowParams,
-    pub input: InputParams,
+    pub input: input::InputParams,
     pub headless: bool,
 }
 
@@ -56,5 +56,3 @@ impl Default for WindowParams {
         }
     }
 }
-
-pub type InputParams = input::InputSetup;

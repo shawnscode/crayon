@@ -1115,8 +1115,12 @@ impl GLVisitor {
             gl::ClearStencil(v);
         }
 
-        gl::Clear(bits);
-        check()
+        if bits != 0 {
+            gl::Clear(bits);
+            check()
+        } else {
+            Ok(())
+        }
     }
 }
 

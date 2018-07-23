@@ -193,7 +193,6 @@ pub const MAX_UNIFORM_TEXTURE_SLOTS: usize = 8;
 pub mod assets;
 pub mod batch;
 pub mod errors;
-pub mod guard;
 
 mod backends;
 mod service;
@@ -202,7 +201,6 @@ pub use self::service::{VideoFrameInfo, VideoSystem, VideoSystemShared};
 
 pub mod prelude {
     pub use super::batch::{Batch, DrawCall, OrderDrawBatch};
-    pub use super::guard::VideoSystemGuard;
     pub use super::{VideoFrameInfo, VideoSystem, VideoSystemShared};
 
     pub use super::assets::mesh::{MeshHandle, MeshIndex};

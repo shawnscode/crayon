@@ -33,7 +33,7 @@ impl Renderer {
     /// resources in background.
     pub fn new(ctx: &application::Context, imgui: &mut ImGui) -> Result<Self> {
         let mut params = SurfaceParams::default();
-        params.set_clear(math::Color::white(), None, None);
+        params.set_clear(None, None, None);
         let surface = ctx.video.create_surface(params)?;
 
         let layout = AttributeLayout::build()

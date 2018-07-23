@@ -1,7 +1,4 @@
-use std::sync::Arc;
-
 use crayon::prelude::*;
-use crayon::video::assets::prelude::*;
 
 use crayon_imgui;
 use crayon_imgui::prelude::*;
@@ -16,7 +13,6 @@ pub struct ConsoleCanvas {
 
 impl ConsoleCanvas {
     pub fn new(ctx: &Context) -> Result<Self> {
-        let video = ctx.video.clone();
         let canvas = Canvas::new(ctx).unwrap();
 
         Ok(ConsoleCanvas {

@@ -23,11 +23,11 @@ members = [ "crayon-examples", "modules/imgui" ]
 [dependencies]
 gl = "0.10.0"
 glutin = "0.13.1"
-cgmath = "0.16.1"
 failure = "0.1.1"
+crossbeam-deque = "0.5.1"
+cgmath = "0.16.1"
 rayon = "1.0.1"
 zip = "0.3.1"
-crossbeam-deque = "0.5.1"
 
 [dev-dependencies]
 rand = "0.4.2"

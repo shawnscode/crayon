@@ -5,7 +5,7 @@ use application::event;
 
 /// The setup parameters of keyboard device.
 #[derive(Debug, Clone, Copy)]
-pub struct KeyboardSetup {
+pub struct KeyboardParams {
     /// The maximum characters that could be captured in one frame.
     pub max_chars: usize,
     /// The time duration before a pressing is recognized as repeat operation.
@@ -14,9 +14,9 @@ pub struct KeyboardSetup {
     pub repeat_interval_timeout: Duration,
 }
 
-impl Default for KeyboardSetup {
+impl Default for KeyboardParams {
     fn default() -> Self {
-        KeyboardSetup {
+        KeyboardParams {
             max_chars: 128,
             repeat_timeout: Duration::from_millis(500),
             repeat_interval_timeout: Duration::from_millis(250),
@@ -34,12 +34,12 @@ pub struct Keyboard {
     presses: HashSet<event::KeyboardButton>,
     releases: HashSet<event::KeyboardButton>,
     chars: Vec<char>,
-    setup: KeyboardSetup,
+    setup: KeyboardParams,
     now: Instant,
 }
 
 impl Keyboard {
-    pub fn new(setup: KeyboardSetup) -> Self {
+    pub fn new(setup: KeyboardParams) -> Self {
         Keyboard {
             downs: HashMap::new(),
             presses: HashSet::new(),

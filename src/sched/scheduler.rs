@@ -2,40 +2,23 @@ use std::cell::Cell;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
-use std::sync::{Arc, Condvar, Mutex, Once, ONCE_INIT};
+use std::sync::{Arc, Condvar, Mutex};
 use std::{mem, thread};
 
 use crossbeam_deque as deque;
 
-use super::job::{JobRef, StackJob};
-use super::latch::{CountLatch, Latch, LockLatch};
+use super::job::JobRef;
+use super::latch::{CountLatch, Latch, LatchProbe, LatchWaitProbe, LockLatch};
 use super::unwind::AbortIfPanic;
 use super::PanicHandler;
 
-static mut SCHEDULER: Option<&'static Arc<Scheduler>> = None;
-
-pub unsafe fn init(num: u32, stack_size: Option<usize>, panic_handler: Option<Box<PanicHandler>>) {
-    assert!(
-        SCHEDULER.is_none(),
-        "Scheduler has been initialized already."
-    );
-
-    SCHEDULER = Some(leak(Scheduler::new(num, stack_size, panic_handler)));
-}
-
-pub fn current() -> &'static Arc<Scheduler> {
-    unsafe { SCHEDULER.expect("Scheduler has not been initialized.") }
-}
-
 pub struct Scheduler {
+    terminator: CountLatch,
+    watcher: Watcher,
     threads: Vec<ThreadInfo>,
-
     inject_stealer: deque::Stealer<JobRef>,
     injector: Mutex<deque::Worker<JobRef>>,
-
     panic_handler: Option<Box<PanicHandler>>,
-    terminator: CountLatch,
-    signal: Signal,
 }
 
 impl Scheduler {
@@ -69,7 +52,7 @@ impl Scheduler {
             inject_stealer: s,
             panic_handler: panic_handler,
             terminator: CountLatch::new(),
-            signal: Signal(Mutex::new(()), Condvar::new()),
+            watcher: Watcher(Mutex::new(()), Condvar::new()),
         });
 
         for (i, w) in workers.drain(..).enumerate() {
@@ -99,21 +82,21 @@ impl Scheduler {
             injector.push(job);
         }
 
-        self.signal.notify_one();
+        self.watcher.notify_one();
     }
 
-    /// Push a slice of jobs into the "external jobs" queue; it will be taken by
-    /// whatever worker has nothing to do.
-    pub fn inject_slice(&self, jobs: &[JobRef]) {
-        {
-            let injector = self.injector.lock().unwrap();
-            for &job in jobs {
-                injector.push(job);
-            }
-        }
+    // /// Push a slice of jobs into the "external jobs" queue; it will be taken by
+    // /// whatever worker has nothing to do.
+    // fn inject_slice(&self, jobs: &[JobRef]) {
+    //     {
+    //         let injector = self.injector.lock().unwrap();
+    //         for &job in jobs {
+    //             injector.push(job);
+    //         }
+    //     }
 
-        self.signal.notify_all();
-    }
+    //     self.watcher.notify_all();
+    // }
 
     /// Push a job into the given `registry`. If we are running on a worker thread for
     /// the registry, this will push onto the deque. Else, it will inject from the
@@ -125,10 +108,44 @@ impl Scheduler {
                 self.inject(job);
             } else {
                 (*worker_thread).push(job);
-                self.signal.notify_one();
+                self.watcher.notify_one();
             }
         }
     }
+
+    // /// If already in a worker-thread of this registry, just execute `op`.
+    // /// Otherwise, inject `op` in this thread-pool. Either way, block until `op`
+    // /// completes and return its return value. If `op` panics, that panic will
+    // /// be propagated as well.  The second argument indicates `true` if injection
+    // /// was performed, `false` if executed directly.
+    // fn in_worker<OP, R>(&self, op: OP) -> R
+    // where
+    //     OP: FnOnce(&WorkerThread, bool) -> R + Send,
+    //     R: Send,
+    // {
+    //     unsafe {
+    //         let worker_thread = WorkerThread::current();
+    //         if worker_thread.is_null() {
+    //             let job = StackJob::new(
+    //                 |_| {
+    //                     let worker_thread = WorkerThread::current();
+    //                     op(&*worker_thread, true)
+    //                 },
+    //                 LockLatch::new(),
+    //             );
+
+    //             self.inject(job.as_job_ref());
+
+    //             job.latch.wait();
+    //             job.into_result()
+    //         } else {
+    //             // Perfectly valid to give them a `&T`: this is the
+    //             // current thread, so we know the data structure won't be
+    //             // invalidated until we return.
+    //             op(&*worker_thread, false)
+    //         }
+    //     }
+    // }
 
     /// Handles panic.
     pub fn handle_panic(&self, err: Box<::std::any::Any + Send>) {
@@ -147,53 +164,33 @@ impl Scheduler {
         }
     }
 
-    /// If already in a worker-thread of this registry, just execute `op`.
-    /// Otherwise, inject `op` in this thread-pool. Either way, block until `op`
-    /// completes and return its return value. If `op` panics, that panic will
-    /// be propagated as well.  The second argument indicates `true` if injection
-    /// was performed, `false` if executed directly.
-    pub fn in_worker<OP, R>(&self, op: OP) -> R
+    pub fn wait_until<T>(&self, latch: &T)
     where
-        OP: FnOnce(&WorkerThread, bool) -> R + Send,
-        R: Send,
+        T: LatchWaitProbe,
     {
         unsafe {
             let worker_thread = WorkerThread::current();
             if worker_thread.is_null() {
-                let job = StackJob::new(
-                    |_| {
-                        let worker_thread = WorkerThread::current();
-                        op(&*worker_thread, true)
-                    },
-                    LockLatch::new(),
-                );
-
-                self.inject(job.as_job_ref());
-
-                job.latch.wait();
-                job.into_result()
+                latch.wait();
             } else {
-                // Perfectly valid to give them a `&T`: this is the
-                // current thread, so we know the data structure won't be
-                // invalidated until we return.
-                op(&*worker_thread, false)
+                (*worker_thread).wait_until(latch);
             }
         }
     }
 
-    /// Signals that the thread-pool which owns this scheduler has been dropped.
-    /// The worker threads will gradually terminate, once any extant work is
-    /// completed.
-    pub fn terminate(&self) {
+    #[inline]
+    pub fn terminate_dec(&self) {
         self.terminator.set();
     }
 
-    pub fn increment_terminate_count(&self) {
+    #[inline]
+    pub fn terminate_inc(&self) {
         self.terminator.increment();
     }
 
+    /// Blocks current thread until all the workers finished their jobs gracefully.
     pub fn wait_until_terminated(&self) {
-        self.signal.notify_all();
+        self.watcher.notify_all();
 
         for v in &self.threads {
             v.terminated.wait();
@@ -218,7 +215,27 @@ impl Scheduler {
     }
 }
 
-pub struct WorkerThread {
+struct Watcher(Mutex<()>, Condvar);
+
+impl Watcher {
+    #[inline]
+    fn wait(&self) {
+        let guard = self.0.lock().unwrap();
+        let _ = self.1.wait(guard).unwrap();
+    }
+
+    #[inline]
+    pub fn notify_one(&self) {
+        self.1.notify_one()
+    }
+
+    #[inline]
+    pub fn notify_all(&self) {
+        self.1.notify_all()
+    }
+}
+
+struct WorkerThread {
     scheduler: Arc<Scheduler>,
     index: usize,
     worker: deque::Worker<JobRef>,
@@ -254,17 +271,6 @@ impl WorkerThread {
 }
 
 impl WorkerThread {
-    /// Our index amongst the worker threads (ranges from `0..self.num_threads()`).
-    #[inline]
-    pub fn index(&self) -> usize {
-        self.index
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.worker.is_empty()
-    }
-
     /// Pushs a job to `local` queue.
     #[inline]
     pub unsafe fn push(&self, job: JobRef) {
@@ -292,7 +298,7 @@ impl WorkerThread {
             .next()
     }
 
-    unsafe fn wait_until<L: Latch>(&self, latch: &L) {
+    unsafe fn wait_until<L: LatchProbe>(&self, latch: &L) {
         let abort_guard = AbortIfPanic {};
 
         while !latch.is_set() {
@@ -301,33 +307,13 @@ impl WorkerThread {
                 .or_else(|| self.scheduler.inject_stealer.steal())
             {
                 job.execute();
-                self.scheduler.signal.notify_all();
+                self.scheduler.watcher.notify_all();
             } else {
-                self.scheduler.signal.wait();
+                self.scheduler.watcher.wait();
             }
         }
 
         mem::forget(abort_guard);
-    }
-}
-
-struct Signal(Mutex<()>, Condvar);
-
-impl Signal {
-    #[inline]
-    fn wait(&self) {
-        let guard = self.0.lock().unwrap();
-        let _ = self.1.wait(guard).unwrap();
-    }
-
-    #[inline]
-    pub fn notify_one(&self) {
-        self.1.notify_one()
-    }
-
-    #[inline]
-    pub fn notify_all(&self) {
-        self.1.notify_all()
     }
 }
 
@@ -374,14 +360,5 @@ impl XorShift64Star {
     /// Return a value from `0..n`.
     fn next_usize(&self, n: usize) -> usize {
         (self.next() % n as u64) as usize
-    }
-}
-
-fn leak<T>(v: T) -> &'static T {
-    unsafe {
-        let b = Box::new(v);
-        let p: *const T = &*b;
-        mem::forget(b); // leak our reference, so that `b` is never freed
-        &*p
     }
 }

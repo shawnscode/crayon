@@ -1,5 +1,4 @@
 use crayon::prelude::*;
-use crayon::video::assets::prelude::*;
 use crayon_imgui::prelude::*;
 
 use errors::*;

@@ -7,8 +7,16 @@ use std::sync::{Condvar, Mutex};
 pub trait Latch {
     /// Set the latch, signalling others.
     fn set(&self);
+}
+
+pub trait LatchProbe {
     /// Test if the latch is set.
     fn is_set(&self) -> bool;
+}
+
+pub trait LatchWaitProbe: LatchProbe {
+    /// Blocks thread until the latch is set.
+    fn wait(&self);
 }
 
 /// Spin latches are the simplest, most efficient kind, but they do not support
@@ -32,7 +40,9 @@ impl Latch for SpinLatch {
     fn set(&self) {
         self.b.store(true, Ordering::SeqCst);
     }
+}
 
+impl LatchProbe for SpinLatch {
     #[inline]
     fn is_set(&self) -> bool {
         self.b.load(Ordering::SeqCst)
@@ -54,14 +64,6 @@ impl LockLatch {
             v: Condvar::new(),
         }
     }
-
-    /// Block until latch is set.
-    pub fn wait(&self) {
-        let mut guard = self.m.lock().unwrap();
-        while !*guard {
-            guard = self.v.wait(guard).unwrap();
-        }
-    }
 }
 
 impl Latch for LockLatch {
@@ -71,12 +73,23 @@ impl Latch for LockLatch {
         *guard = true;
         self.v.notify_all();
     }
+}
 
+impl LatchProbe for LockLatch {
     #[inline]
     fn is_set(&self) -> bool {
         // Not particularly efficient, but we don't really use this operation
         let guard = self.m.lock().unwrap();
         *guard
+    }
+}
+
+impl LatchWaitProbe for LockLatch {
+    fn wait(&self) {
+        let mut guard = self.m.lock().unwrap();
+        while !*guard {
+            guard = self.v.wait(guard).unwrap();
+        }
     }
 }
 
@@ -105,14 +118,17 @@ impl CountLatch {
 }
 
 impl Latch for CountLatch {
-    #[inline]
-    fn is_set(&self) -> bool {
-        // Need to acquire any memory reads before latch was set:
-        self.counter.load(Ordering::SeqCst) == 0
-    }
     /// Set the latch to true, releasing all threads who are waiting.
     #[inline]
     fn set(&self) {
         self.counter.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+impl LatchProbe for CountLatch {
+    #[inline]
+    fn is_set(&self) -> bool {
+        // Need to acquire any memory reads before latch was set:
+        self.counter.load(Ordering::SeqCst) == 0
     }
 }

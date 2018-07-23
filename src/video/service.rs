@@ -11,8 +11,6 @@ use super::assets::prelude::*;
 use super::batch::DrawCall;
 use super::errors::*;
 
-// use super::assets::mesh_loader::{MeshLoader, MeshParser};
-// use super::assets::texture_loader::{TextureLoader, TextureParser};
 use super::backends::frame::*;
 use super::backends::gl::visitor::GLVisitor;
 use super::backends::Visitor;

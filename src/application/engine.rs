@@ -22,6 +22,7 @@ pub struct Context {
     pub time: Arc<time::TimeSystemShared>,
     pub video: Arc<video::VideoSystemShared>,
     pub window: Arc<window::WindowShared>,
+    pub sched: Arc<sched::ScheduleSystemShared>,
 
     data: Arc<RwLock<ContextData>>,
 }
@@ -47,6 +48,7 @@ pub struct Engine {
     pub video: video::VideoSystem,
     pub res: res::ResourceSystem,
     pub time: time::TimeSystem,
+    pub sched: sched::ScheduleSystem,
 
     context: Context,
     headless: bool,
@@ -60,14 +62,15 @@ impl Engine {
 
     /// Setup engine with specified settings.
     pub fn new_with(settings: &Settings) -> Result<Self> {
-        sched::init(6, None, None);
+        let sched = sched::ScheduleSystem::new(6, None, None);
+        let sched_shared = sched.shared();
 
         let input = input::InputSystem::new(settings.input);
         let input_shared = input.shared();
 
         let window = window::Window::new(settings.window.clone())?;
 
-        let res = res::ResourceSystem::new()?;
+        let res = res::ResourceSystem::new(sched_shared.clone())?;
         let res_shared = res.shared();
 
         let video = video::VideoSystem::new(&window)?;
@@ -86,6 +89,7 @@ impl Engine {
             time: time_shared,
             video: video_shared,
             window: window.shared(),
+            sched: sched_shared,
             data: Arc::new(RwLock::new(ContextData::default())),
         };
 
@@ -95,6 +99,7 @@ impl Engine {
             video: video,
             res: res,
             time: time,
+            sched: sched,
 
             context: context,
             headless: settings.headless,
@@ -189,6 +194,9 @@ impl Engine {
         }
 
         task_sender.send(false).unwrap();
+
+        self.sched.terminate();
+        self.sched.wait_until_terminated();
         Ok(self)
     }
 

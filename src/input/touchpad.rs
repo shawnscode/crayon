@@ -11,7 +11,7 @@ use super::MAX_TOUCHES;
 ///
 /// Notes that the `distance` series paramters are measured by points.
 #[derive(Debug, Clone, Copy)]
-pub struct TouchPadSetup {
+pub struct TouchPadParams {
     /// The minimum distance before a touch is recognized as panning.
     pub min_pan_distance: f32,
     /// The maximum time duration between two taps.
@@ -24,9 +24,9 @@ pub struct TouchPadSetup {
     pub max_touch_distance: f32,
 }
 
-impl Default for TouchPadSetup {
+impl Default for TouchPadParams {
     fn default() -> Self {
-        TouchPadSetup {
+        TouchPadParams {
             min_pan_distance: 10.0,
 
             tap_timeout: Duration::from_millis(750),
@@ -52,7 +52,7 @@ pub struct TouchPad {
 }
 
 impl TouchPad {
-    pub fn new(setup: TouchPadSetup) -> Self {
+    pub fn new(setup: TouchPadParams) -> Self {
         TouchPad {
             record: TouchesRecord::default(),
 
@@ -140,11 +140,11 @@ struct GestureTapDetector {
 
     required: u32,
     hidpi: f32,
-    setup: TouchPadSetup,
+    setup: TouchPadParams,
 }
 
 impl GestureTapDetector {
-    pub fn new(required: u32, setup: TouchPadSetup) -> Self {
+    pub fn new(required: u32, setup: TouchPadParams) -> Self {
         GestureTapDetector {
             record: TouchesRecord::default(),
             last_tap_position: math::Vector2::new(0.0, 0.0),
@@ -272,11 +272,11 @@ struct GesturePanDetector {
     record: TouchesRecord,
 
     hidpi: f32,
-    setup: TouchPadSetup,
+    setup: TouchPadParams,
 }
 
 impl GesturePanDetector {
-    pub fn new(setup: TouchPadSetup) -> Self {
+    pub fn new(setup: TouchPadParams) -> Self {
         GesturePanDetector {
             position: math::Vector2::new(0.0, 0.0),
             start_position: math::Vector2::new(0.0, 0.0),
