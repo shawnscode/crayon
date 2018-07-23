@@ -44,7 +44,7 @@ fn main() {
     }
 
     match args[1].as_str() {
-        // "texture" => texture::main(setup),
+        "texture" => texture::main(setup),
         "render_target" => render_target::main(setup),
         "imgui" => imgui::main(setup),
         "input" => input::main(setup),

@@ -6,5 +6,4 @@ pub use application::{event, time};
 pub use application::{Application, Context, Engine, FrameInfo, Settings};
 
 pub use input::prelude::*;
-pub use resource::prelude::*;
 pub use video::prelude::*;

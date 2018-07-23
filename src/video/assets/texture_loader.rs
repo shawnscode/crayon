@@ -8,23 +8,39 @@ use res::errors::*;
 use super::super::VideoSystemShared;
 use super::texture::*;
 
-pub const MAGIC: [u8; 7] = ['C' as u8, 'T' as u8, 'E' as u8, 'X' as u8, ' ' as u8, 0, 1];
+pub const MAGIC: [u8; 8] = [
+    'V' as u8, 'T' as u8, 'E' as u8, 'X' as u8, ' ' as u8, 0, 0, 1,
+];
 
 pub struct TextureLoader {
-    buf: Vec<u8>,
     video: Arc<VideoSystemShared>,
 }
 
 impl TextureLoader {
-    pub fn load<T>(&mut self, mut file: T) -> Result<Texture>
-    where
-        T: Read,
-    {
-        let mut buf = [0; 8];
-        file.read_exact(&mut buf[0..7])?;
+    pub fn new(video: Arc<VideoSystemShared>) -> Self {
+        TextureLoader { video: video }
+    }
+}
 
-        // MAGIC: [u8; 7]
-        if &buf[0..7] != &MAGIC[..] {
+impl ::res::ResourceHandle for TextureHandle {
+    type Loader = TextureLoader;
+}
+
+impl ::res::ResourceLoader for TextureLoader {
+    const SCHEMA: &'static str = "vtex";
+    type Handle = TextureHandle;
+
+    fn create(&self) -> Result<Self::Handle> {
+        let handle = self.video.loader_create_texture()?;
+        Ok(handle)
+    }
+
+    fn load(&self, handle: Self::Handle, file: &mut dyn Read) -> Result<()> {
+        let mut buf = [0; 8];
+        file.read_exact(&mut buf[0..8])?;
+
+        // MAGIC: [u8; 8]
+        if &buf[0..8] != &MAGIC[..] {
             return Err(Error::Malformed(
                 "[TextureLoader] MAGIC number not match.".into(),
             ));
@@ -42,10 +58,16 @@ impl TextureLoader {
         params.dimensions = math::Vector2::new(file.read_u32()?, file.read_u32()?);
 
         //
-        self.buf.clear();
-        file.read_to_end(&mut self.buf)?;
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf)?;
 
-        let tex = self.video.create_texture(params, self.buf.as_slice())?;
-        Ok(tex)
+        let slice = buf.as_slice();
+        self.video.loader_update_texture(handle, params, slice)?;
+        Ok(())
+    }
+
+    fn delete(&self, handle: Self::Handle) -> Result<()> {
+        self.video.delete_texture(handle);
+        Ok(())
     }
 }

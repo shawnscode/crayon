@@ -3,8 +3,6 @@
 use math;
 use video::errors::{Error, Result};
 
-pub type Texture = TextureHandle;
-
 /// The parameters of a texture object.
 #[derive(Debug, Copy, Clone)]
 pub struct TextureParams {

@@ -5,7 +5,8 @@ use std::time::{Duration, Instant};
 
 use super::*;
 use input;
-use resource;
+use res;
+use sched;
 use video;
 
 #[derive(Default, Copy, Clone)]
@@ -16,7 +17,7 @@ struct ContextData {
 /// The context of sub-systems that could be accessed from multi-thread environments safely.
 #[derive(Clone)]
 pub struct Context {
-    pub resource: Arc<resource::ResourceSystemShared>,
+    pub res: Arc<res::ResourceSystemShared>,
     pub input: Arc<input::InputSystemShared>,
     pub time: Arc<time::TimeSystemShared>,
     pub video: Arc<video::VideoSystemShared>,
@@ -44,7 +45,7 @@ pub struct Engine {
     pub window: window::Window,
     pub input: input::InputSystem,
     pub video: video::VideoSystem,
-    pub resource: resource::ResourceSystem,
+    pub res: res::ResourceSystem,
     pub time: time::TimeSystem,
 
     context: Context,
@@ -59,13 +60,15 @@ impl Engine {
 
     /// Setup engine with specified settings.
     pub fn new_with(settings: &Settings) -> Result<Self> {
+        sched::init(6, None, None);
+
         let input = input::InputSystem::new(settings.input);
         let input_shared = input.shared();
 
         let window = window::Window::new(settings.window.clone())?;
 
-        let resource = resource::ResourceSystem::new()?;
-        let resource_shared = resource.shared();
+        let res = res::ResourceSystem::new()?;
+        let res_shared = res.shared();
 
         let video = video::VideoSystem::new(&window)?;
         let video_shared = video.shared();
@@ -73,8 +76,12 @@ impl Engine {
         let time = time::TimeSystem::new(settings.engine)?;
         let time_shared = time.shared();
 
+        res.register(video::assets::texture_loader::TextureLoader::new(
+            video_shared.clone(),
+        ));
+
         let context = Context {
-            resource: resource_shared,
+            res: res_shared,
             input: input_shared,
             time: time_shared,
             video: video_shared,
@@ -86,7 +93,7 @@ impl Engine {
             input: input,
             window: window,
             video: video,
-            resource: resource,
+            res: res,
             time: time,
 
             context: context,

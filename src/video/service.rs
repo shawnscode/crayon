@@ -100,13 +100,19 @@ impl VideoSystem {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum TextureState {
+    Ok,
+    NotReady,
+}
+
 /// The multi-thread friendly parts of `VideoSystem`.
 pub struct VideoSystemShared {
     pub(crate) frames: Arc<DoubleFrame>,
 
+    textures: RwLock<object_pool::ObjectPool<TextureState>>,
     surfaces: RwLock<object_pool::ObjectPool<SurfaceParams>>,
     shaders: RwLock<object_pool::ObjectPool<ShaderParams>>,
-    textures: RwLock<object_pool::ObjectPool<TextureParams>>,
     render_textures: RwLock<object_pool::ObjectPool<RenderTextureParams>>,
     meshes: RwLock<object_pool::ObjectPool<MeshParams>>,
 }
@@ -129,7 +135,7 @@ impl VideoSystemShared {
     ///
     /// Notes that you should use [Batch](crate::video::batch::Batch) if possible.
     #[inline]
-    pub fn draw(&mut self, handle: SurfaceHandle, dc: DrawCall) {
+    pub fn draw(&self, handle: SurfaceHandle, dc: DrawCall) {
         let mut frame = self.frames.front();
         let len = dc.uniforms_len;
         let ptr = frame.bufs.extend_from_slice(&dc.uniforms[0..len]);
@@ -146,7 +152,7 @@ impl VideoSystemShared {
     ///
     /// Notes that you should use [Batch](crate::video::batch::Batch) if possible.
     #[inline]
-    pub fn update_scissor(&mut self, handle: SurfaceHandle, scissor: SurfaceScissor) {
+    pub fn update_scissor(&self, handle: SurfaceHandle, scissor: SurfaceScissor) {
         let mut frame = self.frames.front();
         frame.cmds.push(Command::Bind(handle));
         frame.cmds.push(Command::UpdateScissor(scissor));
@@ -159,7 +165,7 @@ impl VideoSystemShared {
     ///
     /// Notes that you should use [Batch](crate::video::batch::Batch) if possible.
     #[inline]
-    pub fn update_viewport(&mut self, handle: SurfaceHandle, viewport: SurfaceViewport) {
+    pub fn update_viewport(&self, handle: SurfaceHandle, viewport: SurfaceViewport) {
         let mut frame = self.frames.front();
         frame.cmds.push(Command::Bind(handle));
         frame.cmds.push(Command::UpdateViewport(viewport));
@@ -323,7 +329,11 @@ impl VideoSystemShared {
         let data = data.into();
         params.validate(data)?;
 
-        let handle = self.textures.write().unwrap().create(params).into();
+        let handle = self.textures
+            .write()
+            .unwrap()
+            .create(TextureState::Ok)
+            .into();
 
         {
             let mut frame = self.frames.front();
@@ -335,15 +345,6 @@ impl VideoSystemShared {
         Ok(handle)
     }
 
-    /// Gets the `TextureParams` if available.
-    ///
-    /// Notes that this function might returns `None` even if `is_texture_alive` returns
-    /// true. The underlying object might be still in creation process and can not be
-    /// provided yet.
-    pub fn texture(&self, handle: TextureHandle) -> Option<TextureParams> {
-        self.textures.read().unwrap().get(handle).cloned()
-    }
-
     /// Update a contiguous subregion of an existing two-dimensional texture object.
     pub fn update_texture(
         &self,
@@ -351,7 +352,7 @@ impl VideoSystemShared {
         area: math::Aabb2<u32>,
         data: &[u8],
     ) -> Result<()> {
-        if let Some(_) = self.textures.read().unwrap().get(handle) {
+        if let Some(TextureState::Ok) = self.textures.read().unwrap().get(handle) {
             let mut frame = self.frames.front();
             let ptr = frame.bufs.extend_from_slice(data);
             let cmd = Command::UpdateTexture(handle, area, ptr);
@@ -368,6 +369,37 @@ impl VideoSystemShared {
         if self.textures.write().unwrap().free(handle).is_some() {
             let cmd = Command::DeleteTexture(handle);
             self.frames.front().cmds.push(cmd);
+        }
+    }
+
+    pub(crate) fn loader_create_texture(&self) -> Result<TextureHandle> {
+        let handle = self.textures
+            .write()
+            .unwrap()
+            .create(TextureState::NotReady)
+            .into();
+
+        Ok(handle)
+    }
+
+    pub(crate) fn loader_update_texture(
+        &self,
+        handle: TextureHandle,
+        params: TextureParams,
+        data: &[u8],
+    ) -> Result<()> {
+        params.validate(Some(data))?;
+
+        if let Some(v) = self.textures.write().unwrap().get_mut(handle) {
+            let mut frame = self.frames.front();
+            let ptr = frame.bufs.extend_from_slice(data);
+            let task = Command::CreateTexture(handle, params, Some(ptr));
+            frame.cmds.push(task);
+            *v = TextureState::Ok;
+
+            Ok(())
+        } else {
+            Err(Error::HandleInvalid(format!("{:?}", handle)))
         }
     }
 }

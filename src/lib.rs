@@ -28,6 +28,7 @@
 //! cargo run imgui
 //! ```
 
+extern crate crossbeam_deque;
 #[macro_use]
 extern crate cgmath;
 #[macro_use]
@@ -47,5 +48,4 @@ pub mod input;
 pub mod math;
 pub mod prelude;
 pub mod res;
-pub mod resource;
-pub mod task;
+pub mod sched;

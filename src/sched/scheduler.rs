@@ -14,7 +14,7 @@ use super::PanicHandler;
 
 static mut SCHEDULER: Option<&'static Arc<Scheduler>> = None;
 
-pub unsafe fn init(num: u32, stack_size: usize, panic_handler: Option<Box<PanicHandler>>) {
+pub unsafe fn init(num: u32, stack_size: Option<usize>, panic_handler: Option<Box<PanicHandler>>) {
     assert!(
         SCHEDULER.is_none(),
         "Scheduler has been initialized already."
@@ -39,7 +39,11 @@ pub struct Scheduler {
 }
 
 impl Scheduler {
-    pub fn new(num: u32, stack_size: usize, panic_handler: Option<Box<PanicHandler>>) -> Arc<Self> {
+    pub fn new(
+        num: u32,
+        stack_size: Option<usize>,
+        panic_handler: Option<Box<PanicHandler>>,
+    ) -> Arc<Self> {
         let mut stealers = Vec::new();
         let mut workers = Vec::new();
 
@@ -70,9 +74,13 @@ impl Scheduler {
 
         for (i, w) in workers.drain(..).enumerate() {
             let sc = scheduler.clone();
-            thread::Builder::new()
-                .stack_size(stack_size)
-                .spawn(move || unsafe { Scheduler::main_loop(sc, i, w) })
+            let mut b = thread::Builder::new();
+
+            if let Some(stack_size) = stack_size {
+                b = b.stack_size(stack_size);
+            }
+
+            b.spawn(move || unsafe { Scheduler::main_loop(sc, i, w) })
                 .unwrap();
         }
 

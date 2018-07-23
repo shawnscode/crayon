@@ -9,7 +9,7 @@ mod unwind;
 /// may be invoked multiple times in parallel.
 type PanicHandler = Fn(Box<::std::any::Any + Send>) + Send + Sync;
 
-pub fn init(num: u32, stack_size: usize, panic_handler: Option<Box<PanicHandler>>) {
+pub fn init(num: u32, stack_size: Option<usize>, panic_handler: Option<Box<PanicHandler>>) {
     unsafe {
         scheduler::init(num, stack_size, panic_handler);
     }
