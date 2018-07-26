@@ -36,7 +36,6 @@ extern crate failure;
 extern crate gl;
 extern crate glutin;
 pub extern crate rayon;
-extern crate zip;
 
 #[macro_use]
 pub mod utils;

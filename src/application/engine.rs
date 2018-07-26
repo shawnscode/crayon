@@ -158,6 +158,7 @@ impl Engine {
                 break;
             }
 
+            self.res.advance();
             self.time.advance();
             self.video.swap_frames();
 

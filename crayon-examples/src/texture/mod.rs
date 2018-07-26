@@ -21,7 +21,7 @@ struct Window {
 impl Window {
     fn new(engine: &mut Engine) -> Result<Self> {
         let assets = format!("{0}/assets", env!("CARGO_MANIFEST_DIR"));
-        // engine.resource.mount("std", DirectoryFS::new(assets)?)?;
+        engine.res.mount("res", DiskFS::new(assets)?)?;
 
         let ctx = engine.context();
 
@@ -62,11 +62,8 @@ impl Window {
         let fs = include_str!("../../assets/texture.fs").to_owned();
         let shader = ctx.video.create_shader(params, vs, fs)?;
 
-        // let mut ara = TextureParams::default();
-        // setup.location = Location::shared("/std/texture.png");
-        // let texture = video.create_texture_from_file::<TextureParser>(setup)?;
-
-        let texture = ctx.res.load(format!("{0}/texture.png", assets).as_ref())?;
+        println!("1111",);
+        let texture = ctx.res.load("res/texture.png".as_ref())?;
         ctx.res.wait(texture).unwrap();
 
         Ok(Window {

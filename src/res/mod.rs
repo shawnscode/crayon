@@ -16,21 +16,27 @@
 
 pub mod byteorder;
 pub mod errors;
+pub mod location;
+pub mod manifest;
+pub mod vfs;
+
+pub mod prelude {
+    pub use super::vfs::DiskFS;
+    pub use super::{ResourceHandle, ResourceLoader, ResourceSystem, ResourceSystemShared};
+}
 
 mod registery;
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use std::fs;
 use std::io::Read;
-use std::path::Path;
 use std::sync::{Arc, RwLock};
 
-use sched;
+use sched::ScheduleSystemShared;
 use utils::handle::Handle;
 
 use self::errors::*;
-use self::registery::Registery;
+use self::vfs::VFS;
 
 pub trait ResourceHandle: Into<Handle> + From<Handle> + Copy + Send + 'static {
     type Loader: ResourceLoader<Handle = Self>;
@@ -46,22 +52,25 @@ pub trait ResourceLoader: Send + Sync + Sized + 'static {
 
 pub struct ResourceSystem {
     loaders: Arc<RwLock<HashMap<TypeId, Arc<Any + Send + Sync>>>>,
+    registery: Arc<RwLock<registery::Registery>>,
     shared: Arc<ResourceSystemShared>,
 }
 
 impl ResourceSystem {
-    pub fn new(sched: Arc<sched::ScheduleSystemShared>) -> Result<Self> {
+    pub fn new(sched: Arc<ScheduleSystemShared>) -> Result<Self> {
         let loaders = Arc::new(RwLock::new(HashMap::new()));
+        let registery = Arc::new(RwLock::new(registery::Registery::new(sched.clone())));
 
         let shared = Arc::new(ResourceSystemShared {
             sched: sched,
             loaders: loaders.clone(),
-            registery: RwLock::new(Registery::new()),
+            registery: registery.clone(),
         });
 
         Ok(ResourceSystem {
-            loaders: loaders,
             shared: shared,
+            loaders: loaders,
+            registery: registery,
         })
     }
 
@@ -75,47 +84,42 @@ impl ResourceSystem {
             .insert(TypeId::of::<T::Handle>(), Arc::new(loader));
     }
 
+    pub fn mount<F>(&mut self, name: &str, vfs: F) -> Result<()>
+    where
+        F: VFS + 'static,
+    {
+        self.registery.write().unwrap().mount(name, vfs)
+    }
+
     pub fn shared(&self) -> Arc<ResourceSystemShared> {
         self.shared.clone()
     }
+
+    pub fn advance(&self) {}
 }
 
 pub struct ResourceSystemShared {
     loaders: Arc<RwLock<HashMap<TypeId, Arc<Any + Send + Sync>>>>,
-    sched: Arc<sched::ScheduleSystemShared>,
-    registery: RwLock<Registery>,
+    registery: Arc<RwLock<registery::Registery>>,
+    sched: Arc<ScheduleSystemShared>,
 }
 
 impl ResourceSystemShared {
     /// Loads a resource from location.
-    pub fn load<T>(&self, location: &Path) -> Result<T>
+    pub fn load<T>(&self, uri: &str) -> Result<T>
+    where
+        T: ResourceHandle + 'static,
+    {
+        self.load_from(location::Location::from_str(uri)?)
+    }
+
+    pub fn load_from<T>(&self, location: location::Location) -> Result<T>
     where
         T: ResourceHandle + 'static,
     {
         let schema = TypeId::of::<T>();
-        let loc = location.into();
         let loader = self.loaders.read().unwrap().get(&schema).unwrap().clone();
-
-        let (handle, latch) = {
-            let mut registery = self.registery.write().unwrap();
-            if let Some(handle) = registery.try_inc_rc(loc) {
-                return Ok(handle);
-            }
-
-            let r: &T::Loader = (loader.as_ref() as &Any).downcast_ref().unwrap();
-            let handle = r.create()?;
-            let latch = registery.create(loc, handle);
-            (handle, latch)
-        };
-
-        let mut file = fs::File::open(location)?;
-        self.sched.spawn(move || {
-            let loader: &T::Loader = (loader.as_ref() as &Any).downcast_ref().unwrap();
-            let v = loader.load(handle, &mut file);
-            latch.set(v);
-        });
-
-        Ok(handle)
+        self.registery.write().unwrap().load_from(loader, location)
     }
 
     /// Blocks current thread until loader is finished.
@@ -123,7 +127,7 @@ impl ResourceSystemShared {
     where
         T: ResourceHandle,
     {
-        if let Some(promise) = self.registery.read().unwrap().try_promise(handle) {
+        if let Some(promise) = self.registery.read().unwrap().promise(handle) {
             self.sched.wait_until(promise.as_ref());
             promise.take()
         } else {
@@ -137,13 +141,7 @@ impl ResourceSystemShared {
         T: ResourceHandle,
     {
         let schema = TypeId::of::<T>();
-
-        if self.registery.write().unwrap().try_dec_rc(handle) {
-            let any = self.loaders.read().unwrap().get(&schema).unwrap().clone();
-            let loader: &T::Loader = (any.as_ref() as &Any).downcast_ref().unwrap();
-            loader.delete(handle)?;
-        }
-
-        Ok(())
+        let loader = self.loaders.read().unwrap().get(&schema).unwrap().clone();
+        self.registery.write().unwrap().unload(loader, handle)
     }
 }

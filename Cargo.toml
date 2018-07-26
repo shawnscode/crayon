@@ -17,7 +17,7 @@ appveyor = { repository = "shawnscode/crayon", branch = "master", service = "git
 codecov = { repository = "shawnscode/crayon", branch = "master", service = "github" }
 
 [workspace]
-members = [ "crayon-examples", "modules/imgui" ]
+members = [ "crayon-tools/workflow", "crayon-examples", "modules/imgui" ]
 # members = [ "crayon-examples", "modules/imgui", "modules/3d" ]
 
 [dependencies]
@@ -27,7 +27,6 @@ failure = "0.1.1"
 crossbeam-deque = "0.5.1"
 cgmath = "0.16.1"
 rayon = "1.0.1"
-zip = "0.3.1"
 
 [dev-dependencies]
 rand = "0.4.2"

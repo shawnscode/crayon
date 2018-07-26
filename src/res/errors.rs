@@ -6,8 +6,14 @@ pub enum Error {
     Malformed(String),
     #[fail(display = "{}", _0)]
     Video(::video::errors::Error),
-    #[fail(display = "Undefined resource schema {}", _0)]
-    Undefined(&'static str),
+    #[fail(display = "{}", _0)]
+    VFS(String),
+    #[fail(display = "Location {} is malformed.", _0)]
+    MalformLocation(String),
+    #[fail(display = "Undefined UUID {}.", _0)]
+    UuidNotFound(::utils::uuid::Uuid),
+    #[fail(display = "Undefined Path {:?}.", _0)]
+    FileNotFound(::std::path::PathBuf),
 }
 
 pub type Result<T> = ::std::result::Result<T, Error>;

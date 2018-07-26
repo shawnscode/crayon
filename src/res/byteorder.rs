@@ -95,7 +95,7 @@ pub trait ByteOrderRead: Read {
     /// N.B.: https://github.com/rust-lang/rust/issues/24111
     #[cfg(target_endian = "big")]
     #[inline]
-    fn read<T: Copy + Sized>(&mut self, buf: &mut [u8]) -> Result<T> {
+    fn read_value<T: Copy + Sized>(&mut self, buf: &mut [u8]) -> Result<T> {
         unsafe {
             assert!(buf.len() >= mem::size_of::<T>());
             let mut slice = &mut buf[0..mem::size_of::<T>()];
@@ -109,7 +109,7 @@ pub trait ByteOrderRead: Read {
     /// N.B.: https://github.com/rust-lang/rust/issues/24111
     #[cfg(target_endian = "little")]
     #[inline]
-    fn read<T: Copy + Sized>(&mut self, buf: &mut [u8]) -> Result<T> {
+    fn read_value<T: Copy + Sized>(&mut self, buf: &mut [u8]) -> Result<T> {
         unsafe {
             assert!(buf.len() >= mem::size_of::<T>());
 
@@ -210,7 +210,7 @@ pub trait ByteOrderWrite: Write {
     /// Writes a copyable value in big endian device.
     #[cfg(target_endian = "big")]
     #[inline]
-    fn write<T: Copy>(&mut self, v: T) -> Result<()> {
+    fn write_value<T: Copy>(&mut self, v: T) -> Result<()> {
         unsafe {
             let buf = slice::from_raw_parts(&v as *const T as *const u8, mem::size_of::<T>());
             self.write_all(&buf)
@@ -220,7 +220,7 @@ pub trait ByteOrderWrite: Write {
     /// Writes a copyable value in little endian device.
     #[cfg(target_endian = "little")]
     #[inline]
-    fn write<T: Copy>(&mut self, mut v: T) -> Result<()> {
+    fn write_value<T: Copy>(&mut self, mut v: T) -> Result<()> {
         unsafe {
             let buf = slice::from_raw_parts_mut(&mut v as *mut T as *mut u8, mem::size_of::<T>());
             buf.reverse();

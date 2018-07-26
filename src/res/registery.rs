@@ -1,14 +1,19 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Condvar, Mutex};
 
 use sched::latch::{LatchProbe, LatchWaitProbe};
+use sched::ScheduleSystemShared;
 use utils::handle::Handle;
 use utils::hash_value::HashValue;
+use utils::uuid::Uuid;
 
 use super::errors::*;
-use super::ResourceHandle;
+use super::location::Location;
+use super::manifest;
+use super::vfs::{VFSDriver, VFS};
+use super::{ResourceHandle, ResourceLoader};
 
 enum Promise {
     NotReady,
@@ -71,12 +76,6 @@ impl LatchWaitProbe for PromiseLatch {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct SchemaLocation {
-    schema: TypeId,
-    location: HashValue<Path>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct SchemaHandle {
     schema: TypeId,
     handle: Handle,
@@ -88,95 +87,129 @@ struct Entry {
 }
 
 pub struct Registery {
-    locations: HashMap<SchemaLocation, SchemaHandle>,
+    sched: Arc<ScheduleSystemShared>,
+    locs: HashMap<Uuid, SchemaHandle>,
     entries: HashMap<SchemaHandle, Entry>,
+
+    driver: VFSDriver,
+    manifest: HashMap<Uuid, HashValue<str>>,
+    remaps: HashMap<HashValue<Path>, Uuid>,
 }
 
 impl Registery {
-    pub fn new() -> Self {
+    pub fn new(sched: Arc<ScheduleSystemShared>) -> Self {
         Registery {
-            locations: HashMap::new(),
+            sched: sched,
+            locs: HashMap::new(),
             entries: HashMap::new(),
+            driver: VFSDriver::new(),
+            manifest: HashMap::new(),
+            remaps: HashMap::new(),
         }
     }
 
-    pub fn create<H>(&mut self, location: HashValue<Path>, handle: H) -> Arc<PromiseLatch>
+    pub fn mount<F>(&mut self, name: &str, vfs: F) -> Result<()>
     where
-        H: ResourceHandle,
+        F: VFS + 'static,
     {
-        let schema = TypeId::of::<H>();
-        let latch = Arc::new(PromiseLatch::new());
+        let mut file = vfs.read(manifest::NAME.as_ref())?;
+        let name = name.into();
 
-        let sl = SchemaLocation {
-            schema: schema,
-            location: location,
+        let man = manifest::Manifest::load(&mut file)?;
+        for v in &man.items {
+            self.manifest.insert(v.uuid, name);
+            self.remaps.insert(v.location, v.uuid);
+        }
+
+        self.driver.mount(name, vfs)
+    }
+
+    pub fn load_from<T>(&mut self, loader: Arc<Any + Send + Sync>, location: Location) -> Result<T>
+    where
+        T: ResourceHandle,
+    {
+        let (fs, uuid) = match location {
+            Location::Uuid(uuid) => {
+                let fs = self.manifest.get(&uuid).ok_or(Error::UuidNotFound(uuid))?;
+                (*fs, uuid)
+            }
+
+            Location::Str(fs, file) => {
+                let hash: HashValue<Path> = (&file).into();
+                let uuid = self.remaps
+                    .get(&hash)
+                    .ok_or_else(|| Error::FileNotFound(file))?;
+
+                (fs, *uuid)
+            }
+        };
+
+        if let Some(k) = self.locs.get(&uuid) {
+            let v = self.entries.get_mut(k).unwrap();
+            v.rc += 1;
+            return Ok(k.handle.into());
+        }
+
+        let handle = {
+            // FIXME: `rc_downcast`.
+            let dc: &T::Loader = (loader.as_ref() as &Any).downcast_ref().unwrap();
+            dc.create()?
         };
 
         let sh = SchemaHandle {
-            schema: schema,
+            schema: TypeId::of::<T>(),
             handle: handle.into(),
         };
 
+        let latch = Arc::new(PromiseLatch::new());
         let v = Entry {
             rc: 1,
             latch: latch.clone(),
         };
 
-        self.locations.insert(sl, sh);
+        self.locs.insert(uuid, sh);
         self.entries.insert(sh, v);
 
-        latch
+        let path = format!("{}", uuid);
+        let mut file = self.driver.read(fs, path.as_ref())?;
+
+        self.sched.spawn(move || {
+            let dc: &T::Loader = (loader.as_ref() as &Any).downcast_ref().unwrap();
+            latch.set(dc.load(handle, &mut file));
+        });
+
+        Ok(handle)
     }
 
-    pub fn try_inc_rc<H>(&mut self, location: HashValue<Path>) -> Option<H>
+    pub fn promise<T>(&self, handle: T) -> Option<Arc<PromiseLatch>>
     where
-        H: ResourceHandle,
+        T: ResourceHandle,
     {
-        let schema = TypeId::of::<H>();
-        let sl = SchemaLocation {
-            schema: schema,
-            location: location,
+        let sh = SchemaHandle {
+            schema: TypeId::of::<T>(),
+            handle: handle.into(),
         };
 
-        if let Some(k) = self.locations.get(&sl) {
-            let v = self.entries.get_mut(k).unwrap();
-            v.rc += 1;
-            return Some(k.handle.into());
-        }
-
-        None
+        self.entries.get(&sh).map(|v| v.latch.clone())
     }
 
-    pub fn try_dec_rc<H>(&mut self, handle: H) -> bool
+    pub fn unload<T>(&mut self, loader: Arc<Any + Send + Sync>, handle: T) -> Result<()>
     where
-        H: ResourceHandle,
+        T: ResourceHandle,
     {
-        let schema = TypeId::of::<H>();
         let sh = SchemaHandle {
-            schema: schema,
+            schema: TypeId::of::<T>(),
             handle: handle.into(),
         };
 
         if let Some(v) = self.entries.get_mut(&sh) {
             v.rc -= 1;
             if v.rc <= 0 {
-                return true;
+                let dc: &T::Loader = (loader.as_ref() as &Any).downcast_ref().unwrap();
+                return dc.delete(handle);
             }
         }
 
-        false
-    }
-
-    pub fn try_promise<H>(&self, handle: H) -> Option<Arc<PromiseLatch>>
-    where
-        H: ResourceHandle,
-    {
-        let schema = TypeId::of::<H>();
-        let sh = SchemaHandle {
-            schema: schema,
-            handle: handle.into(),
-        };
-
-        self.entries.get(&sh).map(|v| v.latch.clone())
+        Ok(())
     }
 }
