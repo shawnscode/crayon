@@ -16,8 +16,10 @@ pub struct Scheduler {
     terminator: CountLatch,
     watcher: Watcher,
     threads: Vec<ThreadInfo>,
+
     inject_stealer: deque::Stealer<JobRef>,
     injector: Mutex<deque::Worker<JobRef>>,
+
     panic_handler: Option<Box<PanicHandler>>,
 }
 
@@ -207,11 +209,11 @@ impl Scheduler {
 
         WorkerThread::set_current(&worker_thread);
 
-        worker_thread.scheduler.threads[index].primed.set();
+        worker_thread.scheduler.threads[index].primed.set(());
 
         worker_thread.wait_until(&worker_thread.scheduler.terminator);
 
-        worker_thread.scheduler.threads[index].terminated.set();
+        worker_thread.scheduler.threads[index].terminated.set(());
     }
 }
 
@@ -319,8 +321,8 @@ impl WorkerThread {
 
 struct ThreadInfo {
     stealer: deque::Stealer<JobRef>,
-    primed: LockLatch,
-    terminated: LockLatch,
+    primed: LockLatch<()>,
+    terminated: LockLatch<()>,
 }
 
 /// [xorshift*] is a fast pseudorandom number generator which will even tolerate

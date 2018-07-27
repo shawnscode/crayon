@@ -51,43 +51,51 @@ impl LatchProbe for SpinLatch {
 
 /// A Latch starts as false and eventually becomes true. You can block until
 /// it becomes true.
-pub struct LockLatch {
-    m: Mutex<bool>,
+pub struct LockLatch<T> {
+    m: Mutex<Option<T>>,
     v: Condvar,
 }
 
-impl LockLatch {
+impl<T> LockLatch<T> {
     #[inline]
-    pub fn new() -> LockLatch {
+    pub fn new() -> LockLatch<T> {
         LockLatch {
-            m: Mutex::new(false),
+            m: Mutex::new(None),
             v: Condvar::new(),
         }
     }
-}
 
-impl Latch for LockLatch {
     #[inline]
-    fn set(&self) {
+    pub fn set(&self, v: T) {
         let mut guard = self.m.lock().unwrap();
-        *guard = true;
+        *guard = Some(v);
         self.v.notify_all();
+    }
+
+    #[inline]
+    pub fn wait_and_take(&self) -> T {
+        let mut lock = self.m.lock().unwrap();
+
+        while lock.is_none() {
+            lock = self.v.wait(lock).unwrap();
+        }
+
+        ::std::mem::replace(&mut *lock, None).unwrap()
     }
 }
 
-impl LatchProbe for LockLatch {
+impl<T> LatchProbe for LockLatch<T> {
     #[inline]
     fn is_set(&self) -> bool {
         // Not particularly efficient, but we don't really use this operation
-        let guard = self.m.lock().unwrap();
-        *guard
+        self.m.lock().unwrap().is_some()
     }
 }
 
-impl LatchWaitProbe for LockLatch {
+impl<T> LatchWaitProbe for LockLatch<T> {
     fn wait(&self) {
         let mut guard = self.m.lock().unwrap();
-        while !*guard {
+        while guard.is_none() {
             guard = self.v.wait(guard).unwrap();
         }
     }

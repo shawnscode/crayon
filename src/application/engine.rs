@@ -1,6 +1,4 @@
-use std::sync::mpsc;
 use std::sync::{Arc, RwLock};
-use std::thread;
 use std::time::{Duration, Instant};
 
 use super::*;
@@ -121,15 +119,8 @@ impl Engine {
         let dir = ::std::env::current_dir()?;
         println!("CWD: {:?}.", dir);
 
-        let (task_sender, task_receiver) = mpsc::channel();
-        let (join_sender, join_receiver) = mpsc::channel();
-        Self::main_thread(
-            task_receiver,
-            join_sender,
-            self.context.clone(),
-            application.clone(),
-        );
-        task_sender.send(true).unwrap();
+        let latch = Arc::new(sched::latch::LockLatch::new());
+        Self::execute_frame(&self.context, latch.clone(), application.clone());
 
         let mut alive = true;
         while alive {
@@ -163,11 +154,11 @@ impl Engine {
             self.video.swap_frames();
 
             let (video_info, duration) = {
-                let duration = join_receiver.recv().unwrap()?;
+                let duration = latch.wait_and_take()?;
 
                 // Perform update and render submitting for frame [x], and drawing
                 // frame [x-1] at the same time.
-                task_sender.send(true).unwrap();
+                Self::execute_frame(&self.context, latch.clone(), application.clone());
                 // This will block the main-thread until all the video commands is finished by GPU.
                 let video_info = self.video.advance(&self.window)?;
                 (video_info, duration)
@@ -194,44 +185,29 @@ impl Engine {
             application.on_exit(&self.context)?;
         }
 
-        task_sender.send(false).unwrap();
-
         self.sched.terminate();
         self.sched.wait_until_terminated();
         Ok(self)
     }
 
-    fn main_thread<T>(
-        receiver: mpsc::Receiver<bool>,
-        sender: mpsc::Sender<Result<Duration>>,
-        context: Context,
-        application: Arc<RwLock<T>>,
+    fn execute_frame<T>(
+        ctx: &Context,
+        latch: Arc<sched::latch::LockLatch<Result<Duration>>>,
+        app: Arc<RwLock<T>>,
     ) where
         T: Application + Send + Sync + 'static,
     {
-        thread::Builder::new()
-            .name("LOGIC".into())
-            .spawn(move || {
-                //
-                while receiver.recv().unwrap() {
-                    sender
-                        .send(Self::execute_frame(&context, &application))
-                        .unwrap();
-                }
-            })
-            .unwrap();
-    }
+        let run = |ctx, app: Arc<RwLock<T>>| {
+            let ts = Instant::now();
 
-    fn execute_frame<T>(ctx: &Context, application: &RwLock<T>) -> Result<Duration>
-    where
-        T: Application + Send + Sync + 'static,
-    {
-        let ts = Instant::now();
+            let mut application = app.write().unwrap();
+            application.on_update(&ctx)?;
+            application.on_render(&ctx)?;
 
-        let mut application = application.write().unwrap();
-        application.on_update(ctx)?;
-        application.on_render(ctx)?;
+            Ok(Instant::now() - ts)
+        };
 
-        Ok(Instant::now() - ts)
+        let ctx_clone = ctx.clone();
+        ctx.sched.spawn(move || latch.set(run(ctx_clone, app)));
     }
 }
