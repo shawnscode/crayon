@@ -23,6 +23,10 @@ pub struct Manifest {
 }
 
 impl Manifest {
+    pub fn new() -> Self {
+        Manifest { items: Vec::new() }
+    }
+
     pub fn load(file: &mut dyn Read) -> Result<Manifest> {
         let mut buf = [0; 16];
         file.read_exact(&mut buf[0..8])

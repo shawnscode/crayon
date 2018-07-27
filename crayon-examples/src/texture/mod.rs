@@ -20,7 +20,7 @@ struct Window {
 
 impl Window {
     fn new(engine: &mut Engine) -> Result<Self> {
-        let assets = format!("{0}/assets", env!("CARGO_MANIFEST_DIR"));
+        let assets = format!("{0}/assets", env!("OUT_DIR"));
         engine.res.mount("res", DiskFS::new(assets)?)?;
 
         let ctx = engine.context();
@@ -62,8 +62,7 @@ impl Window {
         let fs = include_str!("../../assets/texture.fs").to_owned();
         let shader = ctx.video.create_shader(params, vs, fs)?;
 
-        println!("1111",);
-        let texture = ctx.res.load("res/texture.png".as_ref())?;
+        let texture = ctx.res.load("res:texture.png")?;
         ctx.res.wait(texture).unwrap();
 
         Ok(Window {
@@ -80,12 +79,11 @@ impl Application for Window {
     type Error = Error;
 
     fn on_update(&mut self, ctx: &Context) -> Result<()> {
-        self.canvas.render(ctx);
-
         let mut dc = DrawCall::new(self.shader, self.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
         ctx.video.draw(self.surface, dc);
 
+        self.canvas.render(ctx);
         Ok(())
     }
 
@@ -103,7 +101,7 @@ impl Application for Window {
 }
 
 pub fn main(mut settings: Settings) {
-    settings.window.size = math::Vector2::new(232, 217);
+    settings.window.size = math::Vector2::new(464, 434);
 
     let mut engine = Engine::new_with(&settings).unwrap();
     let window = Window::new(&mut engine).unwrap();

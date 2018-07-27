@@ -1,15 +1,16 @@
 use crayon::prelude::*;
+use crayon::video::assets::prelude::*;
 use crayon_imgui::prelude::*;
 
 use errors::*;
 use utils;
 
 struct Window {
+    surface: SurfaceHandle,
     canvas: Canvas,
     info: FrameInfo,
     text: String,
     repeat_count: u32,
-
     click_count: u32,
     double_click_count: u32,
 }
@@ -19,7 +20,12 @@ impl Window {
         let ctx = engine.context();
         let canvas = Canvas::new(ctx).unwrap();
 
+        let mut params = SurfaceParams::default();
+        params.set_clear(math::Color::gray(), None, None);
+        let surface = ctx.video.create_surface(params)?;
+
         Ok(Window {
+            surface: surface,
             canvas: canvas,
             info: Default::default(),
             text: String::new(),
@@ -50,7 +56,7 @@ impl Application for Window {
             self.double_click_count += 1;
         }
 
-        let ui = self.canvas.frame(ctx, None);
+        let ui = self.canvas.frame(ctx, self.surface);
         let info = self.info;
         let text = &self.text;
         let rc = self.repeat_count;

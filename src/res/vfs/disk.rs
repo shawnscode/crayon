@@ -31,6 +31,7 @@ impl VFS for DiskFS {
     }
 
     // fn read_dir(&self, location: &Path) -> Result<Box<Iterator<Item = PathBuf>>> {}
+
     fn is_dir(&self, location: &Path) -> bool {
         self.root.join(location).is_dir()
     }

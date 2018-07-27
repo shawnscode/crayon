@@ -6,6 +6,12 @@ pub struct Uuid {
     bytes: [u8; 16],
 }
 
+impl Uuid {
+    pub fn from_bytes(bytes: [u8; 16]) -> Self {
+        Uuid { bytes: bytes }
+    }
+}
+
 impl<'a> fmt::Display for Uuid {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for byte in &self.bytes {

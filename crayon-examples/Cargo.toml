@@ -2,6 +2,7 @@
 name = "crayon-examples"
 version = "0.4.0"
 authors = ["Jingkai Mao <oammix@gmail.com>"]
+build = "build.rs"
 
 [badges]
 travis-ci = { repository = "shawnscode/crayon", branch = "master" }
@@ -14,3 +15,6 @@ failure = "0.1.1"
 image = "0.18.0"
 obj = "0.8.2"
 rand = "0.4.2"
+
+[build-dependencies]
+crayon-workflow = { path = "../crayon-tools/workflow", version = "0.4.0" }
