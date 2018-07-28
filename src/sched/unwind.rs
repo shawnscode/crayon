@@ -24,7 +24,7 @@ pub struct AbortIfPanic;
 
 impl Drop for AbortIfPanic {
     fn drop(&mut self) {
-        writeln!(&mut io::stderr(), "detected unexpected panic; aborting");
+        writeln!(&mut io::stderr(), "detected unexpected panic; aborting").unwrap();
         process::abort();
     }
 }

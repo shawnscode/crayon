@@ -131,5 +131,4 @@ pub mod prelude {
     pub use super::system::{System, SystemData, SystemDispatcher};
     pub use super::view::{ArenaGet, ArenaGetMut, Fetch, FetchMut, Join};
     pub use super::world::{Entities, Entity, EntityBuilder, World};
-    pub use rayon::iter::ParallelIterator;
 }

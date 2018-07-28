@@ -67,14 +67,6 @@ impl World {
         ent
     }
 
-    /// Create a entity builder.
-    pub fn build(&mut self) -> EntityBuilder {
-        EntityBuilder {
-            entity: self.create(),
-            world: self,
-        }
-    }
-
     /// Returns true if this `Handle` was created by `HandlePool`, and has not
     /// been freed yet.
     #[inline]
@@ -108,6 +100,14 @@ impl World {
             self.entities.free(ent)
         } else {
             false
+        }
+    }
+
+    /// Create a entity builder.
+    pub fn build(&mut self) -> EntityBuilder {
+        EntityBuilder {
+            entity: self.create(),
+            world: self,
         }
     }
 
@@ -232,23 +232,13 @@ impl<'a> EntityBuilder<'a> {
 /// View into entities.
 #[derive(Copy, Clone)]
 pub struct Entities<'w> {
-    world: &'w World,
+    pub(crate) world: &'w World,
 }
 
 impl<'w> Entities<'w> {
     #[inline]
     fn new(world: &'w World) -> Self {
         Entities { world: world }
-    }
-
-    #[inline]
-    pub fn index<T: Component>(&self) -> usize {
-        self.world.mask_index::<T>()
-    }
-
-    #[inline]
-    pub fn iter(&self, bits: BitSet) -> EntitiesIter {
-        EntitiesIter::new(self.world, bits)
     }
 }
 
@@ -298,7 +288,7 @@ pub struct EntitiesIter<'w> {
 }
 
 impl<'w> EntitiesIter<'w> {
-    fn new(world: &'w World, bits: BitSet) -> Self {
+    pub(crate) fn new(world: &'w World, bits: BitSet) -> Self {
         EntitiesIter {
             masks: &world.masks,
             iter: world.entities.iter(),

@@ -4,15 +4,44 @@ use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 
 use failure;
-use rayon::prelude::*;
 
 use ecs::bitset::BitSet;
 use ecs::component::Component;
 use ecs::view::{Fetch, FetchMut};
 use ecs::world::{Entities, World};
+use sched::ScheduleSystemShared;
 use utils::{Handle, HandlePool};
 
 pub type Result<E> = ::std::result::Result<(), E>;
+
+/// A `System` could be executed with a set of required `SystemData`s.
+pub trait System<'w> {
+    type Data: SystemData<'w>;
+    type Err: failure::Fail;
+
+    fn run(&mut self, _: Self::Data) -> Result<Self::Err>;
+
+    /// Runs system with given `World`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the system is trying to access resource mutably.
+    fn run_with(&mut self, world: &'w World) -> Result<Self::Err> {
+        unsafe {
+            assert!(
+                Self::Data::writables(world).is_empty(),
+                "Can't run this system with immutable world."
+            );
+
+            self.run(Self::Data::fetch(world))
+        }
+    }
+
+    /// Runs system with given mutable `World`.
+    fn run_with_mut(&mut self, world: &'w mut World) -> Result<Self::Err> {
+        unsafe { self.run(Self::Data::fetch(world)) }
+    }
+}
 
 /// The execution dispatcher of systems.
 ///
@@ -52,16 +81,17 @@ impl<'scope, E: failure::Fail> SystemDispatcher<'scope, E> {
     ///
     /// This operation will blocks the current thread until we finished all the executions. First
     /// error that produces during execution will be returned.
-    pub fn run(&mut self, world: &mut World) -> Result<E> {
+    pub fn run(&mut self, world: &mut World, sched: &ScheduleSystemShared) -> Result<E> {
         unsafe {
             let batches = self.build(world);
+
             for mut v in batches {
-                let results: Vec<_> = v.par_iter_mut().map(|sys| sys.execute(world)).collect();
-                for v in results {
-                    if v.is_err() {
-                        return v;
+                sched.scope(|s| {
+                    let world = &world;
+                    for mut w in v {
+                        s.spawn(move |_| w.execute(world).unwrap());
                     }
-                }
+                });
             }
 
             Ok(())
@@ -348,35 +378,6 @@ where
     }
 }
 
-/// A `System` could be executed with a set of required `SystemData`s.
-pub trait System<'w> {
-    type Data: SystemData<'w>;
-    type Err: failure::Fail;
-
-    fn run(&mut self, _: Entities, _: Self::Data) -> Result<Self::Err>;
-
-    /// Runs system with given `World`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the system is trying to access resource mutably.
-    fn run_with(&mut self, world: &'w World) -> Result<Self::Err> {
-        unsafe {
-            assert!(Self::Data::writables(world).is_empty());
-            let data = Self::Data::fetch(world);
-            self.run(world.entities(), data)
-        }
-    }
-
-    /// Runs system with given mutable `World`.
-    fn run_with_mut(&mut self, world: &'w mut World) -> Result<Self::Err> {
-        unsafe {
-            let data = Self::Data::fetch(world);
-            self.run(world.entities(), data)
-        }
-    }
-}
-
 impl<'w, T> Executable<'w> for T
 where
     T: System<'w>,
@@ -384,10 +385,7 @@ where
     type Err = <Self as System<'w>>::Err;
 
     fn execute(&mut self, world: &'w World) -> Result<Self::Err> {
-        unsafe {
-            let data = T::Data::fetch(world);
-            self.run(world.entities(), data)
-        }
+        unsafe { self.run(T::Data::fetch(world)) }
     }
 
     fn readables(&self, world: &World) -> BitSet {
@@ -507,8 +505,8 @@ mod test {
         type Data = FetchMut<'w, Value>;
         type Err = Error;
 
-        fn run(&mut self, entities: Entities, data: Self::Data) -> Result<Error> {
-            for mut v in data.join(&entities) {
+        fn run(&mut self, data: Self::Data) -> Result<Error> {
+            for mut v in data.join() {
                 v.value += 1;
             }
 
@@ -521,7 +519,7 @@ mod test {
         type Data = Fetch<'w, Value>;
         type Err = Error;
 
-        fn run(&mut self, _: Entities, _: Self::Data) -> Result<Error> {
+        fn run(&mut self, _: Self::Data) -> Result<Error> {
             Ok(())
         }
     }
@@ -531,7 +529,7 @@ mod test {
         type Data = FetchMut<'w, OtherValue>;
         type Err = Error;
 
-        fn run(&mut self, _: Entities, _: Self::Data) -> Result<Error> {
+        fn run(&mut self, _: Self::Data) -> Result<Error> {
             Ok(())
         }
     }
@@ -541,7 +539,7 @@ mod test {
         type Data = Fetch<'w, OtherValue2>;
         type Err = Error;
 
-        fn run(&mut self, _: Entities, _: Self::Data) -> Result<Error> {
+        fn run(&mut self, _: Self::Data) -> Result<Error> {
             Ok(())
         }
     }
@@ -575,7 +573,7 @@ mod test {
         {
             let handle_a = batch.add_r1(&[], |_: Entities, _: Fetch<Value>| Ok(()));
             batch.add_w1(&[], |entities: Entities, a: FetchMut<Value>| {
-                for mut v in a.join(&entities) {
+                for mut v in a.join() {
                     v.value += 1;
                 }
 

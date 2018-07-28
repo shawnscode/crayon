@@ -84,6 +84,15 @@ impl<T> LockLatch<T> {
     }
 }
 
+impl Latch for LockLatch<()> {
+    #[inline]
+    fn set(&self) {
+        let mut guard = self.m.lock().unwrap();
+        *guard = Some(());
+        self.v.notify_all();
+    }
+}
+
 impl<T> LatchProbe for LockLatch<T> {
     #[inline]
     fn is_set(&self) -> bool {

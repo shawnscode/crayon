@@ -108,9 +108,9 @@ where
         JobRef::new(self)
     }
 
-    pub unsafe fn run_inline(self, stolen: bool) -> R {
-        self.func.into_inner().unwrap()(stolen)
-    }
+    // pub unsafe fn run_inline(self, stolen: bool) -> R {
+    //     self.func.into_inner().unwrap()(stolen)
+    // }
 
     pub unsafe fn into_result(self) -> R {
         self.result.into_inner().into_return_value()

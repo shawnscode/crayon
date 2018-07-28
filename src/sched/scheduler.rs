@@ -7,7 +7,7 @@ use std::{mem, thread};
 
 use crossbeam_deque as deque;
 
-use super::job::JobRef;
+use super::job::{JobRef, StackJob};
 use super::latch::{CountLatch, Latch, LatchProbe, LatchWaitProbe, LockLatch};
 use super::unwind::AbortIfPanic;
 use super::PanicHandler;
@@ -115,39 +115,39 @@ impl Scheduler {
         }
     }
 
-    // /// If already in a worker-thread of this registry, just execute `op`.
-    // /// Otherwise, inject `op` in this thread-pool. Either way, block until `op`
-    // /// completes and return its return value. If `op` panics, that panic will
-    // /// be propagated as well.  The second argument indicates `true` if injection
-    // /// was performed, `false` if executed directly.
-    // fn in_worker<OP, R>(&self, op: OP) -> R
-    // where
-    //     OP: FnOnce(&WorkerThread, bool) -> R + Send,
-    //     R: Send,
-    // {
-    //     unsafe {
-    //         let worker_thread = WorkerThread::current();
-    //         if worker_thread.is_null() {
-    //             let job = StackJob::new(
-    //                 |_| {
-    //                     let worker_thread = WorkerThread::current();
-    //                     op(&*worker_thread, true)
-    //                 },
-    //                 LockLatch::new(),
-    //             );
+    /// If already in a worker-thread of this registry, just execute `op`.
+    /// Otherwise, inject `op` in this thread-pool. Either way, block until `op`
+    /// completes and return its return value. If `op` panics, that panic will
+    /// be propagated as well.  The second argument indicates `true` if injection
+    /// was performed, `false` if executed directly.
+    pub fn in_worker<OP, R>(&self, op: OP) -> R
+    where
+        OP: FnOnce(&WorkerThread, bool) -> R + Send,
+        R: Send,
+    {
+        unsafe {
+            let worker_thread = WorkerThread::current();
+            if worker_thread.is_null() {
+                let job = StackJob::new(
+                    |_| {
+                        let worker_thread = WorkerThread::current();
+                        op(&*worker_thread, true)
+                    },
+                    LockLatch::new(),
+                );
 
-    //             self.inject(job.as_job_ref());
+                self.inject(job.as_job_ref());
 
-    //             job.latch.wait();
-    //             job.into_result()
-    //         } else {
-    //             // Perfectly valid to give them a `&T`: this is the
-    //             // current thread, so we know the data structure won't be
-    //             // invalidated until we return.
-    //             op(&*worker_thread, false)
-    //         }
-    //     }
-    // }
+                job.latch.wait();
+                job.into_result()
+            } else {
+                // Perfectly valid to give them a `&T`: this is the
+                // current thread, so we know the data structure won't be
+                // invalidated until we return.
+                op(&*worker_thread, false)
+            }
+        }
+    }
 
     /// Handles panic.
     pub fn handle_panic(&self, err: Box<::std::any::Any + Send>) {
@@ -237,7 +237,7 @@ impl Watcher {
     }
 }
 
-struct WorkerThread {
+pub struct WorkerThread {
     scheduler: Arc<Scheduler>,
     index: usize,
     worker: deque::Worker<JobRef>,
@@ -279,9 +279,27 @@ impl WorkerThread {
         self.worker.push(job);
     }
 
+    pub unsafe fn wait_until<L: LatchProbe>(&self, latch: &L) {
+        let abort_guard = AbortIfPanic {};
+
+        while !latch.is_set() {
+            if let Some(job) = self.steal_local()
+                .or_else(|| self.steal())
+                .or_else(|| self.scheduler.inject_stealer.steal())
+            {
+                job.execute();
+                self.scheduler.watcher.notify_all();
+            } else {
+                self.scheduler.watcher.wait();
+            }
+        }
+
+        mem::forget(abort_guard);
+    }
+
     /// Attempts to obtain a "local" job.
     #[inline]
-    pub unsafe fn steal_local(&self) -> Option<JobRef> {
+    unsafe fn steal_local(&self) -> Option<JobRef> {
         self.worker.pop()
     }
 
@@ -298,24 +316,6 @@ impl WorkerThread {
             .filter(|&i| i != self.index)
             .filter_map(|i| self.scheduler.threads[i].stealer.steal())
             .next()
-    }
-
-    unsafe fn wait_until<L: LatchProbe>(&self, latch: &L) {
-        let abort_guard = AbortIfPanic {};
-
-        while !latch.is_set() {
-            if let Some(job) = self.steal_local()
-                .or_else(|| self.steal())
-                .or_else(|| self.scheduler.inject_stealer.steal())
-            {
-                job.execute();
-                self.scheduler.watcher.notify_all();
-            } else {
-                self.scheduler.watcher.wait();
-            }
-        }
-
-        mem::forget(abort_guard);
     }
 }
 

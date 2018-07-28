@@ -1,4 +1,5 @@
 pub mod latch;
+pub mod scope;
 
 mod job;
 mod scheduler;
@@ -89,5 +90,27 @@ impl ScheduleSystemShared {
 
             self.scheduler.inject_or_push(job::HeapJob::as_job_ref(job));
         }
+    }
+
+    /// Create a "fork-join" scope `s` and invokes the closure with a
+    /// reference to `s`. This closure can then spawn asynchronous tasks
+    /// into `s`. Those tasks may run asynchronously with respect to the
+    /// closure; they may themselves spawn additional tasks into `s`. When
+    /// the closure returns, it will block until all tasks that have been
+    /// spawned into `s` complete.
+    pub fn scope<'s, F, R>(&self, func: F) -> R
+    where
+        F: for<'r> FnOnce(&'r scope::Scope<'s>) -> R + 's + Send,
+        R: Send,
+    {
+        self.scheduler.in_worker(|worker, _| unsafe {
+            let scope = scope::Scope::new(self.scheduler.clone());
+
+            let result = scope.execute(func);
+            scope.wait_until_completed(worker);
+
+            // only None if `op` panicked, and that would have been propagated.
+            result.unwrap()
+        })
     }
 }

@@ -26,7 +26,6 @@ glutin = "0.13.1"
 failure = "0.1.1"
 crossbeam-deque = "0.5.1"
 cgmath = "0.16.1"
-rayon = "1.0.1"
 
 [dev-dependencies]
 rand = "0.4.2"

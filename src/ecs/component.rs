@@ -7,33 +7,35 @@ use ecs::bitset::DynamicBitSet;
 use utils::handle::HandleIndex;
 
 /// Abstract component trait with associated storage type.
-pub trait Component: Sized + 'static {
-    type Arena: Arena<Self> + Send + Sync;
+pub trait Component: Send + Sync + Sized + 'static {
+    type Arena: Arena<Component = Self>;
 }
 
 /// Traits used to implement a standart/basic storage for components. Choose your
 /// components storage layout and strategy by declaring different `Arena`
 /// with corresponding component.
-pub trait Arena<T: Component> {
+pub trait Arena: Send + Sync {
+    type Component;
+
     /// Gets a reference to the value corresponding to the `HandleIndex`,
-    fn get(&self, HandleIndex) -> Option<&T>;
+    fn get(&self, HandleIndex) -> Option<&Self::Component>;
 
     /// Gets a mutable reference to the value at the `HandleIndex`, without doing
     /// bounds checking.
-    unsafe fn get_unchecked(&self, HandleIndex) -> &T;
+    unsafe fn get_unchecked(&self, HandleIndex) -> &Self::Component;
 
     /// Gets a mutable reference to the value corresponding to the `HandleIndex`,
-    fn get_mut(&mut self, HandleIndex) -> Option<&mut T>;
+    fn get_mut(&mut self, HandleIndex) -> Option<&mut Self::Component>;
 
     /// Gets a mutable reference to the value at the `HandleIndex`, without doing
     /// bounds checking.
-    unsafe fn get_unchecked_mut(&mut self, HandleIndex) -> &mut T;
+    unsafe fn get_unchecked_mut(&mut self, HandleIndex) -> &mut Self::Component;
 
     /// Inserts new data for a given `HandleIndex`,
-    fn insert(&mut self, HandleIndex, T) -> Option<T>;
+    fn insert(&mut self, HandleIndex, Self::Component) -> Option<Self::Component>;
 
     /// Removes and returns the data associated with an `HandleIndex`.
-    fn remove(&mut self, HandleIndex) -> Option<T>;
+    fn remove(&mut self, HandleIndex) -> Option<Self::Component>;
 }
 
 /// `HashMap` based storage which are best suited for rare components.
@@ -49,7 +51,12 @@ impl<T: Component> Default for HashMapArena<T> {
     }
 }
 
-impl<T: Component> Arena<T> for HashMapArena<T> {
+impl<T> Arena for HashMapArena<T>
+where
+    T: Component<Arena = Self>,
+{
+    type Component = T;
+
     #[inline]
     fn get(&self, id: HandleIndex) -> Option<&T> {
         self.values.get(&id)
@@ -97,7 +104,12 @@ impl<T: Component> Default for VecArena<T> {
     }
 }
 
-impl<T: Component> Arena<T> for VecArena<T> {
+impl<T> Arena for VecArena<T>
+where
+    T: Component<Arena = Self>,
+{
+    type Component = T;
+
     #[inline]
     fn get(&self, id: HandleIndex) -> Option<&T> {
         if self.mask.contains(id as usize) {

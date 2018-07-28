@@ -35,7 +35,6 @@ extern crate cgmath;
 extern crate failure;
 extern crate gl;
 extern crate glutin;
-pub extern crate rayon;
 
 #[macro_use]
 pub mod utils;
