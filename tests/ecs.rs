@@ -4,6 +4,7 @@ extern crate failure;
 extern crate rand;
 
 use crayon::ecs::prelude::*;
+use crayon::sched::ScheduleSystem;
 
 use rand::{Rng, SeedableRng, XorShiftRng};
 use std::sync::{Arc, RwLock};
@@ -222,14 +223,14 @@ fn iter_with() {
     }
 
     {
-        let (entities, a1, a2) = world.view_r2::<Position, Reference>();
-        assert_eq!((&a1, &a2).join(&entities).count(), v.len());
+        let (_, a1, a2) = world.view_r2::<Position, Reference>();
+        assert_eq!((&a1, &a2).join().count(), v.len());
     }
 
     {
         let (entities, a1, a2) = world.view_r2::<Position, Reference>();
 
-        for (e, position, _) in (entities, &a1, &a2).join(&entities) {
+        for (e, position, _) in (entities, &a1, &a2).join() {
             let p = Position {
                 x: e.index(),
                 y: e.version(),
@@ -241,7 +242,7 @@ fn iter_with() {
 
     {
         let (entities, mut a1, mut a2) = world.view_w2::<Position, Reference>();
-        for (e, mut position, mut reference) in (entities, &mut a1, &mut a2).join(&entities) {
+        for (e, mut position, mut reference) in (entities, &mut a1, &mut a2).join() {
             position.x += e.version();
             *reference.value.write().unwrap() += 1;
         }
@@ -249,7 +250,7 @@ fn iter_with() {
 
     {
         let (entities, a1, a2) = world.view_r2::<Position, Reference>();
-        let mut iter = (entities, &a1, &a2).join(&entities);
+        let mut iter = (entities, &a1, &a2).join();
         for e in &v {
             let (i, position, reference) = iter.next().unwrap();
             let p = Position {
@@ -301,8 +302,8 @@ impl<'a, 's> System<'a> for IncXSystem<'s> {
     type Data = FetchMut<'a, Position>;
     type Err = Error;
 
-    fn run(&mut self, entities: Entities, data: Self::Data) -> Result {
-        for mut v in data.join(&entities) {
+    fn run(&mut self, data: Self::Data) -> Result {
+        for mut v in data.join() {
             v.x += *self.value;
         }
 
@@ -316,8 +317,8 @@ impl<'a> System<'a> for MulXSystem {
     type Data = FetchMut<'a, Position>;
     type Err = Error;
 
-    fn run(&mut self, entities: Entities, data: Self::Data) -> Result {
-        for mut v in data.join(&entities) {
+    fn run(&mut self, data: Self::Data) -> Result {
+        for mut v in data.join() {
             v.x *= 2;
         }
 
@@ -327,6 +328,7 @@ impl<'a> System<'a> for MulXSystem {
 
 #[test]
 fn system() {
+    let sched = ScheduleSystem::new(4, None, None);
     let mut world = World::new();
     world.register::<Position>();
     let e1 = world.build().with_default::<Position>().finish();
@@ -339,8 +341,8 @@ fn system() {
 
         dispatcher.add_w1(
             &[],
-            |entities: Entities, positions: FetchMut<Position>| -> Result {
-                for mut v in positions.join(&entities) {
+            |_: Entities, positions: FetchMut<Position>| -> Result {
+                for mut v in positions.join() {
                     v.x += value;
                 }
 
@@ -349,7 +351,7 @@ fn system() {
             },
         );
 
-        dispatcher.run(&mut world).unwrap();
+        dispatcher.run(&mut world, &sched.shared()).unwrap();
     }
     assert_eq!(world.get::<Position>(e1).unwrap().x, 1);
     assert_eq!(v1, 1);
@@ -363,13 +365,14 @@ fn system() {
     {
         let mut dispatcher = SystemDispatcher::new();
         dispatcher.add(&[], IncXSystem { value: &value });
-        dispatcher.run(&mut world).unwrap();
+        dispatcher.run(&mut world, &sched.shared()).unwrap();
     }
     assert_eq!(world.get::<Position>(e1).unwrap().x, 3);
 }
 
 #[test]
 fn system_dependencies() {
+    let sched = ScheduleSystem::new(4, None, None);
     let mut world = World::new();
     world.register::<Position>();
     let e1 = world.build().with_default::<Position>().finish();
@@ -380,7 +383,7 @@ fn system_dependencies() {
         let mut dispatcher = SystemDispatcher::new();
         let s1 = dispatcher.add(&[], IncXSystem { value: &value });
         dispatcher.add(&[s1], MulXSystem {});
-        dispatcher.run(&mut world).unwrap();
+        dispatcher.run(&mut world, &sched.shared()).unwrap();
         assert_eq!(world.get::<Position>(e1).unwrap().x, 2);
     }
 
@@ -388,7 +391,7 @@ fn system_dependencies() {
         let mut dispatcher = SystemDispatcher::new();
         let s1 = dispatcher.add(&[], MulXSystem {});
         dispatcher.add(&[s1], IncXSystem { value: &value });
-        dispatcher.run(&mut world).unwrap();
+        dispatcher.run(&mut world, &sched.shared()).unwrap();
         assert_eq!(world.get::<Position>(e1).unwrap().x, 5);
     }
 }

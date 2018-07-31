@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::{mem, ptr};
 
 use super::job::HeapJob;
-use super::latch::CountLatch;
+use super::latch::{CountLatch, Latch};
 use super::scheduler::{Scheduler, WorkerThread};
 use super::unwind;
 
@@ -58,7 +58,7 @@ impl<'s> Scope<'s> {
     {
         match unwind::halt_unwinding(move || func(self)) {
             Ok(r) => {
-                self.latch.increment();
+                self.latch.set();
                 Some(r)
             }
             Err(err) => {
@@ -72,7 +72,7 @@ impl<'s> Scope<'s> {
                     mem::forget(err); // ownership now transferred into self.panic
                 }
 
-                self.latch.increment();
+                self.latch.set();
                 None
             }
         }
@@ -80,7 +80,7 @@ impl<'s> Scope<'s> {
 
     pub(crate) unsafe fn wait_until_completed(&self, worker: &WorkerThread) {
         // wait for job counter to reach 0:
-        worker.wait_until(&self.latch);
+        worker.hot_wait_until(&self.latch);
 
         // propagate panic, if any occurred; at this point, all outstanding jobs have completed,
         // so we can use a relaxed ordering:

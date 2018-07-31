@@ -89,7 +89,9 @@ impl<'scope, E: failure::Fail> SystemDispatcher<'scope, E> {
                 sched.scope(|s| {
                     let world = &world;
                     for mut w in v {
-                        s.spawn(move |_| w.execute(world).unwrap());
+                        s.spawn(move |_| {
+                            w.execute(world).unwrap();
+                        });
                     }
                 });
             }
@@ -475,6 +477,7 @@ mod test {
     use super::super::component::VecArena;
     use super::super::view::Join;
     use super::*;
+    use sched::ScheduleSystem;
 
     struct Value {
         value: i32,
@@ -546,6 +549,7 @@ mod test {
 
     #[test]
     fn batch() {
+        let sched = ScheduleSystem::new(4, None, None);
         let mut world = World::new();
         world.register::<Value>();
         world.register::<OtherValue>();
@@ -572,7 +576,7 @@ mod test {
 
         {
             let handle_a = batch.add_r1(&[], |_: Entities, _: Fetch<Value>| Ok(()));
-            batch.add_w1(&[], |entities: Entities, a: FetchMut<Value>| {
+            batch.add_w1(&[], |_: Entities, a: FetchMut<Value>| {
                 for mut v in a.join() {
                     v.value += 1;
                 }
@@ -582,7 +586,7 @@ mod test {
 
             batch.add_w1(&[], |_: Entities, _: FetchMut<OtherValue>| Ok(()));
             batch.add_r1(&[handle_a], |_: Entities, _: Fetch<OtherValue2>| Ok(()));
-            batch.run(&mut world).unwrap();
+            batch.run(&mut world, &sched.shared()).unwrap();
 
             assert_eq!(world.get::<Value>(ent).unwrap().value, 1);
         }
@@ -606,7 +610,7 @@ mod test {
             batch.add(&[], ValueSystem {});
             batch.add(&[], OtherSystem2 {});
             batch.add(&[handle_a], OtherSystem3 {});
-            batch.run(&mut world).unwrap();
+            batch.run(&mut world, &sched.shared()).unwrap();
 
             assert_eq!(world.get::<Value>(ent).unwrap().value, 2);
         }

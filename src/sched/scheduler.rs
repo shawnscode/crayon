@@ -175,7 +175,7 @@ impl Scheduler {
             if worker_thread.is_null() {
                 latch.wait();
             } else {
-                (*worker_thread).wait_until(latch);
+                (*worker_thread).hot_wait_until(latch);
             }
         }
     }
@@ -277,6 +277,24 @@ impl WorkerThread {
     #[inline]
     pub unsafe fn push(&self, job: JobRef) {
         self.worker.push(job);
+    }
+
+    pub unsafe fn hot_wait_until<L: LatchProbe>(&self, latch: &L) {
+        let abort_guard = AbortIfPanic {};
+
+        while !latch.is_set() {
+            if let Some(job) = self.steal_local()
+                .or_else(|| self.steal())
+                .or_else(|| self.scheduler.inject_stealer.steal())
+            {
+                job.execute();
+                self.scheduler.watcher.notify_all();
+            } else {
+                thread::yield_now();
+            }
+        }
+
+        mem::forget(abort_guard);
     }
 
     pub unsafe fn wait_until<L: LatchProbe>(&self, latch: &L) {
