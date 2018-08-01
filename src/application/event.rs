@@ -98,7 +98,7 @@ fn from_window_event(
 
         glutin::WindowEvent::CursorMoved { position, .. } => {
             Some(Event::InputDevice(InputDeviceEvent::MouseMoved {
-                position: (position.x as f32, dimensions.y as f32 - position.x as f32),
+                position: (position.x as f32, dimensions.y as f32 - position.y as f32),
             }))
         }
 

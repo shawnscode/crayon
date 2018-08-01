@@ -128,7 +128,7 @@ impl Window {
         self.events.clear();
 
         {
-            let dims = self.dimensions();
+            let dims = self.dimensions_in_points();
             let events = &mut self.events;
             self.events_loop.poll_events(|evt| {
                 if let Some(v) = from_event(evt, dims) {
