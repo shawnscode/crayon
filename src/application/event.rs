@@ -88,7 +88,7 @@ fn from_window_event(
     dimensions: math::Vector2<u32>,
 ) -> Option<Event> {
     match *source {
-        glutin::WindowEvent::Closed => Some(Event::Application(ApplicationEvent::Closed)),
+        glutin::WindowEvent::CloseRequested => Some(Event::Application(ApplicationEvent::Closed)),
 
         glutin::WindowEvent::Focused(v) => if v {
             Some(Event::Application(ApplicationEvent::GainFocus))
@@ -98,15 +98,19 @@ fn from_window_event(
 
         glutin::WindowEvent::CursorMoved { position, .. } => {
             Some(Event::InputDevice(InputDeviceEvent::MouseMoved {
-                position: (position.0 as f32, dimensions.y as f32 - position.1 as f32),
+                position: (position.x as f32, dimensions.y as f32 - position.x as f32),
             }))
         }
 
         glutin::WindowEvent::MouseWheel { delta, .. } => match delta {
-            glutin::MouseScrollDelta::LineDelta(x, y)
-            | glutin::MouseScrollDelta::PixelDelta(x, y) => {
+            glutin::MouseScrollDelta::LineDelta(x, y) => {
                 Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
                     delta: (x as f32, y as f32),
+                }))
+            }
+            glutin::MouseScrollDelta::PixelDelta(pos) => {
+                Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
+                    delta: (pos.x as f32, pos.y as f32),
                 }))
             }
         },
@@ -159,7 +163,7 @@ fn from_window_event(
             let evt = TouchEvent {
                 id: touch.id as u8,
                 state: from_touch_state(touch.phase),
-                position: (touch.location.0 as f32, touch.location.1 as f32).into(),
+                position: (touch.location.x as f32, touch.location.y as f32).into(),
             };
 
             Some(Event::InputDevice(InputDeviceEvent::Touch(evt)))

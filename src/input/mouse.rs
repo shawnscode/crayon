@@ -7,8 +7,7 @@ use math::MetricSpace;
 
 /// The setup parameters of mouse device.
 ///
-/// Notes that the `distance` series paramters will be multiplied by `HiDPI`
-/// factor before recognizing processes.
+/// Notes that the `distance` series paramters are measured in points.
 #[derive(Debug, Clone, Copy)]
 pub struct MouseParams {
     pub press_timeout: Duration,
@@ -34,26 +33,26 @@ pub struct Mouse {
     downs: HashSet<event::MouseButton>,
     presses: HashSet<event::MouseButton>,
     releases: HashSet<event::MouseButton>,
-    inv_hidpi: f32,
+    hidpi: f32,
     last_position: math::Vector2<f32>,
     position: math::Vector2<f32>,
     scrol: math::Vector2<f32>,
     click_detectors: HashMap<event::MouseButton, ClickDetector>,
-    setup: MouseParams,
+    params: MouseParams,
 }
 
 impl Mouse {
-    pub fn new(setup: MouseParams) -> Self {
+    pub fn new(params: MouseParams) -> Self {
         Mouse {
             downs: HashSet::new(),
             presses: HashSet::new(),
             releases: HashSet::new(),
-            inv_hidpi: 1.0,
+            hidpi: 1.0,
             last_position: math::Vector2::new(0.0, 0.0),
             position: math::Vector2::new(0.0, 0.0),
             scrol: math::Vector2::new(0.0, 0.0),
             click_detectors: HashMap::new(),
-            setup: setup,
+            params: params,
         }
     }
 
@@ -62,7 +61,7 @@ impl Mouse {
         self.downs.clear();
         self.presses.clear();
         self.releases.clear();
-        self.inv_hidpi = 1.0;
+        self.hidpi = 1.0;
         self.last_position = math::Vector2::new(0.0, 0.0);
         self.position = math::Vector2::new(0.0, 0.0);
         self.scrol = math::Vector2::new(0.0, 0.0);
@@ -76,12 +75,12 @@ impl Mouse {
     pub fn advance(&mut self, hidpi: f32) {
         self.presses.clear();
         self.releases.clear();
-        self.inv_hidpi = 1.0 / hidpi;
+        self.hidpi = hidpi;
         self.scrol = math::Vector2::new(0.0, 0.0);
         self.last_position = self.position;
 
         for v in self.click_detectors.values_mut() {
-            v.advance(hidpi);
+            v.advance();
         }
     }
 
@@ -102,7 +101,7 @@ impl Mouse {
             return;
         }
 
-        let mut detector = ClickDetector::new(self.setup);
+        let mut detector = ClickDetector::new(self.params);
         detector.on_pressed(self.position);
         self.click_detectors.insert(button, detector);
     }
@@ -117,7 +116,7 @@ impl Mouse {
             return;
         }
 
-        let mut detector = ClickDetector::new(self.setup);
+        let mut detector = ClickDetector::new(self.params);
         detector.on_released(self.position);
         self.click_detectors.insert(button, detector);
     }
@@ -162,22 +161,22 @@ impl Mouse {
 
     #[inline]
     pub fn position_in_points(&self) -> math::Vector2<f32> {
-        self.position * self.inv_hidpi
-    }
-
-    #[inline]
-    pub fn position(&self) -> math::Vector2<f32> {
         self.position
     }
 
     #[inline]
+    pub fn position(&self) -> math::Vector2<f32> {
+        self.position * self.hidpi
+    }
+
+    #[inline]
     pub fn movement_in_points(&self) -> math::Vector2<f32> {
-        (self.position - self.last_position) * self.inv_hidpi
+        (self.position - self.last_position)
     }
 
     #[inline]
     pub fn movement(&self) -> math::Vector2<f32> {
-        self.position - self.last_position
+        (self.position - self.last_position) * self.hidpi
     }
 
     #[inline]
@@ -196,12 +195,11 @@ struct ClickDetector {
     clicks: u32,
     frame_clicks: u32,
 
-    setup: MouseParams,
-    hidpi: f32,
+    params: MouseParams,
 }
 
 impl ClickDetector {
-    pub fn new(setup: MouseParams) -> Self {
+    pub fn new(params: MouseParams) -> Self {
         ClickDetector {
             last_press_time: Instant::now(),
             last_press_position: math::Vector2::new(0.0, 0.0),
@@ -212,8 +210,7 @@ impl ClickDetector {
             clicks: 0,
             frame_clicks: 0,
 
-            setup: setup,
-            hidpi: 1.0,
+            params: params,
         }
     }
 
@@ -222,25 +219,22 @@ impl ClickDetector {
         self.frame_clicks = 0;
     }
 
-    pub fn advance(&mut self, hidpi: f32) {
+    pub fn advance(&mut self) {
         self.frame_clicks = 0;
-        self.hidpi = hidpi;
     }
 
     pub fn on_pressed(&mut self, position: math::Vector2<f32>) {
         // Store press down as start of a new potential click.
-        let max_distance = self.setup.max_click_distance * self.hidpi;
-        let timeout = self.setup.click_timeout;
         let now = Instant::now();
 
         // If multi-click, checks if within max distance and press timeout of
         // last click, if not, start a new multi-click sequence.
         if self.clicks > 0 {
-            if (now - self.last_click_time) > timeout {
+            if (now - self.last_click_time) > self.params.click_timeout {
                 self.reset();
             }
 
-            if (position.distance(self.last_click_position)) > max_distance {
+            if (position.distance(self.last_click_position)) > self.params.max_click_distance {
                 self.reset();
             }
         }
@@ -250,12 +244,10 @@ impl ClickDetector {
     }
 
     pub fn on_released(&mut self, position: math::Vector2<f32>) {
-        let max_distance = self.setup.max_press_distance * self.hidpi;
-        let timeout = self.setup.press_timeout;
         let now = Instant::now();
 
-        if (now - self.last_press_time) < timeout
-            && (position.distance(self.last_press_position)) < max_distance
+        if (now - self.last_press_time) < self.params.press_timeout
+            && (position.distance(self.last_press_position)) < self.params.max_press_distance
         {
             self.clicks += 1;
             self.frame_clicks = self.clicks;

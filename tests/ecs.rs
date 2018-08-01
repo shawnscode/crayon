@@ -6,7 +6,6 @@ extern crate rand;
 use crayon::ecs::prelude::*;
 use crayon::sched::ScheduleSystem;
 
-use rand::{Rng, SeedableRng, XorShiftRng};
 use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
@@ -149,15 +148,14 @@ fn duplicated_add() {
 
 #[test]
 fn random_allocate() {
-    let mut generator = XorShiftRng::from_seed([0, 1, 2, 3]);
     let mut world = World::new();
     world.register::<Position>();
     world.register::<Reference>();
 
     let mut v = vec![];
     for i in 3..10 {
-        let p = generator.next_u32() % i + 1;
-        let r = generator.next_u32() % i + 1;
+        let p = rand::random::<u32>() % i + 1;
+        let r = rand::random::<u32>() % i + 1;
         for j in 0..100 {
             if j % p == 0 {
                 let e = world.create();
@@ -178,7 +176,7 @@ fn random_allocate() {
         let size = v.len() / 2;
         for _ in 0..size {
             let len = v.len();
-            world.free(v.swap_remove(generator.next_u32() as usize % len));
+            world.free(v.swap_remove(rand::random::<usize>() % len));
         }
     }
 

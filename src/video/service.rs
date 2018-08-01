@@ -75,7 +75,7 @@ impl VideoSystem {
         // Resize the window, which would recreate the underlying framebuffer.
         if dimensions != self.last_dimensions {
             self.last_dimensions = dimensions;
-            window.resize(window.dimensions_in_points());
+            window.resize(dimensions);
         }
 
         let (dc, tris) = self.frames

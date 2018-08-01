@@ -47,7 +47,10 @@ impl Window {
     pub fn new(params: WindowParams) -> Result<Self> {
         let builder = glutin::WindowBuilder::new()
             .with_title(params.title)
-            .with_dimensions(params.size.x, params.size.y)
+            .with_dimensions(glutin::dpi::LogicalSize::new(
+                params.size.x as f64,
+                params.size.y as f64,
+            ))
             .with_multitouch();
 
         let context = glutin::ContextBuilder::new()
@@ -151,7 +154,8 @@ impl Window {
     /// Resize the GL context.
     #[inline]
     pub fn resize(&self, dimensions: math::Vector2<u32>) {
-        self.window.resize(dimensions.x, dimensions.y)
+        let size = glutin::dpi::PhysicalSize::new(dimensions.x as f64, dimensions.y as f64);
+        self.window.resize(size)
     }
 
     /// Returns the address of an OpenGL function.
@@ -172,7 +176,8 @@ impl Window {
     /// the visible screen region.
     #[inline]
     pub fn position_in_points(&self) -> math::Vector2<i32> {
-        self.window.get_position().unwrap().into()
+        let pos = self.window.get_position().unwrap();
+        math::Vector2::new(pos.x as i32, pos.y as i32)
     }
 
     /// Returns the size in *points* of the client area of the window.
@@ -181,7 +186,8 @@ impl Window {
     /// the size of the frame buffer.
     #[inline]
     pub fn dimensions_in_points(&self) -> math::Vector2<u32> {
-        self.window.get_inner_size().unwrap().into()
+        let size = self.window.get_inner_size().unwrap();
+        math::Vector2::new(size.width as u32, size.height as u32)
     }
 
     /// Returns the size in *pixels* of the client area of the window.
@@ -196,7 +202,7 @@ impl Window {
     /// screen pixels. This is typically one for a normal display and two for a retina display.
     #[inline]
     pub fn hidpi(&self) -> f32 {
-        self.window.hidpi_factor()
+        self.window.get_hidpi_factor() as f32
     }
 }
 

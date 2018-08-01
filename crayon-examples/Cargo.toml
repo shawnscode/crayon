@@ -14,7 +14,7 @@ crayon-imgui = { path = "../crayon-modules/imgui", version = "0.4.0" }
 failure = "0.1.1"
 image = "0.18.0"
 obj = "0.8.2"
-rand = "0.4.2"
+rand = "0.5.4"
 
 [build-dependencies]
 crayon-workflow = { path = "../crayon-tools/workflow", version = "0.4.0" }

@@ -9,7 +9,7 @@ use super::MAX_TOUCHES;
 
 /// The setup parameters of touch pad device.
 ///
-/// Notes that the `distance` series paramters are measured by points.
+/// Notes that the `distance` series paramters are measured in points.
 #[derive(Debug, Clone, Copy)]
 pub struct TouchPadParams {
     /// The minimum distance before a touch is recognized as panning.
@@ -52,30 +52,25 @@ pub struct TouchPad {
 }
 
 impl TouchPad {
-    pub fn new(setup: TouchPadParams) -> Self {
+    pub fn new(params: TouchPadParams) -> Self {
         TouchPad {
             record: TouchesRecord::default(),
 
-            pan_detector: GesturePanDetector::new(setup),
+            pan_detector: GesturePanDetector::new(params),
             pan: GesturePan::None,
 
-            tap_detector: GestureTapDetector::new(1, setup),
+            tap_detector: GestureTapDetector::new(1, params),
             tap: GestureTap::None,
 
-            double_tap_detector: GestureTapDetector::new(2, setup),
+            double_tap_detector: GestureTapDetector::new(2, params),
             double_tap: GestureTap::None,
         }
     }
 
-    pub fn advance(&mut self, hidpi: f32) {
+    pub fn advance(&mut self) {
         self.pan = GesturePan::None;
-        self.pan_detector.set_hidpi_factor(hidpi);
-
         self.tap = GestureTap::None;
-        self.tap_detector.set_hidpi_factor(hidpi);
-
         self.double_tap = GestureTap::None;
-        self.double_tap_detector.set_hidpi_factor(hidpi);
     }
 
     pub fn reset(&mut self) {
@@ -139,12 +134,11 @@ struct GestureTapDetector {
     count: u32,
 
     required: u32,
-    hidpi: f32,
-    setup: TouchPadParams,
+    params: TouchPadParams,
 }
 
 impl GestureTapDetector {
-    pub fn new(required: u32, setup: TouchPadParams) -> Self {
+    pub fn new(required: u32, params: TouchPadParams) -> Self {
         GestureTapDetector {
             record: TouchesRecord::default(),
             last_tap_position: math::Vector2::new(0.0, 0.0),
@@ -152,18 +146,13 @@ impl GestureTapDetector {
             count: 0,
 
             required: required,
-            hidpi: 1.0,
-            setup: setup,
+            params: params,
         }
     }
 
     pub fn reset(&mut self) {
         self.count = 0;
         self.record = TouchesRecord::default();
-    }
-
-    pub fn set_hidpi_factor(&mut self, hidpi: f32) {
-        self.hidpi = hidpi;
     }
 
     pub fn detect(&mut self, record: &TouchesRecord) -> GestureTap {
@@ -187,17 +176,14 @@ impl GestureTapDetector {
         match t1.state {
             // Store touch down as start of a new potential tap.
             TouchState::Start => {
-                let max_distance = self.setup.max_tap_distance * self.hidpi;
-                let timeout = self.setup.tap_timeout;
-
                 // If multi-tap, checks if within max distance and tap timeout of
                 // last tap, if not, start a new multitap sequence.
                 if self.count > 0 {
-                    if (ts - self.last_tap_time) > timeout {
+                    if (ts - self.last_tap_time) > self.params.tap_timeout {
                         self.reset();
                     }
 
-                    if t1.position.distance(self.last_tap_position) > max_distance {
+                    if t1.position.distance(self.last_tap_position) > self.params.max_tap_distance {
                         self.reset();
                     }
                 }
@@ -208,11 +194,8 @@ impl GestureTapDetector {
             }
 
             TouchState::End => {
-                let max_distance = self.setup.max_touch_distance * self.hidpi;
-                let timeout = self.setup.touch_timeout;
-
-                if (ts - self.last_tap_time) < timeout
-                    && t1.position.distance(self.last_tap_position) < max_distance
+                if (ts - self.last_tap_time) < self.params.touch_timeout
+                    && t1.position.distance(self.last_tap_position) < self.params.max_touch_distance
                 {
                     self.count += 1;
                     self.last_tap_position = t1.position;
@@ -271,25 +254,19 @@ struct GesturePanDetector {
     pan: bool,
     record: TouchesRecord,
 
-    hidpi: f32,
-    setup: TouchPadParams,
+    params: TouchPadParams,
 }
 
 impl GesturePanDetector {
-    pub fn new(setup: TouchPadParams) -> Self {
+    pub fn new(params: TouchPadParams) -> Self {
         GesturePanDetector {
             position: math::Vector2::new(0.0, 0.0),
             start_position: math::Vector2::new(0.0, 0.0),
             pan: false,
             record: TouchesRecord::default(),
 
-            hidpi: 1.0,
-            setup: setup,
+            params: params,
         }
-    }
-
-    pub fn set_hidpi_factor(&mut self, hidpi: f32) {
-        self.hidpi = hidpi;
     }
 
     pub fn detect(&mut self, record: &TouchesRecord) -> GesturePan {
@@ -307,7 +284,6 @@ impl GesturePanDetector {
             return GesturePan::None;
         }
 
-        let min_distance = self.setup.min_pan_distance * self.hidpi;
         match t1.state {
             TouchState::Start => {
                 self.record = *record;
@@ -327,7 +303,9 @@ impl GesturePanDetector {
                         position: self.position,
                         movement: movement,
                     }
-                } else if self.start_position.distance(self.position) >= min_distance {
+                } else if self.start_position.distance(self.position)
+                    >= self.params.min_pan_distance
+                {
                     // Checks if min-distance is reached before starting panning.
                     self.pan = true;
                     GesturePan::Start {

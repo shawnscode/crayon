@@ -204,7 +204,7 @@ impl InputSystem {
     pub(crate) fn advance(&mut self, hidpi: f32) {
         self.shared.mouse.write().unwrap().advance(hidpi);
         self.shared.keyboard.write().unwrap().advance();
-        self.shared.touchpad.write().unwrap().advance(hidpi);
+        self.shared.touchpad.write().unwrap().advance();
     }
 
     pub(crate) fn update_with(&mut self, v: event::InputDeviceEvent) {

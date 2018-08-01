@@ -13,5 +13,5 @@ crayon = { path = "../../", version = "0.4.0" }
 failure = "0.1.1"
 
 [dev-dependencies]
-rand = "0.4.2"
-approx = "0.1.1"
+rand = "0.5.4"
+approx = "0.3.0"
