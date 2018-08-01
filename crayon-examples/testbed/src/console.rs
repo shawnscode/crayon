@@ -1,22 +1,50 @@
-use crayon::prelude::*;
+use std::sync::Arc;
 
+use crayon::prelude::*;
+use crayon::video::assets::prelude::*;
 use crayon_imgui;
 use crayon_imgui::prelude::*;
 
 use errors::*;
-use utils;
+
+fn to_ms(duration: ::std::time::Duration) -> f32 {
+    duration.as_secs() as f32 * 1000.0 + duration.subsec_nanos() as f32 / 1_000_000.0
+}
 
 pub struct ConsoleCanvas {
+    surface: Option<SurfaceHandle>,
     canvas: Canvas,
     info: FrameInfo,
+    video: Arc<VideoSystemShared>,
+}
+
+impl Drop for ConsoleCanvas {
+    fn drop(&mut self) {
+        if let Some(surface) = self.surface {
+            self.video.delete_surface(surface);
+        }
+    }
 }
 
 impl ConsoleCanvas {
-    pub fn new(ctx: &Context) -> Result<Self> {
+    pub fn new<C>(ctx: &Context, clear_color: C) -> Result<Self>
+    where
+        C: Into<Option<math::Color<f32>>>,
+    {
         let canvas = Canvas::new(ctx).unwrap();
 
+        let surface = if let Some(color) = clear_color.into() {
+            let mut params = SurfaceParams::default();
+            params.set_clear(color, None, None);
+            Some(ctx.video.create_surface(params)?)
+        } else {
+            None
+        };
+
         Ok(ConsoleCanvas {
+            surface: surface,
             canvas: canvas,
+            video: ctx.video.clone(),
             info: Default::default(),
         })
     }
@@ -26,7 +54,7 @@ impl ConsoleCanvas {
     }
 
     pub fn render<'a>(&'a mut self, ctx: &Context) -> crayon_imgui::canvas::FrameGuard<'a> {
-        let ui = self.canvas.frame(ctx, None);
+        let ui = self.canvas.frame(ctx, self.surface);
         let info = self.info;
         ui.window(im_str!("ImGui & Crayon"))
             .movable(false)
@@ -44,8 +72,8 @@ impl ConsoleCanvas {
 
                 ui.text(im_str!(
                     "CPU: {:.2?}ms, GPU: {:.2?}ms",
-                    utils::to_ms(info.duration),
-                    utils::to_ms(info.video.duration)
+                    to_ms(info.duration),
+                    to_ms(info.video.duration)
                 ));
             });
 

@@ -1,14 +1,11 @@
-use crayon::prelude::*;
-use crayon::video::assets::prelude::*;
-use crayon_imgui::prelude::*;
+extern crate crayon;
+extern crate crayon_testbed;
 
-use errors::*;
-use utils;
+use crayon::prelude::*;
+use crayon_testbed::prelude::*;
 
 struct Window {
-    surface: SurfaceHandle,
-    canvas: Canvas,
-    info: FrameInfo,
+    canvas: ConsoleCanvas,
     text: String,
     repeat_count: u32,
     click_count: u32,
@@ -18,16 +15,8 @@ struct Window {
 impl Window {
     fn new(engine: &mut Engine) -> Result<Self> {
         let ctx = engine.context();
-        let canvas = Canvas::new(ctx).unwrap();
-
-        let mut params = SurfaceParams::default();
-        params.set_clear(math::Color::gray(), None, None);
-        let surface = ctx.video.create_surface(params)?;
-
         Ok(Window {
-            surface: surface,
-            canvas: canvas,
-            info: Default::default(),
+            canvas: ConsoleCanvas::new(&ctx, math::Color::white())?,
             text: String::new(),
             repeat_count: 0,
             click_count: 0,
@@ -56,35 +45,19 @@ impl Application for Window {
             self.double_click_count += 1;
         }
 
-        let ui = self.canvas.frame(ctx, self.surface);
-        let info = self.info;
+        let ui = self.canvas.render(ctx);
         let text = &self.text;
         let rc = self.repeat_count;
         let clicks = self.click_count;
         let double_clicks = self.double_click_count;
 
-        ui.window(im_str!("ImGui & Crayon"))
+        ui.window(im_str!("Input"))
             .movable(false)
             .resizable(false)
             .title_bar(false)
-            .position((50.0, 50.0), ImGuiCond::FirstUseEver)
+            .position((100.0, 100.0), ImGuiCond::FirstUseEver)
             .size((400.0, 400.0), ImGuiCond::FirstUseEver)
             .build(|| {
-                ui.text(im_str!("FPS: {:?}", info.fps));
-                ui.text(im_str!(
-                    "DrawCalls: {:?}, Triangles: {:?}",
-                    info.video.drawcall,
-                    info.video.triangles
-                ));
-
-                ui.text(im_str!(
-                    "CPU: {:.2?}ms, GPU: {:.2?}ms",
-                    utils::to_ms(info.duration),
-                    utils::to_ms(info.video.duration)
-                ));
-
-                ui.separator();
-
                 if ui.collapsing_header(im_str!("Mouse")).build() {
                     let pos = input.mouse_position();
                     let movement = input.mouse_movement();
@@ -143,15 +116,17 @@ impl Application for Window {
     }
 
     fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> Result<()> {
-        self.info = *info;
+        self.canvas.update(info);
         Ok(())
     }
 }
 
-pub fn main(mut settings: Settings) {
-    settings.window.size = math::Vector2::new(500, 500);
+fn main() {
+    let mut params = crayon::application::Settings::default();
+    params.window.title = "CR: Input".into();
+    params.window.size = math::Vector2::new(600, 600);
 
-    let mut engine = Engine::new_with(&settings).unwrap();
+    let mut engine = Engine::new_with(&params).unwrap();
     let window = Window::new(&mut engine).unwrap();
     engine.run(window).unwrap();
 }

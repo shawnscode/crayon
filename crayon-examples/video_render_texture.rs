@@ -1,7 +1,10 @@
+#[macro_use]
+extern crate crayon;
+extern crate crayon_testbed;
+
 use crayon::prelude::*;
 use crayon::video::assets::prelude::*;
-use errors::*;
-use utils::ConsoleCanvas;
+use crayon_testbed::prelude::*;
 
 impl_vertex!{
     Vertex {
@@ -66,8 +69,8 @@ impl Window {
             // Create shader state.
             let mut params = ShaderParams::default();
             params.attributes = attributes;
-            let vs = include_str!("../../assets/render_target_p1.vs").to_owned();
-            let fs = include_str!("../../assets/render_target_p1.fs").to_owned();
+            let vs = include_str!("assets/render_target_p1.vs").to_owned();
+            let fs = include_str!("assets/render_target_p1.fs").to_owned();
             let shader = ctx.video.create_shader(params, vs, fs)?;
 
             (
@@ -109,8 +112,8 @@ impl Window {
             let mut params = ShaderParams::default();
             params.attributes = attributes;
             params.uniforms = uniforms;
-            let vs = include_str!("../../assets/render_target_p2.vs").to_owned();
-            let fs = include_str!("../../assets/render_target_p2.fs").to_owned();
+            let vs = include_str!("assets/render_target_p2.vs").to_owned();
+            let fs = include_str!("assets/render_target_p2.fs").to_owned();
             let shader = ctx.video.create_shader(params, vs, fs)?;
 
             Pass {
@@ -125,7 +128,7 @@ impl Window {
             post_effect: post_effect,
             texture: rendered_texture,
 
-            canvas: ConsoleCanvas::new(&ctx)?,
+            canvas: ConsoleCanvas::new(&ctx, None)?,
             batch: Batch::new(),
             time: 0.0,
         })
@@ -173,10 +176,12 @@ impl Application for Window {
     }
 }
 
-pub fn main(mut settings: Settings) {
-    settings.window.size = math::Vector2::new(568, 320);
+fn main() {
+    let mut params = crayon::application::Settings::default();
+    params.window.title = "CR: RenderTexture".into();
+    params.window.size = math::Vector2::new(568, 320);
 
-    let mut engine = Engine::new_with(&settings).unwrap();
+    let mut engine = Engine::new_with(&params).unwrap();
     let window = Window::new(&mut engine).unwrap();
     engine.run(window).unwrap();
 }

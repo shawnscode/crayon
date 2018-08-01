@@ -1,8 +1,10 @@
+#[macro_use]
+extern crate crayon;
+extern crate crayon_testbed;
+
 use crayon::prelude::*;
 use crayon::video::assets::prelude::*;
-use errors::*;
-
-use utils::ConsoleCanvas;
+use crayon_testbed::prelude::*;
 
 impl_vertex!{
     Vertex {
@@ -20,8 +22,8 @@ struct Window {
 
 impl Window {
     fn new(engine: &mut Engine) -> Result<Self> {
-        let assets = format!("{0}/assets", env!("OUT_DIR"));
-        engine.res.mount("res", DiskFS::new(assets)?)?;
+        let loc = crayon_testbed::build(false);
+        engine.res.mount("res", DiskFS::new(loc)?)?;
 
         let ctx = engine.context();
 
@@ -58,8 +60,8 @@ impl Window {
         let mut params = ShaderParams::default();
         params.attributes = attributes;
         params.uniforms = uniforms;
-        let vs = include_str!("../../assets/texture.vs").to_owned();
-        let fs = include_str!("../../assets/texture.fs").to_owned();
+        let vs = include_str!("assets/texture.vs").to_owned();
+        let fs = include_str!("assets/texture.fs").to_owned();
         let shader = ctx.video.create_shader(params, vs, fs)?;
 
         let texture = ctx.res.load("res:texture.png")?;
@@ -70,7 +72,7 @@ impl Window {
             shader: shader,
             mesh: mesh,
             texture: texture,
-            canvas: ConsoleCanvas::new(&ctx)?,
+            canvas: ConsoleCanvas::new(&ctx, None)?,
         })
     }
 }
@@ -100,10 +102,12 @@ impl Application for Window {
     }
 }
 
-pub fn main(mut settings: Settings) {
-    settings.window.size = math::Vector2::new(464, 434);
+fn main() {
+    let mut params = crayon::application::Settings::default();
+    params.window.title = "CR: Texture".into();
+    params.window.size = math::Vector2::new(464, 434);
 
-    let mut engine = Engine::new_with(&settings).unwrap();
+    let mut engine = Engine::new_with(&params).unwrap();
     let window = Window::new(&mut engine).unwrap();
     engine.run(window).unwrap();
 }

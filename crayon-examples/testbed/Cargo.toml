@@ -1,0 +1,10 @@
+[package]
+name = "crayon-testbed"
+version = "0.1.0"
+authors = ["maojingkai <oammix@gmail.com>"]
+
+[dependencies]
+crayon = { path = "../.." }
+crayon-workflow = { path = "../../crayon-tools/workflow" }
+crayon-imgui = { path = "../../crayon-modules/imgui" }
+failure = "0.1.1"
