@@ -68,7 +68,7 @@ impl Renderer {
             let mut params = TextureParams::default();
             params.dimensions = (v.width, v.height).into();
             params.filter = TextureFilter::Nearest;
-            params.format = TextureFormat::U8U8U8U8;
+            params.format = TextureFormat::RGBA8;
             ctx.video.create_texture(params, v.pixels)
         })?;
 

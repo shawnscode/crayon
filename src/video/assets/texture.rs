@@ -25,7 +25,7 @@ impl_handle!(TextureHandle);
 impl Default for TextureParams {
     fn default() -> Self {
         TextureParams {
-            format: TextureFormat::U8U8U8U8,
+            format: TextureFormat::RGBA8,
             wrap: TextureWrap::Clamp,
             filter: TextureFilter::Linear,
             hint: TextureHint::Immutable,
@@ -38,7 +38,7 @@ impl Default for TextureParams {
 impl TextureParams {
     pub fn validate(&self, data: Option<&[u8]>) -> Result<()> {
         if let Some(buf) = data.as_ref() {
-            let len = self.format.size() as u32 * self.dimensions.x * self.dimensions.y;
+            let len = self.format.size(self.dimensions);
             if buf.len() > len as usize {
                 return Err(Error::OutOfBounds);
             }
@@ -147,61 +147,88 @@ impl RenderTextureFormat {
 #[repr(u8)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TextureFormat {
-    U8,
-    U8U8,
-    U8U8U8,
-    U8U8U8U8,
-    U5U6U5,
-    U4U4U4U4,
-    U5U5U5U1,
-    U10U10U10U2,
-    F16,
-    F16F16,
-    F16F16F16,
-    F16F16F16F16,
-    F32,
-    F32F32,
-    F32F32F32,
-    F32F32F32F32,
+    R8,
+    RG8,
+    RGB8,
+    RGBA8,
+    RGB565,
+    RGBA4,
+    RGBA5551,
+    RGBA1010102,
+
+    R16F,
+    RG16F,
+    RGB16F,
+    RGBA16F,
+
+    R32F,
+    RG32F,
+    RGB32F,
+    RGBA32F,
+
+    PvrtcRGB4BPP,
+    PvrtcRGB2BPP,
+    PvrtcRGBA4BPP,
+    PvrtcRGBA2BPP,
+
+    Etc2RGB4BPP,
+    Etc2RGBA8BPP,
+
+    S3tcDxt1RGB4BPP,
+    S3tcDxt5RGBA6BPP,
 }
 
 impl TextureFormat {
     /// Returns the number of components of this client format.
     pub fn components(&self) -> u8 {
         match *self {
-            TextureFormat::F32 | TextureFormat::F16 | TextureFormat::U8 => 1,
-            TextureFormat::U8U8 | TextureFormat::F16F16 | TextureFormat::F32F32 => 2,
-            TextureFormat::U5U6U5
-            | TextureFormat::U8U8U8
-            | TextureFormat::F16F16F16
-            | TextureFormat::F32F32F32 => 3,
-            TextureFormat::U8U8U8U8
-            | TextureFormat::U4U4U4U4
-            | TextureFormat::U5U5U5U1
-            | TextureFormat::U10U10U10U2
-            | TextureFormat::F16F16F16F16
-            | TextureFormat::F32F32F32F32 => 4,
+            TextureFormat::R32F | TextureFormat::R16F | TextureFormat::R8 => 1,
+            TextureFormat::RG8 | TextureFormat::RG16F | TextureFormat::RG32F => 2,
+            TextureFormat::RGB565
+            | TextureFormat::RGB8
+            | TextureFormat::RGB16F
+            | TextureFormat::RGB32F
+            | TextureFormat::PvrtcRGB4BPP
+            | TextureFormat::PvrtcRGB2BPP
+            | TextureFormat::Etc2RGB4BPP
+            | TextureFormat::S3tcDxt1RGB4BPP => 3,
+            TextureFormat::RGBA8
+            | TextureFormat::RGBA4
+            | TextureFormat::RGBA5551
+            | TextureFormat::RGBA1010102
+            | TextureFormat::RGBA16F
+            | TextureFormat::RGBA32F
+            | TextureFormat::PvrtcRGBA4BPP
+            | TextureFormat::PvrtcRGBA2BPP
+            | TextureFormat::Etc2RGBA8BPP
+            | TextureFormat::S3tcDxt5RGBA6BPP => 4,
         }
     }
 
     /// Returns the size in bytes of a pixel of this type.
-    pub fn size(&self) -> u8 {
+    pub fn size(&self, dimensions: math::Vector2<u32>) -> u32 {
+        let square = dimensions.x * dimensions.y;
         match *self {
-            TextureFormat::U8 => 1,
-            TextureFormat::U8U8
-            | TextureFormat::U5U6U5
-            | TextureFormat::U4U4U4U4
-            | TextureFormat::U5U5U5U1
-            | TextureFormat::F16 => 2,
-            TextureFormat::U8U8U8 => 3,
-            TextureFormat::U8U8U8U8
-            | TextureFormat::U10U10U10U2
-            | TextureFormat::F16F16
-            | TextureFormat::F32 => 4,
-            TextureFormat::F16F16F16 => 6,
-            TextureFormat::F16F16F16F16 | TextureFormat::F32F32 => 8,
-            TextureFormat::F32F32F32 => 12,
-            TextureFormat::F32F32F32F32 => 16,
+            TextureFormat::PvrtcRGB2BPP | TextureFormat::PvrtcRGBA2BPP => square / 4,
+            TextureFormat::PvrtcRGB4BPP | TextureFormat::PvrtcRGBA4BPP => square / 2,
+            TextureFormat::Etc2RGB4BPP | TextureFormat::S3tcDxt1RGB4BPP => square / 2,
+            TextureFormat::S3tcDxt5RGBA6BPP => square * 3 / 4,
+            TextureFormat::Etc2RGBA8BPP => square,
+            TextureFormat::R8 => square,
+            TextureFormat::RG8
+            | TextureFormat::RGB565
+            | TextureFormat::RGBA4
+            | TextureFormat::RGBA5551
+            | TextureFormat::R16F => 2 * square,
+            TextureFormat::RGB8 => 3 * square,
+            TextureFormat::RGBA8
+            | TextureFormat::RGBA1010102
+            | TextureFormat::RG16F
+            | TextureFormat::R32F => 4 * square,
+            TextureFormat::RGB16F => 6 * square,
+            TextureFormat::RGBA16F | TextureFormat::RG32F => 8 * square,
+            TextureFormat::RGB32F => 12 * square,
+            TextureFormat::RGBA32F => 16 * square,
         }
     }
 }

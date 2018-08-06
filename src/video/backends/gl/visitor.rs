@@ -113,6 +113,7 @@ pub struct GLVisitor {
     meshes: DataVec<GLMesh>,
     textures: DataVec<GLTexture>,
     render_textures: DataVec<GLRenderTexture>,
+    capabilities: Capabilities,
 }
 
 impl GLVisitor {
@@ -147,6 +148,7 @@ impl GLVisitor {
             meshes: DataVec::new(),
             textures: DataVec::new(),
             render_textures: DataVec::new(),
+            capabilities: capabilities,
         };
 
         visitor.reset_render_state()?;
@@ -329,17 +331,55 @@ impl Visitor for GLVisitor {
         params: TextureParams,
         data: Option<&[u8]>,
     ) -> Result<()> {
+        // Maybe we should implements some software decoder for common texture compression format.
+        if !params.format.is_support(&self.capabilities) {
+            return Err(Error::Requirement(format!(
+                "The GL Context does NOT support the texture format {:?}.",
+                params.format,
+            )));
+        }
+
+        let id = self.create_texture_intern(params.wrap, params.filter, params.mipmap)?;
+
+        let value = match data {
+            Some(v) if !v.is_empty() => &v[0] as *const u8 as *const ::std::os::raw::c_void,
+            _ => ::std::ptr::null(),
+        };
+
         let (internal_format, format, pixel_type) = params.format.into();
-        let id = self.create_texture_intern(
-            internal_format,
-            format,
-            pixel_type,
-            params.wrap,
-            params.filter,
-            params.mipmap,
-            params.dimensions,
-            data,
-        )?;
+        let is_compression = params.format.is_compression();
+
+        if is_compression {
+            gl::CompressedTexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                internal_format,
+                params.dimensions.x as GLsizei,
+                params.dimensions.y as GLsizei,
+                0,
+                params.format.size(params.dimensions) as GLsizei,
+                value,
+            );
+        } else {
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                internal_format as GLint,
+                params.dimensions.x as GLsizei,
+                params.dimensions.y as GLsizei,
+                0,
+                format,
+                pixel_type,
+                value,
+            );
+        }
+
+        check()?;
+
+        if params.mipmap {
+            gl::GenerateMipmap(gl::TEXTURE_2D);
+            check()?;
+        }
 
         self.textures.create(
             handle,
@@ -403,18 +443,8 @@ impl Visitor for GLVisitor {
         handle: RenderTextureHandle,
         params: RenderTextureParams,
     ) -> Result<()> {
-        let (internal_format, in_format, pixel_type) = params.format.into();
         let id = if params.sampler {
-            self.create_texture_intern(
-                internal_format,
-                in_format,
-                pixel_type,
-                params.wrap,
-                params.filter,
-                false,
-                params.dimensions,
-                None,
-            )?
+            self.create_texture_intern(params.wrap, params.filter, false)?
         } else {
             let mut id = 0;
             gl::GenRenderbuffers(1, &mut id);
@@ -422,6 +452,7 @@ impl Visitor for GLVisitor {
 
             self.bind_render_buffer(id)?;
 
+            let (internal_format, _, _) = params.format.into();
             gl::RenderbufferStorage(
                 gl::RENDERBUFFER,
                 internal_format,
@@ -1316,14 +1347,9 @@ impl GLVisitor {
 
     unsafe fn create_texture_intern(
         &mut self,
-        internal_format: GLuint,
-        format: GLenum,
-        pixel_type: GLenum,
         wrap: TextureWrap,
         filter: TextureFilter,
         mipmap: bool,
-        dimensions: math::Vector2<u32>,
-        data: Option<&[u8]>,
     ) -> Result<GLuint> {
         let mut id = 0;
         gl::GenTextures(1, &mut id);
@@ -1354,30 +1380,6 @@ impl GLVisitor {
             }
         }
 
-        check()?;
-
-        let value = match data {
-            Some(v) if !v.is_empty() => &v[0] as *const u8 as *const ::std::os::raw::c_void,
-            _ => ::std::ptr::null(),
-        };
-
-        gl::TexImage2D(
-            gl::TEXTURE_2D,
-            0,
-            internal_format as GLint,
-            dimensions.x as GLsizei,
-            dimensions.y as GLsizei,
-            0,
-            format,
-            pixel_type,
-            value,
-        );
-
-        if mipmap {
-            gl::GenerateMipmap(gl::TEXTURE_2D);
-        }
-
-        check()?;
         Ok(id)
     }
 
@@ -1446,7 +1448,7 @@ unsafe fn check_capabilities(caps: &Capabilities) -> Result<()> {
 }
 
 unsafe fn check() -> Result<()> {
-    match gl::GetError() {
+    let err = match gl::GetError() {
         gl::NO_ERROR => Ok(()),
 
         gl::INVALID_ENUM => Err(Error::Backend(
@@ -1471,5 +1473,7 @@ unsafe fn check() -> Result<()> {
             "[GL] There is not enough memory left to execute the command.".into(),
         )),
         _ => Err(Error::Backend("[GL] Oops, Unknown OpenGL error.".into())),
-    }
+    };
+
+    Ok(err.unwrap())
 }

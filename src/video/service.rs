@@ -280,7 +280,6 @@ impl VideoSystemShared {
             let ptr = frame.bufs.extend_from_slice(data);
             let cmd = Command::UpdateVertexBuffer(handle, offset, ptr);
             frame.cmds.push(cmd);
-
             Ok(())
         } else {
             Err(Error::HandleInvalid(format!("{:?}", handle)))

@@ -6,6 +6,8 @@ use crayon::prelude::*;
 use crayon::video::assets::prelude::*;
 use crayon_testbed::prelude::*;
 
+use crayon::video::assets::texture::TextureHandle as CoreTextureHandle;
+
 impl_vertex!{
     Vertex {
         position => [Position; Float; 2; false],
@@ -16,7 +18,7 @@ struct Window {
     surface: SurfaceHandle,
     shader: ShaderHandle,
     mesh: MeshHandle,
-    texture: TextureHandle,
+    texture: CoreTextureHandle,
     canvas: ConsoleCanvas,
 }
 
@@ -109,5 +111,5 @@ fn main() {
 
     let mut engine = Engine::new_with(&params).unwrap();
     let window = Window::new(&mut engine).unwrap();
-    engine.run(window).unwrap();
+    engine.run(window).err().unwrap();
 }

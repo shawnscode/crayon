@@ -3,6 +3,7 @@ use gl::types::*;
 use std::borrow::Borrow;
 
 use super::super::super::assets::prelude::*;
+use super::capabilities::{Capabilities, TextureCompression};
 use utils::handle;
 
 pub struct DataVec<T>
@@ -140,23 +141,99 @@ impl From<IndexFormat> for GLenum {
 
 impl From<TextureFormat> for (GLenum, GLenum, GLenum) {
     fn from(format: TextureFormat) -> Self {
+        // Notes that OpenGL ES 2.0 does NOT supports sized internal format.
         match format {
-            TextureFormat::U8 => (gl::R8, gl::RED, gl::UNSIGNED_BYTE),
-            TextureFormat::U8U8 => (gl::RG8, gl::RG, gl::UNSIGNED_BYTE),
-            TextureFormat::U8U8U8 => (gl::RGB8, gl::RGB, gl::UNSIGNED_BYTE),
-            TextureFormat::U8U8U8U8 => (gl::RGBA8, gl::RGBA, gl::UNSIGNED_BYTE),
-            TextureFormat::U5U6U5 => (gl::RGB565, gl::RGB, gl::UNSIGNED_SHORT_5_6_5),
-            TextureFormat::U4U4U4U4 => (gl::RGBA4, gl::RGBA, gl::UNSIGNED_SHORT_4_4_4_4),
-            TextureFormat::U5U5U5U1 => (gl::RGB5_A1, gl::RGBA, gl::UNSIGNED_SHORT_5_5_5_1),
-            TextureFormat::U10U10U10U2 => (gl::RGB10_A2, gl::RGBA, gl::UNSIGNED_INT_2_10_10_10_REV),
-            TextureFormat::F16 => (gl::R16F, gl::RED, gl::HALF_FLOAT),
-            TextureFormat::F16F16 => (gl::RG16F, gl::RG, gl::HALF_FLOAT),
-            TextureFormat::F16F16F16 => (gl::RGB16F, gl::RGB, gl::HALF_FLOAT),
-            TextureFormat::F16F16F16F16 => (gl::RGBA16F, gl::RGBA, gl::HALF_FLOAT),
-            TextureFormat::F32 => (gl::R32F, gl::RED, gl::FLOAT),
-            TextureFormat::F32F32 => (gl::RG32F, gl::RG, gl::FLOAT),
-            TextureFormat::F32F32F32 => (gl::RGB32F, gl::RGB, gl::FLOAT),
-            TextureFormat::F32F32F32F32 => (gl::RGBA32F, gl::RGBA, gl::FLOAT),
+            TextureFormat::R8 => (gl::R8, gl::RED, gl::UNSIGNED_BYTE),
+            TextureFormat::RG8 => (gl::RG8, gl::RG, gl::UNSIGNED_BYTE),
+            TextureFormat::RGB8 => (gl::RGB8, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::RGBA8 => (gl::RGBA8, gl::RGBA, gl::UNSIGNED_BYTE),
+            TextureFormat::RGB565 => (gl::RGB565, gl::RGB, gl::UNSIGNED_SHORT_5_6_5),
+            TextureFormat::RGBA4 => (gl::RGBA4, gl::RGBA, gl::UNSIGNED_SHORT_4_4_4_4),
+            TextureFormat::RGBA5551 => (gl::RGB5_A1, gl::RGBA, gl::UNSIGNED_SHORT_5_5_5_1),
+            TextureFormat::RGBA1010102 => (gl::RGB10_A2, gl::RGBA, gl::UNSIGNED_INT_2_10_10_10_REV),
+            TextureFormat::R16F => (gl::R16F, gl::RED, gl::HALF_FLOAT),
+            TextureFormat::RG16F => (gl::RG16F, gl::RG, gl::HALF_FLOAT),
+            TextureFormat::RGB16F => (gl::RGB16F, gl::RGB, gl::HALF_FLOAT),
+            TextureFormat::RGBA16F => (gl::RGBA16F, gl::RGBA, gl::HALF_FLOAT),
+            TextureFormat::R32F => (gl::R32F, gl::RED, gl::FLOAT),
+            TextureFormat::RG32F => (gl::RG32F, gl::RG, gl::FLOAT),
+            TextureFormat::RGB32F => (gl::RGB32F, gl::RGB, gl::FLOAT),
+            TextureFormat::RGBA32F => (gl::RGBA32F, gl::RGBA, gl::FLOAT),
+            TextureFormat::Etc2RGB4BPP => (gl::COMPRESSED_RGB8_ETC2, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::Etc2RGBA8BPP => {
+                (gl::COMPRESSED_RGBA8_ETC2_EAC, gl::RGB, gl::UNSIGNED_BYTE)
+            }
+            TextureFormat::S3tcDxt1RGB4BPP => (
+                // FIXME
+                // gl::COMPRESSED_RGB_S3TC_DXT1_EXT,
+                0x83F0,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+            ),
+            TextureFormat::S3tcDxt5RGBA6BPP => (
+                // gl::COMPRESSED_RGBA_S3TC_DXT5_EXT,
+                0x83F3,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+            ),
+            TextureFormat::PvrtcRGB2BPP => (
+                // gl::COMPRESSED_RGB_PVRTC_2BPPV1_IMG,
+                0x8C01,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+            ),
+            TextureFormat::PvrtcRGB4BPP => (
+                // gl::COMPRESSED_RGB_PVRTC_4BPPV1_IMG,
+                0x8C00,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+            ),
+            TextureFormat::PvrtcRGBA2BPP => (
+                // gl::COMPRESSED_RGBA_PVRTC_2BPPV1_IMG,
+                0x8C03,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+            ),
+            TextureFormat::PvrtcRGBA4BPP => (
+                // gl::COMPRESSED_RGBA_PVRTC_4BPPV1_IMG,
+                0x8C02,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+            ),
+        }
+    }
+}
+
+impl TextureFormat {
+    pub fn is_support(&self, capabilities: &Capabilities) -> bool {
+        match *self {
+            TextureFormat::Etc2RGB4BPP | TextureFormat::Etc2RGBA8BPP => {
+                capabilities.has_compression(TextureCompression::ETC2)
+            }
+            TextureFormat::PvrtcRGB2BPP
+            | TextureFormat::PvrtcRGB4BPP
+            | TextureFormat::PvrtcRGBA2BPP
+            | TextureFormat::PvrtcRGBA4BPP => {
+                capabilities.has_compression(TextureCompression::PVRTC)
+            }
+            TextureFormat::S3tcDxt1RGB4BPP | TextureFormat::S3tcDxt5RGBA6BPP => {
+                capabilities.has_compression(TextureCompression::S3TC)
+            }
+            _ => true,
+        }
+    }
+
+    pub fn is_compression(&self) -> bool {
+        match *self {
+            TextureFormat::Etc2RGB4BPP
+            | TextureFormat::Etc2RGBA8BPP
+            | TextureFormat::PvrtcRGB2BPP
+            | TextureFormat::PvrtcRGB4BPP
+            | TextureFormat::PvrtcRGBA2BPP
+            | TextureFormat::PvrtcRGBA4BPP
+            | TextureFormat::S3tcDxt1RGB4BPP
+            | TextureFormat::S3tcDxt5RGBA6BPP => true,
+            _ => false,
         }
     }
 }

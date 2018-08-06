@@ -165,6 +165,18 @@ extensions! {
     "GL_EXT_framebuffer_blit" => gl_ext_framebuffer_blit,
     "GL_NV_fbo_color_attachments" => gl_nv_fbo_color_attachments,
     "GL_OES_vertex_array_object" => gl_oes_vertex_array_object,
+    "GL_IMG_texture_compression_pvrtc" => gl_img_texture_compression_pvrtc,
+    "GL_EXT_texture_compression_s3tc" => gl_ext_texture_compression_s3tc,
+    "GL_ARB_ES3_compatibility" => gl_arb_es3_compatibility,
+    "GL_OES_compressed_ETC2_RGB8_texture" => gl_oes_compressed_etc2_rgb8_texture,
+    "GL_OES_compressed_ETC2_RGBA8_texture" => gl_oes_compressed_etc2_rgba8_texture,
+}
+
+#[derive(Debug)]
+pub enum TextureCompression {
+    ETC2,
+    PVRTC,
+    S3TC,
 }
 
 /// Represents the capabilities of the context.
@@ -244,6 +256,18 @@ impl Capabilities {
             max_indexed_uniform_buffer: Capabilities::parse_uniform_buffers(version, &extensions),
             max_color_attachments: Capabilities::parse_color_attachments(version, &extensions),
         })
+    }
+
+    pub fn has_compression(&self, compression: TextureCompression) -> bool {
+        match compression {
+            TextureCompression::ETC2 => {
+                self.version >= Version::ES(3, 0) || self.extensions.gl_arb_es3_compatibility
+                    || (self.extensions.gl_oes_compressed_etc2_rgb8_texture
+                        && self.extensions.gl_oes_compressed_etc2_rgba8_texture)
+            }
+            TextureCompression::PVRTC => self.extensions.gl_img_texture_compression_pvrtc,
+            TextureCompression::S3TC => self.extensions.gl_ext_texture_compression_s3tc,
+        }
     }
 
     #[inline]
