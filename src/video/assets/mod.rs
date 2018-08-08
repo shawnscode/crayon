@@ -16,7 +16,7 @@ pub mod prelude {
     };
 
     pub use super::texture::{
-        RenderTextureFormat, RenderTextureHandle, RenderTextureParams, TextureFilter,
+        RenderTextureFormat, RenderTextureHandle, RenderTextureParams, TextureData, TextureFilter,
         TextureFormat, TextureHandle, TextureHint, TextureParams, TextureWrap,
     };
 

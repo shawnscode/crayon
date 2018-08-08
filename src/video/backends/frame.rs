@@ -21,8 +21,10 @@ pub enum Command {
     DeleteSurface(SurfaceHandle),
     CreateShader(ShaderHandle, ShaderParams, String, String),
     DeleteShader(ShaderHandle),
-    CreateTexture(TextureHandle, TextureParams, Option<BytesPtr>),
+
+    CreateTexture(TextureHandle, TextureParams, Option<TextureData>),
     UpdateTexture(TextureHandle, math::Aabb2<u32>, BytesPtr),
+
     DeleteTexture(TextureHandle),
     CreateRenderTexture(RenderTextureHandle, RenderTextureParams),
     DeleteRenderTexture(RenderTextureHandle),
@@ -96,9 +98,7 @@ impl Frame {
                         visitor.delete_shader(handle)?;
                     }
 
-                    Command::CreateTexture(handle, params, ptr) => {
-                        let field = &self.bufs;
-                        let data = ptr.map(|v| field.as_slice(v));
+                    Command::CreateTexture(handle, params, data) => {
                         visitor.create_texture(handle, params, data)?;
                     }
 

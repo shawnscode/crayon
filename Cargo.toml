@@ -17,14 +17,20 @@ appveyor = { repository = "shawnscode/crayon", branch = "master", service = "git
 codecov = { repository = "shawnscode/crayon", branch = "master", service = "github" }
 
 [workspace]
-members = [ "crayon-tools/workflow", "crayon-examples", "crayon-modules/imgui" ]
+members = [ "crayon-tools", "crayon-examples", "crayon-modules/imgui" ]
 
 [dependencies]
 gl = "0.10.0"
 glutin = "0.17.0"
 failure = "0.1.1"
 crossbeam-deque = "0.5.1"
-cgmath = "0.16.1"
+
+serde = { version = "1.0.70", features = ["serde_derive"] }
+bincode = "1.0.1"
+byteorder = "1.2.4"
+
+uuid = { version = "0.6.5", features = ["serde"] }
+cgmath = { version = "0.16.1", features = ["serde"] }
 
 [dev-dependencies]
 rand = "0.5.4"

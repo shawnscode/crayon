@@ -3,6 +3,8 @@ pub enum Error {
     #[fail(display = "{}", _0)]
     IO(::std::io::Error),
     #[fail(display = "{}", _0)]
+    Bincode(::bincode::Error),
+    #[fail(display = "{}", _0)]
     Malformed(String),
     #[fail(display = "{}", _0)]
     Video(::video::errors::Error),
@@ -27,5 +29,11 @@ impl From<::std::io::Error> for Error {
 impl From<::video::errors::Error> for Error {
     fn from(err: ::video::errors::Error) -> Self {
         Error::Video(err)
+    }
+}
+
+impl From<::bincode::Error> for Error {
+    fn from(err: ::bincode::Error) -> Self {
+        Error::Bincode(err)
     }
 }

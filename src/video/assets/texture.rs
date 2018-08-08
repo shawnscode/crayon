@@ -3,8 +3,10 @@
 use math;
 use video::errors::{Error, Result};
 
+impl_handle!(TextureHandle);
+
 /// The parameters of a texture object.
-#[derive(Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct TextureParams {
     /// Hint abouts the intended update strategy of the data.
     pub hint: TextureHint,
@@ -12,15 +14,11 @@ pub struct TextureParams {
     pub wrap: TextureWrap,
     /// Specify how the texture is used whenever the pixel being sampled.
     pub filter: TextureFilter,
-    /// Should we generates a complete set of mipmaps for a texture object.
-    pub mipmap: bool,
     /// Sets the format of data.
     pub format: TextureFormat,
     /// Sets the dimensions of texture.
     pub dimensions: math::Vector2<u32>,
 }
-
-impl_handle!(TextureHandle);
 
 impl Default for TextureParams {
     fn default() -> Self {
@@ -29,23 +27,30 @@ impl Default for TextureParams {
             wrap: TextureWrap::Clamp,
             filter: TextureFilter::Linear,
             hint: TextureHint::Immutable,
-            mipmap: false,
             dimensions: math::Vector2::new(0, 0),
         }
     }
 }
 
 impl TextureParams {
-    pub fn validate(&self, data: Option<&[u8]>) -> Result<()> {
-        if let Some(buf) = data.as_ref() {
+    pub fn validate(&self, data: Option<&TextureData>) -> Result<()> {
+        if let Some(buf) = data {
             let len = self.format.size(self.dimensions);
-            if buf.len() > len as usize {
+            if buf.bytes.len() > 0 && buf.bytes[0].len() > len as usize {
                 return Err(Error::OutOfBounds);
             }
         }
 
         Ok(())
     }
+}
+
+/// Continuous texture data of different mipmap levels.
+///
+/// Notes that mipmaps are stored in order from largest size to smallest size
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TextureData {
+    pub bytes: Vec<Box<[u8]>>,
 }
 
 /// A `RenderTexture` object is basicly texture object with special format. It can
@@ -77,7 +82,7 @@ impl_handle!(RenderTextureHandle);
 
 /// Hint abouts the intended update strategy of the data.
 #[repr(u8)]
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TextureHint {
     /// The resource is initialized with data and cannot be changed later, this
     /// is the most common and most efficient usage. Optimal for render targets
@@ -93,7 +98,7 @@ pub enum TextureHint {
 
 /// Specify how the texture is used whenever the pixel being sampled.
 #[repr(u8)]
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TextureFilter {
     /// Returns the value of the texture element that is nearest (in Manhattan distance)
     /// to the center of the pixel being textured.
@@ -105,7 +110,7 @@ pub enum TextureFilter {
 
 /// Sets the wrap parameter for texture.
 #[repr(u8)]
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TextureWrap {
     /// Samples at coord x + 1 map to coord x.
     Repeat,
@@ -145,7 +150,7 @@ impl RenderTextureFormat {
 
 /// List of all the possible formats of input data when uploading to texture.
 #[repr(u8)]
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TextureFormat {
     R8,
     RG8,
@@ -175,7 +180,7 @@ pub enum TextureFormat {
     Etc2RGBA8BPP,
 
     S3tcDxt1RGB4BPP,
-    S3tcDxt5RGBA6BPP,
+    S3tcDxt5RGBA8BPP,
 }
 
 impl TextureFormat {
@@ -201,7 +206,7 @@ impl TextureFormat {
             | TextureFormat::PvrtcRGBA4BPP
             | TextureFormat::PvrtcRGBA2BPP
             | TextureFormat::Etc2RGBA8BPP
-            | TextureFormat::S3tcDxt5RGBA6BPP => 4,
+            | TextureFormat::S3tcDxt5RGBA8BPP => 4,
         }
     }
 
@@ -212,7 +217,7 @@ impl TextureFormat {
             TextureFormat::PvrtcRGB2BPP | TextureFormat::PvrtcRGBA2BPP => square / 4,
             TextureFormat::PvrtcRGB4BPP | TextureFormat::PvrtcRGBA4BPP => square / 2,
             TextureFormat::Etc2RGB4BPP | TextureFormat::S3tcDxt1RGB4BPP => square / 2,
-            TextureFormat::S3tcDxt5RGBA6BPP => square * 3 / 4,
+            TextureFormat::S3tcDxt5RGBA8BPP => square,
             TextureFormat::Etc2RGBA8BPP => square,
             TextureFormat::R8 => square,
             TextureFormat::RG8

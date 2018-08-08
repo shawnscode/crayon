@@ -32,7 +32,7 @@ pub trait Visitor {
         &mut self,
         handle: TextureHandle,
         params: TextureParams,
-        bytes: Option<&[u8]>,
+        bytes: Option<TextureData>,
     ) -> Result<()>;
 
     unsafe fn update_texture(

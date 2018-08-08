@@ -82,6 +82,7 @@ struct GLMesh {
 struct GLTexture {
     id: GLuint,
     params: TextureParams,
+    allocated: bool,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -329,7 +330,7 @@ impl Visitor for GLVisitor {
         &mut self,
         handle: TextureHandle,
         params: TextureParams,
-        data: Option<&[u8]>,
+        data: Option<TextureData>,
     ) -> Result<()> {
         // Maybe we should implements some software decoder for common texture compression format.
         if !params.format.is_support(&self.capabilities) {
@@ -339,53 +340,72 @@ impl Visitor for GLVisitor {
             )));
         }
 
-        let id = self.create_texture_intern(params.wrap, params.filter, params.mipmap)?;
-
-        let value = match data {
-            Some(v) if !v.is_empty() => &v[0] as *const u8 as *const ::std::os::raw::c_void,
-            _ => ::std::ptr::null(),
-        };
+        let mut id = 0;
+        gl::GenTextures(1, &mut id);
+        assert!(id != 0);
 
         let (internal_format, format, pixel_type) = params.format.into();
         let is_compression = params.format.is_compression();
+        let mut allocated = false;
 
-        if is_compression {
-            gl::CompressedTexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                internal_format,
-                params.dimensions.x as GLsizei,
-                params.dimensions.y as GLsizei,
-                0,
-                params.format.size(params.dimensions) as GLsizei,
-                value,
-            );
-        } else {
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                internal_format as GLint,
-                params.dimensions.x as GLsizei,
-                params.dimensions.y as GLsizei,
-                0,
-                format,
-                pixel_type,
-                value,
-            );
+        if let Some(mut data) = data {
+            let len = data.bytes.len();
+            if len > 0 {
+                self.bind_texture(0, id)?;
+                self.update_texture_params(id, params.wrap, params.filter, len as u32)?;
+
+                let mut dims = (
+                    params.dimensions.x as GLsizei,
+                    params.dimensions.y as GLsizei,
+                );
+
+                if is_compression {
+                    for (i, v) in data.bytes.drain(..).enumerate() {
+                        gl::CompressedTexImage2D(
+                            gl::TEXTURE_2D,
+                            i as GLint,
+                            internal_format,
+                            dims.0,
+                            dims.1,
+                            0,
+                            v.len() as GLint,
+                            &v[0] as *const u8 as *const ::std::os::raw::c_void,
+                        );
+
+                        dims.0 = (dims.0 / 2).max(1);
+                        dims.1 = (dims.1 / 2).max(1);
+                    }
+                } else {
+                    for (i, v) in data.bytes.drain(..).enumerate() {
+                        gl::TexImage2D(
+                            gl::TEXTURE_2D,
+                            i as GLint,
+                            internal_format as GLint,
+                            dims.0,
+                            dims.1,
+                            0,
+                            format,
+                            pixel_type,
+                            &v[0] as *const u8 as *const ::std::os::raw::c_void,
+                        );
+
+                        dims.0 = (dims.0 / 2).max(1);
+                        dims.1 = (dims.1 / 2).max(1);
+                    }
+                }
+
+                allocated = true;
+            }
         }
 
         check()?;
-
-        if params.mipmap {
-            gl::GenerateMipmap(gl::TEXTURE_2D);
-            check()?;
-        }
 
         self.textures.create(
             handle,
             GLTexture {
                 id: id,
                 params: params,
+                allocated: allocated,
             },
         );
 
@@ -398,11 +418,15 @@ impl Visitor for GLVisitor {
         area: math::Aabb2<u32>,
         data: &[u8],
     ) -> Result<()> {
-        let texture = self.textures
+        let texture = *self.textures
             .get(handle)
             .ok_or_else(|| Error::HandleInvalid(format!("{:?}", handle)))?;
 
         if texture.params.hint == TextureHint::Immutable {
+            return Err(Error::UpdateImmutableBuffer);
+        }
+
+        if texture.params.format.is_compression() {
             return Err(Error::UpdateImmutableBuffer);
         }
 
@@ -413,9 +437,28 @@ impl Visitor for GLVisitor {
             return Err(Error::OutOfBounds);
         }
 
+        let (internal_format, format, pixel_type) = texture.params.format.into();
+
         self.bind_texture(0, texture.id)?;
 
-        let (_, format, pixel_type) = texture.params.format.into();
+        if !texture.allocated {
+            self.update_texture_params(texture.id, texture.params.wrap, texture.params.filter, 1)?;
+
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                internal_format as GLint,
+                texture.params.dimensions.x as GLsizei,
+                texture.params.dimensions.y as GLsizei,
+                0,
+                format,
+                pixel_type,
+                ::std::ptr::null(),
+            );
+
+            self.textures.get_mut(handle).unwrap().allocated = true;
+        }
+
         gl::TexSubImage2D(
             gl::TEXTURE_2D,
             0,
@@ -444,7 +487,13 @@ impl Visitor for GLVisitor {
         params: RenderTextureParams,
     ) -> Result<()> {
         let id = if params.sampler {
-            self.create_texture_intern(params.wrap, params.filter, false)?
+            let mut id = 0;
+            gl::GenTextures(1, &mut id);
+            assert!(id != 0);
+
+            self.bind_texture(0, id)?;
+            self.update_texture_params(id, params.wrap, params.filter, 1)?;
+            id
         } else {
             let mut id = 0;
             gl::GenRenderbuffers(1, &mut id);
@@ -1345,39 +1394,43 @@ impl GLVisitor {
         check()
     }
 
-    unsafe fn create_texture_intern(
-        &mut self,
+    unsafe fn update_texture_params(
+        &self,
+        id: GLuint,
         wrap: TextureWrap,
         filter: TextureFilter,
-        mipmap: bool,
+        levels: u32,
     ) -> Result<GLuint> {
-        let mut id = 0;
-        gl::GenTextures(1, &mut id);
-        assert!(id != 0);
-
-        self.bind_texture(0, id)?;
-
         let wrap: GLenum = wrap.into();
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, wrap as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, wrap as GLint);
 
         match filter {
             TextureFilter::Nearest => {
-                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+                let min_filter = if levels > 1 {
+                    gl::NEAREST_MIPMAP_NEAREST
+                } else {
+                    gl::NEAREST
+                };
+
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, min_filter as GLint);
                 gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
             }
             TextureFilter::Linear => {
-                if mipmap {
-                    gl::TexParameteri(
-                        gl::TEXTURE_2D,
-                        gl::TEXTURE_MIN_FILTER,
-                        gl::LINEAR_MIPMAP_NEAREST as GLint,
-                    );
+                let min_filter = if levels > 1 {
+                    gl::LINEAR_MIPMAP_LINEAR
                 } else {
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
-                }
+                    gl::LINEAR
+                };
+
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, min_filter as GLint);
                 gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
             }
+        }
+
+        if levels > 1 {
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_BASE_LEVEL, 0);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAX_LEVEL, (levels - 1) as GLint);
         }
 
         Ok(id)

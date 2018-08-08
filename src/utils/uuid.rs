@@ -10,6 +10,10 @@ impl Uuid {
     pub fn from_bytes(bytes: [u8; 16]) -> Self {
         Uuid { bytes: bytes }
     }
+
+    pub fn as_bytes(&self) -> &[u8; 16] {
+        &self.bytes
+    }
 }
 
 impl<'a> fmt::Display for Uuid {

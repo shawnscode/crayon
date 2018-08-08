@@ -321,10 +321,10 @@ impl VideoSystemShared {
     /// which can be sampled in shaders.
     pub fn create_texture<'a, T>(&self, params: TextureParams, data: T) -> Result<TextureHandle>
     where
-        T: Into<Option<&'a [u8]>>,
+        T: Into<Option<TextureData>>,
     {
         let data = data.into();
-        params.validate(data)?;
+        params.validate(data.as_ref())?;
 
         let handle = self.textures
             .write()
@@ -334,8 +334,7 @@ impl VideoSystemShared {
 
         {
             let mut frame = self.frames.front();
-            let ptr = data.map(|v| frame.bufs.extend_from_slice(v));
-            let task = Command::CreateTexture(handle, params, ptr);
+            let task = Command::CreateTexture(handle, params, data);
             frame.cmds.push(task);
         }
 
@@ -383,14 +382,13 @@ impl VideoSystemShared {
         &self,
         handle: TextureHandle,
         params: TextureParams,
-        data: &[u8],
+        data: TextureData,
     ) -> Result<()> {
-        params.validate(Some(data))?;
+        params.validate(Some(&data))?;
 
         if let Some(v) = self.textures.write().unwrap().get_mut(handle) {
             let mut frame = self.frames.front();
-            let ptr = frame.bufs.extend_from_slice(data);
-            let task = Command::CreateTexture(handle, params, Some(ptr));
+            let task = Command::CreateTexture(handle, params, Some(data));
             frame.cmds.push(task);
             *v = TextureState::Ok;
 

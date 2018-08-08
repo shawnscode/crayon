@@ -30,6 +30,15 @@ where
             .and_then(|v| v.as_ref())
     }
 
+    pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
+    where
+        H: Borrow<handle::Handle>,
+    {
+        self.buf
+            .get_mut(handle.borrow().index() as usize)
+            .and_then(|v| v.as_mut())
+    }
+
     pub fn create<H>(&mut self, handle: H, value: T)
     where
         H: Borrow<handle::Handle>,
@@ -170,7 +179,7 @@ impl From<TextureFormat> for (GLenum, GLenum, GLenum) {
                 gl::RGB,
                 gl::UNSIGNED_BYTE,
             ),
-            TextureFormat::S3tcDxt5RGBA6BPP => (
+            TextureFormat::S3tcDxt5RGBA8BPP => (
                 // gl::COMPRESSED_RGBA_S3TC_DXT5_EXT,
                 0x83F3,
                 gl::RGBA,
@@ -216,7 +225,7 @@ impl TextureFormat {
             | TextureFormat::PvrtcRGBA4BPP => {
                 capabilities.has_compression(TextureCompression::PVRTC)
             }
-            TextureFormat::S3tcDxt1RGB4BPP | TextureFormat::S3tcDxt5RGBA6BPP => {
+            TextureFormat::S3tcDxt1RGB4BPP | TextureFormat::S3tcDxt5RGBA8BPP => {
                 capabilities.has_compression(TextureCompression::S3TC)
             }
             _ => true,
@@ -232,7 +241,7 @@ impl TextureFormat {
             | TextureFormat::PvrtcRGBA2BPP
             | TextureFormat::PvrtcRGBA4BPP
             | TextureFormat::S3tcDxt1RGB4BPP
-            | TextureFormat::S3tcDxt5RGBA6BPP => true,
+            | TextureFormat::S3tcDxt5RGBA8BPP => true,
             _ => false,
         }
     }

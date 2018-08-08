@@ -37,6 +37,10 @@ extern crate gl;
 extern crate glutin;
 
 #[macro_use]
+extern crate serde;
+extern crate bincode;
+
+#[macro_use]
 pub mod utils;
 pub mod application;
 pub mod ecs;

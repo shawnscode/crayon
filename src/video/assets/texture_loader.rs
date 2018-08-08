@@ -1,8 +1,7 @@
+use bincode;
 use std::io::Read;
 use std::sync::Arc;
 
-use math;
-use res::byteorder::ByteOrderRead;
 use res::errors::*;
 
 use super::super::VideoSystemShared;
@@ -34,7 +33,7 @@ impl ::res::ResourceLoader for TextureLoader {
         Ok(handle)
     }
 
-    fn load(&self, handle: Self::Handle, file: &mut dyn Read) -> Result<()> {
+    fn load(&self, handle: Self::Handle, mut file: &mut dyn Read) -> Result<()> {
         let mut buf = [0; 8];
         file.read_exact(&mut buf[0..8])?;
 
@@ -45,23 +44,10 @@ impl ::res::ResourceLoader for TextureLoader {
             ));
         }
 
-        let mut params = TextureParams::default();
+        let params = bincode::deserialize_from(&mut file)?;
+        let data = bincode::deserialize_from(&mut file)?;
 
-        //
-        file.read_exact(&mut buf[0..4])?;
-
-        params.wrap = unsafe { ::std::mem::transmute_copy(&buf[0]) };
-        params.filter = unsafe { ::std::mem::transmute_copy(&buf[1]) };
-        params.mipmap = buf[2] > 0;
-        params.format = unsafe { ::std::mem::transmute_copy(&buf[3]) };
-        params.dimensions = math::Vector2::new(file.read_u32()?, file.read_u32()?);
-
-        //
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf)?;
-
-        let slice = buf.as_slice();
-        self.video.loader_update_texture(handle, params, slice)?;
+        self.video.loader_update_texture(handle, params, data)?;
         Ok(())
     }
 
