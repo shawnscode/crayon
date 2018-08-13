@@ -3,7 +3,8 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use super::super::errors::*;
+use errors::*;
+
 use super::VFS;
 
 pub struct DiskFS {
@@ -18,7 +19,7 @@ impl DiskFS {
         if metadata.is_dir() {
             Ok(DiskFS { root: root })
         } else {
-            Err(Error::VFS(format!("{:?} is not a decent directory.", root)))
+            bail!("Disk file-system must be associated with a readable directory.");
         }
     }
 }
@@ -26,11 +27,9 @@ impl DiskFS {
 impl VFS for DiskFS {
     fn read(&self, location: &Path) -> Result<Box<Read + Send>> {
         let location = self.root.join(location);
-        let file = fs::File::open(&location).map_err(|_| Error::FileNotFound(location))?;
+        let file = fs::File::open(&location)?;
         Ok(Box::new(file))
     }
-
-    // fn read_dir(&self, location: &Path) -> Result<Box<Iterator<Item = PathBuf>>> {}
 
     fn is_dir(&self, location: &Path) -> bool {
         self.root.join(location).is_dir()

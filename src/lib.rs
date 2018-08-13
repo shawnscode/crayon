@@ -42,6 +42,8 @@ extern crate bincode;
 extern crate uuid;
 
 #[macro_use]
+pub mod errors;
+#[macro_use]
 pub mod utils;
 pub mod application;
 pub mod ecs;
@@ -52,3 +54,5 @@ pub mod math;
 pub mod prelude;
 pub mod res;
 pub mod sched;
+
+pub use errors::*;

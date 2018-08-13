@@ -5,9 +5,9 @@ pub mod visitor;
 mod glutin {
     use gl;
 
-    use super::super::super::errors::*;
     use super::visitor::GLVisitor;
     use application::window::Window;
+    use errors::*;
 
     impl GLVisitor {
         pub unsafe fn glutin(window: &Window) -> Result<Self> {

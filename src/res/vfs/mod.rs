@@ -7,9 +7,8 @@ use std::io::Read;
 use std::path::Path;
 use std::time::SystemTime;
 
+use errors::*;
 use utils::hash_value::HashValue;
-
-use super::errors::*;
 
 pub trait VFS: Send + Sync {
     /// Opens a readable file at location.
@@ -48,7 +47,10 @@ impl VFSDriver {
     {
         let hash = name.into();
         if self.mounts.get(&hash).is_some() {
-            return Err(Error::VFS(format!("{:?} has been mounted.", hash)));
+            bail!(
+                "Virtual file system with identifier {:?} has been mounted already.",
+                hash
+            );
         }
 
         self.mounts.insert(hash, Box::new(vfs));
@@ -63,7 +65,7 @@ impl VFSDriver {
         if let Some(vfs) = self.mounts.get(&fs) {
             vfs.read(file)
         } else {
-            Err(Error::VFS(format!("Undefined VFS {:?}.", fs)))
+            bail!("Undefined virtual file system {:?}.", fs);
         }
     }
 
@@ -75,7 +77,7 @@ impl VFSDriver {
         if let Some(vfs) = self.mounts.get(&fs.into()) {
             Ok(vfs.is_dir(file))
         } else {
-            Err(Error::VFS(format!("Undefined VFS {:?}.", fs)))
+            bail!("Undefined virtual file system {:?}.", fs);
         }
     }
 
@@ -87,7 +89,7 @@ impl VFSDriver {
         if let Some(vfs) = self.mounts.get(&fs.into()) {
             Ok(vfs.exists(file))
         } else {
-            Err(Error::VFS(format!("Undefined VFS {:?}.", fs)))
+            bail!("Undefined virtual file system {:?}.", fs);
         }
     }
 
@@ -99,7 +101,7 @@ impl VFSDriver {
         if let Some(vfs) = self.mounts.get(&fs.into()) {
             Ok(vfs.modified_since(file, ts))
         } else {
-            Err(Error::VFS(format!("Undefined VFS {:?}.", fs)))
+            bail!("Undefined virtual file system {:?}.", fs);
         }
     }
 }

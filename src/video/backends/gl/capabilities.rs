@@ -4,7 +4,7 @@ use std::cmp;
 use std::ffi;
 use std::mem;
 
-use super::super::super::errors::*;
+use errors::*;
 
 /// Describes the OpenGL context profile.
 #[derive(Debug, Copy, Clone)]
@@ -62,7 +62,7 @@ impl Version {
     pub unsafe fn parse() -> Result<Version> {
         let desc = gl::GetString(gl::VERSION);
         let desc = String::from_utf8(ffi::CStr::from_ptr(desc as *const _).to_bytes().to_vec())
-            .map_err(|_| Error::Backend("[GL] String is unformaled.".into()))?;
+            .map_err(|_| err_format!("[GL] String is unformaled."))?;
 
         let (es, desc) = if desc.starts_with("OpenGL ES ") {
             (true, &desc[10..])
@@ -74,7 +74,7 @@ impl Version {
 
         let desc = desc.split(' ')
             .next()
-            .ok_or_else(|| Error::Backend("[GL] String is unformaled.".into()))?;
+            .ok_or_else(|| err_format!("[GL] String is unformaled."))?;
 
         let mut iter = desc.split(move |c: char| c == '.');
         let major = iter.next().unwrap();
@@ -274,11 +274,11 @@ impl Capabilities {
     unsafe fn parse_str(id: GLenum) -> Result<String> {
         let s = gl::GetString(gl::RENDERER);
         if s.is_null() {
-            return Err(Error::Backend(format!("[GL] String of {} is null.", id)));
+            bail!("[GL] String of {} is null.", id);
         }
 
         String::from_utf8(ffi::CStr::from_ptr(s as *const _).to_bytes().to_vec())
-            .map_err(|_| Error::Backend(format!("[GL] String of {} is unformaled.", id)))
+            .map_err(|_| err_format!("[GL] String of {} is unformaled.", id))
     }
 
     #[inline]

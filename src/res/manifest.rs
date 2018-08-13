@@ -4,9 +4,8 @@ use std::path::Path;
 use bincode;
 use uuid;
 
+use errors::*;
 use utils::hash_value::HashValue;
-
-use super::errors::*;
 
 pub const NAME: &'static str = ".MANIFEST";
 pub const MAGIC: [u8; 8] = [
@@ -31,14 +30,11 @@ impl Manifest {
 
     pub fn load(mut file: &mut dyn Read) -> Result<Manifest> {
         let mut buf = [0; 16];
-        file.read_exact(&mut buf[0..8])
-            .map_err(|err| Error::Malformed(format!("[ManifestLoader] {:?}", err)))?;
+        file.read_exact(&mut buf[0..8])?;
 
         // MAGIC: [u8; 8]
         if &buf[0..8] != &MAGIC[..] {
-            return Err(Error::Malformed(
-                "[ManifestLoader] MAGIC number not match.".into(),
-            ));
+            bail!("[ManifestLoader] MAGIC number not match.");
         }
 
         let manifest = bincode::deserialize_from(&mut file)?;

@@ -1,10 +1,10 @@
 use std::sync::{Mutex, MutexGuard, RwLock};
 
+use errors::*;
 use math;
 use utils::{data_buf, hash_value};
 
 use super::super::assets::prelude::*;
-use super::super::errors::*;
 use super::Visitor;
 
 type VarsPtr = data_buf::DataBufferPtr<[(hash_value::HashValue<str>, UniformVariable)]>;

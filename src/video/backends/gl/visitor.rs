@@ -3,11 +3,11 @@ use gl::types::*;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
+use errors::*;
 use math;
 use utils::hash_value;
 
 use super::super::super::assets::prelude::*;
-use super::super::super::errors::*;
 use super::super::super::MAX_UNIFORM_TEXTURE_SLOTS;
 use super::super::{UniformVar, Visitor};
 use super::capabilities::{Capabilities, Version};
@@ -185,20 +185,20 @@ impl Visitor for GLVisitor {
                 if let Some(v) = *attachment {
                     let rt = self.render_textures
                         .get(v)
-                        .ok_or_else(|| Error::HandleInvalid(format!("{:?}", v)))?;
+                        .ok_or_else(|| err_format!("RenderTexture handle {:?} is invalid.", v))?;
 
                     if !rt.params.format.is_color() {
-                        return Err(Error::SurfaceInvalid(format!(
+                        bail!(
                             "Incompitable(mismatch format) attachments of SurfaceObject {:?}",
                             id
-                        )));
+                        );
                     }
 
                     if dimensions.is_some() && dimensions != Some(rt.params.dimensions) {
-                        return Err(Error::SurfaceInvalid(format!(
+                        bail!(
                             "Incompitable(mismatch dimensons) attachments of SurfaceObject {:?}",
                             id
-                        )));
+                        );
                     }
 
                     dimensions = Some(rt.params.dimensions);
@@ -209,20 +209,20 @@ impl Visitor for GLVisitor {
             if let Some(v) = params.depth_stencil {
                 let rt = self.render_textures
                     .get(v)
-                    .ok_or_else(|| Error::HandleInvalid(format!("{:?}", v)))?;
+                    .ok_or_else(|| err_format!("RenderTexture handle {:?} is invalid.", v))?;
 
                 if rt.params.format.is_color() {
-                    return Err(Error::SurfaceInvalid(format!(
+                    bail!(
                         "Incompitable(mismatch format) attachments of SurfaceObject {:?}",
                         id
-                    )));
+                    );
                 }
 
                 if dimensions.is_some() && dimensions != Some(rt.params.dimensions) {
-                    return Err(Error::SurfaceInvalid(format!(
+                    bail!(
                         "Incompitable(mismatch dimensions) attachments of SurfaceObject {:?}",
                         id
-                    )));
+                    );
                 }
 
                 dimensions = Some(rt.params.dimensions);
@@ -251,7 +251,7 @@ impl Visitor for GLVisitor {
     unsafe fn delete_surface(&mut self, handle: SurfaceHandle) -> Result<()> {
         let surface = self.surfaces
             .free(handle)
-            .ok_or_else(|| Error::HandleInvalid(format!("{:?}", handle)))?;
+            .ok_or_else(|| err_format!("SurfaceHandle {:?} is invalid."))?;
 
         if let Some(fbo) = surface.fbo {
             assert!(fbo.id != 0);
@@ -296,7 +296,7 @@ impl Visitor for GLVisitor {
             let location = shader.attribute_location(name)?;
             if location == -1 {
                 self.delete_shader_intern(id)?;
-                return Err(Error::AttributeUndefined(name.into()));
+                bail!("Attribute({:?}) is undefined in shader sources.", name);
             }
         }
 
@@ -304,7 +304,7 @@ impl Visitor for GLVisitor {
             let location = shader.uniform_location(name)?;
             if location == -1 {
                 self.delete_shader_intern(id)?;
-                return Err(Error::UniformUndefined(name.clone()));
+                bail!("Uniform({:?}) is undefined in shader sources.", name);
             }
         }
 
@@ -315,7 +315,7 @@ impl Visitor for GLVisitor {
     unsafe fn delete_shader(&mut self, handle: ShaderHandle) -> Result<()> {
         let shader = self.shaders
             .free(handle)
-            .ok_or_else(|| Error::HandleInvalid(format!("{:?}", handle)))?;
+            .ok_or_else(|| err_format!("SurfaceHandle {:?} is invalid."))?;
 
         // Removes deprecated `VertexArrayObject`s.
         self.mutables
@@ -334,10 +334,10 @@ impl Visitor for GLVisitor {
     ) -> Result<()> {
         // Maybe we should implements some software decoder for common texture compression format.
         if !params.format.is_support(&self.capabilities) {
-            return Err(Error::Requirement(format!(
-                "The GL Context does NOT support the texture format {:?}.",
-                params.format,
-            )));
+            bail!(
+                "The GL Context does not support the texture format {:?}.",
+                params.format
+            );
         }
 
         let mut id = 0;
@@ -420,21 +420,21 @@ impl Visitor for GLVisitor {
     ) -> Result<()> {
         let texture = *self.textures
             .get(handle)
-            .ok_or_else(|| Error::HandleInvalid(format!("{:?}", handle)))?;
+            .ok_or_else(|| err_format!("TextureHandle {:?} is invalid."))?;
 
         if texture.params.hint == TextureHint::Immutable {
-            return Err(Error::UpdateImmutableBuffer);
+            bail!("Trying to update immutable texture.");
         }
 
         if texture.params.format.is_compression() {
-            return Err(Error::UpdateImmutableBuffer);
+            bail!("Trying to update compressed texture.");
         }
 
         if data.len() > area.volume() as usize
             || area.min.x >= texture.params.dimensions.x
             || area.min.y >= texture.params.dimensions.y
         {
-            return Err(Error::OutOfBounds);
+            bail!("Trying to update texture data out of bounds.");
         }
 
         let (internal_format, format, pixel_type) = texture.params.format.into();
@@ -477,7 +477,7 @@ impl Visitor for GLVisitor {
     unsafe fn delete_texture(&mut self, handle: TextureHandle) -> Result<()> {
         let texture = self.textures
             .free(handle)
-            .ok_or_else(|| Error::HandleInvalid(format!("{:?}", handle)))?;
+            .ok_or_else(|| err_format!("TextureHandle {:?} is invalid."))?;
         self.delete_texture_intern(texture.id)
     }
 
@@ -541,7 +541,7 @@ impl Visitor for GLVisitor {
     unsafe fn delete_render_texture(&mut self, handle: RenderTextureHandle) -> Result<()> {
         let rt = self.render_textures
             .free(handle)
-            .ok_or_else(|| Error::HandleInvalid(format!("{:?}", handle)))?;
+            .ok_or_else(|| err_format!("RenderTextureHandle {:?} is invalid."))?;
 
         if rt.params.sampler {
             self.delete_texture_intern(rt.id)
@@ -597,10 +597,10 @@ impl Visitor for GLVisitor {
         let vbo = {
             let mesh = self.meshes
                 .get(handle)
-                .ok_or_else(|| Error::HandleInvalid(format!("{:?}", handle)))?;
+                .ok_or_else(|| err_format!("MeshHandle {:?} is invalid."))?;
 
             if mesh.params.hint == MeshHint::Immutable {
-                return Err(Error::UpdateImmutableBuffer);
+                bail!("Trying to update immutable buffer");
             }
 
             mesh.vbo
@@ -619,10 +619,10 @@ impl Visitor for GLVisitor {
         let ibo = {
             let mesh = self.meshes
                 .get(handle)
-                .ok_or_else(|| Error::HandleInvalid(format!("{:?}", handle)))?;
+                .ok_or_else(|| err_format!("MeshHandle {:?} is invalid."))?;
 
             if mesh.params.hint == MeshHint::Immutable {
-                return Err(Error::UpdateImmutableBuffer);
+                bail!("Trying to update immutable buffer");
             }
 
             mesh.ibo
@@ -635,7 +635,7 @@ impl Visitor for GLVisitor {
     unsafe fn delete_mesh(&mut self, handle: MeshHandle) -> Result<()> {
         let mesh = self.meshes
             .free(handle)
-            .ok_or_else(|| Error::HandleInvalid(format!("{:?}", handle)))?;
+            .ok_or_else(|| err_format!("MeshHandle {:?} is invalid."))?;
 
         // Removes deprecated `VertexArrayObject`s.
         self.mutables
@@ -655,7 +655,7 @@ impl Visitor for GLVisitor {
 
         let surface = self.surfaces
             .get(id)
-            .ok_or_else(|| Error::HandleInvalid(format!("{:?}", id)))?;
+            .ok_or_else(|| err_format!("SurfaceHandle {:?} is invalid."))?;
 
         // Bind frame buffer.
         let dimensions = if let Some(ref fbo) = surface.fbo {
@@ -714,7 +714,7 @@ impl Visitor for GLVisitor {
             // Bind program and associated uniforms and textures.
             let shader = self.shaders
                 .get(shader)
-                .ok_or_else(|| Error::HandleInvalid(format!("{:?}", shader)))?;
+                .ok_or_else(|| err_format!("ShaderHandle {:?} is invalid."))?;
             self.bind_shader(&shader)?;
 
             let mut index = 0usize;
@@ -732,7 +732,7 @@ impl Visitor for GLVisitor {
                     UniformVariable::RenderTexture(handle) => {
                         if let Some(texture) = self.render_textures.get(handle) {
                             if !texture.params.sampler {
-                                return Err(Error::SampleRenderBuffer);
+                                bail!("The render buffer does not have a sampler.");
                             }
 
                             let v = UniformVariable::I32(index as i32);
@@ -750,7 +750,7 @@ impl Visitor for GLVisitor {
             // Bind vertex buffer and vertex array object.
             let mesh = self.meshes
                 .get(mesh)
-                .ok_or_else(|| Error::HandleInvalid(format!("{:?}", mesh)))?;
+                .ok_or_else(|| err_format!("MeshHandle {:?} is invalid."))?;
             self.bind_buffer(gl::ARRAY_BUFFER, mesh.vbo)?;
             self.bind_vao(&shader, &mesh)?;
             mesh
@@ -762,7 +762,7 @@ impl Visitor for GLVisitor {
         let (from, len) = match mesh_index {
             MeshIndex::Ptr(from, len) => {
                 if (from + len) > mesh.params.num_idxes {
-                    return Err(Error::OutOfBounds);
+                    bail!("MeshIndex is out of bounds");
                 }
 
                 ((from * mesh.params.index_format.stride()), len)
@@ -772,7 +772,7 @@ impl Visitor for GLVisitor {
                 let from = mesh.params
                     .sub_mesh_offsets
                     .get(index)
-                    .ok_or(Error::OutOfBounds)?;
+                    .ok_or_else(|| err_format!("MeshIndex is out of bounds"))?;
 
                 let to = if index == (num - 1) {
                     mesh.params.num_idxes
@@ -818,25 +818,25 @@ impl GLVisitor {
 
                 match status {
                     gl::FRAMEBUFFER_INCOMPLETE_ATTACHMENT => {
-                        return Err(Error::Backend("[GL] Surface is incomplete. Not all framebuffer attachment points \
+                        bail!("[GL] Surface is incomplete. Not all framebuffer attachment points \
                         are framebuffer attachment complete. This means that at least one attachment point with a \
                         renderbuffer or texture attached has its attached object no longer in existence or has an \
                         attached image with a width or height of zero, or the color attachment point has a non-color-renderable \
                         image attached, or the depth attachment point has a non-depth-renderable image attached, or \
-                        the stencil attachment point has a non-stencil-renderable image attached. ".into()));
+                        the stencil attachment point has a non-stencil-renderable image attached. ");
                     }
 
                     gl::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => {
-                        return Err(Error::Backend("[GL] Surface is incomplete. No images are attached to the framebuffer.".into()));
+                        bail!("[GL] Surface is incomplete. No images are attached to the framebuffer.");
                     }
 
                     gl::FRAMEBUFFER_UNSUPPORTED => {
-                        return Err(Error::Backend("[GL] Surface is incomplete. The combination of internal formats \
-                        of the attached images violates an implementation-dependent set of restrictions. ".into()));
+                        bail!("[GL] Surface is incomplete. The combination of internal formats \
+                        of the attached images violates an implementation-dependent set of restrictions. ");
                     }
 
                     _ => {
-                        return Err(Error::Backend("[GL] Surface is incomplete.".into()));
+                        bail!("[GL] Surface is incomplete.");
                     }
                 }
             }
@@ -908,7 +908,7 @@ impl GLVisitor {
         assert!(id != 0, "failed to bind texture with 0.");
 
         if index >= MAX_UNIFORM_TEXTURE_SLOTS {
-            return Err(Error::OutOfBounds);
+            bail!("Reaching maximum texture slots.");
         }
 
         let mut mutables = self.mutables.borrow_mut();
@@ -961,10 +961,12 @@ impl GLVisitor {
         for (name, size) in shader.params.attributes.iter() {
             if let Some(element) = mesh.params.layout.element(name) {
                 if element.size < size {
-                    return Err(Error::Draw(format!(
+                    bail!(
                         "Vertex buffer has incompatible attribute `{:?}` [{:?} - {:?}].",
-                        name, element.size, size
-                    )));
+                        name,
+                        element.size,
+                        size
+                    );
                 }
 
                 let offset = mesh.params.layout.offset(name).unwrap();
@@ -981,10 +983,10 @@ impl GLVisitor {
                     offset as *const u8 as *const ::std::os::raw::c_void,
                 );
             } else {
-                return Err(Error::Draw(format!(
+                bail!(
                     "Can't find attribute {:?} description in vertex buffer.",
                     name
-                )));
+                );
             }
         }
 
@@ -1332,10 +1334,7 @@ impl GLVisitor {
                 buf.as_mut_ptr() as *mut GLchar,
             );
 
-            Err(Error::ShaderSourceInvalid {
-                source: src.into(),
-                errors: ::std::str::from_utf8(&buf).unwrap().into(),
-            })
+            bail!("{:?}\n{:?}", ::std::str::from_utf8(&buf).unwrap(), src);
         } else {
             Ok(shader)
         }
@@ -1364,10 +1363,7 @@ impl GLVisitor {
                 buf.as_mut_ptr() as *mut GLchar,
             );
 
-            Err(Error::ShaderSourceInvalid {
-                source: "LINKS".into(),
-                errors: ::std::str::from_utf8(&buf).unwrap().into(),
-            })
+            bail!("{:?}", ::std::str::from_utf8(&buf).unwrap());
         } else {
             Ok(program)
         }
@@ -1494,7 +1490,7 @@ unsafe fn check_capabilities(caps: &Capabilities) -> Result<()> {
         && (!caps.extensions.gl_arb_vertex_buffer_object
             || !caps.extensions.gl_arb_map_buffer_range)
     {
-        return Err(Error::Requirement("vertex buffer objects".into()));
+        bail!("The OpenGL implementation does not supports vertex buffer objects.");
     }
 
     if caps.version < Version::GL(2, 0) && caps.version < Version::ES(2, 0)
@@ -1502,7 +1498,7 @@ unsafe fn check_capabilities(caps: &Capabilities) -> Result<()> {
             || !caps.extensions.gl_arb_vertex_shader
             || !caps.extensions.gl_arb_fragment_shader)
     {
-        return Err(Error::Requirement("shader objects".into()));
+        bail!("The OpenGL implementation does not supports shader objects.");
     }
 
     if caps.version < Version::GL(3, 0)
@@ -1510,21 +1506,21 @@ unsafe fn check_capabilities(caps: &Capabilities) -> Result<()> {
         && !caps.extensions.gl_ext_framebuffer_object
         && !caps.extensions.gl_arb_framebuffer_object
     {
-        return Err(Error::Requirement("framebuffer objects".into()));
+        bail!("The OpenGL implementation does not supports framebuffer objects.");
     }
 
     if caps.version < Version::ES(2, 0)
         && caps.version < Version::GL(3, 0)
         && !caps.extensions.gl_ext_framebuffer_blit
     {
-        return Err(Error::Requirement("blitting framebuffer".into()));
+        bail!("The OpenGL implementation does not supports blitting framebuffer.");
     }
 
     if caps.version < Version::GL(3, 1)
         && caps.version < Version::ES(3, 0)
         && !caps.extensions.gl_arb_uniform_buffer_object
     {
-        return Err(Error::Requirement("uniform buffer objects.".into()));
+        bail!("The OpenGL implementation does not supports uniform buffer objects.");
     }
 
     if caps.version < Version::GL(3, 0)
@@ -1533,39 +1529,32 @@ unsafe fn check_capabilities(caps: &Capabilities) -> Result<()> {
         && !caps.extensions.gl_apple_vertex_array_object
         && !caps.extensions.gl_oes_vertex_array_object
     {
-        return Err(Error::Requirement("vertex array objects.".into()));
+        bail!("The OpenGL implementation does not supports vertex array objects.");
     }
 
     Ok(())
 }
 
 unsafe fn check() -> Result<()> {
-    let err = match gl::GetError() {
+    match gl::GetError() {
         gl::NO_ERROR => Ok(()),
 
-        gl::INVALID_ENUM => Err(Error::Backend(
-            "[GL] An unacceptable value is specified for an enumerated argument.".into(),
-        )),
+        gl::INVALID_ENUM => {
+            bail!("[GL] An unacceptable value is specified for an enumerated argument.")
+        }
 
-        gl::INVALID_VALUE => Err(Error::Backend(
-            "[GL] A numeric argument is out of range.".into(),
-        )),
+        gl::INVALID_VALUE => bail!("[GL] A numeric argument is out of range."),
 
-        gl::INVALID_OPERATION => Err(Error::Backend(
-            "[GL] The specified operation is not allowed in the current state.".into(),
-        )),
+        gl::INVALID_OPERATION => {
+            bail!("[GL] The specified operation is not allowed in the current state.")
+        }
 
-        gl::INVALID_FRAMEBUFFER_OPERATION => Err(Error::Backend(
-            r"[GL] The command is trying to render to or read from the framebufferwhile the
+        gl::INVALID_FRAMEBUFFER_OPERATION => bail!(
+            r"[GL] The command is trying to render to or read from the framebufferwhile the \
             currently bound framebuffer is not framebuffer complete."
-                .into(),
-        )),
+        ),
 
-        gl::OUT_OF_MEMORY => Err(Error::Backend(
-            "[GL] There is not enough memory left to execute the command.".into(),
-        )),
-        _ => Err(Error::Backend("[GL] Oops, Unknown OpenGL error.".into())),
-    };
-
-    Ok(err.unwrap())
+        gl::OUT_OF_MEMORY => bail!("[GL] There is not enough memory left to execute the command."),
+        _ => bail!("[GL] Oops, Unknown OpenGL error."),
+    }
 }

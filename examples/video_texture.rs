@@ -23,7 +23,7 @@ struct Window {
 }
 
 impl Window {
-    fn new(engine: &mut Engine) -> Result<Self> {
+    fn new(engine: &mut Engine) -> crayon::Result<Self> {
         engine.res.mount("res", DiskFS::new("assets")?)?;
         let ctx = engine.context();
 
@@ -82,9 +82,7 @@ impl Window {
 }
 
 impl Application for Window {
-    type Error = Error;
-
-    fn on_update(&mut self, ctx: &Context) -> Result<()> {
+    fn on_update(&mut self, ctx: &Context) -> crayon::Result<()> {
         let mut dc = DrawCall::new(self.shader, self.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
         ctx.video.draw(self.surface, dc);
@@ -93,12 +91,12 @@ impl Application for Window {
         Ok(())
     }
 
-    fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> Result<()> {
+    fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> crayon::Result<()> {
         self.canvas.update(info);
         Ok(())
     }
 
-    fn on_exit(&mut self, ctx: &Context) -> Result<()> {
+    fn on_exit(&mut self, ctx: &Context) -> crayon::Result<()> {
         ctx.video.delete_mesh(self.mesh);
         ctx.video.delete_shader(self.shader);
         ctx.video.delete_surface(self.surface);
@@ -107,10 +105,7 @@ impl Application for Window {
 }
 
 fn main() {
-    let mut params = crayon::application::Settings::default();
-    params.window.title = "CR: Texture".into();
-    params.window.size = math::Vector2::new(464, 434);
-
+    let params = crayon_testbed::settings("CR: Texture", (464, 434));
     let mut engine = Engine::new_with(&params).unwrap();
     let window = Window::new(&mut engine).unwrap();
     engine.run(window).err().unwrap();

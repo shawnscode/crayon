@@ -37,7 +37,7 @@ pub struct VideoSystem {
 
 impl VideoSystem {
     /// Create a new `VideoSystem` with one `Window` context.
-    pub fn new(window: &Window) -> Result<Self> {
+    pub fn new(window: &Window) -> ::errors::Result<Self> {
         let frames = Arc::new(DoubleFrame::with_capacity(64 * 1024));
         let shared = VideoSystemShared::new(frames.clone());
         let visitor = unsafe { Box::new(GLVisitor::glutin(window)?) };
@@ -66,7 +66,7 @@ impl VideoSystem {
     ///
     /// Notes that this method MUST be called at main thread, and will NOT return
     /// until all commands is finished by GPU.
-    pub fn advance(&mut self, window: &Window) -> Result<VideoFrameInfo> {
+    pub fn advance(&mut self, window: &Window) -> ::errors::Result<VideoFrameInfo> {
         use std::time;
 
         let ts = time::Instant::now();

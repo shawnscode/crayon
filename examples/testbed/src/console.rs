@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
+use crayon::errors::*;
 use crayon::prelude::*;
 use crayon::video::assets::prelude::*;
 use crayon_imgui;
 use crayon_imgui::prelude::*;
-
-use errors::*;
 
 fn to_ms(duration: ::std::time::Duration) -> f32 {
     duration.as_secs() as f32 * 1000.0 + duration.subsec_nanos() as f32 / 1_000_000.0

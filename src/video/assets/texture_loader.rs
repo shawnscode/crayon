@@ -2,7 +2,7 @@ use bincode;
 use std::io::Read;
 use std::sync::Arc;
 
-use res::errors::*;
+use errors::*;
 
 use super::super::VideoSystemShared;
 use super::texture::*;
@@ -37,11 +37,9 @@ impl ::res::ResourceLoader for TextureLoader {
         let mut buf = [0; 8];
         file.read_exact(&mut buf[0..8])?;
 
-        // MAGIC: [u8; 8]
+        // magic: [u8; 8]
         if &buf[0..8] != &MAGIC[..] {
-            return Err(Error::Malformed(
-                "[TextureLoader] MAGIC number not match.".into(),
-            ));
+            bail!("[TextureLoader] MAGIC number not match.");
         }
 
         let params = bincode::deserialize_from(&mut file)?;

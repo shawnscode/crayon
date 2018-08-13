@@ -14,7 +14,6 @@
 //! In some systems, actual resource objects are private and opaque, application will usually
 //! not have direct access to a resource object in form of reference.
 
-pub mod errors;
 pub mod location;
 pub mod manifest;
 pub mod vfs;
@@ -34,8 +33,8 @@ use std::sync::{Arc, RwLock};
 use sched::ScheduleSystemShared;
 use utils::handle::Handle;
 
-use self::errors::*;
 use self::vfs::VFS;
+use errors::*;
 
 pub trait ResourceHandle: Into<Handle> + From<Handle> + Copy + Send + 'static {
     type Loader: ResourceLoader<Handle = Self>;

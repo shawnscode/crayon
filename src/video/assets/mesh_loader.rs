@@ -2,7 +2,7 @@ use bincode;
 use std::io::Read;
 use std::sync::Arc;
 
-use res::errors::*;
+use errors::*;
 
 use super::super::VideoSystemShared;
 use super::mesh::*;
@@ -39,9 +39,7 @@ impl ::res::ResourceLoader for MeshLoader {
 
         // MAGIC: [u8; 8]
         if &buf[0..8] != &MAGIC[..] {
-            return Err(Error::Malformed(
-                "[MeshLoader] MAGIC number not match.".into(),
-            ));
+            bail!("[MeshLoader] MAGIC number not match.");
         }
 
         let params = bincode::deserialize_from(&mut file)?;

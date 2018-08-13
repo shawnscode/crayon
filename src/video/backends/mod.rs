@@ -5,8 +5,8 @@ pub mod frame;
 pub mod gl;
 
 use super::assets::prelude::*;
-use super::errors::*;
 
+use errors::*;
 use math;
 use utils::hash_value;
 

@@ -4,12 +4,12 @@ use std::path::Path;
 use std::sync::{Arc, Condvar, Mutex};
 use uuid::Uuid;
 
+use errors::*;
 use sched::latch::{LatchProbe, LatchWaitProbe};
 use sched::ScheduleSystemShared;
 use utils::handle::Handle;
 use utils::hash_value::HashValue;
 
-use super::errors::*;
 use super::location::Location;
 use super::manifest;
 use super::vfs::{VFSDriver, VFS};
@@ -130,17 +130,20 @@ impl Registery {
     {
         let (fs, uuid) = match location {
             Location::Uuid(uuid) => {
-                let fs = self.manifest.get(&uuid).ok_or(Error::UuidNotFound(uuid))?;
-                (*fs, uuid)
+                if let Some(fs) = self.manifest.get(&uuid) {
+                    (*fs, uuid)
+                } else {
+                    bail!("Uuid {:X} not found.", uuid);
+                }
             }
 
-            Location::Str(fs, file) => {
+            Location::Name(fs, file) => {
                 let hash: HashValue<Path> = (&file).into();
-                let uuid = self.remaps
-                    .get(&hash)
-                    .ok_or_else(|| Error::FileNotFound(file))?;
-
-                (fs, *uuid)
+                if let Some(uuid) = self.remaps.get(&hash) {
+                    (fs, *uuid)
+                } else {
+                    bail!("File {:?} not found.", file);
+                }
             }
         };
 
