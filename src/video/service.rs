@@ -98,9 +98,8 @@ impl VideoSystem {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-enum TextureState {
-    Ok,
+enum AsyncState<T> {
+    Ok(T),
     NotReady,
 }
 
@@ -108,11 +107,11 @@ enum TextureState {
 pub struct VideoSystemShared {
     pub(crate) frames: Arc<DoubleFrame>,
 
-    textures: RwLock<object_pool::ObjectPool<TextureState>>,
+    textures: RwLock<object_pool::ObjectPool<AsyncState<()>>>,
     surfaces: RwLock<object_pool::ObjectPool<SurfaceParams>>,
     shaders: RwLock<object_pool::ObjectPool<ShaderParams>>,
     render_textures: RwLock<object_pool::ObjectPool<RenderTextureParams>>,
-    meshes: RwLock<object_pool::ObjectPool<MeshParams>>,
+    meshes: RwLock<object_pool::ObjectPool<AsyncState<MeshParams>>>,
 }
 
 impl VideoSystemShared {
@@ -234,27 +233,22 @@ impl VideoSystemShared {
 
 impl VideoSystemShared {
     /// Create a new mesh object.
-    pub fn create_mesh<'a, 'b, T1, T2>(
-        &self,
-        params: MeshParams,
-        verts: T1,
-        idxes: T2,
-    ) -> Result<MeshHandle>
+    pub fn create_mesh<T>(&self, params: MeshParams, data: T) -> Result<MeshHandle>
     where
-        T1: Into<Option<&'a [u8]>>,
-        T2: Into<Option<&'b [u8]>>,
+        T: Into<Option<MeshData>>,
     {
-        let verts = verts.into();
-        let idxes = idxes.into();
-        params.validate(verts, idxes)?;
+        let data = data.into();
+        params.validate(data.as_ref())?;
 
-        let handle = self.meshes.write().unwrap().create(params.clone()).into();
+        let handle = self.meshes
+            .write()
+            .unwrap()
+            .create(AsyncState::Ok(params.clone()))
+            .into();
 
         {
             let mut frame = self.frames.front();
-            let vptr = verts.map(|v| frame.bufs.extend_from_slice(v));
-            let iptr = idxes.map(|v| frame.bufs.extend_from_slice(v));
-            let cmd = Command::CreateMesh(handle, params, vptr, iptr);
+            let cmd = Command::CreateMesh(handle, params, data);
             frame.cmds.push(cmd);
         }
 
@@ -262,8 +256,14 @@ impl VideoSystemShared {
     }
 
     /// Gets the `MeshParams` if available.
-    pub fn mesh(&self, handle: MeshHandle) -> Option<MeshParams> {
-        self.meshes.read().unwrap().get(handle).cloned()
+    pub fn mesh_aabb(&self, handle: MeshHandle) -> Option<math::Aabb3<f32>> {
+        self.meshes.read().unwrap().get(handle).and_then(|v| {
+            if let AsyncState::Ok(v) = v {
+                Some(v.aabb)
+            } else {
+                None
+            }
+        })
     }
 
     /// Update a subset of dynamic vertex buffer. Use `offset` specifies the offset
@@ -314,6 +314,36 @@ impl VideoSystemShared {
             self.frames.front().cmds.push(cmd);
         }
     }
+
+    pub(crate) fn loader_create_mesh(&self) -> Result<MeshHandle> {
+        let handle = self.meshes
+            .write()
+            .unwrap()
+            .create(AsyncState::NotReady)
+            .into();
+
+        Ok(handle)
+    }
+
+    pub(crate) fn loader_update_mesh(
+        &self,
+        handle: MeshHandle,
+        params: MeshParams,
+        data: MeshData,
+    ) -> Result<()> {
+        params.validate(Some(&data))?;
+
+        if let Some(v) = self.meshes.write().unwrap().get_mut(handle) {
+            let mut frame = self.frames.front();
+            let task = Command::CreateMesh(handle, params.clone(), Some(data));
+            frame.cmds.push(task);
+            *v = AsyncState::Ok(params);
+
+            Ok(())
+        } else {
+            Err(Error::HandleInvalid(format!("{:?}", handle)))
+        }
+    }
 }
 
 impl VideoSystemShared {
@@ -329,7 +359,7 @@ impl VideoSystemShared {
         let handle = self.textures
             .write()
             .unwrap()
-            .create(TextureState::Ok)
+            .create(AsyncState::Ok(()))
             .into();
 
         {
@@ -348,7 +378,7 @@ impl VideoSystemShared {
         area: math::Aabb2<u32>,
         data: &[u8],
     ) -> Result<()> {
-        if let Some(TextureState::Ok) = self.textures.read().unwrap().get(handle) {
+        if let Some(AsyncState::Ok(_)) = self.textures.read().unwrap().get(handle) {
             let mut frame = self.frames.front();
             let ptr = frame.bufs.extend_from_slice(data);
             let cmd = Command::UpdateTexture(handle, area, ptr);
@@ -372,7 +402,7 @@ impl VideoSystemShared {
         let handle = self.textures
             .write()
             .unwrap()
-            .create(TextureState::NotReady)
+            .create(AsyncState::NotReady)
             .into();
 
         Ok(handle)
@@ -390,7 +420,7 @@ impl VideoSystemShared {
             let mut frame = self.frames.front();
             let task = Command::CreateTexture(handle, params, Some(data));
             frame.cmds.push(task);
-            *v = TextureState::Ok;
+            *v = AsyncState::Ok(());
 
             Ok(())
         } else {

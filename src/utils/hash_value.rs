@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::path::Path;
 
-#[derive(Debug, Eq)]
+#[derive(Serialize, Deserialize, Debug, Eq)]
 pub struct HashValue<T>(u64, PhantomData<T>)
 where
     T: Hash + ?Sized;

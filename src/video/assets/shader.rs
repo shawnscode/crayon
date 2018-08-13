@@ -49,7 +49,7 @@ impl ShaderParams {
 
 /// The possible pre-defined and named attributes in the vertex component, describing
 /// what the vertex component is used for.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Attribute {
     Position = 0,
     Normal = 1,

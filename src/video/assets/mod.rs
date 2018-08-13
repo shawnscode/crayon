@@ -21,7 +21,7 @@ pub mod prelude {
     };
 
     pub use super::mesh::{
-        IndexFormat, MeshHandle, MeshHint, MeshIndex, MeshParams, MeshPrimitive, VertexFormat,
-        VertexLayout,
+        IndexFormat, MeshData, MeshHandle, MeshHint, MeshIndex, MeshParams, MeshPrimitive,
+        VertexFormat, VertexLayout,
     };
 }

@@ -56,8 +56,7 @@ pub trait Visitor {
         &mut self,
         handle: MeshHandle,
         ps: MeshParams,
-        vs: Option<&[u8]>,
-        is: Option<&[u8]>,
+        data: Option<MeshData>,
     ) -> Result<()>;
 
     unsafe fn update_vertex_buffer(

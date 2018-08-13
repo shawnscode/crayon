@@ -19,16 +19,18 @@ pub enum Command {
 
     CreateSurface(SurfaceHandle, SurfaceParams),
     DeleteSurface(SurfaceHandle),
+
     CreateShader(ShaderHandle, ShaderParams, String, String),
     DeleteShader(ShaderHandle),
 
     CreateTexture(TextureHandle, TextureParams, Option<TextureData>),
     UpdateTexture(TextureHandle, math::Aabb2<u32>, BytesPtr),
-
     DeleteTexture(TextureHandle),
+
     CreateRenderTexture(RenderTextureHandle, RenderTextureParams),
     DeleteRenderTexture(RenderTextureHandle),
-    CreateMesh(MeshHandle, MeshParams, Option<BytesPtr>, Option<BytesPtr>),
+
+    CreateMesh(MeshHandle, MeshParams, Option<MeshData>),
     UpdateVertexBuffer(MeshHandle, usize, BytesPtr),
     UpdateIndexBuffer(MeshHandle, usize, BytesPtr),
     DeleteMesh(MeshHandle),
@@ -119,11 +121,8 @@ impl Frame {
                         visitor.delete_render_texture(handle)?;
                     }
 
-                    Command::CreateMesh(handle, params, vptr, iptr) => {
-                        let field = &self.bufs;
-                        let verts = vptr.map(|v| field.as_slice(v));
-                        let idxes = iptr.map(|v| field.as_slice(v));
-                        visitor.create_mesh(handle, params, verts, idxes)?;
+                    Command::CreateMesh(handle, params, data) => {
+                        visitor.create_mesh(handle, params, data)?;
                     }
 
                     Command::UpdateVertexBuffer(handle, offset, ptr) => {

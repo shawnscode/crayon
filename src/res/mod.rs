@@ -14,7 +14,6 @@
 //! In some systems, actual resource objects are private and opaque, application will usually
 //! not have direct access to a resource object in form of reference.
 
-pub mod byteorder;
 pub mod errors;
 pub mod location;
 pub mod manifest;

@@ -2,12 +2,12 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Condvar, Mutex};
+use uuid::Uuid;
 
 use sched::latch::{LatchProbe, LatchWaitProbe};
 use sched::ScheduleSystemShared;
 use utils::handle::Handle;
 use utils::hash_value::HashValue;
-use utils::uuid::Uuid;
 
 use super::errors::*;
 use super::location::Location;
@@ -170,7 +170,7 @@ impl Registery {
         self.locs.insert(uuid, sh);
         self.entries.insert(sh, v);
 
-        let path = format!("{}", uuid);
+        let path = format!("{:X}", uuid.simple());
         let mut file = self.driver.read(fs, path.as_ref())?;
 
         self.sched.spawn(move || {

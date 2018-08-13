@@ -13,7 +13,7 @@ pub enum Error {
     #[fail(display = "Location {} is malformed.", _0)]
     MalformLocation(String),
     #[fail(display = "Undefined UUID {}.", _0)]
-    UuidNotFound(::utils::uuid::Uuid),
+    UuidNotFound(::uuid::Uuid),
     #[fail(display = "Undefined Path {:?}.", _0)]
     FileNotFound(::std::path::PathBuf),
 }

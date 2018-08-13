@@ -39,6 +39,7 @@ extern crate glutin;
 #[macro_use]
 extern crate serde;
 extern crate bincode;
+extern crate uuid;
 
 #[macro_use]
 pub mod utils;

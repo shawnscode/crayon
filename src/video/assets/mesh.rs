@@ -1,5 +1,6 @@
 //! Immutable or dynamic vertex and index data.
 
+use math;
 use video::assets::shader::Attribute;
 use video::errors::{Error, Result};
 use video::MAX_VERTEX_ATTRIBUTES;
@@ -7,7 +8,7 @@ use video::MAX_VERTEX_ATTRIBUTES;
 impl_handle!(MeshHandle);
 
 /// The setup parameters of mesh object.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MeshParams {
     /// Usage hints.
     pub hint: MeshHint,
@@ -23,6 +24,17 @@ pub struct MeshParams {
     pub num_idxes: usize,
     /// The start indices of sub-meshes.
     pub sub_mesh_offsets: Vec<usize>,
+    /// Trivial bounding box of vertices.
+    pub aabb: math::Aabb3<f32>,
+}
+
+/// Continuous data of vertices and its indices.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MeshData {
+    /// The bytes of vertices.
+    pub vptr: Box<[u8]>,
+    /// The bytes of indices.
+    pub iptr: Box<[u8]>,
 }
 
 impl Default for MeshParams {
@@ -34,21 +46,20 @@ impl Default for MeshParams {
             primitive: MeshPrimitive::Triangles,
             num_verts: 0,
             num_idxes: 0,
+            aabb: math::Aabb3::zero(),
             sub_mesh_offsets: Vec::new(),
         }
     }
 }
 
 impl MeshParams {
-    pub fn validate(&self, verts: Option<&[u8]>, idxes: Option<&[u8]>) -> Result<()> {
-        if let Some(buf) = verts.as_ref() {
-            if buf.len() > self.vertex_buffer_len() {
+    pub fn validate(&self, data: Option<&MeshData>) -> Result<()> {
+        if let Some(v) = data {
+            if v.vptr.len() > self.vertex_buffer_len() {
                 return Err(Error::OutOfBounds);
             }
-        }
 
-        if let Some(buf) = idxes.as_ref() {
-            if buf.len() > self.index_buffer_len() {
+            if v.iptr.len() > self.index_buffer_len() {
                 return Err(Error::OutOfBounds);
             }
         }
@@ -82,7 +93,7 @@ pub enum MeshIndex {
 }
 
 /// Hint abouts the intended update strategy of the data.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum MeshHint {
     /// The resource is initialized with data and cannot be changed later, this
     /// is the most common and most efficient usage. Optimal for render targets
@@ -97,7 +108,7 @@ pub enum MeshHint {
 }
 
 /// Defines how the input vertex data is used to assemble primitives.
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MeshPrimitive {
     /// Separate points.
     Points,
@@ -134,7 +145,7 @@ impl MeshPrimitive {
 /// Vertex indices can be either 16- or 32-bit. You should always prefer
 /// 16-bit indices over 32-bit indices, since the latter may have performance
 /// penalties on some platforms, and they take up twice as much memory.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum IndexFormat {
     U16,
     U32,
@@ -158,7 +169,7 @@ impl IndexFormat {
 }
 
 /// The data type in the vertex component.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum VertexFormat {
     Byte,
     UByte,
@@ -168,7 +179,7 @@ pub enum VertexFormat {
 }
 
 /// The details of a vertex attribute.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct VertexAttribute {
     /// The name of this description.
     pub name: Attribute,
@@ -194,7 +205,7 @@ impl Default for VertexAttribute {
 /// `VertexLayout` defines how a single vertex structure looks like.  A vertex
 /// layout is a collection of vertex components, and each vertex component
 /// consists of a vertex attribute and the vertex format.
-#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub struct VertexLayout {
     stride: u8,
     len: u8,
@@ -425,7 +436,7 @@ pub mod macros {
     macro_rules! impl_vertex {
         ($name: ident { $($field: ident => [$attribute: tt; $format: tt; $size: tt; $normalized: tt],)* }) => (
             #[repr(C)]
-            #[derive(Debug, Copy, Clone)]
+            #[derive(Debug, Copy, Clone, Default)]
             pub struct $name {
                 $($field: impl_vertex_field!{VertexFormat::$format, $size}, )*
             }

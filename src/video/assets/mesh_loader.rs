@@ -1,110 +1,58 @@
-// use std;
-// use std::marker::PhantomData;
-// use std::path::Path;
-// use std::sync::{Arc, RwLock};
+use bincode;
+use std::io::Read;
+use std::sync::Arc;
 
-// use math;
+use res::errors::*;
 
-// use resource::prelude::*;
-// use resource::utils::registery::Registery;
+use super::super::VideoSystemShared;
+use super::mesh::*;
 
-// use video::assets::mesh::*;
-// use video::assets::{AssetMeshState, AssetState};
-// use video::backend::frame::{DoubleFrame, PreFrameTask};
+pub const MAGIC: [u8; 8] = [
+    'V' as u8, 'M' as u8, 'S' as u8, 'H' as u8, ' ' as u8, 0, 0, 1,
+];
 
-// /// Parsed mesh from `MeshParser`.
-// pub struct MeshData {
-//     pub layout: VertexLayout,
-//     pub index_format: IndexFormat,
-//     pub primitive: MeshPrimitive,
-//     pub num_verts: usize,
-//     pub num_idxes: usize,
-//     pub sub_mesh_offsets: Vec<usize>,
-//     pub aabb: math::Aabb3<f32>,
-//     pub verts: Vec<u8>,
-//     pub idxes: Vec<u8>,
-// }
+pub struct MeshLoader {
+    video: Arc<VideoSystemShared>,
+}
 
-// /// Parse bytes into texture.
-// pub trait MeshParser {
-//     type Error: std::error::Error + std::fmt::Debug;
+impl MeshLoader {
+    pub fn new(video: Arc<VideoSystemShared>) -> Self {
+        MeshLoader { video: video }
+    }
+}
 
-//     fn parse(bytes: &[u8]) -> std::result::Result<MeshData, Self::Error>;
-// }
+impl ::res::ResourceHandle for MeshHandle {
+    type Loader = MeshLoader;
+}
 
-// #[doc(hidden)]
-// pub(crate) struct MeshLoader<T>
-// where
-//     T: MeshParser,
-// {
-//     handle: MeshHandle,
-//     params: MeshParams,
-//     meshes: Arc<RwLock<Registery<AssetMeshState>>>,
-//     frames: Arc<DoubleFrame>,
-//     _phantom: PhantomData<T>,
-// }
+impl ::res::ResourceLoader for MeshLoader {
+    type Handle = MeshHandle;
 
-// impl<T> MeshLoader<T>
-// where
-//     T: MeshParser,
-// {
-//     pub fn new(
-//         handle: MeshHandle,
-//         params: MeshParams,
-//         meshes: Arc<RwLock<Registery<AssetMeshState>>>,
-//         frames: Arc<DoubleFrame>,
-//     ) -> Self {
-//         MeshLoader {
-//             handle: handle,
-//             params: params,
-//             meshes: meshes,
-//             frames: frames,
-//             _phantom: PhantomData,
-//         }
-//     }
-// }
+    fn create(&self) -> Result<Self::Handle> {
+        let handle = self.video.loader_create_mesh()?;
+        Ok(handle)
+    }
 
-// impl<T> ResourceTask for MeshLoader<T>
-// where
-//     T: MeshParser + Send + Sync + 'static,
-// {
-//     fn execute(mut self, driver: &mut ResourceFS, path: &Path) {
-//         let state = match driver.load(path) {
-//             Ok(bytes) => match T::parse(bytes) {
-//                 Ok(mesh) => {
-//                     self.params.layout = mesh.layout;
-//                     self.params.index_format = mesh.index_format;
-//                     self.params.primitive = mesh.primitive;
-//                     self.params.num_verts = mesh.num_verts;
-//                     self.params.num_idxes = mesh.num_idxes;
-//                     self.params.sub_mesh_offsets = mesh.sub_mesh_offsets;
-//                     self.params.aabb = mesh.aabb;
+    fn load(&self, handle: Self::Handle, mut file: &mut dyn Read) -> Result<()> {
+        let mut buf = [0; 8];
+        file.read_exact(&mut buf[0..8])?;
 
-//                     let mut frame = self.frames.front();
-//                     let vptr = Some(frame.buf.extend_from_slice(&mesh.verts));
-//                     let iptr = Some(frame.buf.extend_from_slice(&mesh.idxes));
-//                     let task =
-//                         PreFrameTask::CreateMesh(self.handle, self.params.clone(), vptr, iptr);
-//                     frame.pre.push(task);
+        // MAGIC: [u8; 8]
+        if &buf[0..8] != &MAGIC[..] {
+            return Err(Error::Malformed(
+                "[MeshLoader] MAGIC number not match.".into(),
+            ));
+        }
 
-//                     AssetState::ready(self.params)
-//                 }
-//                 Err(error) => {
-//                     let error = format!("Failed to load mesh at {:?}.\n{:?}", path, error);
-//                     AssetState::Err(error)
-//                 }
-//             },
-//             Err(error) => {
-//                 let error = format!("Failed to load mesh at {:?}.\n{:?}", path, error);
-//                 AssetState::Err(error)
-//             }
-//         };
+        let params = bincode::deserialize_from(&mut file)?;
+        let data = bincode::deserialize_from(&mut file)?;
 
-//         {
-//             let mut meshes = self.meshes.write().unwrap();
-//             if let Some(mesh) = meshes.get_mut(*self.handle) {
-//                 *mesh = state;
-//             }
-//         }
-//     }
-// }
+        self.video.loader_update_mesh(handle, params, data)?;
+        Ok(())
+    }
+
+    fn delete(&self, handle: Self::Handle) -> Result<()> {
+        self.video.delete_mesh(handle);
+        Ok(())
+    }
+}

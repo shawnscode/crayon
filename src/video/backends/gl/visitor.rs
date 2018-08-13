@@ -546,21 +546,20 @@ impl Visitor for GLVisitor {
         &mut self,
         handle: MeshHandle,
         params: MeshParams,
-        vs: Option<&[u8]>,
-        is: Option<&[u8]>,
+        data: Option<MeshData>,
     ) -> Result<()> {
         let vbo = self.create_buffer_intern(
             gl::ARRAY_BUFFER,
             params.hint,
             params.vertex_buffer_len(),
-            vs,
+            data.as_ref().map(|v| v.vptr.as_ref()),
         )?;
 
         let ibo = self.create_buffer_intern(
             gl::ELEMENT_ARRAY_BUFFER,
             params.hint,
             params.index_buffer_len(),
-            is,
+            data.as_ref().map(|v| v.iptr.as_ref()),
         )?;
 
         self.meshes.create(

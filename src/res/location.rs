@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
+use uuid::Uuid;
 
 use utils::hash_value::HashValue;
-use utils::uuid::Uuid;
 
 use super::errors::*;
 

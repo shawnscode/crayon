@@ -81,6 +81,10 @@ impl Engine {
             video_shared.clone(),
         ));
 
+        res.register(video::assets::mesh_loader::MeshLoader::new(
+            video_shared.clone(),
+        ));
+
         let context = Context {
             res: res_shared,
             input: input_shared,

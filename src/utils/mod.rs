@@ -6,7 +6,6 @@ pub mod data_buf;
 pub mod handle_pool;
 pub mod hash_value;
 pub mod object_pool;
-pub mod uuid;
 pub mod variant;
 
 pub use self::data_buf::{DataBuffer, DataBufferPtr};
