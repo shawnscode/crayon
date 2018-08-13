@@ -69,7 +69,10 @@ impl Renderer {
             params.dimensions = (v.width, v.height).into();
             params.filter = TextureFilter::Nearest;
             params.format = TextureFormat::RGBA8;
-            ctx.video.create_texture(params, v.pixels)
+
+            let bytes = v.pixels.to_owned().into_boxed_slice();
+            let data = TextureData { bytes: vec![bytes] };
+            ctx.video.create_texture(params, Some(data))
         })?;
 
         imgui.set_texture_id(**texture as usize);
@@ -200,10 +203,13 @@ impl Renderer {
         params.primitive = MeshPrimitive::Triangles;
         params.num_verts = nv;
         params.num_idxes = ni;
-        let vptr = Some(CanvasVertex::encode(verts));
-        let iptr = Some(IndexFormat::encode(idxes));
 
-        let mesh = self.video.create_mesh(params, vptr, iptr)?;
+        let data = MeshData {
+            vptr: CanvasVertex::encode(verts).into(),
+            iptr: IndexFormat::encode(idxes).into(),
+        };
+
+        let mesh = self.video.create_mesh(params, data)?;
         self.mesh = Some((nv, ni, mesh));
         Ok(mesh)
     }

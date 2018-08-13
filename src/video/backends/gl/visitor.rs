@@ -493,6 +493,20 @@ impl Visitor for GLVisitor {
 
             self.bind_texture(0, id)?;
             self.update_texture_params(id, params.wrap, params.filter, 1)?;
+
+            let (internal_format, format, pixel_type) = params.format.into();
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                internal_format as GLint,
+                params.dimensions.x as GLsizei,
+                params.dimensions.y as GLsizei,
+                0,
+                format,
+                pixel_type,
+                ::std::ptr::null(),
+            );
+
             id
         } else {
             let mut id = 0;
@@ -797,9 +811,35 @@ impl GLVisitor {
         gl::BindFramebuffer(gl::FRAMEBUFFER, id);
 
         if check_status && gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
-            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
-            self.mutables.borrow_mut().binded_framebuffer = Some(0);
-            return Err(Error::Backend("[GL] Surface is incomplete.".into()));
+            let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
+            if status != gl::FRAMEBUFFER_COMPLETE {
+                gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+                self.mutables.borrow_mut().binded_framebuffer = Some(0);
+
+                match status {
+                    gl::FRAMEBUFFER_INCOMPLETE_ATTACHMENT => {
+                        return Err(Error::Backend("[GL] Surface is incomplete. Not all framebuffer attachment points \
+                        are framebuffer attachment complete. This means that at least one attachment point with a \
+                        renderbuffer or texture attached has its attached object no longer in existence or has an \
+                        attached image with a width or height of zero, or the color attachment point has a non-color-renderable \
+                        image attached, or the depth attachment point has a non-depth-renderable image attached, or \
+                        the stencil attachment point has a non-stencil-renderable image attached. ".into()));
+                    }
+
+                    gl::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => {
+                        return Err(Error::Backend("[GL] Surface is incomplete. No images are attached to the framebuffer.".into()));
+                    }
+
+                    gl::FRAMEBUFFER_UNSUPPORTED => {
+                        return Err(Error::Backend("[GL] Surface is incomplete. The combination of internal formats \
+                        of the attached images violates an implementation-dependent set of restrictions. ".into()));
+                    }
+
+                    _ => {
+                        return Err(Error::Backend("[GL] Surface is incomplete.".into()));
+                    }
+                }
+            }
         } else {
             self.mutables.borrow_mut().binded_framebuffer = Some(id);
         }

@@ -1,8 +1,8 @@
 use std::ops::{Deref, DerefMut};
 
-use crayon::application;
-use crayon::application::Result;
+use crayon::application::{self, Context};
 use crayon::input::prelude::*;
+use crayon::video::errors::*;
 use crayon::video::prelude::*;
 use imgui;
 use renderer::Renderer;
@@ -41,7 +41,7 @@ pub struct Canvas {
 }
 
 impl Canvas {
-    pub fn new(ctx: &application::Context) -> Result<Self> {
+    pub fn new(ctx: &Context) -> Result<Self> {
         let mut imgui = imgui::ImGui::init();
         imgui.set_ini_filename(None);
 
@@ -54,7 +54,7 @@ impl Canvas {
         })
     }
 
-    pub fn frame<T>(&mut self, ctx: &application::Context, surface: T) -> FrameGuard
+    pub fn frame<T>(&mut self, ctx: &Context, surface: T) -> FrameGuard
     where
         T: Into<Option<SurfaceHandle>>,
     {
@@ -141,7 +141,7 @@ impl Canvas {
         imgui.set_key_super(lwin || rwin);
     }
 
-    fn update_mouse_state(imgui: &mut imgui::ImGui, ctx: &application::Context) {
+    fn update_mouse_state(imgui: &mut imgui::ImGui, ctx: &Context) {
         use self::application::event::MouseButton;
 
         let dims = ctx.window.dimensions_in_points();

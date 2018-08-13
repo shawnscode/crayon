@@ -24,9 +24,7 @@ struct Window {
 
 impl Window {
     fn new(engine: &mut Engine) -> Result<Self> {
-        let loc = crayon_testbed::build(false);
-        engine.res.mount("res", DiskFS::new(loc)?)?;
-
+        engine.res.mount("res", DiskFS::new("assets")?)?;
         let ctx = engine.context();
 
         let verts: [Vertex; 4] = [
@@ -42,9 +40,13 @@ impl Window {
         params.num_verts = 4;
         params.num_idxes = 6;
         params.layout = Vertex::layout();
-        let verts = Some(Vertex::encode(&verts[..]));
-        let idxes = Some(IndexFormat::encode(&idxes));
-        let mesh = ctx.video.create_mesh(params, verts, idxes)?;
+
+        let data = MeshData {
+            vptr: Vertex::encode(&verts[..]).into(),
+            iptr: IndexFormat::encode(&idxes).into(),
+        };
+
+        let mesh = ctx.video.create_mesh(params, Some(data))?;
 
         // Create the view state.
         let setup = SurfaceParams::default();

@@ -50,9 +50,13 @@ impl Window {
             params.num_verts = 3;
             params.num_idxes = 3;
             params.layout = Vertex::layout();
-            let vptr = Some(Vertex::encode(&verts[..]));
-            let iptr = Some(IndexFormat::encode(&idxes));
-            let mesh = ctx.video.create_mesh(params, vptr, iptr)?;
+
+            let data = MeshData {
+                vptr: Vertex::encode(&verts[..]).into(),
+                iptr: IndexFormat::encode(&idxes).into(),
+            };
+
+            let mesh = ctx.video.create_mesh(params, Some(data))?;
 
             // Create render texture for post effect.
             let mut params = RenderTextureParams::default();
@@ -97,9 +101,12 @@ impl Window {
             params.num_idxes = 6;
             params.layout = Vertex::layout();
 
-            let vptr = Some(Vertex::encode(&verts[..]));
-            let iptr = Some(IndexFormat::encode(&idxes));
-            let mesh = ctx.video.create_mesh(params, vptr, iptr)?;
+            let data = MeshData {
+                vptr: Vertex::encode(&verts[..]).into(),
+                iptr: IndexFormat::encode(&idxes).into(),
+            };
+
+            let mesh = ctx.video.create_mesh(params, Some(data))?;
 
             let params = SurfaceParams::default();
             let surface = ctx.video.create_surface(params)?;

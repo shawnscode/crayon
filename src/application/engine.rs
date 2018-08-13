@@ -7,6 +7,8 @@ use res;
 use sched;
 use video;
 
+type Result<T> = ::std::result::Result<T, ::failure::Error>;
+
 #[derive(Default, Copy, Clone)]
 struct ContextData {
     shutdown: bool,
@@ -74,7 +76,7 @@ impl Engine {
         let video = video::VideoSystem::new(&window)?;
         let video_shared = video.shared();
 
-        let time = time::TimeSystem::new(settings.engine)?;
+        let time = time::TimeSystem::new(settings.engine);
         let time_shared = time.shared();
 
         res.register(video::assets::texture_loader::TextureLoader::new(

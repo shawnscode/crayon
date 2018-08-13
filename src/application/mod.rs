@@ -34,9 +34,6 @@ pub use self::settings::Settings;
 mod engine;
 pub use self::engine::{Context, Engine};
 
-pub type Result<T> = ::std::result::Result<T, ::failure::Error>;
-
-use std::result::Result as StdResult;
 use std::time::Duration;
 use video::VideoFrameInfo;
 
@@ -55,17 +52,17 @@ pub trait Application {
 
     /// `Application::on_update` is called every frame. Its the main workhorse
     /// function for frame updates.
-    fn on_update(&mut self, _: &Context) -> StdResult<(), Self::Error> {
+    fn on_update(&mut self, _: &Context) -> Result<(), Self::Error> {
         Ok(())
     }
 
     /// `Application::on_render` is called before we starts rendering the scene.
-    fn on_render(&mut self, _: &Context) -> StdResult<(), Self::Error> {
+    fn on_render(&mut self, _: &Context) -> Result<(), Self::Error> {
         Ok(())
     }
 
     /// `Application::on_post_update` is called after camera has rendered the scene.
-    fn on_post_update(&mut self, _: &Context, _: &FrameInfo) -> StdResult<(), Self::Error> {
+    fn on_post_update(&mut self, _: &Context, _: &FrameInfo) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -74,12 +71,12 @@ pub trait Application {
         &mut self,
         _: &Context,
         _: event::ApplicationEvent,
-    ) -> StdResult<(), Self::Error> {
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 
     /// `Application::on_exit` is called when exiting.
-    fn on_exit(&mut self, _: &Context) -> StdResult<(), Self::Error> {
+    fn on_exit(&mut self, _: &Context) -> Result<(), Self::Error> {
         Ok(())
     }
 }

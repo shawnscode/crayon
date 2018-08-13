@@ -5,6 +5,5 @@ authors = ["maojingkai <oammix@gmail.com>"]
 
 [dependencies]
 crayon = { path = "../.." }
-crayon-workflow = { path = "../../crayon-tools/workflow" }
-crayon-imgui = { path = "../../crayon-modules/imgui" }
+crayon-imgui = { path = "../../modules/imgui" }
 failure = "0.1.1"

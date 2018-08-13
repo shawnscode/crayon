@@ -23,12 +23,6 @@ This project adheres to [Semantic Versioning](http://semver.org/), all notable c
 For the sake of brevity, you can also run a simple and quick example with commands:
 
 ``` sh
-git clone git@github.com:shawnscode/crayon.git && cd crayon/crayon-examples
-cargo run mesh
+git clone git@github.com:shawnscode/crayon.git
+cargo run --example video_render_texture
 ```
-
-### Examples and Screenshots
-
-Check out [here](./crayon-examples) for details.
-
-![Mesh](./crayon-examples/screenshots/mesh.png)
