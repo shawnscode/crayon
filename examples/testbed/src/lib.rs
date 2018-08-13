@@ -18,6 +18,25 @@ where
     params
 }
 
+pub fn find_res_dir() -> crayon::res::vfs::DiskFS {
+    use std::path::Path;
+
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+
+    let search_dirs = [
+        root.join("resources"),
+        root.parent().unwrap().join("resources"),
+    ];
+
+    for v in &search_dirs {
+        if v.is_dir() && v.join(crayon::res::manifest::NAME).exists() {
+            return crayon::res::vfs::DiskFS::new(v).unwrap();
+        }
+    }
+
+    panic!("Could not found compiled resources.");
+}
+
 pub mod prelude {
     pub use super::console::ConsoleCanvas;
     pub use crayon_imgui::prelude::*;

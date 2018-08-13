@@ -24,7 +24,6 @@ struct Window {
 
 impl Window {
     fn new(engine: &mut Engine) -> crayon::Result<Self> {
-        engine.res.mount("res", DiskFS::new("assets")?)?;
         let ctx = engine.context();
 
         let verts: [Vertex; 4] = [
@@ -105,8 +104,12 @@ impl Application for Window {
 }
 
 fn main() {
+    let res = crayon_testbed::find_res_dir();
+
     let params = crayon_testbed::settings("CR: Texture", (464, 434));
     let mut engine = Engine::new_with(&params).unwrap();
+    engine.res.mount("res", res).unwrap();
+
     let window = Window::new(&mut engine).unwrap();
-    engine.run(window).err().unwrap();
+    engine.run(window).unwrap();
 }
