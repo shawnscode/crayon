@@ -1,189 +1,334 @@
-use crayon::application::Context;
+use std::collections::HashMap;
+
 use crayon::ecs::prelude::*;
-use crayon::resource::utils::prelude::*;
-use crayon::video::prelude::*;
+use crayon::math::{self, One};
 
-use assets::prelude::*;
-use components::prelude::*;
-use graphics::prelude::*;
-
-use ent::{EntRef, EntRefMut};
-use errors::*;
-use resources::Resources;
-
-#[derive(Debug, Clone, Copy, Default)]
-pub struct SceneSetup {
-    draw: DrawSetup,
+#[derive(Debug, Fail)]
+pub enum Error {
+    #[fail(display = "Ent({:?}) does not have a node.", _0)]
+    NonNodeFound(Entity),
+    #[fail(display = "The transform of ent({:?}) can not be inversed.", _0)]
+    CanNotInverseTransform(Entity),
+    #[fail(display = "Node can not set self as parent.")]
+    CanNotAttachSelfAsParent,
 }
 
-/// `Scene`s contain the environments of your game. Its relative easy to think of each
-/// unique scene as a unique level. In each `Scene`, you place your envrionments,
-/// obstacles, and decorations, essentially designing and building your game in pieces.
-///
-/// The `Scene` is arranged with simple tree hierarchy. A tree `Node` may have many children
-/// but only a single parent, with the effect of a parent applied to all its child nodes.
-/// A spatial `Transform` is associated with every tree node, the world transformation
-/// could be calculated by concatenating such `Transform`s along the ancestors.
-/// ```rust,ignore
-/// let mut tree = scene.arena_mut::<Node>();
-/// let mut transforms = scene.arena_mut::<Transform>();
-/// Node::set_parent(&mut tree, child, parent)?;
-/// Transform::set_world_position(&tree, &mut transforms, child, [1.0, 0.0, 0.0])?;
-/// ```
-///
-/// And besides the spatial representation, `Element` is used to provide graphical data
-/// that could be used to render on the screen. A `Element` could be one of `Camera`
-/// `Lit` or `MeshRenderer`. Everytime you call the `Scene::render` with proper defined
-/// scene, a list of drawcalls will be generated and submitted to `VideoSystem`.
-///
-/// ```rust,ignore
-/// let _mesh_node = scene.build(MeshRenderer { ... });
-/// let _lit_node = scene.build(Lit { ... });
-/// let camera = Camera::perspective(math::Deg(60.0), 6.4 / 4.8, 0.1, 1000.0);
-/// let camera_node = scene.build(camera);
-/// self.scene.render(surface, camera_node)?;
-/// ```
-///
-pub struct Scene {
-    pub resources: Resources,
+pub type Result<T> = ::std::result::Result<T, Error>;
 
-    pub(crate) world: World,
-    pub(crate) renderer: Renderer,
+/// `Node` is used to store and manipulate the postiion, rotation and scale
+/// of the object. Every `Node` can have a parent, which allows you to apply
+/// position, rotation and scale hierarchically.
+///
+/// `Entity` are used to record the tree relationships. Every access requires going
+/// through the arena, which can be cumbersome and comes with some runtime overhead.
+/// But it not only keeps code clean and simple, but also makes `Node` could be
+/// send or shared across threads safely. This enables e.g. parallel tree traversals.
+#[derive(Default, Debug, Clone, Copy)]
+pub struct Node {
+    parent: Option<Entity>,
+    next_sib: Option<Entity>,
+    prev_sib: Option<Entity>,
+    first_child: Option<Entity>,
 }
 
-impl Scene {
-    /// Creates a new `Scene`.
-    pub fn new(ctx: &Context, setup: SceneSetup) -> Result<Self> {
-        let mut world = World::new();
-        world.register::<Node>();
-        world.register::<Transform>();
+/// `Transform` is used to store and manipulate the postiion, rotation and scale
+/// of the object. We use a left handed, y-up world coordinate system.
+#[derive(Debug, Clone, Copy)]
+pub struct Transform {
+    scale: math::Vector3<f32>,
+    translation: math::Vector3<f32>,
+    rotation: math::Quaternion<f32>,
+}
 
-        world.register::<Camera>();
-        world.register::<Light>();
-        world.register::<MeshRenderer>();
-
-        let mut resources = Resources::new(ctx);
-
-        let scene = Scene {
-            world: world,
-            renderer: Renderer::new(ctx, &mut resources, setup.draw)?,
-            resources: resources,
-        };
-
-        Ok(scene)
+impl Default for Transform {
+    fn default() -> Self {
+        Transform {
+            scale: math::Vector3::new(1.0, 1.0, 1.0),
+            translation: math::Vector3::new(0.0, 0.0, 0.0),
+            rotation: math::Quaternion::one(),
+        }
     }
+}
 
-    /// Build a new `Entity` in this scene.
-    pub fn create(&mut self) -> Entity {
-        self.world
-            .build()
-            .with_default::<Node>()
-            .with_default::<Transform>()
-            .finish()
-    }
+pub struct SceneGraph {
+    remap: HashMap<Entity, usize>,
+    entities: Vec<Entity>,
+    nodes: Vec<Node>,
+    transforms: Vec<Transform>,
+    world_transforms: Vec<Transform>,
+}
 
-    /// Gets the reference to entity.
-    pub fn get(&self, id: Entity) -> Option<EntRef> {
-        if self.world.is_alive(id) {
-            Some(EntRef::new(&self.world, id))
-        } else {
-            None
+impl SceneGraph {
+    pub fn new() -> Self {
+        SceneGraph {
+            remap: HashMap::new(),
+            entities: Vec::new(),
+            nodes: Vec::new(),
+            transforms: Vec::new(),
+            world_transforms: Vec::new(),
         }
     }
 
-    /// Gets the mutable reference to entity.
-    pub fn get_mut(&mut self, id: Entity) -> Option<EntRefMut> {
-        if self.world.is_alive(id) {
-            Some(EntRefMut::new(&mut self.world, id))
-        } else {
-            None
+    /// Adds a node.
+    pub fn add(&mut self, ent: Entity) {
+        assert!(
+            !self.remap.contains_key(&ent),
+            "Ent already has components in SceneGraph."
+        );
+
+        self.remap.insert(ent, self.entities.len());
+        self.entities.push(ent);
+        self.nodes.push(Node::default());
+        self.transforms.push(Transform::default());
+        self.world_transforms.push(Transform::default());
+    }
+
+    /// Removes a node from SceneGraph.
+    pub fn remove(&mut self, ent: Entity) {
+        if let Some(v) = self.remap.remove(&ent) {
+            self.entities.swap_remove(v);
+            self.nodes.swap_remove(v);
+            self.transforms.swap_remove(v);
+            self.world_transforms.swap_remove(v);
+
+            if self.remap.len() > 0 {
+                *self.remap.get_mut(&self.entities[v]).unwrap() = v;
+            }
         }
     }
 
-    /// Deletes a node and its descendants from the `Scene`.
-    pub fn delete(&mut self, handle: Entity) -> Result<()> {
-        let descendants: Vec<_> = {
-            let (_, mut nodes) = self.world.view_w1::<Node>();
-            Node::descendants(&nodes, handle).collect()
-        };
-
-        for v in descendants {
-            self.world.free(v);
-        }
-
-        {
-            let (_, mut nodes) = self.world.view_w1::<Node>();
-            Node::remove_from_parent(&mut nodes, handle)?;
-        }
-
-        self.world.free(handle);
-        Ok(())
+    #[inline]
+    fn index(&self, ent: Entity) -> Result<usize> {
+        self.remap
+            .get(&ent)
+            .cloned()
+            .ok_or(Error::NonNodeFound(ent))
     }
 
-    /// Advance to next frame.
-    pub fn advance(&mut self, camera: Entity) -> Result<()> {
-        self.renderer.advance(&self.world, camera)?;
-        Ok(())
+    #[inline]
+    unsafe fn index_unchecked(&self, ent: Entity) -> usize {
+        self.remap.get(&ent).cloned().unwrap()
+    }
+}
+
+impl SceneGraph {
+    /// Gets the parent node.
+    #[inline]
+    pub fn parent(&self, ent: Entity) -> Option<Entity> {
+        self.remap.get(&ent).and_then(|v| self.nodes[*v].parent)
     }
 
-    /// Draws the underlaying depth buffer of shadow mapping pass. This is used for
-    /// debugging.
-    pub fn draw_shadow<T>(&mut self, surface: T) -> Result<()>
+    /// Returns ture if this is the leaf of a hierarchy, aka. has no child.
+    #[inline]
+    pub fn is_leaf(&self, ent: Entity) -> bool {
+        self.remap
+            .get(&ent)
+            .map(|v| self.nodes[*v].first_child.is_none())
+            .unwrap_or(false)
+    }
+
+    /// Returns ture if this is the root of a hierarchy, aka. has no parent.
+    #[inline]
+    pub fn is_root(&self, ent: Entity) -> bool {
+        self.remap
+            .get(&ent)
+            .map(|v| self.nodes[*v].parent.is_none())
+            .unwrap_or(false)
+    }
+
+    /// Attachs a new child to parent transform, before existing children.
+    pub fn set_parent<T>(&mut self, child: Entity, parent: T) -> Result<()>
     where
-        T: Into<Option<SurfaceHandle>>,
+        T: Into<Option<Entity>>,
     {
-        self.renderer.draw_shadow(surface.into())
+        self.remove_from_parent(child)?;
+
+        unsafe {
+            let v = self.index_unchecked(child);
+            if let Some(parent) = parent.into() {
+                if parent != child {
+                    let w = self.index(parent)?;
+                    let next_sib = {
+                        let node = self.nodes.get_unchecked_mut(w);
+                        ::std::mem::replace(&mut node.first_child, Some(child))
+                    };
+
+                    let child = self.nodes.get_unchecked_mut(v);
+                    child.parent = Some(parent);
+                    child.next_sib = next_sib;
+                } else {
+                    return Err(Error::CanNotAttachSelfAsParent);
+                }
+            }
+
+            Ok(())
+        }
     }
 
-    /// Renders objects into `Surface` from `Camera`.
-    pub fn draw(&self, _: Entity) -> Result<()> {
-        self.renderer.draw(&self.world, &self.resources)?;
-        Ok(())
+    /// Detach a transform from its parent and siblings. Children are not affected.
+    pub fn remove_from_parent(&mut self, child: Entity) -> Result<()> {
+        unsafe {
+            let (parent, next_sib, prev_sib) = {
+                let child_index = self.index(child)?;
+                let node = self.nodes.get_unchecked_mut(child_index);
+                (
+                    node.parent.take(),
+                    node.next_sib.take(),
+                    node.prev_sib.take(),
+                )
+            };
+
+            if let Some(next_sib) = next_sib {
+                let nsi = self.index_unchecked(next_sib);
+                self.nodes[nsi].prev_sib = prev_sib;
+            }
+
+            if let Some(prev_sib) = prev_sib {
+                let psi = self.index_unchecked(prev_sib);
+                self.nodes[psi].next_sib = next_sib;
+            } else if let Some(parent) = parent {
+                // Take this transform as the first child of parent if there is no previous sibling.
+                let pi = self.index_unchecked(parent);
+                self.nodes[pi].first_child = next_sib;
+            }
+
+            Ok(())
+        }
+    }
+
+    /// Returns an iterator of references to its ancestors.
+    #[inline]
+    pub fn ancestors(&self, ent: Entity) -> Ancestors {
+        Ancestors {
+            cursor: self.parent(ent),
+            scene: self,
+        }
+    }
+
+    /// Return true if rhs is one of the ancestor of this `Node`.
+    #[inline]
+    pub fn is_ancestor(&self, lhs: Entity, rhs: Entity) -> bool {
+        for v in self.ancestors(lhs) {
+            if v == rhs {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Returns an iterator of references to this transform's children.
+    #[inline]
+    pub fn children(&self, ent: Entity) -> Children {
+        let first_child = self.remap
+            .get(&ent)
+            .and_then(|v| self.nodes[*v].first_child);
+
+        Children {
+            cursor: first_child,
+            scene: self,
+        }
+    }
+
+    /// Returns an iterator of references to this transform's descendants in tree order.
+    #[inline]
+    pub fn descendants(&self, ent: Entity) -> Descendants {
+        let first_child = self.remap
+            .get(&ent)
+            .and_then(|v| self.nodes[*v].first_child);
+
+        Descendants {
+            root: ent,
+            cursor: first_child,
+            scene: self,
+        }
     }
 }
 
-impl Scene {
-    /// Lookups pipeline object from location.
-    #[inline]
-    pub fn lookup_pipeline(&self, location: Location) -> Option<PipelineHandle> {
-        self.resources.lookup_pipeline(location)
-    }
+/// An iterator of references to its ancestors.
+pub struct Ancestors<'a> {
+    scene: &'a SceneGraph,
+    cursor: Option<Entity>,
+}
 
-    /// Creates a new pipeline object that indicates the whole render pipeline of `Scene`.
-    #[inline]
-    pub fn create_pipeline(&mut self, setup: PipelineSetup) -> Result<PipelineHandle> {
-        self.resources.create_pipeline(setup)
-    }
+impl<'a> Iterator for Ancestors<'a> {
+    type Item = Entity;
 
-    /// Deletes a pipelie object.
-    #[inline]
-    pub fn delete_pipeline(&mut self, handle: PipelineHandle) {
-        self.resources.delete_pipeline(handle)
-    }
-
-    /// Creates a new material instance from shader.
-    #[inline]
-    pub fn create_material(&mut self, setup: MaterialSetup) -> Result<MaterialHandle> {
-        self.resources.create_material(setup)
-    }
-
-    /// Gets the reference to material.
-    #[inline]
-    pub fn material(&self, handle: MaterialHandle) -> Option<&Material> {
-        self.resources.material(handle)
-    }
-
-    /// Gets the mutable reference to material.
-    #[inline]
-    pub fn material_mut(&mut self, handle: MaterialHandle) -> Option<&mut Material> {
-        self.resources.material_mut(handle)
-    }
-
-    /// Deletes the material instance from `Scene`. Any meshes that associated with a
-    /// invalid/deleted material handle will be drawed with a fallback material marked
-    /// with purple color.
-    #[inline]
-    pub fn delete_material(&mut self, handle: MaterialHandle) {
-        self.resources.delete_material(handle)
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            if let Some(ent) = self.cursor {
+                let index = self.scene.index_unchecked(ent);
+                ::std::mem::replace(&mut self.cursor, self.scene.nodes[index].parent)
+            } else {
+                None
+            }
+        }
     }
 }
+
+/// An iterator of references to its children.
+pub struct Children<'a> {
+    scene: &'a SceneGraph,
+    cursor: Option<Entity>,
+}
+
+impl<'a> Iterator for Children<'a> {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            if let Some(ent) = self.cursor {
+                let index = self.scene.index_unchecked(ent);
+                ::std::mem::replace(&mut self.cursor, self.scene.nodes[index].next_sib)
+            } else {
+                None
+            }
+        }
+    }
+}
+
+/// An iterator of references to its descendants, in tree order.
+pub struct Descendants<'a> {
+    scene: &'a SceneGraph,
+    root: Entity,
+    cursor: Option<Entity>,
+}
+
+impl<'a> Iterator for Descendants<'a> {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            if let Some(ent) = self.cursor {
+                let index = self.scene.index_unchecked(ent);
+                let mut v = *self.scene.nodes.get_unchecked(index);
+
+                // Deep first search when iterating children recursively.
+                if v.first_child.is_some() {
+                    return ::std::mem::replace(&mut self.cursor, v.first_child);
+                }
+
+                if v.next_sib.is_some() {
+                    return ::std::mem::replace(&mut self.cursor, v.next_sib);
+                }
+
+                // Travel back when we reach leaf-node.
+                while let Some(parent) = v.parent {
+                    if parent == self.root {
+                        break;
+                    }
+
+                    let parent_index = self.scene.index_unchecked(parent);
+                    v = self.scene.nodes[parent_index];
+                    if v.next_sib.is_some() {
+                        return ::std::mem::replace(&mut self.cursor, v.next_sib);
+                    }
+                }
+            }
+
+            ::std::mem::replace(&mut self.cursor, None)
+        }
+    }
+}
+
+impl SceneGraph {}
