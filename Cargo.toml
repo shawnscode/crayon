@@ -35,4 +35,3 @@ cgmath = { version = "0.16.1", features = ["serde"] }
 [dev-dependencies]
 crayon-testbed = { path = "examples/testbed" }
 rand = "0.5.4"
-approx = "0.3.0"
