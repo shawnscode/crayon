@@ -82,4 +82,25 @@ impl Transform {
     pub fn right(&self) -> math::Vector3<f32> {
         self.transform_direction(math::Vector3::new(1.0, 0.0, 0.0))
     }
+
+    // Returns the view matrix from world space to view space.
+    #[inline]
+    pub fn view_matrix(&self) -> math::Matrix4<f32> {
+        use crayon::math::Matrix;
+
+        // M = ( T * R ) ^ -1
+        let it = math::Matrix4::from_translation(-self.position);
+        let ir = math::Matrix4::from(self.rotation).transpose();
+        ir * it
+    }
+
+    /// Returns the matrix representation.
+    #[inline]
+    pub fn matrix(&self) -> math::Matrix4<f32> {
+        // M = T * R * S
+        let m: math::Matrix3<_> = self.rotation.into();
+        let mut m: math::Matrix4<_> = (&m * self.scale).into();
+        m.w = self.position.extend(1.0);
+        m
+    }
 }

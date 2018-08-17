@@ -1,4 +1,5 @@
 extern crate crayon;
+extern crate crayon_3d;
 extern crate crayon_imgui;
 
 pub mod console;
@@ -39,5 +40,6 @@ pub fn find_res_dir() -> crayon::res::vfs::DiskFS {
 
 pub mod prelude {
     pub use super::console::ConsoleCanvas;
+    pub use crayon_3d::prelude::*;
     pub use crayon_imgui::prelude::*;
 }

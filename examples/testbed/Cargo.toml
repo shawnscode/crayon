@@ -6,3 +6,4 @@ authors = ["maojingkai <oammix@gmail.com>"]
 [dependencies]
 crayon = { path = "../.." }
 crayon-imgui = { path = "../../modules/imgui" }
+crayon-3d = { path = "../../modules/3d" }
