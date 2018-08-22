@@ -1,5 +1,5 @@
 mod node;
-pub use self::node::Node;
+use self::node::Node;
 
 mod transform;
 pub use self::transform::Transform;
@@ -321,6 +321,7 @@ impl<'a> Iterator for Descendants<'a> {
 
 impl SceneGraph {
     /// Gets the transform in world space.
+    #[inline]
     pub fn transform(&self, ent: Entity) -> Option<Transform> {
         self.remap.get(&ent).map(|&index| unsafe {
             self.ancestors(ent)
@@ -332,10 +333,19 @@ impl SceneGraph {
     }
 
     /// Gets the transform in local space.
+    #[inline]
     pub fn local_transform(&self, ent: Entity) -> Option<Transform> {
         self.remap
             .get(&ent)
             .map(|&index| self.local_transforms[index])
+    }
+
+    /// Sets the transform in local space.
+    #[inline]
+    pub fn set_local_transform(&mut self, ent: Entity, transform: Transform) {
+        if let Some(&index) = self.remap.get(&ent) {
+            self.local_transforms[index] = transform;
+        }
     }
 }
 

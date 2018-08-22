@@ -2,7 +2,7 @@ use crayon::math::{self, One};
 
 /// `Transform` is used to store and manipulate the postiion, rotation and scale
 /// of the object. We use a left handed, y-up world coordinate system.
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Transform {
     pub scale: f32,
     pub position: math::Vector3<f32>,

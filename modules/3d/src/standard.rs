@@ -1,6 +1,10 @@
-use crayon::ecs::prelude::*;
+use std::sync::Arc;
 
-use renderer::{RenderPipeline, Renderer};
+use crayon::ecs::prelude::*;
+use crayon::errors::*;
+
+use assets::{PrefabHandle, WorldResourcesShared};
+use renderer::{MeshRenderer, RenderPipeline, Renderer};
 use scene::SceneGraph;
 
 pub struct Standard<T: RenderPipeline> {
@@ -8,15 +12,17 @@ pub struct Standard<T: RenderPipeline> {
     pub scene: SceneGraph,
     pub renderer: Renderer,
     pub pipeline: T,
+    pub res: Arc<WorldResourcesShared>,
 }
 
 impl<T: RenderPipeline> Standard<T> {
-    pub fn new(pipeline: T) -> Self {
+    pub fn new(res: Arc<WorldResourcesShared>, pipeline: T) -> Self {
         Standard {
             world: World::new(),
             scene: SceneGraph::new(),
             renderer: Renderer::new(),
             pipeline: pipeline,
+            res: res,
         }
     }
 
@@ -24,6 +30,43 @@ impl<T: RenderPipeline> Standard<T> {
         let ent = self.world.create();
         self.scene.add(ent);
         ent
+    }
+
+    pub fn instantiate(&mut self, handle: PrefabHandle) -> Result<()> {
+        if let Some(prefab) = self.res.prefab(handle) {
+            if prefab.nodes.len() <= 0 {
+                return Ok(());
+            }
+
+            let mut nodes = Vec::new();
+            nodes.push((None, 0));
+
+            while let Some((parent, idx)) = nodes.pop() {
+                let n = prefab.nodes[idx];
+                let e = self.create();
+
+                self.scene.set_local_transform(e, n.local_transform);
+                if let Some(parent) = parent {
+                    self.scene.set_parent(e, parent, false).unwrap();
+                }
+
+                if let Some(mesh) = n.mesh_renderer {
+                    let mut mr = MeshRenderer::default();
+                    mr.mesh = prefab.meshes[mesh];
+                    self.renderer.add_mesh(e, mr);
+                }
+
+                if let Some(sib) = n.next_sib {
+                    nodes.push((parent, sib));
+                }
+
+                if let Some(child) = n.first_child {
+                    nodes.push((Some(e), child));
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn advance(&mut self) {
