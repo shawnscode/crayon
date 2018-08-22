@@ -442,6 +442,7 @@ pub mod macros {
             }
 
             impl $name {
+                #[allow(dead_code)]
                 pub fn new($($field: impl_vertex_field!{VertexFormat::$format, $size}, ) *) -> Self {
                     $name {
                         $($field: $field,)*
@@ -475,6 +476,7 @@ pub mod macros {
                     builder.finish()
                 }
 
+                #[allow(dead_code)]
                 pub fn encode(values: &[Self]) -> &[u8] {
                     let len = values.len() * ::std::mem::size_of::<Self>();
                     unsafe { ::std::slice::from_raw_parts(values.as_ptr() as *const u8, len) }

@@ -32,17 +32,14 @@ impl<T: RenderPipeline> Standard<T> {
         ent
     }
 
-    pub fn instantiate(&mut self, handle: PrefabHandle) -> Result<()> {
+    pub fn instantiate(&mut self, handle: PrefabHandle) -> Result<Entity> {
         if let Some(prefab) = self.res.prefab(handle) {
-            if prefab.nodes.len() <= 0 {
-                return Ok(());
-            }
-
+            let mut root = None;
             let mut nodes = Vec::new();
             nodes.push((None, 0));
 
             while let Some((parent, idx)) = nodes.pop() {
-                let n = prefab.nodes[idx];
+                let n = &prefab.nodes[idx];
                 let e = self.create();
 
                 self.scene.set_local_transform(e, n.local_transform);
@@ -63,10 +60,16 @@ impl<T: RenderPipeline> Standard<T> {
                 if let Some(child) = n.first_child {
                     nodes.push((Some(e), child));
                 }
+
+                if root.is_none() {
+                    root = Some(e);
+                }
             }
+
+            return Ok(root.unwrap());
         }
 
-        Ok(())
+        bail!("{:?} is not valid.", handle);
     }
 
     pub fn advance(&mut self) {

@@ -125,7 +125,8 @@ impl ResourceSystemShared {
     where
         T: ResourceHandle,
     {
-        if let Some(promise) = self.registery.read().unwrap().promise(handle) {
+        let v = self.registery.read().unwrap().promise(handle);
+        if let Some(promise) = v {
             self.sched.wait_until(promise.as_ref());
             promise.take()
         } else {

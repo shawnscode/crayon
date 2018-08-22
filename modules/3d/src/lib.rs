@@ -13,6 +13,7 @@ pub mod scene;
 pub mod standard;
 
 pub mod prelude {
+    pub use assets::WorldResources;
     pub use renderer::{Camera, Lit, MeshRenderer, Renderer, SimpleRenderPipeline};
     pub use scene::SceneGraph;
     pub use standard::Standard;

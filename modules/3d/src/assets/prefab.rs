@@ -16,8 +16,10 @@ pub struct Prefab {
     pub meshes: Vec<MeshHandle>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PrefabNode {
+    /// The name of this node.
+    pub name: String,
     /// The transformation in local space.
     pub local_transform: Transform,
     /// The first child index of this node.

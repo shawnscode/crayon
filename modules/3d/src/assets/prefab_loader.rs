@@ -52,6 +52,10 @@ impl ResourceLoader for PrefabLoader {
             data.meshes.push(self.res.load_from(Location::from(*v))?);
         }
 
+        for &v in &data.meshes {
+            self.res.wait(v)?;
+        }
+
         self.world_resources.update_prefab(handle, data)?;
         Ok(())
     }
