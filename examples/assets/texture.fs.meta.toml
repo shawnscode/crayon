@@ -1,0 +1,10 @@
+name = 'texture.fs'
+uuid = '0b1c5f29-98cb-4a82-98d8-921e6bf32b61'
+
+[[resources]]
+type = 'Bytes'
+name = 'texture.fs'
+uuid = 'd1dbf185-3ac2-49b7-853c-16d7ce9cf3c7'
+
+[params]
+type = 'Bytes'

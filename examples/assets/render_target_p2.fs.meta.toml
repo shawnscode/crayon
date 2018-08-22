@@ -1,0 +1,10 @@
+name = 'render_target_p2.fs'
+uuid = 'ee03014c-9c7c-422e-9ad5-7180c5949d46'
+
+[[resources]]
+type = 'Bytes'
+name = 'render_target_p2.fs'
+uuid = 'c8cb6c99-33e2-4a2b-a25f-4b5baa5f4c6a'
+
+[params]
+type = 'Bytes'

@@ -6,44 +6,33 @@ use crayon::prelude::*;
 use crayon_testbed::prelude::*;
 
 struct Window {
-    room: Entity,
     standard: Standard<SimpleRenderPipeline>,
+    room: Entity,
     canvas: ConsoleCanvas,
 }
 
 impl Window {
     fn new(engine: &mut Engine) -> crayon::Result<Self> {
+        let world_resources = WorldResources::new(engine);
+
         let ctx = engine.context();
         let pipeline = SimpleRenderPipeline::new(&ctx)?;
 
-        let mut mesh = MeshRenderer::default();
+        //
+        let prefab = ctx.res.load("res:cornell_box.obj")?;
+        ctx.res.wait(prefab)?;
 
-        let mut standard = Standard::new(pipeline);
-        let room = standard.create();
+        //
+        let mut standard = Standard::new(world_resources.shared(), pipeline);
+        let room = standard.instantiate(prefab).unwrap();
 
-        let e1 = standard.create();
-        mesh.mesh = ctx.res.load("res:cornell_box.obj/mesh_0")?;
-        ctx.res.wait(mesh.mesh).unwrap();
-        standard.renderer.add_mesh(e1, mesh);
-        standard.scene.set_parent(e1, room, false).unwrap();
-
-        let e2 = standard.create();
-        mesh.mesh = ctx.res.load("res:cornell_box.obj/mesh_1")?;
-        ctx.res.wait(mesh.mesh).unwrap();
-        standard.renderer.add_mesh(e2, mesh);
-        standard.scene.set_parent(e2, room, false).unwrap();
-
-        let e3 = standard.create();
-        mesh.mesh = ctx.res.load("res:cornell_box.obj/mesh_2")?;
-        ctx.res.wait(mesh.mesh).unwrap();
-        standard.renderer.add_mesh(e3, mesh);
-        standard.scene.set_parent(e3, room, false).unwrap();
-
+        //
         let lit = standard.create();
         let rotation = math::Euler::new(math::Deg(45.0), math::Deg(0.0), math::Deg(0.0));
         standard.renderer.add_lit(lit, Lit::default());
         standard.scene.set_rotation(lit, rotation);
 
+        //
         let camera = standard.create();
         let params = Camera::ortho(4.8, 3.2, 0.1, 5.0);
         let center = [0.0, 0.0, 0.0];

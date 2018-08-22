@@ -1,0 +1,10 @@
+name = 'texture.vs'
+uuid = '4ef9661e-4953-4cda-99c6-718280bf207c'
+
+[[resources]]
+type = 'Bytes'
+name = 'texture.vs'
+uuid = '1926af68-943f-4952-8fbe-b7b5ff3a49e1'
+
+[params]
+type = 'Bytes'
