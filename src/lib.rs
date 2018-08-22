@@ -46,7 +46,6 @@ pub mod errors;
 #[macro_use]
 pub mod utils;
 pub mod application;
-pub mod ecs;
 #[macro_use]
 pub mod video;
 pub mod input;
