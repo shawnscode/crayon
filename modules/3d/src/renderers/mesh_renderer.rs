@@ -1,7 +1,7 @@
-use crayon::ecs::prelude::*;
 use crayon::video::prelude::*;
 
 use scene::Transform;
+use Entity;
 
 #[derive(Debug, Clone, Copy)]
 pub struct MeshRenderer {

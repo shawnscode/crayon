@@ -2,25 +2,25 @@ extern crate crayon;
 extern crate crayon_3d;
 extern crate rand;
 
-use crayon::ecs::prelude::*;
 use crayon::math::*;
+use crayon::utils::handle_pool::HandlePool;
 use crayon_3d::prelude::*;
 
 struct Testbed {
-    world: World,
+    world: HandlePool,
     scene: SceneGraph,
 }
 
 impl Testbed {
     fn new() -> Testbed {
         Testbed {
-            world: World::new(),
+            world: HandlePool::new(),
             scene: SceneGraph::new(),
         }
     }
 
     fn create(&mut self) -> Entity {
-        let ent = self.world.create();
+        let ent = self.world.create().into();
         self.scene.add(ent);
         ent
     }
@@ -169,10 +169,10 @@ fn look_at() {
 #[test]
 #[should_panic]
 pub fn duplicated_add() {
-    let mut world = World::new();
+    let mut world = HandlePool::new();
     let mut scene = SceneGraph::new();
 
-    let e1 = world.create();
+    let e1 = world.create().into();
     scene.add(e1);
     scene.add(e1);
 }

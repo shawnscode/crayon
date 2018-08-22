@@ -1,6 +1,5 @@
 //! A device through which the player views the world.
 
-use crayon::ecs::prelude::*;
 use crayon::math;
 use crayon::video::assets::surface::SurfaceHandle;
 
@@ -14,10 +13,6 @@ pub struct Camera {
 
     #[doc(hidden)]
     pub transform: Transform,
-}
-
-impl Component for Camera {
-    type Arena = HashMapArena<Camera>;
 }
 
 impl Default for Camera {

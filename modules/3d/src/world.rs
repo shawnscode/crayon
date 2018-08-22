@@ -1,24 +1,27 @@
 use std::sync::Arc;
 
-use crayon::ecs::prelude::*;
 use crayon::errors::*;
+use crayon::utils::HandlePool;
 
 use assets::{PrefabHandle, WorldResourcesShared};
-use renderer::{MeshRenderer, RenderPipeline, Renderer};
+use renderers::{MeshRenderer, RenderPipeline, Renderer};
 use scene::SceneGraph;
 
-pub struct Standard<T: RenderPipeline> {
-    pub world: World,
+impl_handle!(Entity);
+
+pub struct World<T: RenderPipeline> {
+    entities: HandlePool,
+
     pub scene: SceneGraph,
     pub renderer: Renderer,
     pub pipeline: T,
     pub res: Arc<WorldResourcesShared>,
 }
 
-impl<T: RenderPipeline> Standard<T> {
+impl<T: RenderPipeline> World<T> {
     pub fn new(res: Arc<WorldResourcesShared>, pipeline: T) -> Self {
-        Standard {
-            world: World::new(),
+        World {
+            entities: HandlePool::new(),
             scene: SceneGraph::new(),
             renderer: Renderer::new(),
             pipeline: pipeline,
@@ -27,10 +30,16 @@ impl<T: RenderPipeline> Standard<T> {
     }
 
     pub fn create(&mut self) -> Entity {
-        let ent = self.world.create();
+        let ent = self.entities.create().into();
         self.scene.add(ent);
         ent
     }
+
+    // pub fn remove(&mut self, ent: Entity) {
+    //     if self.entities.free(ent) {
+    //         self.scene.remove(ent);
+    //     }
+    // }
 
     pub fn instantiate(&mut self, handle: PrefabHandle) -> Result<Entity> {
         if let Some(prefab) = self.res.prefab(handle) {

@@ -1,12 +1,11 @@
 extern crate crayon;
 extern crate crayon_testbed;
 
-use crayon::ecs::prelude::*;
 use crayon::prelude::*;
 use crayon_testbed::prelude::*;
 
 struct Window {
-    standard: Standard<SimpleRenderPipeline>,
+    world: World<SimpleRenderPipeline>,
     room: Entity,
     canvas: ConsoleCanvas,
 }
@@ -23,26 +22,26 @@ impl Window {
         ctx.res.wait(prefab)?;
 
         //
-        let mut standard = Standard::new(world_resources.shared(), pipeline);
-        let room = standard.instantiate(prefab).unwrap();
+        let mut world = World::new(world_resources.shared(), pipeline);
+        let room = world.instantiate(prefab).unwrap();
 
         //
-        let lit = standard.create();
+        let lit = world.create();
         let rotation = math::Euler::new(math::Deg(45.0), math::Deg(0.0), math::Deg(0.0));
-        standard.renderer.add_lit(lit, Lit::default());
-        standard.scene.set_rotation(lit, rotation);
+        world.renderer.add_lit(lit, Lit::default());
+        world.scene.set_rotation(lit, rotation);
 
         //
-        let camera = standard.create();
+        let camera = world.create();
         let params = Camera::ortho(4.8, 3.2, 0.1, 5.0);
         let center = [0.0, 0.0, 0.0];
-        standard.renderer.add_camera(camera, params);
-        standard.scene.set_position(camera, [0.0, 2.0, -2.0]);
-        standard.scene.look_at(camera, center, [0.0, 1.0, 0.0]);
+        world.renderer.add_camera(camera, params);
+        world.scene.set_position(camera, [0.0, 2.0, -2.0]);
+        world.scene.look_at(camera, center, [0.0, 1.0, 0.0]);
 
         Ok(Window {
             room: room,
-            standard: standard,
+            world: world,
             canvas: ConsoleCanvas::new(&ctx, None)?,
         })
     }
@@ -50,7 +49,7 @@ impl Window {
 
 impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> crayon::Result<()> {
-        self.standard.advance();
+        self.world.advance();
 
         if let GesturePan::Move { movement, .. } = ctx.input.finger_pan() {
             let rotation = math::Euler::new(
@@ -59,7 +58,7 @@ impl Application for Window {
                 math::Deg(0.0),
             );
 
-            self.standard.scene.rotate(self.room, rotation);
+            self.world.scene.rotate(self.room, rotation);
         }
 
         self.canvas.render(ctx);

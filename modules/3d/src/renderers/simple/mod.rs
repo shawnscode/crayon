@@ -2,7 +2,6 @@ mod material;
 pub use self::material::Material;
 
 use crayon::application::Context;
-use crayon::ecs::prelude::*;
 use crayon::errors::*;
 use crayon::math;
 use crayon::video::assets::prelude::*;
@@ -12,6 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::{Camera, Lit, LitSource, MeshRenderer};
+use Entity;
 
 pub const MAX_DIR_LITS: usize = 1;
 pub const MAX_POINT_LITS: usize = 4;

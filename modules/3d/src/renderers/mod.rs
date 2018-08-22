@@ -10,10 +10,10 @@ pub use self::mesh_renderer::MeshRenderer;
 pub mod simple;
 pub use self::simple::SimpleRenderPipeline;
 
-use crayon::ecs::prelude::*;
 use std::collections::HashMap;
 
 use scene::SceneGraph;
+use Entity;
 
 pub trait RenderPipeline {
     fn submit(&mut self, camera: &Camera, lits: &[Lit], meshes: &[MeshRenderer]);

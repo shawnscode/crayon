@@ -1,4 +1,4 @@
-use crayon::ecs::prelude::*;
+use Entity;
 
 /// `Node` is used to store and manipulate the postiion, rotation and scale
 /// of the object. Every `Node` can have a parent, which allows you to apply

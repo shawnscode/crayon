@@ -8,13 +8,15 @@ extern crate bincode;
 extern crate uuid;
 
 pub mod assets;
-pub mod renderer;
+pub mod renderers;
 pub mod scene;
-pub mod standard;
+
+mod world;
+pub use self::world::{Entity, World};
 
 pub mod prelude {
     pub use assets::WorldResources;
-    pub use renderer::{Camera, Lit, MeshRenderer, Renderer, SimpleRenderPipeline};
+    pub use renderers::{Camera, Lit, MeshRenderer, Renderer, SimpleRenderPipeline};
     pub use scene::SceneGraph;
-    pub use standard::Standard;
+    pub use world::{Entity, World};
 }

@@ -7,9 +7,11 @@ pub use self::transform::Transform;
 mod errors;
 pub use self::errors::{Error, Result};
 
-use crayon::ecs::prelude::*;
-use crayon::math::{self, One};
 use std::collections::HashMap;
+
+use crayon::math::{self, One};
+
+use Entity;
 
 /// A simple scene graph that used to tore and manipulate the postiion, rotation and scale
 /// of the object. We do also keeps a tree relationships betweens object in scene graph, so
@@ -47,25 +49,22 @@ impl SceneGraph {
         self.world_transforms.push(Transform::default());
     }
 
-    /// Checks if the `ent` has a SceneGraph node.
-    #[inline]
-    pub fn has(&self, ent: Entity) -> bool {
-        self.remap.contains_key(&ent)
-    }
+    // /// Removes a node from SceneGraph.
+    // pub(crate) fn remove(&mut self, ent: Entity) {
+    // FIXME: REMOVE_FROM_PARENT. AND ALSO DELETES ALL THE CHILDREN.
+    //     unimplemented!();
 
-    /// Removes a node from SceneGraph.
-    pub fn remove(&mut self, ent: Entity) {
-        if let Some(v) = self.remap.remove(&ent) {
-            self.entities.swap_remove(v);
-            self.nodes.swap_remove(v);
-            self.local_transforms.swap_remove(v);
-            self.world_transforms.swap_remove(v);
+    //     if let Some(v) = self.remap.remove(&ent) {
+    //         self.entities.swap_remove(v);
+    //         self.nodes.swap_remove(v);
+    //         self.local_transforms.swap_remove(v);
+    //         self.world_transforms.swap_remove(v);
 
-            if self.remap.len() > 0 {
-                *self.remap.get_mut(&self.entities[v]).unwrap() = v;
-            }
-        }
-    }
+    //         if self.remap.len() > 0 {
+    //             *self.remap.get_mut(&self.entities[v]).unwrap() = v;
+    //         }
+    //     }
+    // }
 
     #[inline]
     fn index(&self, ent: Entity) -> Result<usize> {
