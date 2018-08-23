@@ -68,12 +68,21 @@ impl Engine {
         let input = input::InputSystem::new(settings.input);
         let input_shared = input.shared();
 
-        let window = window::Window::new(settings.window.clone())?;
+        let window = if settings.headless {
+            window::Window::headless()
+        } else {
+            window::Window::new(settings.window.clone())?
+        };
 
         let res = res::ResourceSystem::new(sched_shared.clone())?;
         let res_shared = res.shared();
 
-        let video = video::VideoSystem::new(&window)?;
+        let video = if settings.headless {
+            video::VideoSystem::headless()
+        } else {
+            video::VideoSystem::new(&window)?
+        };
+
         let video_shared = video.shared();
 
         let time = time::TimeSystem::new(settings.engine);

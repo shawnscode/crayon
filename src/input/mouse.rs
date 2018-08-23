@@ -1,9 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
-use application::event;
 use math;
 use math::MetricSpace;
+
+pub use application::event::MouseButton;
 
 /// The setup parameters of mouse device.
 ///
@@ -30,13 +31,13 @@ impl Default for MouseParams {
 }
 
 pub struct Mouse {
-    downs: HashSet<event::MouseButton>,
-    presses: HashSet<event::MouseButton>,
-    releases: HashSet<event::MouseButton>,
+    downs: HashSet<MouseButton>,
+    presses: HashSet<MouseButton>,
+    releases: HashSet<MouseButton>,
     last_position: math::Vector2<f32>,
     position: math::Vector2<f32>,
     scrol: math::Vector2<f32>,
-    click_detectors: HashMap<event::MouseButton, ClickDetector>,
+    click_detectors: HashMap<MouseButton, ClickDetector>,
     params: MouseParams,
 }
 
@@ -86,7 +87,7 @@ impl Mouse {
     }
 
     #[inline]
-    pub fn on_button_pressed(&mut self, button: event::MouseButton) {
+    pub fn on_button_pressed(&mut self, button: MouseButton) {
         if !self.downs.contains(&button) {
             self.downs.insert(button);
             self.presses.insert(button);
@@ -103,7 +104,7 @@ impl Mouse {
     }
 
     #[inline]
-    pub fn on_button_released(&mut self, button: event::MouseButton) {
+    pub fn on_button_released(&mut self, button: MouseButton) {
         self.downs.remove(&button);
         self.releases.insert(button);
 
@@ -123,22 +124,22 @@ impl Mouse {
     }
 
     #[inline]
-    pub fn is_button_down(&self, button: event::MouseButton) -> bool {
+    pub fn is_button_down(&self, button: MouseButton) -> bool {
         self.downs.contains(&button)
     }
 
     #[inline]
-    pub fn is_button_press(&self, button: event::MouseButton) -> bool {
+    pub fn is_button_press(&self, button: MouseButton) -> bool {
         self.presses.contains(&button)
     }
 
     #[inline]
-    pub fn is_button_release(&self, button: event::MouseButton) -> bool {
+    pub fn is_button_release(&self, button: MouseButton) -> bool {
         self.releases.contains(&button)
     }
 
     #[inline]
-    pub fn is_button_click(&self, button: event::MouseButton) -> bool {
+    pub fn is_button_click(&self, button: MouseButton) -> bool {
         if let Some(v) = self.click_detectors.get(&button) {
             v.clicks() > 0
         } else {
@@ -147,7 +148,7 @@ impl Mouse {
     }
 
     #[inline]
-    pub fn is_button_double_click(&self, button: event::MouseButton) -> bool {
+    pub fn is_button_double_click(&self, button: MouseButton) -> bool {
         if let Some(v) = self.click_detectors.get(&button) {
             v.clicks() > 0 && v.clicks() % 2 == 0
         } else {

@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use crayon::errors::*;
 use crayon::prelude::*;
-use crayon::video::assets::prelude::*;
 use crayon_imgui;
 use crayon_imgui::prelude::*;
 

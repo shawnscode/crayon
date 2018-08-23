@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
-use application::event;
+pub use application::event::KeyboardButton;
 
 /// The setup parameters of keyboard device.
 #[derive(Debug, Clone, Copy)]
@@ -30,9 +30,9 @@ enum KeyDownState {
 }
 
 pub struct Keyboard {
-    downs: HashMap<event::KeyboardButton, KeyDownState>,
-    presses: HashSet<event::KeyboardButton>,
-    releases: HashSet<event::KeyboardButton>,
+    downs: HashMap<KeyboardButton, KeyDownState>,
+    presses: HashSet<KeyboardButton>,
+    releases: HashSet<KeyboardButton>,
     chars: Vec<char>,
     setup: KeyboardParams,
     now: Instant,
@@ -82,7 +82,7 @@ impl Keyboard {
     }
 
     #[inline]
-    pub fn on_key_pressed(&mut self, key: event::KeyboardButton) {
+    pub fn on_key_pressed(&mut self, key: KeyboardButton) {
         if !self.downs.contains_key(&key) {
             self.presses.insert(key);
             self.downs.insert(key, KeyDownState::Start(self.now));
@@ -90,7 +90,7 @@ impl Keyboard {
     }
 
     #[inline]
-    pub fn on_key_released(&mut self, key: event::KeyboardButton) {
+    pub fn on_key_released(&mut self, key: KeyboardButton) {
         self.downs.remove(&key);
         self.releases.insert(key);
     }
@@ -103,21 +103,21 @@ impl Keyboard {
     }
 
     #[inline]
-    pub fn is_key_down(&self, key: event::KeyboardButton) -> bool {
+    pub fn is_key_down(&self, key: KeyboardButton) -> bool {
         self.downs.contains_key(&key)
     }
 
     #[inline]
-    pub fn is_key_press(&self, key: event::KeyboardButton) -> bool {
+    pub fn is_key_press(&self, key: KeyboardButton) -> bool {
         self.presses.contains(&key)
     }
 
     #[inline]
-    pub fn is_key_release(&self, key: event::KeyboardButton) -> bool {
+    pub fn is_key_release(&self, key: KeyboardButton) -> bool {
         self.releases.contains(&key)
     }
 
-    pub fn is_key_repeat(&self, key: event::KeyboardButton) -> bool {
+    pub fn is_key_repeat(&self, key: KeyboardButton) -> bool {
         if let Some(v) = self.downs.get(&key) {
             match *v {
                 KeyDownState::Start(ts) => (self.now - ts) > self.setup.repeat_timeout,

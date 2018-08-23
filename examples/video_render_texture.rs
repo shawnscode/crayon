@@ -3,7 +3,6 @@ extern crate crayon;
 extern crate crayon_testbed;
 
 use crayon::prelude::*;
-use crayon::video::assets::prelude::*;
 use crayon_testbed::prelude::*;
 
 impl_vertex!{

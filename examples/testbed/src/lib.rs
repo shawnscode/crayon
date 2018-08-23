@@ -18,7 +18,6 @@ where
 
     let args: Vec<String> = ::std::env::args().collect();
     params.headless = args.len() > 1 && args[1] == "headless";
-
     params
 }
 

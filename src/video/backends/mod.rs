@@ -3,6 +3,7 @@
 
 pub mod frame;
 pub mod gl;
+pub mod headless;
 
 use super::assets::prelude::*;
 

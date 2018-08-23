@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use crayon::application::{self, Context};
+use crayon::application::Context;
 use crayon::input::prelude::*;
 use crayon::video::errors::*;
 use crayon::video::prelude::*;
@@ -102,8 +102,6 @@ impl Canvas {
     }
 
     fn update_keycode_state(imgui: &mut imgui::ImGui, input: &InputSystemShared) {
-        use self::application::event::KeyboardButton;
-
         imgui.set_key(0, input.is_key_down(KeyboardButton::Tab));
         imgui.set_key(1, input.is_key_down(KeyboardButton::Left));
         imgui.set_key(2, input.is_key_down(KeyboardButton::Right));
@@ -142,8 +140,6 @@ impl Canvas {
     }
 
     fn update_mouse_state(imgui: &mut imgui::ImGui, ctx: &Context) {
-        use self::application::event::MouseButton;
-
         let dims = ctx.window.dimensions_in_points();
         let pos = ctx.input.mouse_position_in_points();
         imgui.set_mouse_pos(pos.x, dims.y as f32 - pos.y);

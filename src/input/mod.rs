@@ -175,11 +175,10 @@ pub mod touchpad;
 pub const MAX_TOUCHES: usize = 4;
 
 pub mod prelude {
-    pub use super::keyboard::KeyboardParams;
-    pub use super::mouse::MouseParams;
+    pub use super::keyboard::{KeyboardButton, KeyboardParams};
+    pub use super::mouse::{MouseButton, MouseParams};
     pub use super::touchpad::{GesturePan, GestureTap, TouchPadParams};
     pub use super::{InputParams, InputSystem, InputSystemShared};
-    pub use application::event::{KeyboardButton, MouseButton};
 }
 
 use std::sync::{Arc, RwLock};
