@@ -6,6 +6,7 @@ use super::super::super::assets::prelude::*;
 use super::capabilities::{Capabilities, TextureCompression};
 use utils::handle;
 
+#[derive(Debug)]
 pub struct DataVec<T>
 where
     T: Sized + Clone,
@@ -44,8 +45,13 @@ where
         H: Borrow<handle::Handle>,
     {
         let handle = handle.borrow();
-        self.buf.resize(handle.index() as usize + 1, None);
-        self.buf[handle.index() as usize] = Some(value);
+        let index = handle.index() as usize;
+
+        if self.buf.len() <= index {
+            self.buf.resize(index + 1, None);
+        }
+
+        self.buf[index] = Some(value);
     }
 
     pub fn free<H>(&mut self, handle: H) -> Option<T>

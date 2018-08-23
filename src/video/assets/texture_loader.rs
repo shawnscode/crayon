@@ -29,7 +29,7 @@ impl ::res::ResourceLoader for TextureLoader {
     type Handle = TextureHandle;
 
     fn create(&self) -> Result<Self::Handle> {
-        let handle = self.video.loader_create_texture()?;
+        let handle = self.video.create_texture_async()?;
         Ok(handle)
     }
 
@@ -45,7 +45,7 @@ impl ::res::ResourceLoader for TextureLoader {
         let params = bincode::deserialize_from(&mut file)?;
         let data = bincode::deserialize_from(&mut file)?;
 
-        self.video.loader_update_texture(handle, params, data)?;
+        self.video.update_texture_async(handle, params, data)?;
         Ok(())
     }
 

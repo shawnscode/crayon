@@ -29,7 +29,7 @@ impl ::res::ResourceLoader for MeshLoader {
     type Handle = MeshHandle;
 
     fn create(&self) -> Result<Self::Handle> {
-        let handle = self.video.loader_create_mesh()?;
+        let handle = self.video.create_mesh_async()?;
         Ok(handle)
     }
 
@@ -45,7 +45,7 @@ impl ::res::ResourceLoader for MeshLoader {
         let params = bincode::deserialize_from(&mut file)?;
         let data = bincode::deserialize_from(&mut file)?;
 
-        self.video.loader_update_mesh(handle, params, data)?;
+        self.video.update_mesh_async(handle, params, data)?;
         Ok(())
     }
 

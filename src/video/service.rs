@@ -315,7 +315,7 @@ impl VideoSystemShared {
         }
     }
 
-    pub(crate) fn loader_create_mesh(&self) -> Result<MeshHandle> {
+    pub(crate) fn create_mesh_async(&self) -> Result<MeshHandle> {
         let handle = self.meshes
             .write()
             .unwrap()
@@ -325,7 +325,7 @@ impl VideoSystemShared {
         Ok(handle)
     }
 
-    pub(crate) fn loader_update_mesh(
+    pub(crate) fn update_mesh_async(
         &self,
         handle: MeshHandle,
         params: MeshParams,
@@ -338,11 +338,10 @@ impl VideoSystemShared {
             let task = Command::CreateMesh(handle, params.clone(), Some(data));
             frame.cmds.push(task);
             *v = AsyncState::Ok(params);
-
-            Ok(())
-        } else {
-            Err(Error::HandleInvalid(format!("{:?}", handle)))
         }
+
+        // Its ok since the video resource might be freed before this call.
+        Ok(())
     }
 }
 
@@ -398,7 +397,7 @@ impl VideoSystemShared {
         }
     }
 
-    pub(crate) fn loader_create_texture(&self) -> Result<TextureHandle> {
+    pub(crate) fn create_texture_async(&self) -> Result<TextureHandle> {
         let handle = self.textures
             .write()
             .unwrap()
@@ -408,7 +407,7 @@ impl VideoSystemShared {
         Ok(handle)
     }
 
-    pub(crate) fn loader_update_texture(
+    pub(crate) fn update_texture_async(
         &self,
         handle: TextureHandle,
         params: TextureParams,
@@ -421,11 +420,10 @@ impl VideoSystemShared {
             let task = Command::CreateTexture(handle, params, Some(data));
             frame.cmds.push(task);
             *v = AsyncState::Ok(());
-
-            Ok(())
-        } else {
-            Err(Error::HandleInvalid(format!("{:?}", handle)))
         }
+
+        // Its ok since the video resource might be freed before this call.
+        Ok(())
     }
 }
 

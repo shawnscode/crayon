@@ -35,7 +35,7 @@ impl PromiseLatch {
     }
 
     #[inline]
-    pub fn set(&self, v: Result<()>) {
+    pub(crate) fn set(&self, v: Result<()>) {
         {
             let mut guard = self.m.lock().unwrap();
             *guard = Promise::Ok(v);
@@ -45,7 +45,7 @@ impl PromiseLatch {
     }
 
     #[inline]
-    pub fn take(&self) -> Result<()> {
+    pub(crate) fn take(&self) -> Result<()> {
         let mut guard = self.m.lock().unwrap();
         if let Promise::Ok(v) = ::std::mem::replace(&mut *guard, Promise::Ok(Ok(()))) {
             v

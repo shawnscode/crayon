@@ -750,7 +750,8 @@ impl Visitor for GLVisitor {
             // Bind vertex buffer and vertex array object.
             let mesh = self.meshes
                 .get(mesh)
-                .ok_or_else(|| err_format!("MeshHandle {:?} is invalid."))?;
+                .ok_or_else(|| err_format!("{:?} is invalid.", mesh))?;
+
             self.bind_buffer(gl::ARRAY_BUFFER, mesh.vbo)?;
             self.bind_vao(&shader, &mesh)?;
             mesh
