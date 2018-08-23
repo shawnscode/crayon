@@ -44,7 +44,7 @@ impl WorldResourcesShared {
         }
     }
 
-    pub(crate) fn create_prefab(&self) -> PrefabHandle {
+    pub(crate) fn create_prefab_async(&self) -> PrefabHandle {
         self.prefabs
             .write()
             .unwrap()
@@ -52,7 +52,7 @@ impl WorldResourcesShared {
             .into()
     }
 
-    pub(crate) fn update_prefab(
+    pub(crate) fn update_prefab_async(
         &self,
         handle: PrefabHandle,
         prefab: Prefab,
@@ -67,7 +67,7 @@ impl WorldResourcesShared {
         }
     }
 
-    pub(crate) fn delete_prefab(&self, handle: PrefabHandle) -> Option<Arc<Prefab>> {
+    pub(crate) fn delete_prefab_async(&self, handle: PrefabHandle) -> Option<Arc<Prefab>> {
         self.prefabs
             .write()
             .unwrap()

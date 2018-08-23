@@ -6,7 +6,7 @@ use crayon::utils::HandlePool;
 use assets::{PrefabHandle, WorldResourcesShared};
 use renderers::{MeshRenderer, RenderPipeline, Renderer};
 use scene::SceneGraph;
-use tags::{self, Tags};
+use tags::Tags;
 
 impl_handle!(Entity);
 
@@ -39,11 +39,22 @@ impl<T: RenderPipeline> World<T> {
         ent
     }
 
-    // pub fn remove(&mut self, ent: Entity) {
-    //     if self.entities.free(ent) {
-    //         self.scene.remove(ent);
-    //     }
-    // }
+    /// Removes a Entity and all of its descendants from this world.
+    pub fn remove(&mut self, ent: Entity) -> Option<Vec<Entity>> {
+        if let Some(deletions) = self.scene.remove(ent) {
+            for &v in &deletions {
+                self.entities.free(v);
+                self.tags.remove(v);
+                self.renderer.remove_mesh(v);
+                self.renderer.remove_lit(v);
+                self.renderer.remove_camera(v);
+            }
+
+            Some(deletions)
+        } else {
+            None
+        }
+    }
 
     /// Finds a Entity by name and returns it.
     ///
@@ -51,7 +62,7 @@ impl<T: RenderPipeline> World<T> {
     /// it traverses the hierarchy like a path name.
     #[inline]
     pub fn find<N: AsRef<str>>(&self, name: N) -> Option<Entity> {
-        tags::find_by_name(&self.scene, &self.tags, name)
+        world_impl::find(&self.scene, &self.tags, name)
     }
 
     pub fn advance(&mut self) {
@@ -100,4 +111,54 @@ impl<T: RenderPipeline> World<T> {
 
         bail!("{:?} is not valid.", handle);
     }
+}
+
+pub mod world_impl {
+    use super::*;
+
+    pub fn find<N: AsRef<str>>(scene: &SceneGraph, tags: &Tags, name: N) -> Option<Entity> {
+        let mut components = name.as_ref().trim_left_matches('/').split('/');
+        if let Some(first) = components.next() {
+            for &v in &scene.roots {
+                if let Some(n) = tags.name(v) {
+                    if n == first {
+                        let mut iter = v;
+                        while let Some(component) = components.next() {
+                            if component == "" {
+                                continue;
+                            }
+
+                            let mut found = false;
+                            for child in scene.children(iter) {
+                                if let Some(n) = tags.name(child) {
+                                    if n == component {
+                                        iter = child;
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if !found {
+                                break;
+                            }
+                        }
+
+                        while let Some(component) = components.next() {
+                            if component == "" {
+                                continue;
+                            }
+
+                            return None;
+                        }
+
+                        return Some(iter);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
 }

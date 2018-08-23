@@ -8,6 +8,7 @@ mod errors;
 pub use self::errors::{Error, Result};
 
 use std::collections::{HashMap, HashSet};
+use std::iter;
 
 use crayon::math::{self, One};
 
@@ -53,22 +54,30 @@ impl SceneGraph {
         self.roots.insert(ent);
     }
 
-    // /// Removes a node from SceneGraph.
-    // pub(crate) fn remove(&mut self, ent: Entity) {
-    // FIXME: REMOVE_FROM_PARENT. AND ALSO DELETES ALL THE CHILDREN.
-    //     unimplemented!();
+    /// Removes a node and all of its descendants from SceneGraph.
+    pub fn remove(&mut self, ent: Entity) -> Option<Vec<Entity>> {
+        if self.remap.contains_key(&ent) {
+            self.remove_from_parent(ent, false).unwrap();
+            self.roots.remove(&ent);
 
-    //     if let Some(v) = self.remap.remove(&ent) {
-    //         self.entities.swap_remove(v);
-    //         self.nodes.swap_remove(v);
-    //         self.local_transforms.swap_remove(v);
-    //         self.world_transforms.swap_remove(v);
+            let removes: Vec<_> = iter::once(ent).chain(self.descendants(ent)).collect();
+            for w in removes.iter() {
+                let index = self.remap.remove(w).unwrap();
+                self.entities.swap_remove(index);
+                self.nodes.swap_remove(index);
+                self.local_transforms.swap_remove(index);
+                self.world_transforms.swap_remove(index);
 
-    //         if self.remap.len() > 0 {
-    //             *self.remap.get_mut(&self.entities[v]).unwrap() = v;
-    //         }
-    //     }
-    // }
+                if self.entities.len() != index {
+                    *self.remap.get_mut(&self.entities[index]).unwrap() = index;
+                }
+            }
+
+            Some(removes)
+        } else {
+            None
+        }
+    }
 
     #[inline]
     fn index(&self, ent: Entity) -> Result<usize> {

@@ -3,9 +3,9 @@ extern crate crayon_3d;
 
 use crayon::utils::handle_pool::HandlePool;
 
-use crayon_3d::scene::SceneGraph;
-use crayon_3d::tags::{self, Tags};
-use crayon_3d::Entity;
+use crayon_3d::prelude::*;
+use crayon_3d::tags::Tags;
+use crayon_3d::world_impl;
 
 struct Testbed {
     world: HandlePool,
@@ -29,13 +29,13 @@ impl Testbed {
         ent
     }
 
-    fn find_by_name(&self, name: &str) -> Option<Entity> {
-        tags::find_by_name(&self.scene, &self.tags, name)
+    fn find(&self, name: &str) -> Option<Entity> {
+        world_impl::find(&self.scene, &self.tags, name)
     }
 }
 
 #[test]
-fn find_by_name() {
+fn find() {
     let mut testbed = Testbed::new();
 
     let e1 = testbed.create("room.obj");
@@ -47,14 +47,14 @@ fn find_by_name() {
     testbed.scene.set_parent(e3, e1, false).unwrap();
     testbed.scene.set_parent(e4, e3, false).unwrap();
 
-    assert_eq!(Some(e1), testbed.find_by_name("room.obj"));
-    assert_eq!(Some(e1), testbed.find_by_name("room.obj/"));
-    assert_eq!(Some(e1), testbed.find_by_name("room.obj//"));
-    assert_eq!(Some(e1), testbed.find_by_name("/room.obj"));
-    assert_eq!(Some(e1), testbed.find_by_name("//room.obj"));
-    assert_eq!(Some(e1), testbed.find_by_name("/room.obj//"));
+    assert_eq!(Some(e1), testbed.find("room.obj"));
+    assert_eq!(Some(e1), testbed.find("room.obj/"));
+    assert_eq!(Some(e1), testbed.find("room.obj//"));
+    assert_eq!(Some(e1), testbed.find("/room.obj"));
+    assert_eq!(Some(e1), testbed.find("//room.obj"));
+    assert_eq!(Some(e1), testbed.find("/room.obj//"));
 
-    assert_eq!(Some(e2), testbed.find_by_name("room.obj/floor"));
-    assert_eq!(Some(e3), testbed.find_by_name("room.obj/tallBox"));
-    assert_eq!(Some(e4), testbed.find_by_name("room.obj/tallBox/shortBox"));
+    assert_eq!(Some(e2), testbed.find("room.obj/floor"));
+    assert_eq!(Some(e3), testbed.find("room.obj/tallBox"));
+    assert_eq!(Some(e4), testbed.find("room.obj/tallBox/shortBox"));
 }

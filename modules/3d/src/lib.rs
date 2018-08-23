@@ -16,7 +16,7 @@ mod component;
 use self::component::Component;
 
 mod world;
-pub use self::world::{Entity, World};
+pub use self::world::{world_impl, Entity, World};
 
 pub mod prelude {
     pub use assets::WorldResources;

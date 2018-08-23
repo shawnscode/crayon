@@ -37,12 +37,12 @@ impl<T> Component<T> {
     }
 
     pub fn remove(&mut self, ent: Entity) {
-        if let Some(v) = self.remap.remove(&ent) {
-            self.entities.swap_remove(v);
-            self.data.swap_remove(v);
+        if let Some(index) = self.remap.remove(&ent) {
+            self.entities.swap_remove(index);
+            self.data.swap_remove(index);
 
-            if self.remap.len() > 0 {
-                *self.remap.get_mut(&self.entities[v]).unwrap() = v;
+            if self.remap.len() != index {
+                *self.remap.get_mut(&self.entities[index]).unwrap() = index;
             }
         }
     }

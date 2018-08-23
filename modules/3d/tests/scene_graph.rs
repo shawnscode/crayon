@@ -24,6 +24,14 @@ impl Testbed {
         self.scene.add(ent);
         ent
     }
+
+    fn remove(&mut self, ent: Entity) {
+        if let Some(entities) = self.scene.remove(ent) {
+            for v in entities {
+                self.world.free(v);
+            }
+        }
+    }
 }
 
 impl ::std::ops::Deref for Testbed {
@@ -92,6 +100,35 @@ pub fn hierachy() {
         assert_ulps_eq!(testbed.position(e4).unwrap(), [1.0, 0.0, 2.0].into());
         assert_ulps_eq!(testbed.local_position(e4).unwrap(), [0.0, 0.0, 0.0].into());
     }
+}
+
+#[test]
+fn remove() {
+    let mut testbed = Testbed::new();
+    let e1 = testbed.create();
+    let e2 = testbed.create();
+    let e3 = testbed.create();
+    let e4 = testbed.create();
+    let e5 = testbed.create();
+    let e6 = testbed.create();
+
+    testbed.set_parent(e2, e1, false).unwrap();
+    testbed.set_parent(e3, e1, false).unwrap();
+    testbed.set_parent(e4, e3, false).unwrap();
+    testbed.set_parent(e5, e3, false).unwrap();
+    testbed.set_parent(e6, e5, false).unwrap();
+    // e1 <- (e2, e3 <- (e4, e5 <- e6))
+
+    assert!(testbed.world.len() == 6);
+
+    testbed.remove(e3);
+    assert!(testbed.world.is_alive(e1));
+    assert!(testbed.world.is_alive(e2));
+    assert!(!testbed.world.is_alive(e3));
+    assert!(!testbed.world.is_alive(e4));
+    assert!(!testbed.world.is_alive(e5));
+    assert!(!testbed.world.is_alive(e6));
+    assert!(testbed.world.len() == 2);
 }
 
 #[test]
