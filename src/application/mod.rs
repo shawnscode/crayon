@@ -9,13 +9,14 @@
 //! The most intuitive and simple setup function could be something like:
 //!
 //! ```rust,ignore
-//! struct Window { ... }
-//! impl Application for Window { ... }
+//! use crayon::application::prelude::*;
+//!
+//! struct Window {}
+//! impl Application for Window {}
 //!
 //! fn main() {
-//!     let mut engine = Engine::new();
-//!     let window = Window::new(&mut engine).unwrap();
-//!     engine.run(window).unrwap();
+//!     let window = Window {};
+//!     Engine::new().unwrap().run(window).unwrap();
 //! }
 //! ```
 //!
@@ -33,6 +34,12 @@ pub use self::settings::Settings;
 
 mod engine;
 pub use self::engine::{Context, Engine};
+
+pub mod prelude {
+    pub use super::FrameInfo;
+    pub use super::{Application, Context, Engine, Settings};
+    pub use errors::Result;
+}
 
 use std::time::Duration;
 

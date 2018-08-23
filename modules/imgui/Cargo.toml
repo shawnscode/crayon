@@ -1,6 +1,6 @@
 [package]
 name = "crayon-imgui"
-version = "0.5.0"
+version = "0.1.0"
 authors = ["Jingkai Mao <oammix@gmail.com>"]
 description = "Crayon's ImGui."
 repository = "https://github.com/shawnscode/crayon"

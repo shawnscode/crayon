@@ -11,18 +11,32 @@ Some goals include:
 
 - Extensible through external code modules;
 - Run on macOS, Linux, Windows, iOS, Android from the same source;
+- Built from the ground up to focus on multi-thread friendly with a work-stealing job scheduler;
 - Stateless, layered, multithread render system with OpenGL(ES) 3.0 backends;
-- Entity component system with a data-driven designs;
-- Unified interface for handling input devices across platforms;
-- Asynchronous data loading from various filesystem;
+- Simplified assets workflow and asynchronous data loading from various filesystem;
+- Unified interfaces for handling input devices across platforms;
 - etc.
 
 This project adheres to [Semantic Versioning](http://semver.org/), all notable changes will be documented in this [file](./CHANGELOG.md).
 
+### Assets Workflow
+
+The asset workflow comes with the version 0.0.5. During the developent, the assets could be stored in formats which could producing and editing by authoring tools directly, and it will be compiled into some kind of effecient format for runtime (which is dependent on platform and hardware devices usually).
+
+Currently, we are supporting assets with:
+
+1. Transmission files like `.gltf`, `.blend`, `.fbx`, etc.. through [assimp](https://github.com/assimp/assimp).
+    * Notes that not only `Mesh`, but also the nodes will be imported as `Prefab` for scene creation.
+2. Texture files like `.PSD`, `.PNG`, `.JPEG`, `.BMP`, etc.. through [PvrTexTool](https://community.imgtec.com/developers/powervr/tools/pvrtextool/) and [crunch](https://github.com/BKcore/crunch-osx).
+    * Notes that texture files could be compressed into `PVRTC`, `ETC2` or `S3TC` formats based on platform.
+3. Universal shader files through [SPIRV](https://www.khronos.org/registry/spir-v/) are also in planning, and should be ready in next few releases.
+
+The assets manipulation codes are placed under [crayon-tools](), checks out the repository for further details.
+
 ### Quick Example
-For the sake of brevity, you can also run a simple and quick example with commands:
+For the sake of brevity, you can als run a simple and quick example with commands:
 
 ``` sh
 git clone git@github.com:shawnscode/crayon.git
-cargo run --example video_render_texture
+cargo run --example modules_3d_prefab
 ```

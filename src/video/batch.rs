@@ -5,7 +5,7 @@ use utils::hash_value;
 use super::assets::prelude::*;
 use super::backends::frame::Command;
 use super::errors::*;
-use super::service::VideoSystemShared;
+use super::VideoSystemShared;
 use super::MAX_UNIFORM_VARIABLES;
 
 /// `OrderDrawBatch` as the named bucket of draw commands. Drawcalls inside `OrderDrawBatch`

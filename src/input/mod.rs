@@ -4,7 +4,10 @@
 //!
 //! To check whether the current platform provides keyboard input, call:
 //!
-//! ```rust,ignore
+//! ```rust
+//! use crayon::input::prelude::*;
+//! let input = InputSystem::new(InputParams::default()).shared();
+//!
 //! // Returns true if a keyboard is attached
 //! input.has_keyboard_attached();
 //! ```
@@ -12,7 +15,10 @@
 //! Nothing bad will happen if you call the keyboard functions even if `has_keyboard_
 //! attached` returns false. To check the current state of specific keys:
 //!
-//! ```rust,ignore
+//! ```rust
+//! use crayon::input::prelude::*;
+//! let input = InputSystem::new(InputParams::default()).shared();
+//!
 //! // Checks if a key is currently held down.
 //! input.is_key_down(KeyboardButton::A);
 //!
@@ -30,7 +36,10 @@
 //! It's useful to get converted character input instead of raw key codes, to capture
 //! entered text in last frame, you can call:
 //!
-//! ```rust,ignore
+//! ```rust
+//! use crayon::input::prelude::*;
+//! let input = InputSystem::new(InputParams::default()).shared();
+//!
 //! // Gets captured text during the last frame.
 //! input.text();
 //! ```
@@ -42,7 +51,10 @@
 //!
 //! To check the state of the mouse buttons, use the following functions:
 //!
-//! ```rust,ignore
+//! ```rust
+//! use crayon::input::prelude::*;
+//! let input = InputSystem::new(InputParams::default()).shared();
+//!
 //! // Checks if a mouse button is held down.
 //! input.is_mouse_down(MouseButton::Left);
 //!
@@ -57,6 +69,9 @@
 //! the current mouse position and the last frame's mouse movement in pixels:
 //!
 //! ```rust,ignore
+//! use crayon::input::prelude::*;
+//! let input = InputSystem::new(InputParams::default()).shared();
+//!
 //! // Gets the mouse position relative to the top-left hand corner of the window.
 //! input.mouse_position();
 //!
@@ -66,7 +81,10 @@
 //!
 //! To get mouse wheel information:
 //!
-//! ```rust,ignore
+//! ```rust
+//! use crayon::input::prelude::*;
+//! let input = InputSystem::new(InputParams::default()).shared();
+//!
 //! // Gets the scroll movement of mouse in pixels, usually provided by mouse wheel.
 //! input.mouse_scroll();
 //! ```
@@ -78,13 +96,18 @@
 //!
 //! We also recognize some simple input patterns, like:
 //!
-//! ```rust,ignore
+//! ```rust
+//! use crayon::input::prelude::*;
+//! let input = InputSystem::new(InputParams::default()).shared();
+//!
 //! // Checks if a mouse button has been clicked during last frame.
 //! input.mouse_position();
 //!
 //! // Checks if a mouse button has been double clicked during last frame.
-//! input.is_mouse_double_click();
+//! input.is_mouse_double_click(MouseButton::Left);
 //! ```
+//!
+//! Notes we also have APIs with `_in_points` suffix to works in logical points.
 //!
 //! # `TouchPad` Inputs
 //!
@@ -93,40 +116,48 @@
 //! touchpads. You can get the touch informations by the finger index, which is
 //! ordered by the first touch time.
 //!
-//! ```rust,ignore
+//! ```rust
+//! use crayon::input::prelude::*;
+//! let input = InputSystem::new(InputParams::default()).shared();
+//!
 //! // Checks if the `n`th finger is touched during last frame.
-//! input.is_finger_touched(n);
+//! input.is_finger_touched(0);
 //!
 //! // Gets the position of the `n`th touched finger.
-//! input.finger_position(n);
+//! input.finger_position(0);
 //! ```
 //!
 //! The touch support also addresses a few platform-agnostic gesture recognizers
 //! based on low-level touch inputs.
 //!
-//! ```rust,ignore
+//! ```rust
+//! use crayon::input::prelude::*;
+//! let input = InputSystem::new(InputParams::default()).shared();
+//!
 //! // Gets the tap gesture.
 //! match input.finger_tap() {
 //!     // A tap geture is detected during last frame.
-//!     GestureTap::Action { position } => { ... },
-//!     GestureTap::None => { ... },
+//!     GestureTap::Action { position } => { },
+//!     GestureTap::None => { },
 //! }
 //!
 //! // Gets the double tap gesture.
 //! match input.finger_double_tap() {
 //!     // A double tap geture is detected during last frame.
-//!     GestureTap::Action { position } => { ... },
-//!     GestureTap::None => { ... },
+//!     GestureTap::Action { position } => { },
+//!     GestureTap::None => { },
 //! }
 //!
 //! // Gets the panning gesture.
 //! match input.finger_pan() {
-//!     GesturePan::Start { start_position } => { ... },
-//!     GesturePan::Move { start_position, position, movement } => { ... },
-//!     GesturePan::End { start_position, position } => {... },
-//!     GestureTap::None => { ... },
+//!     GesturePan::Start { start_position } => { },
+//!     GesturePan::Move { start_position, position, movement } => { },
+//!     GesturePan::End { start_position, position } => { },
+//!     GesturePan::None => { },
 //! }
 //! ```
+//!
+//! Notes we also have APIs with `_in_points` suffix to works in logical points.
 //!
 //! # Others Inputs
 //!
@@ -148,11 +179,12 @@ pub mod prelude {
     pub use super::mouse::MouseParams;
     pub use super::touchpad::{GesturePan, GestureTap, TouchPadParams};
     pub use super::{InputParams, InputSystem, InputSystemShared};
+    pub use application::event::{KeyboardButton, MouseButton};
 }
 
 use std::sync::{Arc, RwLock};
 
-use application::event;
+use application::event::{self, KeyboardButton, MouseButton};
 use math;
 
 /// The setup parameters of all supported input devices.
@@ -167,7 +199,7 @@ pub struct InputParams {
 /// internal states.
 pub struct InputSystem {
     touch_emulation: bool,
-    touch_emulation_button: Option<event::MouseButton>,
+    touch_emulation_button: Option<MouseButton>,
     shared: Arc<InputSystemShared>,
 }
 
@@ -316,25 +348,25 @@ impl InputSystemShared {
 
     /// Checks if a key is currently held down.
     #[inline]
-    pub fn is_key_down(&self, key: event::KeyboardButton) -> bool {
+    pub fn is_key_down(&self, key: KeyboardButton) -> bool {
         self.keyboard.read().unwrap().is_key_down(key)
     }
 
     /// Checks if a key has been pressed down during the last frame.
     #[inline]
-    pub fn is_key_press(&self, key: event::KeyboardButton) -> bool {
+    pub fn is_key_press(&self, key: KeyboardButton) -> bool {
         self.keyboard.read().unwrap().is_key_press(key)
     }
 
     /// Checks if a key has been released during the last frame.
     #[inline]
-    pub fn is_key_release(&self, key: event::KeyboardButton) -> bool {
+    pub fn is_key_release(&self, key: KeyboardButton) -> bool {
         self.keyboard.read().unwrap().is_key_release(key)
     }
 
     /// Checks if a key has been repeated during the last frame.
     #[inline]
-    pub fn is_key_repeat(&self, key: event::KeyboardButton) -> bool {
+    pub fn is_key_repeat(&self, key: KeyboardButton) -> bool {
         self.keyboard.read().unwrap().is_key_repeat(key)
     }
 
@@ -357,31 +389,31 @@ impl InputSystemShared {
 
     /// Checks if a mouse button is held down.
     #[inline]
-    pub fn is_mouse_down(&self, button: event::MouseButton) -> bool {
+    pub fn is_mouse_down(&self, button: MouseButton) -> bool {
         self.mouse.read().unwrap().is_button_down(button)
     }
 
     /// Checks if a mouse button has been pressed during last frame.
     #[inline]
-    pub fn is_mouse_press(&self, button: event::MouseButton) -> bool {
+    pub fn is_mouse_press(&self, button: MouseButton) -> bool {
         self.mouse.read().unwrap().is_button_press(button)
     }
 
     /// Checks if a mouse button has been released during last frame.
     #[inline]
-    pub fn is_mouse_release(&self, button: event::MouseButton) -> bool {
+    pub fn is_mouse_release(&self, button: MouseButton) -> bool {
         self.mouse.read().unwrap().is_button_release(button)
     }
 
     /// Checks if a mouse button has been clicked during last frame.
     #[inline]
-    pub fn is_mouse_click(&self, button: event::MouseButton) -> bool {
+    pub fn is_mouse_click(&self, button: MouseButton) -> bool {
         self.mouse.read().unwrap().is_button_click(button)
     }
 
     /// Checks if a mouse button has been double clicked during last frame.
     #[inline]
-    pub fn is_mouse_double_click(&self, button: event::MouseButton) -> bool {
+    pub fn is_mouse_double_click(&self, button: MouseButton) -> bool {
         self.mouse.read().unwrap().is_button_double_click(button)
     }
 
