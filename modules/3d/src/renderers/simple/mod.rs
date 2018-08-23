@@ -7,19 +7,16 @@ use crayon::math;
 use crayon::video::assets::prelude::*;
 use crayon::video::prelude::*;
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::{Camera, Lit, LitSource, MeshRenderer};
-use Entity;
+use {Component, Entity};
 
 pub const MAX_DIR_LITS: usize = 1;
 pub const MAX_POINT_LITS: usize = 4;
 
 pub struct SimpleRenderPipeline {
-    remap: HashMap<Entity, usize>,
-    entities: Vec<Entity>,
-    materials: Vec<Material>,
+    materials: Component<Material>,
 
     surface: SurfaceHandle,
     shader: ShaderHandle,
@@ -119,9 +116,7 @@ impl SimpleRenderPipeline {
         let surface = ctx.video.create_surface(params)?;
 
         Ok(SimpleRenderPipeline {
-            remap: HashMap::new(),
-            entities: Vec::new(),
-            materials: Vec::new(),
+            materials: Component::new(),
             video: ctx.video.clone(),
             surface: surface,
             shader: shader,
@@ -132,44 +127,28 @@ impl SimpleRenderPipeline {
     }
 
     #[inline]
-    pub fn add(&mut self, ent: Entity, material: Material) {
-        assert!(
-            !self.remap.contains_key(&ent),
-            "Ent already has material in SimpleRenderPipeline."
-        );
-
-        self.remap.insert(ent, self.entities.len());
-        self.entities.push(ent);
-        self.materials.push(material);
+    pub fn add(&mut self, ent: Entity, material: Material) -> Option<Material> {
+        self.materials.add(ent, material)
     }
 
     #[inline]
     pub fn has(&self, ent: Entity) -> bool {
-        self.remap.contains_key(&ent)
+        self.materials.has(ent)
     }
 
     #[inline]
     pub fn material(&self, ent: Entity) -> Option<&Material> {
-        let data = &self.materials;
-        self.remap.get(&ent).map(|&index| &data[index])
+        self.materials.get(ent)
     }
 
     #[inline]
     pub fn material_mut(&mut self, ent: Entity) -> Option<&mut Material> {
-        let data = &mut self.materials;
-        self.remap.get(&ent).map(move |&index| &mut data[index])
+        self.materials.get_mut(ent)
     }
 
     #[inline]
     pub fn remove(&mut self, ent: Entity) {
-        if let Some(v) = self.remap.remove(&ent) {
-            self.entities.swap_remove(v);
-            self.materials.swap_remove(v);
-
-            if self.remap.len() > 0 {
-                *self.remap.get_mut(&self.entities[v]).unwrap() = v;
-            }
-        }
+        self.materials.remove(ent)
     }
 }
 

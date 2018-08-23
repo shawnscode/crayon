@@ -10,27 +10,25 @@ pub use self::mesh_renderer::MeshRenderer;
 pub mod simple;
 pub use self::simple::SimpleRenderPipeline;
 
-use std::collections::HashMap;
-
 use scene::SceneGraph;
-use Entity;
+use {Component, Entity};
 
 pub trait RenderPipeline {
     fn submit(&mut self, camera: &Camera, lits: &[Lit], meshes: &[MeshRenderer]);
 }
 
 pub struct Renderer {
-    cameras: Renderable<Camera>,
-    lits: Renderable<Lit>,
-    meshes: Renderable<MeshRenderer>,
+    cameras: Component<Camera>,
+    lits: Component<Lit>,
+    meshes: Component<MeshRenderer>,
 }
 
 impl Renderer {
     pub fn new() -> Self {
         Renderer {
-            cameras: Renderable::new(),
-            lits: Renderable::new(),
-            meshes: Renderable::new(),
+            cameras: Component::new(),
+            lits: Component::new(),
+            meshes: Component::new(),
         }
     }
 
@@ -119,58 +117,5 @@ impl Renderer {
         for v in &self.cameras.data {
             pipeline.submit(&v, &self.lits.data, &self.meshes.data);
         }
-    }
-}
-
-struct Renderable<T> {
-    remap: HashMap<Entity, usize>,
-    entities: Vec<Entity>,
-    data: Vec<T>,
-}
-
-impl<T> Renderable<T> {
-    #[inline]
-    fn new() -> Self {
-        Renderable {
-            remap: HashMap::new(),
-            entities: Vec::new(),
-            data: Vec::new(),
-        }
-    }
-
-    #[inline]
-    fn add(&mut self, ent: Entity, v: T) {
-        assert!(
-            !self.remap.contains_key(&ent),
-            "Ent already has components in Renderer."
-        );
-
-        self.remap.insert(ent, self.data.len());
-        self.entities.push(ent);
-        self.data.push(v);
-    }
-
-    #[inline]
-    fn remove(&mut self, ent: Entity) {
-        if let Some(v) = self.remap.remove(&ent) {
-            self.entities.swap_remove(v);
-            self.data.swap_remove(v);
-
-            if self.remap.len() > 0 {
-                *self.remap.get_mut(&self.entities[v]).unwrap() = v;
-            }
-        }
-    }
-
-    #[inline]
-    fn get(&self, ent: Entity) -> Option<&T> {
-        let data = &self.data;
-        self.remap.get(&ent).map(|&index| &data[index])
-    }
-
-    #[inline]
-    fn get_mut(&mut self, ent: Entity) -> Option<&mut T> {
-        let data = &mut self.data;
-        self.remap.get(&ent).map(move |&index| &mut data[index])
     }
 }

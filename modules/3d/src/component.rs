@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use Entity;
 
 pub struct Component<T> {
-    remap: HashMap<Entity, usize>,
-    entities: Vec<Entity>,
-    data: Vec<T>,
+    pub remap: HashMap<Entity, usize>,
+    pub entities: Vec<Entity>,
+    pub data: Vec<T>,
 }
 
 impl<T> Component<T> {
@@ -17,15 +17,23 @@ impl<T> Component<T> {
         }
     }
 
-    pub fn add(&mut self, ent: Entity, v: T) {
-        assert!(
-            !self.remap.contains_key(&ent),
-            "Ent already has components in Renderer."
-        );
+    pub fn add(&mut self, ent: Entity, mut v: T) -> Option<T> {
+        if let Some(&index) = self.remap.get(&ent) {
+            unsafe {
+                ::std::ptr::swap(&mut self.data[index], &mut v);
+                Some(v)
+            }
+        } else {
+            self.remap.insert(ent, self.data.len());
+            self.entities.push(ent);
+            self.data.push(v);
+            None
+        }
+    }
 
-        self.remap.insert(ent, self.data.len());
-        self.entities.push(ent);
-        self.data.push(v);
+    #[inline]
+    pub fn has(&self, ent: Entity) -> bool {
+        self.remap.contains_key(&ent)
     }
 
     pub fn remove(&mut self, ent: Entity) {

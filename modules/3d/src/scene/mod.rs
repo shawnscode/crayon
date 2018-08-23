@@ -22,6 +22,7 @@ pub struct SceneGraph {
     nodes: Vec<Node>,
     local_transforms: Vec<Transform>,
     world_transforms: Vec<Transform>,
+
     pub(crate) roots: HashSet<Entity>,
 }
 
