@@ -7,7 +7,7 @@ pub use self::transform::Transform;
 mod errors;
 pub use self::errors::{Error, Result};
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crayon::math::{self, One};
 
@@ -22,6 +22,7 @@ pub struct SceneGraph {
     nodes: Vec<Node>,
     local_transforms: Vec<Transform>,
     world_transforms: Vec<Transform>,
+    pub(crate) roots: HashSet<Entity>,
 }
 
 impl SceneGraph {
@@ -32,6 +33,7 @@ impl SceneGraph {
             nodes: Vec::new(),
             local_transforms: Vec::new(),
             world_transforms: Vec::new(),
+            roots: HashSet::new(),
         }
     }
 
@@ -47,6 +49,7 @@ impl SceneGraph {
         self.nodes.push(Node::default());
         self.local_transforms.push(Transform::default());
         self.world_transforms.push(Transform::default());
+        self.roots.insert(ent);
     }
 
     // /// Removes a node from SceneGraph.
@@ -134,6 +137,8 @@ impl SceneGraph {
                 } else {
                     return Err(Error::CanNotAttachSelfAsParent);
                 }
+
+                self.roots.remove(&child);
             }
 
             if keep_world_pose {
@@ -179,6 +184,7 @@ impl SceneGraph {
             }
 
             self.local_transforms[child_index].position = position;
+            self.roots.insert(child);
             Ok(())
         }
     }

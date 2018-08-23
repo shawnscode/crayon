@@ -10,6 +10,10 @@ extern crate uuid;
 pub mod assets;
 pub mod renderers;
 pub mod scene;
+pub mod tags;
+
+mod component;
+use self::component::Component;
 
 mod world;
 pub use self::world::{Entity, World};
