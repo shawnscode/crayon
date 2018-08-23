@@ -52,18 +52,30 @@ impl WorldResourcesShared {
             .into()
     }
 
-    pub(crate) fn update_prefab(&self, handle: PrefabHandle, prefab: Prefab) -> Result<()> {
+    pub(crate) fn update_prefab(
+        &self,
+        handle: PrefabHandle,
+        prefab: Prefab,
+    ) -> Result<Option<Prefab>> {
         prefab.validate()?;
 
         if let Some(v) = self.prefabs.write().unwrap().get_mut(handle) {
             *v = AsyncState::Ok(Arc::new(prefab));
+            Ok(None)
+        } else {
+            Ok(Some(prefab))
         }
-
-        Ok(())
     }
 
-    pub(crate) fn delete_prefab(&self, handle: PrefabHandle) {
-        self.prefabs.write().unwrap().free(handle);
+    pub(crate) fn delete_prefab(&self, handle: PrefabHandle) -> Option<Arc<Prefab>> {
+        self.prefabs
+            .write()
+            .unwrap()
+            .free(handle)
+            .and_then(|v| match v {
+                AsyncState::Ok(prefab) => Some(prefab),
+                _ => None,
+            })
     }
 
     #[inline]

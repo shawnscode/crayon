@@ -56,12 +56,23 @@ impl ResourceLoader for PrefabLoader {
             self.res.wait(v)?;
         }
 
-        self.world_resources.update_prefab(handle, data)?;
+        // The prefab handle might already been freed.
+        if let Some(prefab) = self.world_resources.update_prefab(handle, data)? {
+            for v in prefab.meshes {
+                self.res.unload(v)?;
+            }
+        }
+
         Ok(())
     }
 
     fn delete(&self, handle: Self::Handle) -> Result<()> {
-        self.world_resources.delete_prefab(handle);
+        if let Some(prefab) = self.world_resources.delete_prefab(handle) {
+            for &v in &prefab.meshes {
+                self.res.unload(v)?;
+            }
+        }
+
         Ok(())
     }
 }
