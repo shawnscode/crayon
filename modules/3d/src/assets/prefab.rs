@@ -1,6 +1,6 @@
 use crayon::errors::*;
+use crayon::uuid::Uuid;
 use crayon::video::assets::mesh::MeshHandle;
-use uuid::Uuid;
 
 use scene::Transform;
 

@@ -120,7 +120,7 @@ pub struct GLVisitor {
 impl GLVisitor {
     pub unsafe fn new() -> Result<Self> {
         let capabilities = Capabilities::parse()?;
-        println!("{:#?}", capabilities);
+        info!("GLVisitor {:#?}", capabilities);
         check_capabilities(&capabilities)?;
 
         let mutables = GLVisitorMutInternal {
@@ -185,7 +185,7 @@ impl Visitor for GLVisitor {
                 if let Some(v) = *attachment {
                     let rt = self.render_textures
                         .get(v)
-                        .ok_or_else(|| err_format!("RenderTexture handle {:?} is invalid.", v))?;
+                        .ok_or_else(|| format_err!("RenderTexture handle {:?} is invalid.", v))?;
 
                     if !rt.params.format.is_color() {
                         bail!(
@@ -209,7 +209,7 @@ impl Visitor for GLVisitor {
             if let Some(v) = params.depth_stencil {
                 let rt = self.render_textures
                     .get(v)
-                    .ok_or_else(|| err_format!("RenderTexture handle {:?} is invalid.", v))?;
+                    .ok_or_else(|| format_err!("RenderTexture handle {:?} is invalid.", v))?;
 
                 if rt.params.format.is_color() {
                     bail!(
@@ -251,7 +251,7 @@ impl Visitor for GLVisitor {
     unsafe fn delete_surface(&mut self, handle: SurfaceHandle) -> Result<()> {
         let surface = self.surfaces
             .free(handle)
-            .ok_or_else(|| err_format!("SurfaceHandle {:?} is invalid."))?;
+            .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
         if let Some(fbo) = surface.fbo {
             assert!(fbo.id != 0);
@@ -315,7 +315,7 @@ impl Visitor for GLVisitor {
     unsafe fn delete_shader(&mut self, handle: ShaderHandle) -> Result<()> {
         let shader = self.shaders
             .free(handle)
-            .ok_or_else(|| err_format!("SurfaceHandle {:?} is invalid."))?;
+            .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
         // Removes deprecated `VertexArrayObject`s.
         self.mutables
@@ -420,7 +420,7 @@ impl Visitor for GLVisitor {
     ) -> Result<()> {
         let texture = *self.textures
             .get(handle)
-            .ok_or_else(|| err_format!("TextureHandle {:?} is invalid."))?;
+            .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
         if texture.params.hint == TextureHint::Immutable {
             bail!("Trying to update immutable texture.");
@@ -477,7 +477,7 @@ impl Visitor for GLVisitor {
     unsafe fn delete_texture(&mut self, handle: TextureHandle) -> Result<()> {
         let texture = self.textures
             .free(handle)
-            .ok_or_else(|| err_format!("TextureHandle {:?} is invalid."))?;
+            .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
         self.delete_texture_intern(texture.id)
     }
 
@@ -541,7 +541,7 @@ impl Visitor for GLVisitor {
     unsafe fn delete_render_texture(&mut self, handle: RenderTextureHandle) -> Result<()> {
         let rt = self.render_textures
             .free(handle)
-            .ok_or_else(|| err_format!("RenderTextureHandle {:?} is invalid."))?;
+            .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
         if rt.params.sampler {
             self.delete_texture_intern(rt.id)
@@ -597,7 +597,7 @@ impl Visitor for GLVisitor {
         let vbo = {
             let mesh = self.meshes
                 .get(handle)
-                .ok_or_else(|| err_format!("MeshHandle {:?} is invalid."))?;
+                .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
             if mesh.params.hint == MeshHint::Immutable {
                 bail!("Trying to update immutable buffer");
@@ -619,7 +619,7 @@ impl Visitor for GLVisitor {
         let ibo = {
             let mesh = self.meshes
                 .get(handle)
-                .ok_or_else(|| err_format!("MeshHandle {:?} is invalid."))?;
+                .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
             if mesh.params.hint == MeshHint::Immutable {
                 bail!("Trying to update immutable buffer");
@@ -635,7 +635,7 @@ impl Visitor for GLVisitor {
     unsafe fn delete_mesh(&mut self, handle: MeshHandle) -> Result<()> {
         let mesh = self.meshes
             .free(handle)
-            .ok_or_else(|| err_format!("MeshHandle {:?} is invalid."))?;
+            .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
         // Removes deprecated `VertexArrayObject`s.
         self.mutables
@@ -655,7 +655,7 @@ impl Visitor for GLVisitor {
 
         let surface = self.surfaces
             .get(id)
-            .ok_or_else(|| err_format!("SurfaceHandle {:?} is invalid."))?;
+            .ok_or_else(|| format_err!("{:?} is invalid.", id))?;
 
         // Bind frame buffer.
         let dimensions = if let Some(ref fbo) = surface.fbo {
@@ -714,7 +714,7 @@ impl Visitor for GLVisitor {
             // Bind program and associated uniforms and textures.
             let shader = self.shaders
                 .get(shader)
-                .ok_or_else(|| err_format!("ShaderHandle {:?} is invalid."))?;
+                .ok_or_else(|| format_err!("{:?} is invalid.", shader))?;
             self.bind_shader(&shader)?;
 
             let mut index = 0usize;
@@ -750,7 +750,7 @@ impl Visitor for GLVisitor {
             // Bind vertex buffer and vertex array object.
             let mesh = self.meshes
                 .get(mesh)
-                .ok_or_else(|| err_format!("{:?} is invalid.", mesh))?;
+                .ok_or_else(|| format_err!("{:?} is invalid.", mesh))?;
 
             self.bind_buffer(gl::ARRAY_BUFFER, mesh.vbo)?;
             self.bind_vao(&shader, &mesh)?;
@@ -773,7 +773,7 @@ impl Visitor for GLVisitor {
                 let from = mesh.params
                     .sub_mesh_offsets
                     .get(index)
-                    .ok_or_else(|| err_format!("MeshIndex is out of bounds"))?;
+                    .ok_or_else(|| format_err!("MeshIndex is out of bounds"))?;
 
                 let to = if index == (num - 1) {
                     mesh.params.num_idxes

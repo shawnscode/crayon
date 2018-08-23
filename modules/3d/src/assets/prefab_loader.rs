@@ -1,7 +1,7 @@
 use std::io::Read;
 use std::sync::Arc;
 
-use bincode;
+use crayon::bincode;
 use crayon::errors::*;
 use crayon::res::location::Location;
 use crayon::res::{ResourceHandle, ResourceLoader, ResourceSystemShared};
@@ -35,7 +35,9 @@ impl ResourceLoader for PrefabLoader {
     type Handle = PrefabHandle;
 
     fn create(&self) -> Result<Self::Handle> {
-        Ok(self.world_resources.create_prefab_async())
+        let handle = self.world_resources.create_prefab_async();
+        info!("[PrefabLoader] creates {:?}.", handle);
+        Ok(handle)
     }
 
     fn load(&self, handle: Self::Handle, mut file: &mut dyn Read) -> Result<()> {
@@ -44,7 +46,7 @@ impl ResourceLoader for PrefabLoader {
 
         // magic: [u8; 8]
         if &buf[0..8] != &MAGIC[..] {
-            bail!("[TextureLoader] MAGIC number not match.");
+            bail!("[PrefabLoader] MAGIC number not match.");
         }
 
         let mut data: Prefab = bincode::deserialize_from(&mut file)?;
@@ -55,6 +57,13 @@ impl ResourceLoader for PrefabLoader {
         for &v in &data.meshes {
             self.res.wait(v)?;
         }
+
+        info!(
+            "[PrefabLoader] loads {:?}. (Nodes: {}, Meshes: {})",
+            handle,
+            data.nodes.len(),
+            data.meshes.len()
+        );
 
         // The prefab handle might already been freed.
         if let Some(prefab) = self.world_resources.update_prefab_async(handle, data)? {
@@ -67,6 +76,8 @@ impl ResourceLoader for PrefabLoader {
     }
 
     fn delete(&self, handle: Self::Handle) -> Result<()> {
+        info!("[PrefabLoader] deletes {:?}.", handle);
+
         if let Some(prefab) = self.world_resources.delete_prefab_async(handle) {
             for &v in &prefab.meshes {
                 self.res.unload(v)?;

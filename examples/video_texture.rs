@@ -23,7 +23,7 @@ struct Window {
 }
 
 impl Window {
-    fn new(engine: &mut Engine) -> crayon::Result<Self> {
+    fn new(engine: &mut Engine) -> Result<Self> {
         let ctx = engine.context();
 
         let verts: [Vertex; 4] = [
@@ -81,7 +81,7 @@ impl Window {
 }
 
 impl Application for Window {
-    fn on_update(&mut self, ctx: &Context) -> crayon::Result<()> {
+    fn on_update(&mut self, ctx: &Context) -> Result<()> {
         let mut dc = DrawCall::new(self.shader, self.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
         ctx.video.draw(self.surface, dc);
@@ -90,12 +90,12 @@ impl Application for Window {
         Ok(())
     }
 
-    fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> crayon::Result<()> {
+    fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> Result<()> {
         self.canvas.update(info);
         Ok(())
     }
 
-    fn on_exit(&mut self, ctx: &Context) -> crayon::Result<()> {
+    fn on_exit(&mut self, ctx: &Context) -> Result<()> {
         ctx.video.delete_mesh(self.mesh);
         ctx.video.delete_shader(self.shader);
         ctx.video.delete_surface(self.surface);

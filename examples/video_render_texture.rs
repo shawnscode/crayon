@@ -29,7 +29,7 @@ struct Window {
 }
 
 impl Window {
-    pub fn new(engine: &mut Engine) -> crayon::Result<Self> {
+    pub fn new(engine: &mut Engine) -> Result<Self> {
         let ctx = engine.context();
 
         let attributes = AttributeLayoutBuilder::new()
@@ -143,7 +143,7 @@ impl Window {
 }
 
 impl Application for Window {
-    fn on_update(&mut self, ctx: &Context) -> crayon::Result<()> {
+    fn on_update(&mut self, ctx: &Context) -> Result<()> {
         let surface = self.pass.surface;
         let dc = DrawCall::new(self.pass.shader, self.pass.mesh);
         self.batch.draw(dc);
@@ -161,12 +161,12 @@ impl Application for Window {
         Ok(())
     }
 
-    fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> crayon::Result<()> {
+    fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> Result<()> {
         self.canvas.update(info);
         Ok(())
     }
 
-    fn on_exit(&mut self, ctx: &Context) -> crayon::Result<()> {
+    fn on_exit(&mut self, ctx: &Context) -> Result<()> {
         ctx.video.delete_render_texture(self.texture);
 
         ctx.video.delete_mesh(self.pass.mesh);

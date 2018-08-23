@@ -35,6 +35,8 @@ mod engine;
 pub use self::engine::{Context, Engine};
 
 use std::time::Duration;
+
+use errors::*;
 use video::VideoFrameInfo;
 
 /// The collected information during last frame.
@@ -50,27 +52,27 @@ pub struct FrameInfo {
 pub trait Application {
     /// `Application::on_update` is called every frame. Its the main workhorse
     /// function for frame updates.
-    fn on_update(&mut self, _: &Context) -> ::Result<()> {
+    fn on_update(&mut self, _: &Context) -> Result<()> {
         Ok(())
     }
 
     /// `Application::on_render` is called before we starts rendering the scene.
-    fn on_render(&mut self, _: &Context) -> ::Result<()> {
+    fn on_render(&mut self, _: &Context) -> Result<()> {
         Ok(())
     }
 
     /// `Application::on_post_update` is called after camera has rendered the scene.
-    fn on_post_update(&mut self, _: &Context, _: &FrameInfo) -> ::Result<()> {
+    fn on_post_update(&mut self, _: &Context, _: &FrameInfo) -> Result<()> {
         Ok(())
     }
 
     /// `Application::on_update` is called when receiving application event.
-    fn on_receive_event(&mut self, _: &Context, _: event::ApplicationEvent) -> ::Result<()> {
+    fn on_receive_event(&mut self, _: &Context, _: event::ApplicationEvent) -> Result<()> {
         Ok(())
     }
 
     /// `Application::on_exit` is called when exiting.
-    fn on_exit(&mut self, _: &Context) -> ::Result<()> {
+    fn on_exit(&mut self, _: &Context) -> Result<()> {
         Ok(())
     }
 }

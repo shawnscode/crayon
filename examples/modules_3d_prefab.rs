@@ -5,17 +5,17 @@ use crayon::prelude::*;
 use crayon_testbed::prelude::*;
 
 struct Window {
-    world: World<SimpleRenderPipeline>,
+    world: World<SimpleRenderer>,
     room: Entity,
     canvas: ConsoleCanvas,
 }
 
 impl Window {
-    fn new(engine: &mut Engine) -> crayon::Result<Self> {
+    fn new(engine: &mut Engine) -> Result<Self> {
         let world_resources = WorldResources::new(engine);
 
         let ctx = engine.context();
-        let pipeline = SimpleRenderPipeline::new(&ctx)?;
+        let pipeline = SimpleRenderer::new(&ctx)?;
 
         //
         let prefab = ctx.res.load("res:cornell_box.obj")?;
@@ -48,7 +48,7 @@ impl Window {
 }
 
 impl Application for Window {
-    fn on_update(&mut self, ctx: &Context) -> crayon::Result<()> {
+    fn on_update(&mut self, ctx: &Context) -> Result<()> {
         self.world.advance();
 
         if let GesturePan::Move { movement, .. } = ctx.input.finger_pan() {
@@ -65,7 +65,7 @@ impl Application for Window {
         Ok(())
     }
 
-    fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> crayon::Result<()> {
+    fn on_post_update(&mut self, _: &Context, info: &FrameInfo) -> Result<()> {
         self.canvas.update(info);
         Ok(())
     }

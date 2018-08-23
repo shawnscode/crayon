@@ -8,24 +8,24 @@ mod mesh_renderer;
 pub use self::mesh_renderer::MeshRenderer;
 
 pub mod simple;
-pub use self::simple::SimpleRenderPipeline;
+pub use self::simple::SimpleRenderer;
 
 use scene::SceneGraph;
 use {Component, Entity};
 
-pub trait RenderPipeline {
+pub trait Renderer {
     fn submit(&mut self, camera: &Camera, lits: &[Lit], meshes: &[MeshRenderer]);
 }
 
-pub struct Renderer {
+pub struct Renderable {
     cameras: Component<Camera>,
     lits: Component<Lit>,
     meshes: Component<MeshRenderer>,
 }
 
-impl Renderer {
+impl Renderable {
     pub fn new() -> Self {
-        Renderer {
+        Renderable {
             cameras: Component::new(),
             lits: Component::new(),
             meshes: Component::new(),
@@ -93,8 +93,8 @@ impl Renderer {
     }
 }
 
-impl Renderer {
-    pub fn draw(&mut self, pipeline: &mut RenderPipeline, scene: &SceneGraph) {
+impl Renderable {
+    pub fn draw(&mut self, pipeline: &mut Renderer, scene: &SceneGraph) {
         for (i, v) in self.cameras.data.iter_mut().enumerate() {
             if let Some(transform) = scene.transform(self.cameras.entities[i]) {
                 v.transform = transform;

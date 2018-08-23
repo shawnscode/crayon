@@ -30,6 +30,7 @@ impl ::res::ResourceLoader for TextureLoader {
 
     fn create(&self) -> Result<Self::Handle> {
         let handle = self.video.create_texture_async()?;
+        info!("[TextureLoader] creates {:?}.", handle);
         Ok(handle)
     }
 
@@ -42,8 +43,13 @@ impl ::res::ResourceLoader for TextureLoader {
             bail!("[TextureLoader] MAGIC number not match.");
         }
 
-        let params = bincode::deserialize_from(&mut file)?;
+        let params: TextureParams = bincode::deserialize_from(&mut file)?;
         let data = bincode::deserialize_from(&mut file)?;
+
+        info!(
+            "[TextureLoader] loads {:?} ({}x{} - {:?}).",
+            handle, params.dimensions.x, params.dimensions.y, params.format
+        );
 
         self.video.update_texture_async(handle, params, data)?;
         Ok(())
@@ -51,6 +57,7 @@ impl ::res::ResourceLoader for TextureLoader {
 
     fn delete(&self, handle: Self::Handle) -> Result<()> {
         self.video.delete_texture(handle);
+        info!("[TextureLoader] deletes {:?}.", handle);
         Ok(())
     }
 }

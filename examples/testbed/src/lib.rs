@@ -1,6 +1,7 @@
 extern crate crayon;
 extern crate crayon_3d;
 extern crate crayon_imgui;
+extern crate env_logger;
 
 pub mod console;
 
@@ -9,6 +10,8 @@ where
     T1: Into<String>,
     T2: Into<crayon::math::Vector2<u32>>,
 {
+    ::env_logger::init();
+
     let mut params = crayon::application::Settings::default();
     params.window.title = titile.into();
     params.window.size = dimesions.into();
@@ -40,6 +43,7 @@ pub fn find_res_dir() -> crayon::res::vfs::DiskFS {
 
 pub mod prelude {
     pub use super::console::ConsoleCanvas;
+    pub use crayon::errors::*;
     pub use crayon_3d::prelude::*;
     pub use crayon_imgui::prelude::*;
 }

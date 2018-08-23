@@ -10,11 +10,8 @@ categories = ["multimedia", "game-engines"]
 
 [dependencies]
 crayon = { path = "../../", version = "0.5.0" }
-failure = "0.1.1"
-
 serde = { version = "1.0.70", features = ["serde_derive"] }
-bincode = "1.0.1"
-uuid = { version = "0.6.5", features = ["serde"] }
+failure = "0.1.1"
 
 [dev-dependencies]
 rand = "0.5.4"

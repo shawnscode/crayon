@@ -4,29 +4,29 @@ use crayon::errors::*;
 use crayon::utils::HandlePool;
 
 use assets::{PrefabHandle, WorldResourcesShared};
-use renderers::{MeshRenderer, RenderPipeline, Renderer};
+use renderers::{MeshRenderer, Renderable, Renderer};
 use scene::SceneGraph;
 use tags::Tags;
 
 impl_handle!(Entity);
 
-pub struct World<T: RenderPipeline> {
+pub struct World<T: Renderer> {
     entities: HandlePool,
 
     pub tags: Tags,
     pub scene: SceneGraph,
-    pub renderer: Renderer,
+    pub renderables: Renderable,
     pub pipeline: T,
     pub res: Arc<WorldResourcesShared>,
 }
 
-impl<T: RenderPipeline> World<T> {
+impl<T: Renderer> World<T> {
     pub fn new(res: Arc<WorldResourcesShared>, pipeline: T) -> Self {
         World {
             entities: HandlePool::new(),
             tags: Tags::new(),
             scene: SceneGraph::new(),
-            renderer: Renderer::new(),
+            renderables: Renderable::new(),
             pipeline: pipeline,
             res: res,
         }
@@ -45,9 +45,9 @@ impl<T: RenderPipeline> World<T> {
             for &v in &deletions {
                 self.entities.free(v);
                 self.tags.remove(v);
-                self.renderer.remove_mesh(v);
-                self.renderer.remove_lit(v);
-                self.renderer.remove_camera(v);
+                self.renderables.remove_mesh(v);
+                self.renderables.remove_lit(v);
+                self.renderables.remove_camera(v);
             }
 
             Some(deletions)
@@ -66,7 +66,7 @@ impl<T: RenderPipeline> World<T> {
     }
 
     pub fn advance(&mut self) {
-        self.renderer.draw(&mut self.pipeline, &self.scene);
+        self.renderables.draw(&mut self.pipeline, &self.scene);
     }
 
     /// Instantiates a prefab into entities of this world.
@@ -90,7 +90,7 @@ impl<T: RenderPipeline> World<T> {
                 if let Some(mesh) = n.mesh_renderer {
                     let mut mr = MeshRenderer::default();
                     mr.mesh = prefab.meshes[mesh];
-                    self.renderer.add_mesh(e, mr);
+                    self.renderables.add_mesh(e, mr);
                 }
 
                 if let Some(sib) = n.next_sib {

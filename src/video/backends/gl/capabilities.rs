@@ -62,7 +62,7 @@ impl Version {
     pub unsafe fn parse() -> Result<Version> {
         let desc = gl::GetString(gl::VERSION);
         let desc = String::from_utf8(ffi::CStr::from_ptr(desc as *const _).to_bytes().to_vec())
-            .map_err(|_| err_format!("[GL] String is unformaled."))?;
+            .map_err(|_| format_err!("[GL] String is unformaled."))?;
 
         let (es, desc) = if desc.starts_with("OpenGL ES ") {
             (true, &desc[10..])
@@ -74,7 +74,7 @@ impl Version {
 
         let desc = desc.split(' ')
             .next()
-            .ok_or_else(|| err_format!("[GL] String is unformaled."))?;
+            .ok_or_else(|| format_err!("[GL] String is unformaled."))?;
 
         let mut iter = desc.split(move |c: char| c == '.');
         let major = iter.next().unwrap();
@@ -278,7 +278,7 @@ impl Capabilities {
         }
 
         String::from_utf8(ffi::CStr::from_ptr(s as *const _).to_bytes().to_vec())
-            .map_err(|_| err_format!("[GL] String of {} is unformaled.", id))
+            .map_err(|_| format_err!("[GL] String of {} is unformaled.", id))
     }
 
     #[inline]

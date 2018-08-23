@@ -30,6 +30,7 @@ impl ::res::ResourceLoader for MeshLoader {
 
     fn create(&self) -> Result<Self::Handle> {
         let handle = self.video.create_mesh_async()?;
+        info!("[MeshLoader] creates {:?}.", handle);
         Ok(handle)
     }
 
@@ -42,8 +43,13 @@ impl ::res::ResourceLoader for MeshLoader {
             bail!("[MeshLoader] MAGIC number not match.");
         }
 
-        let params = bincode::deserialize_from(&mut file)?;
+        let params: MeshParams = bincode::deserialize_from(&mut file)?;
         let data = bincode::deserialize_from(&mut file)?;
+
+        info!(
+            "[MeshLoader] loads {:?}. (Verts: {}, Indxes: {})",
+            handle, params.num_verts, params.num_idxes
+        );
 
         self.video.update_mesh_async(handle, params, data)?;
         Ok(())
@@ -51,6 +57,7 @@ impl ::res::ResourceLoader for MeshLoader {
 
     fn delete(&self, handle: Self::Handle) -> Result<()> {
         self.video.delete_mesh(handle);
+        info!("[MeshLoader] deletes {:?}.", handle);
         Ok(())
     }
 }

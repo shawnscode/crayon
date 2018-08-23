@@ -22,12 +22,12 @@ members = [ "modules/imgui", "modules/3d" ]
 [dependencies]
 gl = "0.10.0"
 glutin = "0.17.0"
-failure = "0.1.1"
 crossbeam-deque = "0.5.1"
+failure = "0.1.1"
+log = "0.4.4"
 
 serde = { version = "1.0.70", features = ["serde_derive"] }
 bincode = "1.0.1"
-byteorder = "1.2.4"
 
 uuid = { version = "0.6.5", features = ["serde"] }
 cgmath = { version = "0.16.1", features = ["serde"] }

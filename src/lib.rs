@@ -31,15 +31,28 @@
 extern crate crossbeam_deque;
 #[macro_use]
 extern crate cgmath;
-#[macro_use]
-extern crate failure;
 extern crate gl;
 extern crate glutin;
 
 #[macro_use]
+extern crate failure;
+#[macro_use]
+extern crate log;
+
+#[macro_use]
 extern crate serde;
-extern crate bincode;
-extern crate uuid;
+pub extern crate bincode;
+pub extern crate uuid;
+
+#[doc(hidden)]
+pub use log::*;
+
+// FIXME: unresolved serde proc-macro re-export. https://github.com/serde-rs/serde/issues/1147
+// #[doc(hidden)]
+// pub use serde::*;
+// FIXME: unresolved failure proc-macro re-export.
+// #[doc(hidden)]
+// pub use failure::*;
 
 #[macro_use]
 pub mod errors;
@@ -53,5 +66,3 @@ pub mod math;
 pub mod prelude;
 pub mod res;
 pub mod sched;
-
-pub use errors::*;

@@ -123,7 +123,7 @@ impl Engine {
         let application = Arc::new(RwLock::new(application));
 
         let dir = ::std::env::current_dir()?;
-        println!("CWD: {:?}.", dir);
+        info!("CWD: {:?}.", dir);
 
         let latch = Arc::new(sched::latch::LockLatch::new());
         Self::execute_frame(&self.context, latch.clone(), application.clone());

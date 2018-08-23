@@ -15,7 +15,7 @@ use {Component, Entity};
 pub const MAX_DIR_LITS: usize = 1;
 pub const MAX_POINT_LITS: usize = 4;
 
-pub struct SimpleRenderPipeline {
+pub struct SimpleRenderer {
     materials: Component<Material>,
 
     surface: SurfaceHandle,
@@ -27,7 +27,7 @@ pub struct SimpleRenderPipeline {
     point_lits: Vec<(String, String, String)>,
 }
 
-impl SimpleRenderPipeline {
+impl SimpleRenderer {
     pub fn new(ctx: &Context) -> Result<Self> {
         // Create shader state.
         let attributes = AttributeLayout::build()
@@ -115,7 +115,7 @@ impl SimpleRenderPipeline {
         let params = SurfaceParams::default();
         let surface = ctx.video.create_surface(params)?;
 
-        Ok(SimpleRenderPipeline {
+        Ok(SimpleRenderer {
             materials: Component::new(),
             video: ctx.video.clone(),
             surface: surface,
@@ -152,7 +152,7 @@ impl SimpleRenderPipeline {
     }
 }
 
-impl super::RenderPipeline for SimpleRenderPipeline {
+impl super::Renderer for SimpleRenderer {
     fn submit(&mut self, camera: &Camera, lits: &[Lit], meshes: &[MeshRenderer]) {
         use crayon::math::{Matrix, MetricSpace, SquareMatrix};
 
