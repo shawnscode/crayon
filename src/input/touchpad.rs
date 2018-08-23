@@ -126,6 +126,18 @@ pub enum GestureTap {
     None,
 }
 
+impl GestureTap {
+    pub fn scale(&self, hidpi: f32) -> GestureTap {
+        match *self {
+            GestureTap::Action { position } => GestureTap::Action {
+                position: position * hidpi,
+            },
+
+            GestureTap::None => GestureTap::None,
+        }
+    }
+}
+
 struct GestureTapDetector {
     record: TouchesRecord,
 
@@ -246,6 +258,36 @@ pub enum GesturePan {
         position: math::Vector2<f32>,
     },
     None,
+}
+
+impl GesturePan {
+    pub fn scale(&self, hidpi: f32) -> GesturePan {
+        match *self {
+            GesturePan::Start { start_position } => GesturePan::Start {
+                start_position: start_position * hidpi,
+            },
+
+            GesturePan::Move {
+                start_position,
+                position,
+                movement,
+            } => GesturePan::Move {
+                start_position: start_position * hidpi,
+                position: position * hidpi,
+                movement: movement * hidpi,
+            },
+
+            GesturePan::End {
+                start_position,
+                position,
+            } => GesturePan::End {
+                start_position: start_position * hidpi,
+                position: position * hidpi,
+            },
+
+            GesturePan::None => GesturePan::None,
+        }
+    }
 }
 
 struct GesturePanDetector {

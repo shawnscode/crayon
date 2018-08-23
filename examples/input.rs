@@ -57,9 +57,9 @@ impl Application for Window {
             .size((400.0, 400.0), ImGuiCond::FirstUseEver)
             .build(|| {
                 if ui.collapsing_header(im_str!("Mouse")).build() {
-                    let pos = input.mouse_position();
-                    let movement = input.mouse_movement();
-                    let scroll = input.mouse_scroll();
+                    let pos = input.mouse_position_in_points();
+                    let movement = input.mouse_movement_in_points();
+                    let scroll = input.mouse_scroll_in_points();
                     ui.text(im_str!("Position: ({:.1},{:.1})", pos.x, pos.y));
                     ui.text(im_str!("Movement: ({:.1}, {:.1})", movement.x, movement.y));
                     ui.text(im_str!("Scroll: ({:.1}, {:.1})", scroll.x, scroll.y));

@@ -202,7 +202,8 @@ impl InputSystem {
     }
 
     pub(crate) fn advance(&mut self, hidpi: f32) {
-        self.shared.mouse.write().unwrap().advance(hidpi);
+        *self.shared.hidpi.write().unwrap() = hidpi;
+        self.shared.mouse.write().unwrap().advance();
         self.shared.keyboard.write().unwrap().advance();
         self.shared.touchpad.write().unwrap().advance();
     }
@@ -287,6 +288,7 @@ pub struct InputSystemShared {
     mouse: RwLock<mouse::Mouse>,
     keyboard: RwLock<keyboard::Keyboard>,
     touchpad: RwLock<touchpad::TouchPad>,
+    hidpi: RwLock<f32>,
 }
 
 impl InputSystemShared {
@@ -299,6 +301,7 @@ impl InputSystemShared {
             mouse: RwLock::new(mice),
             keyboard: RwLock::new(kb),
             touchpad: RwLock::new(tp),
+            hidpi: RwLock::new(1.0),
         }
     }
 }
@@ -385,30 +388,36 @@ impl InputSystemShared {
     /// Gets the mouse position in pixels relative to the lower-left hand corner of the window.
     #[inline]
     pub fn mouse_position(&self) -> math::Vector2<f32> {
-        self.mouse.read().unwrap().position()
+        self.mouse.read().unwrap().position() * (*self.hidpi.read().unwrap())
     }
 
     /// Gets the mouse position relative to the lower-left hand corner of the window.
     #[inline]
     pub fn mouse_position_in_points(&self) -> math::Vector2<f32> {
-        self.mouse.read().unwrap().position_in_points()
+        self.mouse.read().unwrap().position()
     }
 
     /// Gets mouse movement in pixels since last frame.
     #[inline]
     pub fn mouse_movement(&self) -> math::Vector2<f32> {
-        self.mouse.read().unwrap().movement()
+        self.mouse.read().unwrap().movement() * (*self.hidpi.read().unwrap())
     }
 
     /// Gets mouse movement since last frame.
     #[inline]
-    pub fn mousel_movement_in_points(&self) -> math::Vector2<f32> {
-        self.mouse.read().unwrap().movement_in_points()
+    pub fn mouse_movement_in_points(&self) -> math::Vector2<f32> {
+        self.mouse.read().unwrap().movement()
     }
 
     /// Gets the scroll movement of mouse in pixels, usually provided by mouse wheel.
     #[inline]
     pub fn mouse_scroll(&self) -> math::Vector2<f32> {
+        self.mouse.read().unwrap().scroll() * (*self.hidpi.read().unwrap())
+    }
+
+    /// Gets the scroll movement of mouse, usually provided by mouse wheel.
+    #[inline]
+    pub fn mouse_scroll_in_points(&self) -> math::Vector2<f32> {
         self.mouse.read().unwrap().scroll()
     }
 }
@@ -427,27 +436,55 @@ impl InputSystemShared {
         self.touchpad.read().unwrap().is_touched(n)
     }
 
-    /// Gets the position of the `n`th touched finger.
+    /// Gets the position of the `n`th touched finger in pixels.
     #[inline]
     pub fn finger_position(&self, n: usize) -> Option<math::Vector2<f32>> {
         self.touchpad.read().unwrap().position(n)
     }
 
-    /// Gets the tap gesture.
+    /// Gets the position of the `n`th touched finger in pixels.
+    #[inline]
+    pub fn finger_position_in_points(&self, n: usize) -> Option<math::Vector2<f32>> {
+        let hidpi = *self.hidpi.read().unwrap();
+        self.touchpad.read().unwrap().position(n).map(|v| v * hidpi)
+    }
+
+    /// Gets the tap gesture in pixels.
     #[inline]
     pub fn finger_tap(&self) -> touchpad::GestureTap {
         self.touchpad.read().unwrap().tap()
     }
 
-    /// Gets the double tap gesture.
+    /// Gets the tap gesture.
+    #[inline]
+    pub fn finger_tap_in_points(&self) -> touchpad::GestureTap {
+        let hidpi = *self.hidpi.read().unwrap();
+        self.touchpad.read().unwrap().tap().scale(hidpi)
+    }
+
+    /// Gets the double tap gesture in pixels.
     #[inline]
     pub fn finger_double_tap(&self) -> touchpad::GestureTap {
         self.touchpad.read().unwrap().double_tap()
     }
 
-    /// Gets the panning gesture.
+    /// Gets the double tap gesture.
+    #[inline]
+    pub fn finger_double_tap_in_points(&self) -> touchpad::GestureTap {
+        let hidpi = *self.hidpi.read().unwrap();
+        self.touchpad.read().unwrap().double_tap().scale(hidpi)
+    }
+
+    /// Gets the panning gesture in pixels.
     #[inline]
     pub fn finger_pan(&self) -> touchpad::GesturePan {
         self.touchpad.read().unwrap().pan()
+    }
+
+    /// Gets the panning gesture.
+    #[inline]
+    pub fn finger_pan_in_points(&self) -> touchpad::GesturePan {
+        let hidpi = *self.hidpi.read().unwrap();
+        self.touchpad.read().unwrap().pan().scale(hidpi)
     }
 }
