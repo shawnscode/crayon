@@ -192,10 +192,19 @@ impl Scheduler {
 
     /// Blocks current thread until all the workers finished their jobs gracefully.
     pub fn wait_until_terminated(&self) {
-        self.watcher.notify_all();
+        let check = || {
+            for v in &self.threads {
+                if !v.terminated.is_set() {
+                    return true;
+                }
+            }
 
-        for v in &self.threads {
-            v.terminated.wait();
+            false
+        };
+
+        while check() {
+            self.watcher.notify_all();
+            thread::yield_now();
         }
     }
 
