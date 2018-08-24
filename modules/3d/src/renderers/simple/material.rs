@@ -2,7 +2,7 @@ use crayon::math;
 use crayon::video::assets::texture::TextureHandle;
 
 #[derive(Debug, Copy, Clone)]
-pub struct Material {
+pub struct SimpleMaterial {
     pub texture: TextureHandle,
     pub ambient: math::Color<f32>,
     pub diffuse: math::Color<f32>,
@@ -10,9 +10,9 @@ pub struct Material {
     pub shininess: f32,
 }
 
-impl Default for Material {
+impl Default for SimpleMaterial {
     fn default() -> Self {
-        Material {
+        SimpleMaterial {
             texture: TextureHandle::default(),
             ambient: math::Color::white(),
             diffuse: math::Color::white(),

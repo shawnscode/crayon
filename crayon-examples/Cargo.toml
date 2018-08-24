@@ -1,0 +1,27 @@
+[package]
+name = "crayon-examples"
+version = "0.0.0"
+authors = [ "Jingkai Mao <oammix@gmail.com>" ]
+
+[dependencies]
+crayon-testbed = { path = "testbed" }
+
+[[bin]]
+name = "render_texture"
+path = "core_render_texture.rs"
+
+[[bin]]
+name = "texture"
+path = "core_texture.rs"
+
+[[bin]]
+name = "input"
+path = "core_input.rs"
+
+[[bin]]
+name = "imgui"
+path = "modules_imgui.rs"
+
+[[bin]]
+name = "prefab"
+path = "modules_prefab.rs"
