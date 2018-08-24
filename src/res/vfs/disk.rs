@@ -14,6 +14,7 @@ pub struct DiskFS {
 impl DiskFS {
     pub fn new<T: Into<PathBuf>>(root: T) -> Result<Self> {
         let root = root.into();
+        info!("Creates disk based virtual file system at {:?}.", root);
 
         let metadata = fs::metadata(&root)?;
         if metadata.is_dir() {

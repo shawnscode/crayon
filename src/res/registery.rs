@@ -112,6 +112,8 @@ impl Registery {
     where
         F: VFS + 'static,
     {
+        info!("Mounts virtual file system {}.", name);
+
         let mut file = vfs.read(manifest::NAME.as_ref())?;
         let name = name.into();
 

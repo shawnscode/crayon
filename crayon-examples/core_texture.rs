@@ -1,11 +1,6 @@
 #[macro_use]
-extern crate crayon;
 extern crate crayon_testbed;
-
-use crayon::prelude::*;
 use crayon_testbed::prelude::*;
-
-use crayon::video::assets::texture::TextureHandle as CoreTextureHandle;
 
 impl_vertex!{
     Vertex {
@@ -17,7 +12,7 @@ struct Window {
     surface: SurfaceHandle,
     shader: ShaderHandle,
     mesh: MeshHandle,
-    texture: CoreTextureHandle,
+    texture: TextureHandle,
     canvas: ConsoleCanvas,
 }
 
