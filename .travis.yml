@@ -50,9 +50,11 @@ script:
     - cargo build --all --verbose --no-default-features
     - cargo test --all --verbose --no-default-features
     - |
-      if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-        for file in examples/*.rs; do if [[ -f $file ]]; then filename=$(basename $file); target/debug/examples/${filename%.*} headless; fi done;
-      fi
+      for file in examples/*.rs; do
+        if [[ -f $file ]]; then
+          filename=$(basename $file); target/debug/examples/${filename%.*} headless;
+        fi
+      done;
 
 # Perform coverage test based on kcov, and upload it.
 after_success: |
