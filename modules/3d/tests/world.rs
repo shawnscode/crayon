@@ -59,16 +59,18 @@ fn find() {
     testbed.scene.set_parent(e3, e1, false).unwrap();
     testbed.scene.set_parent(e4, e3, false).unwrap();
 
-    assert_eq!(Some(e1), testbed.find("room.obj"));
-    assert_eq!(Some(e1), testbed.find("room.obj/"));
-    assert_eq!(Some(e1), testbed.find("room.obj//"));
-    assert_eq!(Some(e1), testbed.find("/room.obj"));
-    assert_eq!(Some(e1), testbed.find("//room.obj"));
-    assert_eq!(Some(e1), testbed.find("/room.obj//"));
+    assert_eq!(testbed.find("room.obj"), Some(e1));
+    assert_eq!(testbed.find("room.obj/"), Some(e1));
+    assert_eq!(testbed.find("room.obj//"), Some(e1));
+    assert_eq!(testbed.find("/room.obj"), Some(e1));
+    assert_eq!(testbed.find("//room.obj"), Some(e1));
+    assert_eq!(testbed.find("/room.obj//"), Some(e1));
 
-    assert_eq!(Some(e2), testbed.find("room.obj/floor"));
-    assert_eq!(Some(e3), testbed.find("room.obj/tallBox"));
-    assert_eq!(Some(e4), testbed.find("room.obj/tallBox/shortBox"));
+    assert_eq!(testbed.find("room.obj/floor"), Some(e2));
+    assert_eq!(testbed.find("room.obj/tallBox"), Some(e3));
+    assert_eq!(testbed.find("room.obj/tallBox/shortBox"), Some(e4));
+
+    assert_eq!(testbed.find("room.obj/blahblah"), None);
 }
 
 #[test]

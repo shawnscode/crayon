@@ -15,18 +15,18 @@ pub struct World<T: Renderer> {
     pub tags: Tags,
     pub scene: SceneGraph,
     pub renderables: Renderable,
-    pub pipeline: T,
+    pub renderer: T,
     pub res: Arc<WorldResourcesShared>,
 }
 
 impl<T: Renderer> World<T> {
-    pub fn new(res: Arc<WorldResourcesShared>, pipeline: T) -> Self {
+    pub fn new(res: Arc<WorldResourcesShared>, renderer: T) -> Self {
         World {
             entities: HandlePool::new(),
             tags: Tags::new(),
             scene: SceneGraph::new(),
             renderables: Renderable::new(),
-            pipeline: pipeline,
+            renderer: renderer,
             res: res,
         }
     }
@@ -72,7 +72,7 @@ impl<T: Renderer> World<T> {
     }
 
     pub fn advance(&mut self) {
-        self.renderables.draw(&mut self.pipeline, &self.scene);
+        self.renderables.draw(&mut self.renderer, &self.scene);
     }
 }
 
@@ -176,7 +176,7 @@ pub mod world_impl {
                             }
 
                             if !found {
-                                break;
+                                return None;
                             }
                         }
 
