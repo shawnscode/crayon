@@ -1,0 +1,10 @@
+name = 'render_target_p2.vs'
+uuid = 'c976376a-26d1-49f3-9d2b-30c725098fb9'
+
+[[resources]]
+type = 'Bytes'
+name = 'render_target_p2.vs'
+uuid = '8941d8e3-fb2f-4b3c-b333-dc8b80b4ffad'
+
+[params]
+type = 'Bytes'

@@ -2,21 +2,23 @@
 extern crate crayon;
 #[macro_use]
 extern crate failure;
+#[macro_use]
+extern crate serde;
 
-pub mod errors;
-pub mod components;
-pub mod graphics;
-pub mod scene;
-pub mod ent;
 pub mod assets;
-pub mod resources;
+pub mod renderers;
+pub mod scene;
+pub mod tags;
+
+mod component;
+use self::component::Component;
+
+mod world;
+pub use self::world::{world_impl, Entity, World};
 
 pub mod prelude {
-    pub use scene::{Scene, SceneSetup};
-    pub use assets::prelude::*;
-    pub use components::prelude::*;
-    pub use graphics::prelude::*;
-    pub use crayon::ecs::world::Entity;
-    pub use crayon::ecs::view::{ArenaGet, ArenaGetMut, Join};
-    pub use ent::{EntReader, EntRef, EntRefMut, EntWriter};
+    pub use assets::WorldResources;
+    pub use renderers::{Camera, Lit, MeshRenderer, SimpleRenderer};
+    pub use scene::SceneGraph;
+    pub use world::{Entity, World};
 }

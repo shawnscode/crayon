@@ -4,7 +4,4 @@ target
 .DS_Store
 .vscode
 links
-.crayon
-compiled-resources
-*.meta
-build
+crayon-examples/assets/compiled

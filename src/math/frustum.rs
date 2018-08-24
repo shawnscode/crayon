@@ -2,8 +2,8 @@
 
 use math::{Aabb3, Plane, PlaneBound, PlaneRelation};
 
-use cgmath::prelude::*;
 use cgmath::num_traits::cast;
+use cgmath::prelude::*;
 use cgmath::{BaseFloat, Matrix, Matrix4, Point3, Rad};
 
 /// Projections.

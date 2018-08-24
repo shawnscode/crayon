@@ -1,7 +1,7 @@
-use std::{mem, slice, str};
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::borrow::Borrow;
+use std::{mem, slice, str};
 
 /// Where we store all the intermediate bytes.
 #[derive(Debug, Clone)]
@@ -53,8 +53,8 @@ impl DataBuffer {
     where
         T: Borrow<str>,
     {
-        use std::hash::{Hash, Hasher};
         use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
 
         let value = value.borrow();
         let mut s = DefaultHasher::new();
@@ -124,10 +124,7 @@ where
     _phantom: PhantomData<T>,
 }
 
-impl<T> Clone for DataBufferPtr<T>
-where
-    T: ?Sized,
-{
+impl<T: ?Sized> Clone for DataBufferPtr<T> {
     fn clone(&self) -> Self {
         DataBufferPtr {
             position: self.position,
@@ -137,11 +134,7 @@ where
     }
 }
 
-impl<T> Copy for DataBufferPtr<T>
-where
-    T: ?Sized,
-{
-}
+impl<T: ?Sized> Copy for DataBufferPtr<T> {}
 
 #[cfg(test)]
 mod test {

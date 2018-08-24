@@ -1,7 +1,7 @@
+use std::borrow::Borrow;
+use std::ops::Deref;
 use std::ptr;
 use std::str;
-use std::ops::Deref;
-use std::borrow::Borrow;
 
 #[derive(Debug, PartialEq, Eq)]
 enum _VariantStr {

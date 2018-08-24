@@ -2,7 +2,6 @@ extern crate crayon;
 extern crate rand;
 
 use std::cmp::min;
-use rand::{Rng, SeedableRng, XorShiftRng};
 
 use crayon::utils::*;
 
@@ -60,7 +59,6 @@ fn index_reuse() {
 
 #[test]
 fn index_compact_reuse() {
-    let mut generator = XorShiftRng::from_seed([0, 1, 2, 3]);
     let mut set = HandlePool::new();
 
     let mut v = vec![];
@@ -72,7 +70,7 @@ fn index_compact_reuse() {
         let size = v.len() / 2;
         for _ in 0..size {
             let len = v.len();
-            set.free(v.swap_remove(generator.next_u32() as usize % len));
+            set.free(v.swap_remove(rand::random::<usize>() % len));
         }
     }
 

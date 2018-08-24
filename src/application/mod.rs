@@ -9,13 +9,14 @@
 //! The most intuitive and simple setup function could be something like:
 //!
 //! ```rust,ignore
-//! struct Window { ... }
-//! impl Application for Window { ... }
+//! use crayon::application::prelude::*;
+//!
+//! struct Window {}
+//! impl Application for Window {}
 //!
 //! fn main() {
-//!     let mut engine = Engine::new();
-//!     let window = Window::new(&mut engine).unwrap();
-//!     engine.run(window).unrwap();
+//!     let window = Window {};
+//!     Engine::new().unwrap().run(window).unwrap();
 //! }
 //! ```
 //!
@@ -25,29 +26,30 @@
 //! essential systems in a central place, and responsible for running the main loop.
 //!
 
-pub mod settings;
-pub mod context;
 pub mod event;
-
+pub mod settings;
 pub mod time;
-pub use self::time::TimeSystem;
-
+pub mod window;
 pub use self::settings::Settings;
-pub use self::context::Context;
 
 mod engine;
-pub use self::engine::Engine;
+pub use self::engine::{Context, Engine};
 
-pub type Result<T> = ::std::result::Result<T, ::failure::Error>;
+pub mod prelude {
+    pub use super::FrameInfo;
+    pub use super::{Application, Context, Engine, Settings};
+    pub use errors::Result;
+}
 
-use graphics::GraphicsFrameInfo;
 use std::time::Duration;
-use std::result::Result as StdResult;
+
+use errors::*;
+use video::VideoFrameInfo;
 
 /// The collected information during last frame.
 #[derive(Debug, Copy, Clone, Default)]
 pub struct FrameInfo {
-    pub video: GraphicsFrameInfo,
+    pub video: VideoFrameInfo,
     pub duration: Duration,
     pub fps: u32,
 }
@@ -55,35 +57,29 @@ pub struct FrameInfo {
 /// `Application` is a user-friendly facade to build application, which consists of
 /// several event functions that get executed in a pre-determined order.
 pub trait Application {
-    type Error: ::failure::Fail;
-
     /// `Application::on_update` is called every frame. Its the main workhorse
     /// function for frame updates.
-    fn on_update(&mut self, _: &Context) -> StdResult<(), Self::Error> {
+    fn on_update(&mut self, _: &Context) -> Result<()> {
         Ok(())
     }
 
     /// `Application::on_render` is called before we starts rendering the scene.
-    fn on_render(&mut self, _: &Context) -> StdResult<(), Self::Error> {
+    fn on_render(&mut self, _: &Context) -> Result<()> {
         Ok(())
     }
 
     /// `Application::on_post_update` is called after camera has rendered the scene.
-    fn on_post_update(&mut self, _: &Context, _: &FrameInfo) -> StdResult<(), Self::Error> {
+    fn on_post_update(&mut self, _: &Context, _: &FrameInfo) -> Result<()> {
         Ok(())
     }
 
     /// `Application::on_update` is called when receiving application event.
-    fn on_receive_event(
-        &mut self,
-        _: &Context,
-        _: event::ApplicationEvent,
-    ) -> StdResult<(), Self::Error> {
+    fn on_receive_event(&mut self, _: &Context, _: event::ApplicationEvent) -> Result<()> {
         Ok(())
     }
 
     /// `Application::on_exit` is called when exiting.
-    fn on_exit(&mut self, _: &Context) -> StdResult<(), Self::Error> {
+    fn on_exit(&mut self, _: &Context) -> Result<()> {
         Ok(())
     }
 }

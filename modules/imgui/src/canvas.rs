@@ -1,16 +1,16 @@
 use std::ops::{Deref, DerefMut};
 
-use imgui;
-use crayon::application;
-use crayon::application::Result;
-use crayon::graphics::prelude::*;
+use crayon::application::Context;
 use crayon::input::prelude::*;
+use crayon::video::errors::*;
+use crayon::video::prelude::*;
+use imgui;
 use renderer::Renderer;
 
 pub struct FrameGuard<'a> {
     renderer: &'a mut Renderer,
     frame: Option<imgui::Ui<'a>>,
-    surface: SurfaceHandle,
+    surface: Option<SurfaceHandle>,
 }
 
 impl<'a> Deref for FrameGuard<'a> {
@@ -30,7 +30,7 @@ impl<'a> DerefMut for FrameGuard<'a> {
 impl<'a> Drop for FrameGuard<'a> {
     fn drop(&mut self) {
         if let Some(ui) = self.frame.take() {
-            self.renderer.render(self.surface, ui).unwrap();
+            self.renderer.draw(self.surface, ui).unwrap();
         }
     }
 }
@@ -41,7 +41,7 @@ pub struct Canvas {
 }
 
 impl Canvas {
-    pub fn new(ctx: &application::Context) -> Result<Self> {
+    pub fn new(ctx: &Context) -> Result<Self> {
         let mut imgui = imgui::ImGui::init();
         imgui.set_ini_filename(None);
 
@@ -54,31 +54,28 @@ impl Canvas {
         })
     }
 
-    pub fn frame<'a>(
-        &'a mut self,
-        surface: SurfaceHandle,
-        ctx: &application::Context,
-    ) -> FrameGuard<'a> {
+    pub fn frame<T>(&mut self, ctx: &Context, surface: T) -> FrameGuard
+    where
+        T: Into<Option<SurfaceHandle>>,
+    {
         // Update input device states.
-        let input = ctx.shared::<InputSystem>();
-        Self::update_mouse_state(&mut self.ctx, &input);
-        Self::update_keycode_state(&mut self.ctx, &input);
+        Self::update_mouse_state(&mut self.ctx, &ctx);
+        Self::update_keycode_state(&mut self.ctx, &ctx.input);
 
         // Generates frame builder.
-        let v = ctx.shared::<GraphicsSystem>();
-        let duration = ctx.shared::<application::TimeSystem>().frame_delta();
+        let duration = ctx.time.frame_delta();
         let ts = duration.as_secs() as f32 + duration.subsec_nanos() as f32 / 1_000_000_000.0;
-
-        let (dp, d) = (v.dimensions_in_pixels(), v.dimensions());
 
         FrameGuard {
             renderer: &mut self.renderer,
-            frame: Some(self.ctx.frame(d, dp, ts)),
-            surface: surface,
+            frame: Some(self.ctx.frame(
+                ctx.window.dimensions_in_points().into(),
+                ctx.window.dimensions().into(),
+                ts,
+            )),
+            surface: surface.into(),
         }
     }
-
-    pub fn render(&mut self) {}
 
     fn bind_keycode(imgui: &mut imgui::ImGui) {
         use imgui::ImGuiKey;
@@ -105,8 +102,6 @@ impl Canvas {
     }
 
     fn update_keycode_state(imgui: &mut imgui::ImGui, input: &InputSystemShared) {
-        use self::application::event::KeyboardButton;
-
         imgui.set_key(0, input.is_key_down(KeyboardButton::Tab));
         imgui.set_key(1, input.is_key_down(KeyboardButton::Left));
         imgui.set_key(2, input.is_key_down(KeyboardButton::Right));
@@ -144,17 +139,16 @@ impl Canvas {
         imgui.set_key_super(lwin || rwin);
     }
 
-    fn update_mouse_state(imgui: &mut imgui::ImGui, input: &InputSystemShared) {
-        use self::application::event::MouseButton;
+    fn update_mouse_state(imgui: &mut imgui::ImGui, ctx: &Context) {
+        let dims = ctx.window.dimensions_in_points();
+        let pos = ctx.input.mouse_position_in_points();
+        imgui.set_mouse_pos(pos.x, dims.y as f32 - pos.y);
 
-        let pos = input.mouse_position();
-        imgui.set_mouse_pos(pos.x, pos.y);
-
-        let l = input.is_mouse_down(MouseButton::Left);
-        let r = input.is_mouse_down(MouseButton::Right);
-        let m = input.is_mouse_down(MouseButton::Middle);
+        let l = ctx.input.is_mouse_down(MouseButton::Left);
+        let r = ctx.input.is_mouse_down(MouseButton::Right);
+        let m = ctx.input.is_mouse_down(MouseButton::Middle);
         imgui.set_mouse_down(&[l, r, m, false, false]);
 
-        imgui.set_mouse_wheel(input.mouse_scroll().y);
+        imgui.set_mouse_wheel(ctx.input.mouse_scroll().y);
     }
 }

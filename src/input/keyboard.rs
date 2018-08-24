@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
-use application::event;
+pub use application::event::KeyboardButton;
 
 /// The setup parameters of keyboard device.
 #[derive(Debug, Clone, Copy)]
-pub struct KeyboardSetup {
+pub struct KeyboardParams {
     /// The maximum characters that could be captured in one frame.
     pub max_chars: usize,
     /// The time duration before a pressing is recognized as repeat operation.
@@ -14,9 +14,9 @@ pub struct KeyboardSetup {
     pub repeat_interval_timeout: Duration,
 }
 
-impl Default for KeyboardSetup {
+impl Default for KeyboardParams {
     fn default() -> Self {
-        KeyboardSetup {
+        KeyboardParams {
             max_chars: 128,
             repeat_timeout: Duration::from_millis(500),
             repeat_interval_timeout: Duration::from_millis(250),
@@ -30,16 +30,16 @@ enum KeyDownState {
 }
 
 pub struct Keyboard {
-    downs: HashMap<event::KeyboardButton, KeyDownState>,
-    presses: HashSet<event::KeyboardButton>,
-    releases: HashSet<event::KeyboardButton>,
+    downs: HashMap<KeyboardButton, KeyDownState>,
+    presses: HashSet<KeyboardButton>,
+    releases: HashSet<KeyboardButton>,
     chars: Vec<char>,
-    setup: KeyboardSetup,
+    setup: KeyboardParams,
     now: Instant,
 }
 
 impl Keyboard {
-    pub fn new(setup: KeyboardSetup) -> Self {
+    pub fn new(setup: KeyboardParams) -> Self {
         Keyboard {
             downs: HashMap::new(),
             presses: HashSet::new(),
@@ -82,7 +82,7 @@ impl Keyboard {
     }
 
     #[inline]
-    pub fn on_key_pressed(&mut self, key: event::KeyboardButton) {
+    pub fn on_key_pressed(&mut self, key: KeyboardButton) {
         if !self.downs.contains_key(&key) {
             self.presses.insert(key);
             self.downs.insert(key, KeyDownState::Start(self.now));
@@ -90,7 +90,7 @@ impl Keyboard {
     }
 
     #[inline]
-    pub fn on_key_released(&mut self, key: event::KeyboardButton) {
+    pub fn on_key_released(&mut self, key: KeyboardButton) {
         self.downs.remove(&key);
         self.releases.insert(key);
     }
@@ -103,21 +103,21 @@ impl Keyboard {
     }
 
     #[inline]
-    pub fn is_key_down(&self, key: event::KeyboardButton) -> bool {
+    pub fn is_key_down(&self, key: KeyboardButton) -> bool {
         self.downs.contains_key(&key)
     }
 
     #[inline]
-    pub fn is_key_press(&self, key: event::KeyboardButton) -> bool {
+    pub fn is_key_press(&self, key: KeyboardButton) -> bool {
         self.presses.contains(&key)
     }
 
     #[inline]
-    pub fn is_key_release(&self, key: event::KeyboardButton) -> bool {
+    pub fn is_key_release(&self, key: KeyboardButton) -> bool {
         self.releases.contains(&key)
     }
 
-    pub fn is_key_repeat(&self, key: event::KeyboardButton) -> bool {
+    pub fn is_key_repeat(&self, key: KeyboardButton) -> bool {
         if let Some(v) = self.downs.get(&key) {
             match *v {
                 KeyDownState::Start(ts) => (self.now - ts) > self.setup.repeat_timeout,

@@ -1,8 +1,8 @@
-use std::path::Path;
-use std::marker::PhantomData;
 use std::hash::{Hash, Hasher};
+use std::marker::PhantomData;
+use std::path::Path;
 
-#[derive(Debug, Eq)]
+#[derive(Serialize, Deserialize, Debug, Eq)]
 pub struct HashValue<T>(u64, PhantomData<T>)
 where
     T: Hash + ?Sized;
@@ -98,8 +98,8 @@ fn hash<T: Hash>(t: &T) -> u64 {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
     use super::*;
+    use std::collections::HashSet;
 
     #[test]
     fn hash_str() {

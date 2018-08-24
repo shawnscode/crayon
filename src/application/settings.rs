@@ -1,29 +1,30 @@
 //! Functions for loading game settings.
 
 use input;
+use math;
 
 /// A structure containing configuration data for the game engine, which are
 /// used to specify hardware setup stuff to create the window and other
 /// context information.
 #[derive(Debug, Clone, Default)]
 pub struct Settings {
-    pub engine: EngineSettings,
-    pub window: WindowSettings,
-    pub input: InputSettings,
+    pub engine: EngineParams,
+    pub window: WindowParams,
+    pub input: input::InputParams,
     pub headless: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct EngineSettings {
+pub struct EngineParams {
     pub min_fps: u32,
     pub max_fps: u32,
     pub max_inactive_fps: u32,
     pub time_smooth_step: u32,
 }
 
-impl Default for EngineSettings {
+impl Default for EngineParams {
     fn default() -> Self {
-        EngineSettings {
+        EngineParams {
             min_fps: 0,
             max_fps: 30,
             max_inactive_fps: 0,
@@ -33,20 +34,25 @@ impl Default for EngineSettings {
 }
 
 #[derive(Debug, Clone)]
-pub struct WindowSettings {
+pub struct WindowParams {
+    /// Sets the title of window.
     pub title: String,
-    pub width: u32,
-    pub height: u32,
+    /// Sets the size in *points* of the client area of the window.
+    pub size: math::Vector2<u32>,
+    /// Sets the multisampling level to request. A value of 0 indicates that
+    /// multisampling must not be enabled.
+    pub multisample: u16,
+    /// Specifies whether should we have vsync.
+    pub vsync: bool,
 }
 
-impl Default for WindowSettings {
+impl Default for WindowParams {
     fn default() -> Self {
-        WindowSettings {
+        WindowParams {
             title: "Window".to_owned(),
-            width: 640,
-            height: 320,
+            size: math::Vector2::new(640, 320),
+            multisample: 2,
+            vsync: false,
         }
     }
 }
-
-pub type InputSettings = input::InputSetup;

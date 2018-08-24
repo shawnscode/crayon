@@ -1,12 +1,11 @@
 //! Timing and stepping system.
 
 use std;
-use std::time::{Duration, Instant};
 use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
 
-use application::Result;
-use application::settings::EngineSettings;
+use application::settings::EngineParams;
 
 /// `TimeSystem`
 pub struct TimeSystem {
@@ -23,9 +22,9 @@ pub struct TimeSystem {
 
 impl TimeSystem {
     /// Creates a `TimeSystem` from settings.
-    pub fn new(setup: EngineSettings) -> Result<Self> {
+    pub fn new(setup: EngineParams) -> Self {
         let shared = TimeSystemShared::new(setup);
-        Ok(TimeSystem {
+        TimeSystem {
             min_fps: setup.min_fps,
             max_fps: setup.max_fps,
             max_inactive_fps: setup.max_inactive_fps,
@@ -34,7 +33,7 @@ impl TimeSystem {
             timestep: Duration::new(0, 0),
             last_frame_timepoint: Instant::now(),
             shared: Arc::new(shared),
-        })
+        }
     }
 
     /// Gets the multi-thread friendly parts of `TimeSystem`.
@@ -106,7 +105,7 @@ pub struct TimeSystemShared {
 }
 
 impl TimeSystemShared {
-    pub fn new(setup: EngineSettings) -> Self {
+    pub fn new(setup: EngineParams) -> Self {
         TimeSystemShared {
             min_fps: RwLock::new(setup.min_fps),
             max_fps: RwLock::new(setup.max_fps),

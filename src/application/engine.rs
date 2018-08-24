@@ -1,43 +1,56 @@
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use std::sync::mpsc;
-use std::thread;
 
 use super::*;
-use graphics;
-use resource;
 use input;
-use super::context::{Context, ContextSystem};
+use res;
+use sched;
+use video;
 
-impl ContextSystem for resource::ResourceSystem {
-    type Shared = resource::ResourceSystemShared;
+type Result<T> = ::std::result::Result<T, ::failure::Error>;
+
+#[derive(Default, Copy, Clone)]
+struct ContextData {
+    shutdown: bool,
 }
 
-impl ContextSystem for graphics::GraphicsSystem {
-    type Shared = graphics::GraphicsSystemShared;
+/// The context of sub-systems that could be accessed from multi-thread environments safely.
+#[derive(Clone)]
+pub struct Context {
+    pub res: Arc<res::ResourceSystemShared>,
+    pub input: Arc<input::InputSystemShared>,
+    pub time: Arc<time::TimeSystemShared>,
+    pub video: Arc<video::VideoSystemShared>,
+    pub window: Arc<window::WindowShared>,
+    pub sched: Arc<sched::ScheduleSystemShared>,
+
+    data: Arc<RwLock<ContextData>>,
 }
 
-impl ContextSystem for input::InputSystem {
-    type Shared = input::InputSystemShared;
-}
+impl Context {
+    /// Shutdown the whole application at the end of this frame.
+    pub fn shutdown(&self) {
+        self.data.write().unwrap().shutdown = true;
+    }
 
-impl ContextSystem for time::TimeSystem {
-    type Shared = time::TimeSystemShared;
+    /// Returns true if we are going to shutdown the application at the end of this frame.
+    pub fn is_shutdown(&self) -> bool {
+        self.data.read().unwrap().shutdown
+    }
 }
 
 /// `Engine` is the root object of the game application. It binds various sub-systems in
 /// a central place and takes take of trivial tasks like the execution order or life-time
 /// management.
 pub struct Engine {
-    pub events_loop: event::EventsLoop,
-    pub window: Arc<graphics::window::Window>,
-
+    pub window: window::Window,
     pub input: input::InputSystem,
-    pub graphics: graphics::GraphicsSystem,
-    pub resource: resource::ResourceSystem,
+    pub video: video::VideoSystem,
+    pub res: res::ResourceSystem,
     pub time: time::TimeSystem,
+    pub sched: sched::ScheduleSystem,
 
-    context: Arc<Context>,
+    context: Context,
     headless: bool,
 }
 
@@ -49,40 +62,59 @@ impl Engine {
 
     /// Setup engine with specified settings.
     pub fn new_with(settings: &Settings) -> Result<Self> {
-        let mut wb = graphics::window::WindowBuilder::new();
-        wb.with_title(settings.window.title.clone())
-            .with_dimensions(settings.window.width, settings.window.height);
+        let sched = sched::ScheduleSystem::new(6, None, None);
+        let sched_shared = sched.shared();
 
         let input = input::InputSystem::new(settings.input);
         let input_shared = input.shared();
 
-        let events_loop = event::EventsLoop::new();
-        let window = Arc::new(wb.build(events_loop.underlaying())?);
+        let window = if settings.headless {
+            window::Window::headless()
+        } else {
+            window::Window::new(settings.window.clone())?
+        };
 
-        let resource = resource::ResourceSystem::new()?;
-        let resource_shared = resource.shared();
+        let res = res::ResourceSystem::new(sched_shared.clone())?;
+        let res_shared = res.shared();
 
-        let graphics = graphics::GraphicsSystem::new(window.clone(), resource_shared.clone())?;
-        let graphics_shared = graphics.shared();
+        let video = if settings.headless {
+            video::VideoSystem::headless()
+        } else {
+            video::VideoSystem::new(&window)?
+        };
 
-        let time = time::TimeSystem::new(settings.engine)?;
+        let video_shared = video.shared();
+
+        let time = time::TimeSystem::new(settings.engine);
         let time_shared = time.shared();
 
-        let mut context = Context::new();
-        context.insert::<resource::ResourceSystem>(resource_shared);
-        context.insert::<graphics::GraphicsSystem>(graphics_shared);
-        context.insert::<input::InputSystem>(input_shared);
-        context.insert::<time::TimeSystem>(time_shared);
+        res.register(video::assets::texture_loader::TextureLoader::new(
+            video_shared.clone(),
+        ));
+
+        res.register(video::assets::mesh_loader::MeshLoader::new(
+            video_shared.clone(),
+        ));
+
+        let context = Context {
+            res: res_shared,
+            input: input_shared,
+            time: time_shared,
+            video: video_shared,
+            window: window.shared(),
+            sched: sched_shared,
+            data: Arc::new(RwLock::new(ContextData::default())),
+        };
 
         Ok(Engine {
-            events_loop: events_loop,
             input: input,
             window: window,
-            graphics: graphics,
-            resource: resource,
+            video: video,
+            res: res,
             time: time,
+            sched: sched,
 
-            context: Arc::new(context),
+            context: context,
             headless: settings.headless,
         })
     }
@@ -100,23 +132,17 @@ impl Engine {
         let application = Arc::new(RwLock::new(application));
 
         let dir = ::std::env::current_dir()?;
-        println!("Run crayon-runtim with working directory {:?}.", dir);
+        info!("CWD: {:?}.", dir);
 
-        let (task_sender, task_receiver) = mpsc::channel();
-        let (join_sender, join_receiver) = mpsc::channel();
-        Self::main_thread(
-            task_receiver,
-            join_sender,
-            self.context.clone(),
-            application.clone(),
-        );
+        let latch = Arc::new(sched::latch::LockLatch::new());
+        Self::execute_frame(&self.context, latch.clone(), application.clone());
 
         let mut alive = true;
         while alive {
-            self.input.advance(self.window.hidpi_factor());
+            self.input.advance(self.window.hidpi());
 
             // Poll any possible events first.
-            for v in self.events_loop.advance() {
+            for v in self.window.advance() {
                 match *v {
                     event::Event::Application(value) => {
                         {
@@ -138,20 +164,22 @@ impl Engine {
                 break;
             }
 
+            self.res.advance();
             self.time.advance();
-            self.graphics.swap_frames();
+            self.video.swap_frames();
 
             let (video_info, duration) = {
+                let duration = latch.wait_and_take()?;
+
                 // Perform update and render submitting for frame [x], and drawing
                 // frame [x-1] at the same time.
-                task_sender.send(true).unwrap();
-
-                // This will block the main-thread until all the graphics commands
-                // is finished by GPU.
-                let video_info = self.graphics.advance()?;
-                let duration = join_receiver.recv().unwrap()?;
+                Self::execute_frame(&self.context, latch.clone(), application.clone());
+                // This will block the main-thread until all the video commands is finished by GPU.
+                let video_info = self.video.advance(&self.window)?;
                 (video_info, duration)
             };
+
+            self.window.swap_buffers()?;
 
             {
                 let info = FrameInfo {
@@ -172,41 +200,29 @@ impl Engine {
             application.on_exit(&self.context)?;
         }
 
-        task_sender.send(false).unwrap();
+        self.sched.terminate();
+        self.sched.wait_until_terminated();
         Ok(self)
     }
 
-    fn main_thread<T>(
-        receiver: mpsc::Receiver<bool>,
-        sender: mpsc::Sender<Result<Duration>>,
-        context: Arc<Context>,
-        application: Arc<RwLock<T>>,
+    fn execute_frame<T>(
+        ctx: &Context,
+        latch: Arc<sched::latch::LockLatch<Result<Duration>>>,
+        app: Arc<RwLock<T>>,
     ) where
         T: Application + Send + Sync + 'static,
     {
-        thread::Builder::new()
-            .name("LOGIC".into())
-            .spawn(move || {
-                //
-                while receiver.recv().unwrap() {
-                    sender
-                        .send(Self::execute_frame(&context, &application))
-                        .unwrap();
-                }
-            })
-            .unwrap();
-    }
+        let run = |ctx, app: Arc<RwLock<T>>| {
+            let ts = Instant::now();
 
-    fn execute_frame<T>(ctx: &Context, application: &RwLock<T>) -> Result<Duration>
-    where
-        T: Application + Send + Sync + 'static,
-    {
-        let ts = Instant::now();
+            let mut application = app.write().unwrap();
+            application.on_update(&ctx)?;
+            application.on_render(&ctx)?;
 
-        let mut application = application.write().unwrap();
-        application.on_update(ctx)?;
-        application.on_render(ctx)?;
+            Ok(Instant::now() - ts)
+        };
 
-        Ok(Instant::now() - ts)
+        let ctx_clone = ctx.clone();
+        ctx.sched.spawn(move || latch.set(run(ctx_clone, app)));
     }
 }

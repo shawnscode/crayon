@@ -1,11 +1,10 @@
 //! Responsible for converting window messages to input state and internal events.
 
-use std::slice::Iter;
 use glutin;
-use math;
-
-pub use glutin::VirtualKeyCode as KeyboardButton;
 pub use glutin::MouseButton;
+pub use glutin::VirtualKeyCode as KeyboardButton;
+
+use math;
 
 /// The status of application.
 #[derive(Debug, Clone, Copy)]
@@ -68,56 +67,9 @@ pub enum Event {
     InputDevice(InputDeviceEvent),
 }
 
-/// A `EventsLoop` is responsible for converting window messages to input state
-/// and internal events.
-pub struct EventsLoop {
-    ctx: glutin::EventsLoop,
-    frame_events: Vec<Event>,
-}
-
-impl Default for EventsLoop {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl EventsLoop {
-    /// Creates a new `EventsLoop`.
-    pub fn new() -> Self {
-        EventsLoop {
-            ctx: glutin::EventsLoop::new(),
-            frame_events: Vec::new(),
-        }
-    }
-
-    /// Gets the iterator over the events collected during last frame.
-    pub fn iter(&self) -> Iter<Event> {
-        self.frame_events.iter()
-    }
-
-    pub(crate) fn advance(&mut self) -> Iter<Event> {
-        self.frame_events.clear();
-
-        {
-            let frame = &mut self.frame_events;
-            self.ctx.poll_events(|event| {
-                if let Some(v) = from_event(event) {
-                    frame.push(v);
-                }
-            });
-        }
-
-        self.frame_events.iter()
-    }
-
-    pub(crate) fn underlaying(&self) -> &glutin::EventsLoop {
-        &self.ctx
-    }
-}
-
-fn from_event(source: glutin::Event) -> Option<Event> {
+pub(crate) fn from_event(source: glutin::Event, dimensions: math::Vector2<u32>) -> Option<Event> {
     match source {
-        glutin::Event::WindowEvent { event, .. } => from_window_event(&event),
+        glutin::Event::WindowEvent { event, .. } => from_window_event(&event, dimensions),
 
         glutin::Event::Awakened => Some(Event::Application(ApplicationEvent::Awakened)),
 
@@ -131,9 +83,12 @@ fn from_event(source: glutin::Event) -> Option<Event> {
     }
 }
 
-fn from_window_event(source: &glutin::WindowEvent) -> Option<Event> {
+fn from_window_event(
+    source: &glutin::WindowEvent,
+    dimensions: math::Vector2<u32>,
+) -> Option<Event> {
     match *source {
-        glutin::WindowEvent::Closed => Some(Event::Application(ApplicationEvent::Closed)),
+        glutin::WindowEvent::CloseRequested => Some(Event::Application(ApplicationEvent::Closed)),
 
         glutin::WindowEvent::Focused(v) => if v {
             Some(Event::Application(ApplicationEvent::GainFocus))
@@ -143,15 +98,19 @@ fn from_window_event(source: &glutin::WindowEvent) -> Option<Event> {
 
         glutin::WindowEvent::CursorMoved { position, .. } => {
             Some(Event::InputDevice(InputDeviceEvent::MouseMoved {
-                position: (position.0 as f32, position.1 as f32),
+                position: (position.x as f32, dimensions.y as f32 - position.y as f32),
             }))
         }
 
         glutin::WindowEvent::MouseWheel { delta, .. } => match delta {
-            glutin::MouseScrollDelta::LineDelta(x, y)
-            | glutin::MouseScrollDelta::PixelDelta(x, y) => {
+            glutin::MouseScrollDelta::LineDelta(x, y) => {
                 Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
                     delta: (x as f32, y as f32),
+                }))
+            }
+            glutin::MouseScrollDelta::PixelDelta(pos) => {
+                Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
+                    delta: (pos.x as f32, pos.y as f32),
                 }))
             }
         },
@@ -204,7 +163,7 @@ fn from_window_event(source: &glutin::WindowEvent) -> Option<Event> {
             let evt = TouchEvent {
                 id: touch.id as u8,
                 state: from_touch_state(touch.phase),
-                position: (touch.location.0 as f32, touch.location.1 as f32).into(),
+                position: (touch.location.x as f32, touch.location.y as f32).into(),
             };
 
             Some(Event::InputDevice(InputDeviceEvent::Touch(evt)))

@@ -1,0 +1,10 @@
+[package]
+name = "crayon-testbed"
+version = "0.1.0"
+authors = ["maojingkai <oammix@gmail.com>"]
+
+[dependencies]
+crayon = { path = "../.." }
+crayon-imgui = { path = "../../modules/imgui" }
+crayon-3d = { path = "../../modules/3d" }
+env_logger = "0.5.12"
