@@ -25,18 +25,18 @@ The asset workflow comes with the version 0.0.5. During the developent, the asse
 
 Currently, we are supporting assets with:
 
-1. Transmission files like `.gltf`, `.blend`, `.fbx`, etc.. through [assimp](https://github.com/assimp/assimp).
+1. Transmission files like `.glTF`, `.blend`, `.fbx`, etc.. through [assimp](https://github.com/assimp/assimp).
     * Notes that not only `Mesh`, but also the nodes will be imported as `Prefab` for scene creation.
-2. Texture files like `.PSD`, `.PNG`, `.JPEG`, `.BMP`, etc.. through [PvrTexTool](https://community.imgtec.com/developers/powervr/tools/pvrtextool/) and [crunch](https://github.com/BKcore/crunch-osx).
+2. Texture files like `.psd`, `.png`, `.jpeg`, `.bmp`, etc.. through [PvrTexTool](https://community.imgtec.com/developers/powervr/tools/pvrtextool/) and [crunch](https://github.com/BKcore/crunch-osx).
     * Notes that texture files could be compressed into `PVRTC`, `ETC2` or `S3TC` formats based on platform.
 3. Universal shader files through [SPIRV](https://www.khronos.org/registry/spir-v/) are also in planning, and should be ready in next few releases.
 
-The assets manipulation codes are placed under [crayon-tools](), checks out the repository for further details.
+The assets manipulation codes are placed under [crayon-tools](https://github.com/shawnscode/crayon-tools), checks out the repository for further details.
 
 ### Quick Example
 For the sake of brevity, you can als run a simple and quick example with commands:
 
 ``` sh
-git clone git@github.com:shawnscode/crayon.git
-cargo run --example modules_3d_prefab
+git clone git@github.com:shawnscode/crayon.git && cd crayon-examples
+cargo run --bin prefab
 ```

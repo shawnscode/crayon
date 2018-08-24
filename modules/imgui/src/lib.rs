@@ -1,11 +1,11 @@
 #[macro_use]
 extern crate crayon;
+
 extern crate imgui;
+#[doc(hidden)]
+pub use imgui::*;
 
 pub mod canvas;
 mod renderer;
 
-pub mod prelude {
-    pub use canvas::Canvas;
-    pub use imgui::*;
-}
+pub use self::canvas::Canvas;

@@ -1,7 +1,4 @@
-extern crate crayon;
 extern crate crayon_testbed;
-
-use crayon::prelude::*;
 use crayon_testbed::prelude::*;
 
 struct Window {
@@ -12,18 +9,26 @@ struct Window {
 
 impl Window {
     fn new(engine: &mut Engine) -> Result<Self> {
+        //
         let world_resources = WorldResources::new(engine);
-
         let ctx = engine.context();
         let pipeline = SimpleRenderer::new(&ctx)?;
+        let mut world = World::new(world_resources.shared(), pipeline);
 
         //
         let prefab = ctx.res.load("res:cornell_box.obj")?;
         ctx.res.wait(prefab)?;
-
-        //
-        let mut world = World::new(world_resources.shared(), pipeline);
         let room = world.instantiate(prefab).unwrap();
+
+        // Lets give shortBox some red color.
+        let mut m = SimpleMaterial::default();
+        let e = world.find("cornell_box.obj/shortBox").unwrap();
+        m.diffuse = [255, 100, 100, 255].into();
+        world.renderer.add(e, m);
+
+        let e = world.find("cornell_box.obj/tallBox").unwrap();
+        m.diffuse = [55, 55, 255, 255].into();
+        world.renderer.add(e, m);
 
         //
         let lit = world.create();
