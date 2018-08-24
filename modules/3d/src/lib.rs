@@ -17,8 +17,8 @@ mod world;
 pub use self::world::{world_impl, Entity, World};
 
 pub mod prelude {
-    pub use assets::WorldResources;
+    pub use assets::{Prefab, WorldResources};
     pub use renderers::{Camera, Lit, MeshRenderer, SimpleRenderer};
-    pub use scene::SceneGraph;
+    pub use scene::{SceneGraph, Transform};
     pub use world::{Entity, World};
 }
