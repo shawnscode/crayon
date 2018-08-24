@@ -8,7 +8,7 @@ mod mesh_renderer;
 pub use self::mesh_renderer::MeshRenderer;
 
 pub mod simple;
-pub use self::simple::SimpleRenderer;
+pub use self::simple::{SimpleMaterial, SimpleRenderer};
 
 use scene::SceneGraph;
 use {Component, Entity};

@@ -1,5 +1,5 @@
 mod material;
-pub use self::material::Material;
+pub use self::material::SimpleMaterial;
 
 use crayon::application::Context;
 use crayon::errors::*;
@@ -15,8 +15,9 @@ use {Component, Entity};
 pub const MAX_DIR_LITS: usize = 1;
 pub const MAX_POINT_LITS: usize = 4;
 
+/// A simple renderer that draws some color into mesh objects.
 pub struct SimpleRenderer {
-    materials: Component<Material>,
+    materials: Component<SimpleMaterial>,
 
     surface: SurfaceHandle,
     shader: ShaderHandle,
@@ -28,6 +29,7 @@ pub struct SimpleRenderer {
 }
 
 impl SimpleRenderer {
+    /// Creates a new `SimpleRenderer`.
     pub fn new(ctx: &Context) -> Result<Self> {
         // Create shader state.
         let attributes = AttributeLayout::build()
@@ -127,7 +129,7 @@ impl SimpleRenderer {
     }
 
     #[inline]
-    pub fn add(&mut self, ent: Entity, material: Material) -> Option<Material> {
+    pub fn add(&mut self, ent: Entity, material: SimpleMaterial) -> Option<SimpleMaterial> {
         self.materials.add(ent, material)
     }
 
@@ -137,12 +139,12 @@ impl SimpleRenderer {
     }
 
     #[inline]
-    pub fn material(&self, ent: Entity) -> Option<&Material> {
+    pub fn material(&self, ent: Entity) -> Option<&SimpleMaterial> {
         self.materials.get(ent)
     }
 
     #[inline]
-    pub fn material_mut(&mut self, ent: Entity) -> Option<&mut Material> {
+    pub fn material_mut(&mut self, ent: Entity) -> Option<&mut SimpleMaterial> {
         self.materials.get_mut(ent)
     }
 
