@@ -1,8 +1,7 @@
-extern crate crayon;
+#[macro_use]
 extern crate crayon_testbed;
-
-use crayon::prelude::*;
 use crayon_testbed::prelude::*;
+use crayon_testbed::ImGuiCond;
 
 struct Window {
     canvas: ConsoleCanvas,

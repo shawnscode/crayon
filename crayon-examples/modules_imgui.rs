@@ -1,7 +1,4 @@
-extern crate crayon;
 extern crate crayon_testbed;
-
-use crayon::prelude::*;
 use crayon_testbed::prelude::*;
 
 struct Window {
