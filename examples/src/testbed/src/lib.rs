@@ -34,7 +34,6 @@ pub fn find_res_dir() -> crayon::res::vfs::DiskFS {
     let search_dirs = [
         root.join("resources"),
         root.parent().unwrap().join("resources"),
-        root.join("crayon-examples/resources"),
     ];
 
     for v in &search_dirs {

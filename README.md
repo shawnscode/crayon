@@ -37,6 +37,6 @@ The assets manipulation codes are placed under [crayon-tools](https://github.com
 For the sake of brevity, you can als run a simple and quick example with commands:
 
 ``` sh
-git clone git@github.com:shawnscode/crayon.git && cd crayon-examples
-cargo run --bin prefab
+git clone git@github.com:shawnscode/crayon.git && cd examples
+cargo run --bin render_texture
 ```

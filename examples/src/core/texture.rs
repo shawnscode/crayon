@@ -57,8 +57,8 @@ impl Window {
         let mut params = ShaderParams::default();
         params.attributes = attributes;
         params.uniforms = uniforms;
-        let vs = include_str!("assets/texture.vs").to_owned();
-        let fs = include_str!("assets/texture.fs").to_owned();
+        let vs = include_str!("shaders/texture.vs").to_owned();
+        let fs = include_str!("shaders/texture.fs").to_owned();
         let shader = ctx.video.create_shader(params, vs, fs)?;
 
         let texture = ctx.res.load("res:texture.png")?;

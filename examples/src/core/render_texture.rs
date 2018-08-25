@@ -69,8 +69,8 @@ impl Window {
             // Create shader state.
             let mut params = ShaderParams::default();
             params.attributes = attributes;
-            let vs = include_str!("assets/render_target_p1.vs").to_owned();
-            let fs = include_str!("assets/render_target_p1.fs").to_owned();
+            let vs = include_str!("shaders/render_target_p1.vs").to_owned();
+            let fs = include_str!("shaders/render_target_p1.fs").to_owned();
             let shader = ctx.video.create_shader(params, vs, fs)?;
 
             (
@@ -115,8 +115,8 @@ impl Window {
             let mut params = ShaderParams::default();
             params.attributes = attributes;
             params.uniforms = uniforms;
-            let vs = include_str!("assets/render_target_p2.vs").to_owned();
-            let fs = include_str!("assets/render_target_p2.fs").to_owned();
+            let vs = include_str!("shaders/render_target_p2.vs").to_owned();
+            let fs = include_str!("shaders/render_target_p2.fs").to_owned();
             let shader = ctx.video.create_shader(params, vs, fs)?;
 
             Pass {

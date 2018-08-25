@@ -4,24 +4,24 @@ version = "0.0.0"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 
 [dependencies]
-crayon-testbed = { path = "testbed" }
+crayon-testbed = { path = "src/testbed" }
 
 [[bin]]
 name = "render_texture"
-path = "core_render_texture.rs"
+path = "src/core/render_texture.rs"
 
 [[bin]]
 name = "texture"
-path = "core_texture.rs"
+path = "src/core/texture.rs"
 
 [[bin]]
 name = "input"
-path = "core_input.rs"
+path = "src/core/input.rs"
 
 [[bin]]
 name = "imgui"
-path = "modules_imgui.rs"
+path = "src/imgui/imgui.rs"
 
 [[bin]]
 name = "prefab"
-path = "modules_prefab.rs"
+path = "src/3d/prefab.rs"
