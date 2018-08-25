@@ -3,5 +3,3 @@ Cargo.lock
 target
 .DS_Store
 .vscode
-links
-crayon-examples/assets/compiled
