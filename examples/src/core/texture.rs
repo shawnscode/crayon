@@ -61,7 +61,7 @@ impl Window {
         let fs = include_str!("shaders/texture.fs").to_owned();
         let shader = ctx.video.create_shader(params, vs, fs)?;
 
-        let texture = ctx.res.load("res:texture.png")?;
+        let texture = ctx.res.load("res:crate.bmp")?;
         ctx.res.wait(texture).unwrap();
 
         Ok(Window {
