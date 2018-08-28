@@ -1,6 +1,6 @@
 varying vec3 v_EyeFragPos;
 varying vec3 v_EyeNormal;
-// varying vec2 v_Texcoord;
+varying vec2 v_Texcoord;
 
 uniform vec3 u_DirLitViewDir[MAX_DIR_LITS];
 uniform vec3 u_DirLitColor[MAX_DIR_LITS];
@@ -13,7 +13,7 @@ uniform vec3 u_Ambient;
 uniform vec3 u_Diffuse;
 uniform vec3 u_Specular;
 uniform float u_Shininess;
-// uniform sampler2D u_Texture;
+uniform sampler2D u_DiffuseTexture;
 
 vec3 CalculateLight(vec3 normal, vec3 viewDir, vec3 lightDir, vec3 reflectDir, float shadow)
 {
@@ -63,5 +63,6 @@ void main()
         result += max(power * attenuation, vec3(0.0, 0.0, 0.0));
     }
 
-    gl_FragColor = vec4(result, 1.0);
+    vec4 tex = texture2D(u_DiffuseTexture, v_Texcoord);
+    gl_FragColor = vec4(result, 1.0) * tex;
 }

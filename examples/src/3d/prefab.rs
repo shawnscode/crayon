@@ -10,9 +10,9 @@ struct Window {
 impl Window {
     fn new(engine: &mut Engine) -> Result<Self> {
         //
-        let world_resources = WorldResources::new(engine);
+        let world_resources = WorldResources::new(engine)?;
         let ctx = engine.context();
-        let pipeline = SimpleRenderer::new(&ctx)?;
+        let pipeline = SimpleRenderer::new(&ctx, world_resources.shared())?;
         let mut world = World::new(world_resources.shared(), pipeline);
 
         //

@@ -73,8 +73,8 @@ impl Renderable {
     }
 
     #[inline]
-    pub fn add_mesh(&mut self, ent: Entity, mesh: MeshRenderer) {
-        self.meshes.add(ent, mesh);
+    pub fn add_mesh<T: Into<MeshRenderer>>(&mut self, ent: Entity, mesh: T) {
+        self.meshes.add(ent, mesh.into());
     }
 
     #[inline]

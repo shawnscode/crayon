@@ -12,7 +12,7 @@ pub struct Camera {
     surface: Option<SurfaceHandle>,
 
     #[doc(hidden)]
-    pub transform: Transform,
+    pub(crate) transform: Transform,
 }
 
 impl Default for Camera {

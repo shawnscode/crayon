@@ -10,6 +10,7 @@ use crayon::video::prelude::*;
 use std::sync::Arc;
 
 use super::{Camera, Lit, LitSource, MeshRenderer};
+use assets::WorldResourcesShared;
 use {Component, Entity};
 
 pub const MAX_DIR_LITS: usize = 1;
@@ -26,15 +27,18 @@ pub struct SimpleRenderer {
 
     dir_lits: Vec<(String, String)>,
     point_lits: Vec<(String, String, String)>,
+
+    res: Arc<WorldResourcesShared>,
 }
 
 impl SimpleRenderer {
     /// Creates a new `SimpleRenderer`.
-    pub fn new(ctx: &Context) -> Result<Self> {
+    pub fn new(ctx: &Context, res: Arc<WorldResourcesShared>) -> Result<Self> {
         // Create shader state.
         let attributes = AttributeLayout::build()
             .with(Attribute::Position, 3)
             .with(Attribute::Normal, 3)
+            .with(Attribute::Texcoord0, 2)
             .finish();
 
         let mut uniforms = UniformVariableLayout::build()
@@ -44,8 +48,8 @@ impl SimpleRenderer {
             .with("u_Ambient", UniformVariableType::Vector3f)
             .with("u_Diffuse", UniformVariableType::Vector3f)
             .with("u_Specular", UniformVariableType::Vector3f)
-            .with("u_Shininess", UniformVariableType::F32);
-        // .with("u_Texture", UniformVariableType::Texture);
+            .with("u_Shininess", UniformVariableType::F32)
+            .with("u_DiffuseTexture", UniformVariableType::Texture);
 
         let mut dir_lits = Vec::new();
         let mut point_lits = Vec::new();
@@ -95,7 +99,7 @@ impl SimpleRenderer {
             ",
             MAX_DIR_LITS,
             MAX_POINT_LITS,
-            include_str!("../../../assets/simple.vs")
+            include_str!("shaders/simple.vs")
         );
 
         let fs = format!(
@@ -109,7 +113,7 @@ impl SimpleRenderer {
             ",
             MAX_DIR_LITS,
             MAX_POINT_LITS,
-            include_str!("../../../assets/simple.fs")
+            include_str!("shaders/simple.fs")
         );
 
         let shader = ctx.video.create_shader(params, vs, fs)?;
@@ -125,6 +129,7 @@ impl SimpleRenderer {
             drawcalls: OrderDrawBatch::new(),
             dir_lits: dir_lits,
             point_lits: point_lits,
+            res: res,
         })
     }
 
@@ -174,10 +179,12 @@ impl super::Renderer for SimpleRenderer {
             dc.set_uniform_variable("u_ViewNormalMatrix", vn);
 
             let mat = self.material(mesh.ent).cloned().unwrap_or_default();
+            let texture = mat.diffuse_texture.unwrap_or(self.res.textures.white);
             dc.set_uniform_variable("u_Ambient", mat.ambient.rgb());
             dc.set_uniform_variable("u_Diffuse", mat.diffuse.rgb());
             dc.set_uniform_variable("u_Specular", mat.specular.rgb());
             dc.set_uniform_variable("u_Shininess", mat.shininess);
+            dc.set_uniform_variable("u_DiffuseTexture", texture);
 
             lits.sort_by_key(|v| mesh.transform.position.distance2(v.transform.position) as u32);
 
