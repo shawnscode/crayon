@@ -14,6 +14,7 @@ impl Window {
 
         let ctx = engine.context();
         let pipeline = SimpleRenderer::new(&ctx, world_resources.clone())?;
+
         let mut world = World::new(world_resources.clone(), pipeline);
 
         //
@@ -29,16 +30,14 @@ impl Window {
 
         //
         let lit = world.create();
-        let rotation = math::Euler::new(math::Deg(45.0), math::Deg(0.0), math::Deg(0.0));
         world.renderables.add_lit(lit, Lit::default());
-        world.scene.set_rotation(lit, rotation);
 
         //
         let camera = world.create();
         let params = Camera::ortho(3.2, 2.4, 0.1, 5.0);
         let center = [0.0, 0.0, 0.0];
         world.renderables.add_camera(camera, params);
-        world.scene.set_position(camera, [0.0, 2.0, -2.0]);
+        world.scene.set_position(camera, [0.0, 0.0, -2.0]);
         world.scene.look_at(camera, center, [0.0, 1.0, 0.0]);
 
         Ok(Window {
