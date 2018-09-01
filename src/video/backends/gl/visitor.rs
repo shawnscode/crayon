@@ -294,7 +294,7 @@ impl Visitor for GLVisitor {
             attributes: RefCell::new(HashMap::new()),
         };
 
-        for (name, _) in shader.params.attributes.iter() {
+        for (name, _, _) in shader.params.attributes.iter() {
             let name: &'static str = name.into();
             let location = shader.attribute_location(name)?;
             if location == -1 {
@@ -718,31 +718,36 @@ impl Visitor for GLVisitor {
             let shader = self.shaders
                 .get(shader)
                 .ok_or_else(|| format_err!("{:?} is invalid.", shader))?;
+
             self.bind_shader(&shader)?;
+            self.clear_binded_texture()?;
 
             let mut index = 0usize;
             for &(field, variable) in uniforms {
                 let location = shader.hash_uniform_location(field).unwrap();
                 match variable {
                     UniformVariable::Texture(handle) => {
-                        if let Some(texture) = self.textures.get(handle) {
-                            let v = UniformVariable::I32(index as i32);
-                            self.bind_uniform_variable(location, &v)?;
-                            self.bind_texture(index, texture.id)?;
-                            index += 1;
-                        }
+                        let v = UniformVariable::I32(index as i32);
+                        let texture = self.textures.get(handle).map(|v| v.id).unwrap_or(0);
+                        self.bind_uniform_variable(location, &v)?;
+                        self.bind_texture(index, texture)?;
+                        index += 1;
                     }
                     UniformVariable::RenderTexture(handle) => {
+                        let v = UniformVariable::I32(index as i32);
+                        self.bind_uniform_variable(location, &v)?;
+
                         if let Some(texture) = self.render_textures.get(handle) {
                             if !texture.params.sampler {
                                 bail!("The render buffer does not have a sampler.");
                             }
 
-                            let v = UniformVariable::I32(index as i32);
-                            self.bind_uniform_variable(location, &v)?;
                             self.bind_texture(index, texture.id)?;
-                            index += 1;
+                        } else {
+                            self.bind_texture(index, 0)?;
                         }
+
+                        index += 1;
                     }
                     _ => {
                         self.bind_uniform_variable(location, &variable)?;
@@ -909,7 +914,7 @@ impl GLVisitor {
     }
 
     unsafe fn bind_texture(&self, index: usize, id: GLuint) -> Result<()> {
-        assert!(id != 0, "failed to bind texture with 0.");
+        // assert!(id != 0, "failed to bind texture with 0.");
 
         if index >= MAX_UNIFORM_TEXTURE_SLOTS {
             bail!("Reaching maximum texture slots.");
@@ -924,6 +929,21 @@ impl GLVisitor {
         if mutables.binded_textures[index] != Some(id) {
             mutables.binded_textures[index] = Some(id);
             gl::BindTexture(gl::TEXTURE_2D, id);
+        }
+
+        check()
+    }
+
+    unsafe fn clear_binded_texture(&self) -> Result<()> {
+        let mut mutables = self.mutables.borrow_mut();
+
+        for (i, v) in mutables.binded_textures.iter_mut().enumerate() {
+            if v.is_some() {
+                gl::ActiveTexture(gl::TEXTURE0 + i as GLuint);
+                gl::BindTexture(gl::TEXTURE_2D, 0);
+
+                *v = None;
+            }
         }
 
         check()
@@ -962,7 +982,7 @@ impl GLVisitor {
         gl::BindVertexArray(vao);
         mutables.binded_vao = Some(vao);
 
-        for (name, size) in shader.params.attributes.iter() {
+        for (name, size, required) in shader.params.attributes.iter() {
             if let Some(element) = mesh.params.layout.element(name) {
                 if element.size < size {
                     bail!(
@@ -987,10 +1007,12 @@ impl GLVisitor {
                     offset as *const u8 as *const ::std::os::raw::c_void,
                 );
             } else {
-                bail!(
-                    "Can't find attribute {:?} description in vertex buffer.",
-                    name
-                );
+                if required {
+                    bail!(
+                        "Can't find attribute {:?} description in vertex buffer.",
+                        name
+                    );
+                }
             }
         }
 

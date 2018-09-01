@@ -342,7 +342,7 @@ impl SceneGraph {
             self.ancestors(ent)
                 .map(|v| self.index_unchecked(v))
                 .fold(self.local_transforms[index], |acc, rhs| {
-                    acc * self.local_transforms[rhs]
+                    self.local_transforms[rhs] * acc
                 })
         })
     }
@@ -381,7 +381,7 @@ impl SceneGraph {
             self.ancestors(ent)
                 .map(|v| self.index_unchecked(v))
                 .fold(self.local_transforms[index].position, |acc, rhs| {
-                    acc + self.local_transforms[rhs].position
+                    self.local_transforms[rhs].position + acc
                 })
         })
     }
@@ -396,7 +396,7 @@ impl SceneGraph {
                 let ancestor_position = self.ancestors(ent)
                     .map(|v| self.index_unchecked(v))
                     .fold(math::Vector3::new(0.0, 0.0, 0.0), |acc, rhs| {
-                        acc + self.local_transforms[rhs].position
+                        self.local_transforms[rhs].position + acc
                     });
 
                 self.local_transforms[index].position = position.into() - ancestor_position;

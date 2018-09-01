@@ -40,6 +40,8 @@ pub extern crate bincode;
 pub extern crate uuid;
 
 #[doc(hidden)]
+pub use cgmath::*;
+#[doc(hidden)]
 pub use log::*;
 
 // FIXME: unresolved serde proc-macro re-export. https://github.com/serde-rs/serde/issues/1147

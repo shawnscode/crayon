@@ -23,5 +23,13 @@ name = "imgui"
 path = "src/imgui/imgui.rs"
 
 [[bin]]
+name = "cube"
+path = "src/3d/cube.rs"
+
+[[bin]]
 name = "prefab"
 path = "src/3d/prefab.rs"
+
+[[bin]]
+name = "saturn"
+path = "src/3d/saturn.rs"

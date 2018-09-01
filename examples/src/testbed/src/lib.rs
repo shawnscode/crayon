@@ -7,6 +7,7 @@ extern crate crayon_imgui;
 pub use crayon_imgui::*;
 
 extern crate env_logger;
+pub extern crate rand;
 
 pub mod console;
 
@@ -47,13 +48,10 @@ pub fn find_res_dir() -> crayon::res::vfs::DiskFS {
 
 pub mod prelude {
     pub use super::console::ConsoleCanvas;
-
-    pub use crayon_3d::prelude::*;
-
-    // pub use crayon_imgui::prelude::TextureHandle as ImGuiTextureHandle;
-    // pub use crayon_imgui::prelude::*;
+    pub use super::rand;
 
     pub use crayon::errors::*;
     pub use crayon::prelude::*;
     pub use crayon::video::assets::prelude::*;
+    pub use crayon_3d::prelude::*;
 }
