@@ -110,14 +110,14 @@ impl FromStr for Attribute {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct AttributeLayout {
     len: u8,
-    elements: [(Attribute, u8); MAX_VERTEX_ATTRIBUTES],
+    elements: [(Attribute, u8, bool); MAX_VERTEX_ATTRIBUTES],
 }
 
 impl Default for AttributeLayout {
     fn default() -> Self {
         AttributeLayout {
             len: 0,
-            elements: [(Attribute::Position, 0); MAX_VERTEX_ATTRIBUTES],
+            elements: [(Attribute::Position, 0, false); MAX_VERTEX_ATTRIBUTES],
         }
     }
 }
@@ -135,10 +135,12 @@ impl AttributeLayout {
     }
 
     pub fn is_match(&self, layout: &VertexLayout) -> bool {
-        for (name, size) in self.iter() {
-            if let Some(element) = layout.element(name) {
-                if element.size == size {
-                    continue;
+        for (name, size, required) in self.iter() {
+            if required {
+                if let Some(element) = layout.element(name) {
+                    if element.size == size {
+                        continue;
+                    }
                 }
             }
 
@@ -155,7 +157,7 @@ pub struct AttributeLayoutIter<'a> {
 }
 
 impl<'a> Iterator for AttributeLayoutIter<'a> {
-    type Item = (Attribute, u8);
+    type Item = (Attribute, u8, bool);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos >= self.layout.len {
@@ -176,19 +178,29 @@ impl AttributeLayoutBuilder {
         Default::default()
     }
 
-    pub fn with(mut self, attribute: Attribute, size: u8) -> Self {
+    #[inline]
+    pub fn with(self, attribute: Attribute, size: u8) -> Self {
+        self.append(attribute, size, true)
+    }
+
+    #[inline]
+    pub fn with_optional(self, attribute: Attribute, size: u8) -> Self {
+        self.append(attribute, size, false)
+    }
+
+    fn append(mut self, attribute: Attribute, size: u8, required: bool) -> Self {
         assert!(size > 0 && size <= 4);
 
         for i in 0..self.0.len {
             let i = i as usize;
             if self.0.elements[i].0 == attribute {
-                self.0.elements[i] = (attribute, size);
+                self.0.elements[i] = (attribute, size, required);
                 return self;
             }
         }
 
         assert!((self.0.len as usize) < MAX_VERTEX_ATTRIBUTES);
-        self.0.elements[self.0.len as usize] = (attribute, size);
+        self.0.elements[self.0.len as usize] = (attribute, size, required);
         self.0.len += 1;
         self
     }

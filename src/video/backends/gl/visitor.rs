@@ -294,7 +294,7 @@ impl Visitor for GLVisitor {
             attributes: RefCell::new(HashMap::new()),
         };
 
-        for (name, _) in shader.params.attributes.iter() {
+        for (name, _, _) in shader.params.attributes.iter() {
             let name: &'static str = name.into();
             let location = shader.attribute_location(name)?;
             if location == -1 {
@@ -982,7 +982,7 @@ impl GLVisitor {
         gl::BindVertexArray(vao);
         mutables.binded_vao = Some(vao);
 
-        for (name, size) in shader.params.attributes.iter() {
+        for (name, size, required) in shader.params.attributes.iter() {
             if let Some(element) = mesh.params.layout.element(name) {
                 if element.size < size {
                     bail!(
@@ -1007,10 +1007,12 @@ impl GLVisitor {
                     offset as *const u8 as *const ::std::os::raw::c_void,
                 );
             } else {
-                bail!(
-                    "Can't find attribute {:?} description in vertex buffer.",
-                    name
-                );
+                if required {
+                    bail!(
+                        "Can't find attribute {:?} description in vertex buffer.",
+                        name
+                    );
+                }
             }
         }
 
