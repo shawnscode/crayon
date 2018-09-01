@@ -24,9 +24,9 @@ impl ::std::ops::Mul for Transform {
 
     fn mul(self, rhs: Self) -> Self {
         Transform {
-            position: rhs.position + self.position,
-            rotation: rhs.rotation * self.rotation,
-            scale: rhs.scale * self.scale,
+            position: self.rotation * (rhs.position * self.scale) + self.position,
+            rotation: self.rotation * rhs.rotation,
+            scale: self.scale * rhs.scale,
         }
     }
 }

@@ -16,7 +16,7 @@ pub struct Lit {
     pub source: LitSource,
 
     #[doc(hidden)]
-    pub transform: Transform,
+    pub(crate) transform: Transform,
 }
 
 /// Enumeration for all light sources.

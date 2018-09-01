@@ -15,9 +15,18 @@ pub struct MeshRenderer {
     pub visible: bool,
 
     #[doc(hidden)]
-    pub transform: Transform,
+    pub(crate) transform: Transform,
     #[doc(hidden)]
-    pub ent: Entity,
+    pub(crate) ent: Entity,
+}
+
+impl From<MeshHandle> for MeshRenderer {
+    fn from(mesh: MeshHandle) -> Self {
+        MeshRenderer {
+            mesh: mesh,
+            ..Default::default()
+        }
+    }
 }
 
 impl Default for MeshRenderer {

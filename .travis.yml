@@ -32,16 +32,20 @@ addons:
       - gcc
       - binutils-dev
       - libiberty-dev
-      - xvfb
+      # - xvfb
 
-# Start Xvfb so that we could have a virtual graphics driver.
+before_install:
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install git-lfs; fi
+
 before_script:
-  - |
-    if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-      export DISPLAY=:99.0 &&
-      sh -e /etc/init.d/xvfb start &&
-      sleep 3; # give xvfb some time to start
-    fi
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then git lfs pull fi
+# Start Xvfb so that we could have a virtual graphics driver.
+#   - |
+#     if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+#       export DISPLAY=:99.0 &&
+#       sh -e /etc/init.d/xvfb start &&
+#       sleep 3; # give xvfb some time to start
+#     fi
 
 # Generate documentation, compile the engine, run tests/examples.
 script:
@@ -50,7 +54,7 @@ script:
     - cargo build --all --verbose --no-default-features
     - cargo test --all --verbose --no-default-features
     - |
-      for file in crayon-examples/*.rs; do
+      for file in examples/src/*/*.rs; do
           if [[ -f $file ]]; then
               filename=$(basename $file);
               filename=${filename#*_};
@@ -73,6 +77,6 @@ after_success: |
     cd ../.. &&
     rm -rf kcov-master &&
     for file in target/debug/*-*[^\.d]; do mkdir -p "target/cov/tests_$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/tests_$(basename $file)" "$file"; done &&
-    for file in crayon-examples/*.rs; do if [[ -f $file ]]; then filename=$(basename $file); filename=${filename#*_}; filename=${filename%.*}; mkdir -p "target/cov/examples_$filename"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/examples_$filename" "target/debug/${filename}" "headless"; fi done &&
+    for file in examples/src/*/*.rs; do if [[ -f $file ]]; then filename=$(basename $file); filename=${filename#*_}; filename=${filename%.*}; mkdir -p "target/cov/examples_$filename"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/examples_$filename" "target/debug/${filename}" "headless"; fi done &&
     bash <(curl -s https://codecov.io/bash);
   fi

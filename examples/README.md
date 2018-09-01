@@ -10,7 +10,9 @@ Pre-compiled assets are placed under `resources` folder for convenience, so you 
 
 ## 3D
 
-1. Prefab: ```cargo run --bin prefab```
+1. Cube: ```cargo run --bin cube```
+2. Prefab: ```cargo run --bin prefab```
+3. Saturn ```cargo run --bin saturn```
 
 ## ImGui
 

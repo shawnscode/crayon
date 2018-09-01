@@ -10,6 +10,7 @@ use crayon::video::prelude::*;
 use std::sync::Arc;
 
 use super::{Camera, Lit, LitSource, MeshRenderer};
+use assets::WorldResourcesShared;
 use {Component, Entity};
 
 pub const MAX_DIR_LITS: usize = 1;
@@ -24,17 +25,21 @@ pub struct SimpleRenderer {
     video: Arc<VideoSystemShared>,
     drawcalls: OrderDrawBatch<DrawOrder>,
 
+    global_ambient: math::Color<f32>,
     dir_lits: Vec<(String, String)>,
     point_lits: Vec<(String, String, String)>,
+
+    res: Arc<WorldResourcesShared>,
 }
 
 impl SimpleRenderer {
     /// Creates a new `SimpleRenderer`.
-    pub fn new(ctx: &Context) -> Result<Self> {
+    pub fn new(ctx: &Context, res: Arc<WorldResourcesShared>) -> Result<Self> {
         // Create shader state.
         let attributes = AttributeLayout::build()
             .with(Attribute::Position, 3)
             .with(Attribute::Normal, 3)
+            .with_optional(Attribute::Texcoord0, 2)
             .finish();
 
         let mut uniforms = UniformVariableLayout::build()
@@ -43,9 +48,10 @@ impl SimpleRenderer {
             .with("u_ViewNormalMatrix", UniformVariableType::Matrix4f)
             .with("u_Ambient", UniformVariableType::Vector3f)
             .with("u_Diffuse", UniformVariableType::Vector3f)
+            .with("u_DiffuseTexture", UniformVariableType::Texture)
             .with("u_Specular", UniformVariableType::Vector3f)
+            .with("u_SpecularTexture", UniformVariableType::Texture)
             .with("u_Shininess", UniformVariableType::F32);
-        // .with("u_Texture", UniformVariableType::Texture);
 
         let mut dir_lits = Vec::new();
         let mut point_lits = Vec::new();
@@ -95,7 +101,7 @@ impl SimpleRenderer {
             ",
             MAX_DIR_LITS,
             MAX_POINT_LITS,
-            include_str!("../../../assets/simple.vs")
+            include_str!("shaders/simple.vs")
         );
 
         let fs = format!(
@@ -109,7 +115,7 @@ impl SimpleRenderer {
             ",
             MAX_DIR_LITS,
             MAX_POINT_LITS,
-            include_str!("../../../assets/simple.fs")
+            include_str!("shaders/simple.fs")
         );
 
         let shader = ctx.video.create_shader(params, vs, fs)?;
@@ -125,6 +131,8 @@ impl SimpleRenderer {
             drawcalls: OrderDrawBatch::new(),
             dir_lits: dir_lits,
             point_lits: point_lits,
+            global_ambient: math::Color::gray(),
+            res: res,
         })
     }
 
@@ -152,11 +160,16 @@ impl SimpleRenderer {
     pub fn remove(&mut self, ent: Entity) {
         self.materials.remove(ent)
     }
+
+    #[inline]
+    pub fn set_global_ambient<T: Into<math::Color<f32>>>(&mut self, color: T) {
+        self.global_ambient = color.into();
+    }
 }
 
 impl super::Renderer for SimpleRenderer {
     fn submit(&mut self, camera: &Camera, lits: &[Lit], meshes: &[MeshRenderer]) {
-        use crayon::math::{Matrix, MetricSpace, SquareMatrix};
+        use crayon::math::{InnerSpace, Matrix, MetricSpace, SquareMatrix};
 
         let view_matrix = camera.transform.view_matrix();
         let projection_matrix = camera.frustum().to_matrix();
@@ -174,9 +187,19 @@ impl super::Renderer for SimpleRenderer {
             dc.set_uniform_variable("u_ViewNormalMatrix", vn);
 
             let mat = self.material(mesh.ent).cloned().unwrap_or_default();
-            dc.set_uniform_variable("u_Ambient", mat.ambient.rgb());
+            let diffuse = mat.diffuse_texture.unwrap_or(self.res.textures.white);
+            let specular = mat.specular_texture.unwrap_or(self.res.textures.white);
+
+            let mut ambient = mat.ambient.rgb();
+            ambient[0] *= self.global_ambient.r;
+            ambient[1] *= self.global_ambient.g;
+            ambient[2] *= self.global_ambient.b;
+
+            dc.set_uniform_variable("u_Ambient", ambient);
             dc.set_uniform_variable("u_Diffuse", mat.diffuse.rgb());
+            dc.set_uniform_variable("u_DiffuseTexture", diffuse);
             dc.set_uniform_variable("u_Specular", mat.specular.rgb());
+            dc.set_uniform_variable("u_SpecularTexture", specular);
             dc.set_uniform_variable("u_Shininess", mat.shininess);
 
             lits.sort_by_key(|v| mesh.transform.position.distance2(v.transform.position) as u32);
@@ -187,25 +210,33 @@ impl super::Renderer for SimpleRenderer {
                     LitSource::Dir => {
                         if dir_index < self.dir_lits.len() {
                             let names = &self.dir_lits[dir_index];
-                            let dir = view_matrix * lit.transform.forward().extend(1.0);
-                            dc.set_uniform_variable(&names.0, dir.truncate());
-                            dc.set_uniform_variable(&names.1, lit.color.rgb());
+                            let mut dir = view_matrix * lit.transform.forward().extend(0.0);
+                            let mut color = lit.color.rgb();
+                            color[0] *= lit.intensity;
+                            color[1] *= lit.intensity;
+                            color[2] *= lit.intensity;
+                            dc.set_uniform_variable(&names.0, dir.truncate().normalize());
+                            dc.set_uniform_variable(&names.1, color);
                             dir_index += 1;
                         }
                     }
                     LitSource::Point { radius, smoothness } => {
                         if point_index < self.point_lits.len() {
                             let names = &self.point_lits[point_index];
-                            let pos = view_matrix * lit.transform.position.extend(1.0);
+                            let mut pos = view_matrix * lit.transform.position.extend(1.0);
+                            pos /= pos.w;
                             let attenuation = math::Vector3::new(
                                 1.0,
                                 -1.0 / (radius + smoothness * radius * radius),
                                 -smoothness / (radius + smoothness * radius * radius),
                             );
+                            let mut color = lit.color.rgb();
+                            color[0] *= lit.intensity;
+                            color[1] *= lit.intensity;
+                            color[2] *= lit.intensity;
                             dc.set_uniform_variable(&names.0, pos.truncate());
-                            dc.set_uniform_variable(&names.1, lit.color.rgb());
+                            dc.set_uniform_variable(&names.1, color);
                             dc.set_uniform_variable(&names.2, attenuation);
-
                             point_index += 1;
                         }
                     }
