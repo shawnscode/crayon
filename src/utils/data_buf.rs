@@ -14,8 +14,10 @@ impl DataBuffer {
     }
 
     pub fn clear(&mut self) {
-        self.0.clear();
-        self.1.clear();
+        unsafe {
+            self.0.set_len(0);
+            self.1.clear();
+        }
     }
 
     pub fn extend<T>(&mut self, value: &T) -> DataBufferPtr<T>
@@ -26,6 +28,7 @@ impl DataBuffer {
             unsafe { slice::from_raw_parts(value as *const T as *const u8, mem::size_of::<T>()) };
 
         self.0.extend_from_slice(data);
+
         DataBufferPtr {
             position: (self.0.len() - data.len()) as u32,
             size: data.len() as u32,
