@@ -2,7 +2,9 @@ use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::path::Path;
 
-#[derive(Serialize, Deserialize, Debug, Eq)]
+use super::hash;
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct HashValue<T>(u64, PhantomData<T>)
 where
     T: Hash + ?Sized;
@@ -43,30 +45,12 @@ where
     }
 }
 
-impl<T> PartialEq<HashValue<T>> for HashValue<T>
-where
-    T: Hash + ?Sized,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0)
-    }
-}
-
 impl<F> From<F> for HashValue<str>
 where
     F: AsRef<str>,
 {
     fn from(v: F) -> Self {
-        HashValue(hash(&v.as_ref()), PhantomData)
-    }
-}
-
-impl<T> PartialEq<T> for HashValue<str>
-where
-    T: AsRef<str>,
-{
-    fn eq(&self, rhs: &T) -> bool {
-        hash(&rhs.as_ref()) == self.0
+        HashValue(hash::hash64(v.as_ref()), PhantomData)
     }
 }
 
@@ -75,7 +59,16 @@ where
     T: AsRef<Path>,
 {
     fn from(v: T) -> Self {
-        HashValue(hash(&v.as_ref()), PhantomData)
+        HashValue(hash::hash64(v.as_ref()), PhantomData)
+    }
+}
+
+impl<T> PartialEq<T> for HashValue<str>
+where
+    T: AsRef<str>,
+{
+    fn eq(&self, other: &T) -> bool {
+        self.0.eq(&hash::hash64(other.as_ref()))
     }
 }
 
@@ -83,32 +76,26 @@ impl<T> PartialEq<T> for HashValue<Path>
 where
     T: AsRef<Path>,
 {
-    fn eq(&self, rhs: &T) -> bool {
-        hash(&rhs.as_ref()) == self.0
+    fn eq(&self, other: &T) -> bool {
+        self.0.eq(&hash::hash64(other.as_ref()))
     }
-}
-
-fn hash<T: Hash>(t: &T) -> u64 {
-    use std::collections::hash_map::DefaultHasher;
-
-    let mut s = DefaultHasher::new();
-    t.hash(&mut s);
-    s.finish()
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::collections::HashSet;
+    use utils::hash::FastHashSet;
 
     #[test]
     fn hash_str() {
-        assert_eq!(HashValue::<str>::from("hash_str"), "hash_str");
+        let hash = HashValue::<str>::from("hash_str");
+        assert_eq!(hash, "hash_str");
+        assert!(hash != "other_str");
     }
 
     #[test]
     fn collections() {
-        let mut set = HashSet::<HashValue<str>>::new();
+        let mut set = FastHashSet::<HashValue<str>>::default();
         set.insert(HashValue::from("asdasd"));
         set.insert(HashValue::from("asdasd"));
         set.insert(HashValue::from("asdasd"));

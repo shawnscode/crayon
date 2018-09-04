@@ -8,12 +8,20 @@ Pre-compiled assets are placed under `resources` folder for convenience, so you 
 2. RenderTexture: ```cargo run --bin render_texture```
 3. Input: ```cargo run --bin input```
 
+![RenderTexture](./screenshots/render_texture.png)
+
 ## 3D
 
 1. Cube: ```cargo run --bin cube```
 2. Prefab: ```cargo run --bin prefab```
 3. Saturn ```cargo run --bin saturn```
 
+![Cube](./screenshots/cube.png)
+![Prefab](./screenshots/prefab.png)
+![Saturn](./screenshots/saturn.png)
+
 ## ImGui
 
-3. ImGui windows: ```cargo run --bin imgui```
+1. ImGui windows: ```cargo run --bin imgui```
+
+![ImGui](./screenshots/imgui.png)

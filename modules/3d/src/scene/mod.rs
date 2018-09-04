@@ -7,10 +7,10 @@ pub use self::transform::Transform;
 mod errors;
 pub use self::errors::{Error, Result};
 
-use std::collections::{HashMap, HashSet};
 use std::iter;
 
 use crayon::math::{self, One};
+use crayon::utils::hash::{FastHashMap, FastHashSet};
 
 use Entity;
 
@@ -18,24 +18,24 @@ use Entity;
 /// of the object. We do also keeps a tree relationships betweens object in scene graph, so
 /// you can access properties of transformation in both local and world space.
 pub struct SceneGraph {
-    remap: HashMap<Entity, usize>,
+    remap: FastHashMap<Entity, usize>,
     entities: Vec<Entity>,
     nodes: Vec<Node>,
     local_transforms: Vec<Transform>,
     world_transforms: Vec<Transform>,
 
-    pub(crate) roots: HashSet<Entity>,
+    pub(crate) roots: FastHashSet<Entity>,
 }
 
 impl SceneGraph {
     pub fn new() -> Self {
         SceneGraph {
-            remap: HashMap::new(),
+            remap: FastHashMap::default(),
             entities: Vec::new(),
             nodes: Vec::new(),
             local_transforms: Vec::new(),
             world_transforms: Vec::new(),
-            roots: HashSet::new(),
+            roots: FastHashSet::default(),
         }
     }
 

@@ -148,13 +148,14 @@ mod test {
 
     #[test]
     fn container() {
-        use std::collections::HashSet;
+        use utils::hash::FastHashSet;
+
         let h1 = Handle::new(1, 1);
         let h2 = Handle::new(1, 2);
         let h3 = Handle::new(2, 2);
         let h4 = Handle::new(1, 1);
 
-        let mut map = HashSet::new();
+        let mut map = FastHashSet::default();
         assert_eq!(map.insert(h1), true);
         assert_eq!(map.contains(&h1), true);
         assert_eq!(map.insert(h4), false);

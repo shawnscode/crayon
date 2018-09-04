@@ -1,9 +1,8 @@
-use std::collections::HashMap;
-
+use crayon::utils::hash::FastHashMap;
 use Entity;
 
 pub struct Component<T> {
-    pub remap: HashMap<Entity, usize>,
+    pub remap: FastHashMap<Entity, usize>,
     pub entities: Vec<Entity>,
     pub data: Vec<T>,
 }
@@ -11,7 +10,7 @@ pub struct Component<T> {
 impl<T> Component<T> {
     pub fn new() -> Self {
         Component {
-            remap: HashMap::new(),
+            remap: FastHashMap::default(),
             entities: Vec::new(),
             data: Vec::new(),
         }

@@ -1,12 +1,12 @@
 use gl;
 use gl::types::*;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
 
 use application::window::Window;
 use errors::*;
 use math;
-use utils::hash_value;
+use utils::hash::{FastHashMap, FastHashSet};
+use utils::hash_value::HashValue;
 
 use super::super::super::assets::prelude::*;
 use super::super::super::MAX_UNIFORM_TEXTURE_SLOTS;
@@ -30,12 +30,12 @@ struct GLSurface {
 struct GLShader {
     id: GLuint,
     params: ShaderParams,
-    uniforms: RefCell<HashMap<hash_value::HashValue<str>, GLint>>,
-    attributes: RefCell<HashMap<hash_value::HashValue<str>, GLint>>,
+    uniforms: RefCell<FastHashMap<HashValue<str>, GLint>>,
+    attributes: RefCell<FastHashMap<HashValue<str>, GLint>>,
 }
 
 impl GLShader {
-    fn hash_uniform_location<T: Into<hash_value::HashValue<str>>>(&self, name: T) -> Option<GLint> {
+    fn hash_uniform_location<T: Into<HashValue<str>>>(&self, name: T) -> Option<GLint> {
         self.uniforms.borrow().get(&name.into()).cloned()
     }
 
@@ -97,15 +97,15 @@ struct GLVisitorMutInternal {
     scissor: SurfaceScissor,
     view: SurfaceViewport,
     binded_render_buffer: Option<GLuint>,
-    binded_buffers: HashMap<GLenum, GLuint>,
+    binded_buffers: FastHashMap<GLenum, GLuint>,
     binded_vao: Option<GLuint>,
     binded_surface: Option<SurfaceHandle>,
     binded_framebuffer: Option<GLuint>,
-    binded_frame_surfaces: HashSet<SurfaceHandle>,
+    binded_frame_surfaces: FastHashSet<SurfaceHandle>,
     binded_shader: Option<GLuint>,
     binded_texture_index: usize,
     binded_textures: [Option<GLuint>; MAX_UNIFORM_TEXTURE_SLOTS],
-    vaos: HashMap<(GLuint, GLuint), GLuint>,
+    vaos: FastHashMap<(GLuint, GLuint), GLuint>,
 }
 
 pub struct GLVisitor {
@@ -134,15 +134,15 @@ impl GLVisitor {
                 size: math::Vector2::new(0, 0),
             },
             binded_render_buffer: None,
-            binded_buffers: HashMap::new(),
+            binded_buffers: FastHashMap::default(),
             binded_vao: None,
             binded_surface: None,
             binded_framebuffer: None,
-            binded_frame_surfaces: HashSet::new(),
+            binded_frame_surfaces: FastHashSet::default(),
             binded_shader: None,
             binded_texture_index: 0,
             binded_textures: [None; MAX_UNIFORM_TEXTURE_SLOTS],
-            vaos: HashMap::new(),
+            vaos: FastHashMap::default(),
         };
 
         let visitor = GLVisitor {
@@ -290,8 +290,8 @@ impl Visitor for GLVisitor {
         let shader = GLShader {
             id: id,
             params: params,
-            uniforms: RefCell::new(HashMap::new()),
-            attributes: RefCell::new(HashMap::new()),
+            uniforms: RefCell::new(FastHashMap::default()),
+            attributes: RefCell::new(FastHashMap::default()),
         };
 
         for (name, _, _) in shader.params.attributes.iter() {

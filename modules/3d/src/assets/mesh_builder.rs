@@ -1,6 +1,7 @@
 use crayon::errors::*;
 
 use crayon::application::Context;
+use crayon::utils::hash::FastHashMap;
 use crayon::video::assets::mesh::*;
 
 pub struct WorldBuiltinMeshes {
@@ -121,7 +122,6 @@ fn cube(ctx: &Context) -> Result<MeshHandle> {
 }
 
 fn sphere(ctx: &Context, iteration: usize) -> Result<MeshHandle> {
-    use std::collections::HashMap;
     use std::f32::consts::FRAC_1_PI;
 
     fn normalize(v: [f32; 3]) -> Vertex {
@@ -172,7 +172,7 @@ fn sphere(ctx: &Context, iteration: usize) -> Result<MeshHandle> {
     ];
 
     {
-        let mut cache = HashMap::new();
+        let mut cache = FastHashMap::default();
         let mut mid = |p1: usize, p2: usize| {
             // first check if we have it already
             let first_is_smaller = p1 < p2;

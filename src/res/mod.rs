@@ -26,12 +26,12 @@ pub mod prelude {
 mod registery;
 
 use std::any::{Any, TypeId};
-use std::collections::HashMap;
 use std::io::Read;
 use std::sync::{Arc, RwLock};
 
 use sched::ScheduleSystemShared;
 use utils::handle::Handle;
+use utils::hash::FastHashMap;
 
 use self::vfs::VFS;
 use errors::*;
@@ -49,14 +49,14 @@ pub trait ResourceLoader: Send + Sync + Sized + 'static {
 }
 
 pub struct ResourceSystem {
-    loaders: Arc<RwLock<HashMap<TypeId, Arc<Any + Send + Sync>>>>,
+    loaders: Arc<RwLock<FastHashMap<TypeId, Arc<Any + Send + Sync>>>>,
     registery: Arc<RwLock<registery::Registery>>,
     shared: Arc<ResourceSystemShared>,
 }
 
 impl ResourceSystem {
     pub fn new(sched: Arc<ScheduleSystemShared>) -> Result<Self> {
-        let loaders = Arc::new(RwLock::new(HashMap::new()));
+        let loaders = Arc::new(RwLock::new(FastHashMap::default()));
         let registery = Arc::new(RwLock::new(registery::Registery::new(sched.clone())));
 
         let shared = Arc::new(ResourceSystemShared {
@@ -97,7 +97,7 @@ impl ResourceSystem {
 }
 
 pub struct ResourceSystemShared {
-    loaders: Arc<RwLock<HashMap<TypeId, Arc<Any + Send + Sync>>>>,
+    loaders: Arc<RwLock<FastHashMap<TypeId, Arc<Any + Send + Sync>>>>,
     registery: Arc<RwLock<registery::Registery>>,
     sched: Arc<ScheduleSystemShared>,
 }

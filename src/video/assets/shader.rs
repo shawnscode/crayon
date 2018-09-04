@@ -1,10 +1,10 @@
 //! Pipeline state object that containing immutable render state and vertex-layout.
 
 use std::collections::hash_map::Values;
-use std::collections::HashMap;
 use std::str::FromStr;
 
 use math;
+use utils::hash::FastHashMap;
 use utils::HashValue;
 use video::assets::mesh::VertexLayout;
 use video::assets::texture::{RenderTextureHandle, TextureHandle};
@@ -445,7 +445,7 @@ impl Into<UniformVariable> for [f32; 4] {
 // UniformVariableLayout defines an layout of uniforms in program.
 #[derive(Debug, Clone, Default)]
 pub struct UniformVariableLayout {
-    variables: HashMap<HashValue<str>, (String, UniformVariableType)>,
+    variables: FastHashMap<HashValue<str>, (String, UniformVariableType)>,
 }
 
 impl UniformVariableLayout {

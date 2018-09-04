@@ -1,21 +1,21 @@
 use std::borrow::Borrow;
-use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::{mem, slice, str};
 
 /// Where we store all the intermediate bytes.
 #[derive(Debug, Clone)]
-pub struct DataBuffer(Vec<u8>, HashMap<u64, DataBufferPtr<str>>);
+pub struct DataBuffer(Vec<u8>);
 
 impl DataBuffer {
     /// Creates a new task buffer with specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
-        DataBuffer(Vec::with_capacity(capacity), HashMap::new())
+        DataBuffer(Vec::with_capacity(capacity))
     }
 
     pub fn clear(&mut self) {
-        self.0.clear();
-        self.1.clear();
+        unsafe {
+            self.0.set_len(0);
+        }
     }
 
     pub fn extend<T>(&mut self, value: &T) -> DataBufferPtr<T>
@@ -26,6 +26,7 @@ impl DataBuffer {
             unsafe { slice::from_raw_parts(value as *const T as *const u8, mem::size_of::<T>()) };
 
         self.0.extend_from_slice(data);
+
         DataBufferPtr {
             position: (self.0.len() - data.len()) as u32,
             size: data.len() as u32,
@@ -53,26 +54,12 @@ impl DataBuffer {
     where
         T: Borrow<str>,
     {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-
-        let value = value.borrow();
-        let mut s = DefaultHasher::new();
-        value.hash(&mut s);
-        let hash_value = s.finish();
-        if let Some(ptr) = self.1.get(&hash_value) {
-            return *ptr;
-        }
-
-        let slice = self.extend_from_slice(value.as_bytes());
-        let ptr = DataBufferPtr {
+        let slice = self.extend_from_slice(value.borrow().as_bytes());
+        DataBufferPtr {
             position: slice.position,
             size: slice.size,
             _phantom: PhantomData,
-        };
-
-        self.1.insert(hash_value, ptr);
-        ptr
+        }
     }
 
     /// Returns reference to object indicated by `DataBufferPtr`.

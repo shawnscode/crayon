@@ -21,7 +21,7 @@ This project adheres to [Semantic Versioning](http://semver.org/), all notable c
 
 ### Assets Workflow
 
-The asset workflow comes with the version 0.0.5. During the developent, the assets could be stored in formats which could producing and editing by authoring tools directly, and it will be compiled into some kind of effecient format for runtime (which is dependent on platform and hardware devices usually).
+The asset workflow comes with the version 0.5.0. During the development, the assets could be stored in formats which could producing and editing by authoring tools directly, and it will be compiled into some kind of effecient format for runtime (which is dependent on platform and hardware devices usually).
 
 Currently, we are supporting assets with:
 
@@ -40,3 +40,5 @@ For the sake of brevity, you can als run a simple and quick example with command
 git clone git@github.com:shawnscode/crayon.git && cd crayon/examples
 cargo run --bin render_texture
 ```
+
+You can also check out [examples](./examples) folder for screenshots.
