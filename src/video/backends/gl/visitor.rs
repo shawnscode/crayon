@@ -2,7 +2,6 @@ use gl;
 use gl::types::*;
 use std::cell::RefCell;
 
-use application::window::Window;
 use errors::*;
 use math;
 use utils::hash::{FastHashMap, FastHashSet};
@@ -119,9 +118,7 @@ pub struct GLVisitor {
 }
 
 impl GLVisitor {
-    pub unsafe fn new(window: &Window) -> Result<Self> {
-        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
-
+    pub unsafe fn new() -> Result<Self> {
         let capabilities = Capabilities::parse()?;
         info!("GLVisitor {:#?}", capabilities);
         check_capabilities(&capabilities)?;

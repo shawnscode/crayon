@@ -144,18 +144,18 @@ impl Engine {
             // Poll any possible events first.
             for v in self.window.advance() {
                 match *v {
-                    event::Event::Application(value) => {
+                    events::Event::Application(value) => {
                         {
                             let mut application = application.write().unwrap();
                             application.on_receive_event(&self.context, value)?;
                         }
 
-                        if let event::ApplicationEvent::Closed = value {
+                        if let events::ApplicationEvent::Closed = value {
                             alive = false;
                         }
                     }
 
-                    event::Event::InputDevice(value) => self.input.update_with(value),
+                    events::Event::InputDevice(value) => self.input.update_with(value),
                 }
             }
 

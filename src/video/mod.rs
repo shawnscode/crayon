@@ -276,7 +276,7 @@ impl VideoSystem {
     pub fn new(window: &Window) -> ::errors::Result<Self> {
         let frames = Arc::new(DoubleFrame::with_capacity(64 * 1024));
         let shared = VideoSystemShared::new(frames.clone());
-        let visitor = unsafe { Box::new(GLVisitor::new(window)?) };
+        let visitor = unsafe { Box::new(GLVisitor::new()?) };
 
         Ok(VideoSystem {
             last_dimensions: window.dimensions(),

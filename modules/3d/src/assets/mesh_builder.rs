@@ -178,7 +178,7 @@ fn sphere(ctx: &Context, iteration: usize) -> Result<MeshHandle> {
             let first_is_smaller = p1 < p2;
             let smaller = if first_is_smaller { p1 } else { p2 };
             let greater = if first_is_smaller { p2 } else { p1 };
-            let k = (smaller << 32) + greater;
+            let k = (smaller, greater);
 
             if let Some(&v) = cache.get(&k) {
                 return v;

@@ -26,7 +26,7 @@
 //! essential systems in a central place, and responsible for running the main loop.
 //!
 
-pub mod event;
+pub mod events;
 pub mod settings;
 pub mod time;
 pub mod window;
@@ -34,6 +34,8 @@ pub use self::settings::Settings;
 
 mod engine;
 pub use self::engine::{Context, Engine};
+
+mod backends;
 
 pub mod prelude {
     pub use super::FrameInfo;
@@ -74,7 +76,7 @@ pub trait Application {
     }
 
     /// `Application::on_update` is called when receiving application event.
-    fn on_receive_event(&mut self, _: &Context, _: event::ApplicationEvent) -> Result<()> {
+    fn on_receive_event(&mut self, _: &Context, _: events::ApplicationEvent) -> Result<()> {
         Ok(())
     }
 

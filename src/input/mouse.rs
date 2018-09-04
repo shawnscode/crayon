@@ -4,7 +4,7 @@ use math;
 use math::MetricSpace;
 use utils::hash::{FastHashMap, FastHashSet};
 
-pub use application::event::MouseButton;
+pub use application::events::MouseButton;
 
 /// The setup parameters of mouse device.
 ///

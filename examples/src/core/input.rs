@@ -30,15 +30,15 @@ impl Application for Window {
 
         self.text += &input.text();
 
-        if input.is_key_repeat(event::KeyboardButton::A) {
+        if input.is_key_repeat(events::Key::A) {
             self.repeat_count += 1;
         }
 
-        if input.is_mouse_click(event::MouseButton::Left) {
+        if input.is_mouse_click(events::MouseButton::Left) {
             self.click_count += 1;
         }
 
-        if input.is_mouse_double_click(event::MouseButton::Left) {
+        if input.is_mouse_double_click(events::MouseButton::Left) {
             self.double_click_count += 1;
         }
 
@@ -63,9 +63,9 @@ impl Application for Window {
                     ui.text(im_str!("Movement: ({:.1}, {:.1})", movement.x, movement.y));
                     ui.text(im_str!("Scroll: ({:.1}, {:.1})", scroll.x, scroll.y));
 
-                    let is_down = input.is_mouse_down(event::MouseButton::Left);
-                    let is_press = input.is_mouse_press(event::MouseButton::Left);
-                    let is_release = input.is_mouse_release(event::MouseButton::Left);
+                    let is_down = input.is_mouse_down(events::MouseButton::Left);
+                    let is_press = input.is_mouse_press(events::MouseButton::Left);
+                    let is_release = input.is_mouse_release(events::MouseButton::Left);
                     ui.text(im_str!(
                         "Down({:?}) Pressed({:?}) Released({:?})",
                         is_down,
@@ -81,9 +81,9 @@ impl Application for Window {
                 };
 
                 if ui.collapsing_header(im_str!("Keyboard")).build() {
-                    let is_down = input.is_key_down(event::KeyboardButton::A);
-                    let is_press = input.is_key_press(event::KeyboardButton::A);
-                    let is_release = input.is_key_release(event::KeyboardButton::A);
+                    let is_down = input.is_key_down(events::Key::A);
+                    let is_press = input.is_key_press(events::Key::A);
+                    let is_release = input.is_key_release(events::Key::A);
 
                     ui.text(im_str!(
                         "[A] Pressed({:?}) Down({:?}) Released({:?})",
@@ -93,9 +93,9 @@ impl Application for Window {
                     ));
                     ui.text(im_str!("[A] Repeat({:?})", rc));
 
-                    let is_down = input.is_key_down(event::KeyboardButton::Z);
-                    let is_press = input.is_key_press(event::KeyboardButton::Z);
-                    let is_release = input.is_key_release(event::KeyboardButton::Z);
+                    let is_down = input.is_key_down(events::Key::Z);
+                    let is_press = input.is_key_press(events::Key::Z);
+                    let is_release = input.is_key_release(events::Key::Z);
                     ui.text(im_str!(
                         "[Z] Down({:?}) Pressed({:?}) Released({:?})",
                         is_down,
