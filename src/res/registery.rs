@@ -1,5 +1,4 @@
 use std::any::{Any, TypeId};
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Condvar, Mutex};
 use uuid::Uuid;
@@ -8,6 +7,7 @@ use errors::*;
 use sched::latch::{LatchProbe, LatchWaitProbe};
 use sched::ScheduleSystemShared;
 use utils::handle::Handle;
+use utils::hash::FastHashMap;
 use utils::hash_value::HashValue;
 
 use super::location::Location;
@@ -88,23 +88,23 @@ struct Entry {
 
 pub struct Registery {
     sched: Arc<ScheduleSystemShared>,
-    locs: HashMap<Uuid, SchemaHandle>,
-    entries: HashMap<SchemaHandle, Entry>,
+    locs: FastHashMap<Uuid, SchemaHandle>,
+    entries: FastHashMap<SchemaHandle, Entry>,
 
     driver: VFSDriver,
-    manifest: HashMap<Uuid, HashValue<str>>,
-    remaps: HashMap<HashValue<Path>, Uuid>,
+    manifest: FastHashMap<Uuid, HashValue<str>>,
+    remaps: FastHashMap<HashValue<Path>, Uuid>,
 }
 
 impl Registery {
     pub fn new(sched: Arc<ScheduleSystemShared>) -> Self {
         Registery {
             sched: sched,
-            locs: HashMap::new(),
-            entries: HashMap::new(),
+            locs: FastHashMap::default(),
+            entries: FastHashMap::default(),
             driver: VFSDriver::new(),
-            manifest: HashMap::new(),
-            remaps: HashMap::new(),
+            manifest: FastHashMap::default(),
+            remaps: FastHashMap::default(),
         }
     }
 

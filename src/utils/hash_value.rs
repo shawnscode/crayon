@@ -84,7 +84,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::collections::HashSet;
+    use utils::hash::FastHashSet;
 
     #[test]
     fn hash_str() {
@@ -95,7 +95,7 @@ mod test {
 
     #[test]
     fn collections() {
-        let mut set = HashSet::<HashValue<str>>::new();
+        let mut set = FastHashSet::<HashValue<str>>::default();
         set.insert(HashValue::from("asdasd"));
         set.insert(HashValue::from("asdasd"));
         set.insert(HashValue::from("asdasd"));

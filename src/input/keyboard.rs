@@ -1,5 +1,6 @@
-use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
+
+use utils::hash::{FastHashMap, FastHashSet};
 
 pub use application::event::KeyboardButton;
 
@@ -30,9 +31,9 @@ enum KeyDownState {
 }
 
 pub struct Keyboard {
-    downs: HashMap<KeyboardButton, KeyDownState>,
-    presses: HashSet<KeyboardButton>,
-    releases: HashSet<KeyboardButton>,
+    downs: FastHashMap<KeyboardButton, KeyDownState>,
+    presses: FastHashSet<KeyboardButton>,
+    releases: FastHashSet<KeyboardButton>,
     chars: Vec<char>,
     setup: KeyboardParams,
     now: Instant,
@@ -41,9 +42,9 @@ pub struct Keyboard {
 impl Keyboard {
     pub fn new(setup: KeyboardParams) -> Self {
         Keyboard {
-            downs: HashMap::new(),
-            presses: HashSet::new(),
-            releases: HashSet::new(),
+            downs: FastHashMap::default(),
+            presses: FastHashSet::default(),
+            releases: FastHashSet::default(),
             chars: Vec::with_capacity(setup.max_chars),
             setup: setup,
             now: Instant::now(),

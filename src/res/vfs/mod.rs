@@ -2,12 +2,12 @@ pub mod disk;
 
 pub use self::disk::DiskFS;
 
-use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
 use std::time::SystemTime;
 
 use errors::*;
+use utils::hash::FastHashMap;
 use utils::hash_value::HashValue;
 
 pub trait VFS: Send + Sync {
@@ -28,14 +28,14 @@ pub trait VFS: Send + Sync {
 }
 
 pub struct VFSDriver {
-    mounts: HashMap<HashValue<str>, Box<VFS>>,
+    mounts: FastHashMap<HashValue<str>, Box<VFS>>,
 }
 
 impl VFSDriver {
     /// Create a new file-system driver.
     pub fn new() -> Self {
         VFSDriver {
-            mounts: HashMap::new(),
+            mounts: FastHashMap::default(),
         }
     }
 

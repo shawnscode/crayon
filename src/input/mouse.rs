@@ -1,8 +1,8 @@
-use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 use math;
 use math::MetricSpace;
+use utils::hash::{FastHashMap, FastHashSet};
 
 pub use application::event::MouseButton;
 
@@ -31,26 +31,26 @@ impl Default for MouseParams {
 }
 
 pub struct Mouse {
-    downs: HashSet<MouseButton>,
-    presses: HashSet<MouseButton>,
-    releases: HashSet<MouseButton>,
+    downs: FastHashSet<MouseButton>,
+    presses: FastHashSet<MouseButton>,
+    releases: FastHashSet<MouseButton>,
     last_position: math::Vector2<f32>,
     position: math::Vector2<f32>,
     scrol: math::Vector2<f32>,
-    click_detectors: HashMap<MouseButton, ClickDetector>,
+    click_detectors: FastHashMap<MouseButton, ClickDetector>,
     params: MouseParams,
 }
 
 impl Mouse {
     pub fn new(params: MouseParams) -> Self {
         Mouse {
-            downs: HashSet::new(),
-            presses: HashSet::new(),
-            releases: HashSet::new(),
+            downs: FastHashSet::default(),
+            presses: FastHashSet::default(),
+            releases: FastHashSet::default(),
             last_position: math::Vector2::new(0.0, 0.0),
             position: math::Vector2::new(0.0, 0.0),
             scrol: math::Vector2::new(0.0, 0.0),
-            click_detectors: HashMap::new(),
+            click_detectors: FastHashMap::default(),
             params: params,
         }
     }

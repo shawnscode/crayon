@@ -1,7 +1,11 @@
-//! A faster hasher without cryptographically security.
+//! Faster hashing functionalities by ignoring the cryptographically security needs.
+//!
+//! Currently, the implemention is based on the Fx algorithm which was extracted from
+//! the rustc compiler, it might changes in the future.
 
 use std::collections::{HashMap, HashSet};
 use std::hash::{BuildHasherDefault, Hash, Hasher};
+
 /// A builder for default Fx hashers.
 pub type FastBuildHasher = BuildHasherDefault<hasher::FxHasher>;
 
@@ -33,6 +37,17 @@ pub fn hash<T: Hash + ?Sized>(v: &T) -> usize {
     let mut state = hasher::FxHasher::default();
     v.hash(&mut state);
     state.finish() as usize
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn basic() {
+        let mut v: HashMap<&'static str, i32> = Default::default();
+        v.insert("hahah", 123);
+    }
 }
 
 mod hasher {
