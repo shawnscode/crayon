@@ -2,7 +2,6 @@ use gl;
 use gl::types::*;
 use std::cell::RefCell;
 
-use application::window::Window;
 use errors::*;
 use math;
 use utils::hash::{FastHashMap, FastHashSet};
@@ -12,7 +11,7 @@ use super::super::super::assets::prelude::*;
 use super::super::super::MAX_UNIFORM_TEXTURE_SLOTS;
 use super::super::{UniformVar, Visitor};
 use super::capabilities::{Capabilities, Version};
-use super::types::DataVec;
+use super::types::{self, DataVec};
 
 #[derive(Debug, Clone)]
 struct GLSurfaceFBO {
@@ -119,9 +118,7 @@ pub struct GLVisitor {
 }
 
 impl GLVisitor {
-    pub unsafe fn new(window: &Window) -> Result<Self> {
-        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
-
+    pub unsafe fn new() -> Result<Self> {
         let capabilities = Capabilities::parse()?;
         info!("GLVisitor {:#?}", capabilities);
         check_capabilities(&capabilities)?;
@@ -347,7 +344,8 @@ impl Visitor for GLVisitor {
         gl::GenTextures(1, &mut id);
         assert!(id != 0);
 
-        let (internal_format, format, pixel_type) = params.format.into();
+        let (internal_format, format, pixel_type) =
+            types::texture_format(params.format, &self.capabilities);
         let is_compression = params.format.is_compression();
         let mut allocated = false;
 
@@ -440,7 +438,8 @@ impl Visitor for GLVisitor {
             bail!("Trying to update texture data out of bounds.");
         }
 
-        let (internal_format, format, pixel_type) = texture.params.format.into();
+        let (internal_format, format, pixel_type) =
+            types::texture_format(texture.params.format, &self.capabilities);
 
         self.bind_texture(0, texture.id)?;
 

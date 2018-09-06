@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
-use application::event::{TouchEvent, TouchState};
+use application::events::TouchState;
 use math;
 use math::MetricSpace;
 
@@ -83,7 +83,13 @@ impl TouchPad {
         self.double_tap = GestureTap::None;
     }
 
-    pub fn on_touch(&mut self, touch: TouchEvent) {
+    pub fn on_touch(&mut self, id: u8, state: TouchState, position: math::Vector2<f32>) {
+        let touch = TouchEvent {
+            id: id,
+            state: state,
+            position: position,
+        };
+
         self.record.update_touch(touch);
 
         self.pan = self.pan_detector.detect(&self.record);
@@ -380,6 +386,23 @@ impl GesturePanDetector {
     pub fn reset(&mut self) {
         self.record.reset();
         self.pan = false;
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TouchEvent {
+    pub id: u8,
+    pub state: TouchState,
+    pub position: math::Vector2<f32>,
+}
+
+impl Default for TouchEvent {
+    fn default() -> Self {
+        TouchEvent {
+            id: 0,
+            state: TouchState::End,
+            position: math::Vector2::new(0.0, 0.0),
+        }
     }
 }
 

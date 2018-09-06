@@ -20,16 +20,16 @@
 //! let input = InputSystem::new(InputParams::default()).shared();
 //!
 //! // Checks if a key is currently held down.
-//! input.is_key_down(KeyboardButton::A);
+//! input.is_key_down(Key::A);
 //!
 //! // Checks if a key has been pressed down during the last frame.
-//! input.is_key_press(KeyboardButton::A);
+//! input.is_key_press(Key::A);
 //!
 //! // Checks if a key has been released during the last frame.
-//! input.is_key_repeat(KeyboardButton::A);
+//! input.is_key_repeat(Key::A);
 //! ```
 //!
-//! A list of all key codes can be found in the `KeyboardButton` enumeration. Notes
+//! A list of all key codes can be found in the `Key` enumeration. Notes
 //! that the key code used here, are virtual keycode of physical keys, they don't
 //! necessarily represent what's actually printed on the key cap.
 //!
@@ -65,7 +65,7 @@
 //! input.is_mouse_release(MouseButton::Left);
 //! ```
 //!
-//! A list of all mouse buttons can be found in the `KeyboardButton` enumeration. To get
+//! A list of all mouse buttons can be found in the `Key` enumeration. To get
 //! the current mouse position and the last frame's mouse movement in pixels:
 //!
 //! ```rust,ignore
@@ -175,7 +175,7 @@ pub mod touchpad;
 pub const MAX_TOUCHES: usize = 4;
 
 pub mod prelude {
-    pub use super::keyboard::{KeyboardButton, KeyboardParams};
+    pub use super::keyboard::{Key, KeyboardParams};
     pub use super::mouse::{MouseButton, MouseParams};
     pub use super::touchpad::{GesturePan, GestureTap, TouchPadParams};
     pub use super::{InputParams, InputSystem, InputSystemShared};
@@ -183,7 +183,7 @@ pub mod prelude {
 
 use std::sync::{Arc, RwLock};
 
-use application::event::{self, KeyboardButton, MouseButton};
+use application::events::{self, Key, MouseButton};
 use math;
 
 /// The setup parameters of all supported input devices.
@@ -239,49 +239,42 @@ impl InputSystem {
         self.shared.touchpad.write().unwrap().advance();
     }
 
-    pub(crate) fn update_with(&mut self, v: event::InputDeviceEvent) {
+    pub(crate) fn update_with(&mut self, v: events::InputDeviceEvent) {
         match v {
-            event::InputDeviceEvent::MouseMoved { position } => {
+            events::InputDeviceEvent::MouseMoved { position } => {
                 if self.touch_emulation_button.is_some() {
-                    let touch = event::TouchEvent {
-                        id: 255,
-                        state: event::TouchState::Move,
-                        position: self.shared.mouse.read().unwrap().position(),
-                    };
-
-                    self.shared.touchpad.write().unwrap().on_touch(touch);
+                    self.shared.touchpad.write().unwrap().on_touch(
+                        255,
+                        events::TouchState::Move,
+                        self.shared.mouse.read().unwrap().position(),
+                    );
                 }
 
                 self.shared.mouse.write().unwrap().on_move(position)
             }
 
-            event::InputDeviceEvent::MousePressed { button } => {
+            events::InputDeviceEvent::MousePressed { button } => {
                 if self.touch_emulation {
                     self.touch_emulation_button = Some(button);
-
-                    let touch = event::TouchEvent {
-                        id: 255,
-                        state: event::TouchState::Start,
-                        position: self.shared.mouse.read().unwrap().position(),
-                    };
-
-                    self.shared.touchpad.write().unwrap().on_touch(touch);
+                    self.shared.touchpad.write().unwrap().on_touch(
+                        255,
+                        events::TouchState::Start,
+                        self.shared.mouse.read().unwrap().position(),
+                    );
                 }
 
                 self.shared.mouse.write().unwrap().on_button_pressed(button)
             }
 
-            event::InputDeviceEvent::MouseReleased { button } => {
+            events::InputDeviceEvent::MouseReleased { button } => {
                 if self.touch_emulation_button == Some(button) {
                     self.touch_emulation_button = None;
 
-                    let touch = event::TouchEvent {
-                        id: 255,
-                        state: event::TouchState::End,
-                        position: self.shared.mouse.read().unwrap().position(),
-                    };
-
-                    self.shared.touchpad.write().unwrap().on_touch(touch);
+                    self.shared.touchpad.write().unwrap().on_touch(
+                        255,
+                        events::TouchState::End,
+                        self.shared.mouse.read().unwrap().position(),
+                    );
                 }
 
                 self.shared
@@ -291,24 +284,32 @@ impl InputSystem {
                     .on_button_released(button)
             }
 
-            event::InputDeviceEvent::MouseWheel { delta } => {
+            events::InputDeviceEvent::MouseWheel { delta } => {
                 self.shared.mouse.write().unwrap().on_wheel_scroll(delta)
             }
 
-            event::InputDeviceEvent::KeyboardPressed { key } => {
+            events::InputDeviceEvent::KeyboardPressed { key } => {
                 self.shared.keyboard.write().unwrap().on_key_pressed(key)
             }
 
-            event::InputDeviceEvent::KeyboardReleased { key } => {
+            events::InputDeviceEvent::KeyboardReleased { key } => {
                 self.shared.keyboard.write().unwrap().on_key_released(key)
             }
 
-            event::InputDeviceEvent::ReceivedCharacter { character } => {
+            events::InputDeviceEvent::ReceivedCharacter { character } => {
                 self.shared.keyboard.write().unwrap().on_char(character)
             }
 
-            event::InputDeviceEvent::Touch(touch) => {
-                self.shared.touchpad.write().unwrap().on_touch(touch);
+            events::InputDeviceEvent::Touch {
+                id,
+                state,
+                position,
+            } => {
+                self.shared
+                    .touchpad
+                    .write()
+                    .unwrap()
+                    .on_touch(id, state, position);
             }
         }
     }
@@ -347,25 +348,25 @@ impl InputSystemShared {
 
     /// Checks if a key is currently held down.
     #[inline]
-    pub fn is_key_down(&self, key: KeyboardButton) -> bool {
+    pub fn is_key_down(&self, key: Key) -> bool {
         self.keyboard.read().unwrap().is_key_down(key)
     }
 
     /// Checks if a key has been pressed down during the last frame.
     #[inline]
-    pub fn is_key_press(&self, key: KeyboardButton) -> bool {
+    pub fn is_key_press(&self, key: Key) -> bool {
         self.keyboard.read().unwrap().is_key_press(key)
     }
 
     /// Checks if a key has been released during the last frame.
     #[inline]
-    pub fn is_key_release(&self, key: KeyboardButton) -> bool {
+    pub fn is_key_release(&self, key: Key) -> bool {
         self.keyboard.read().unwrap().is_key_release(key)
     }
 
     /// Checks if a key has been repeated during the last frame.
     #[inline]
-    pub fn is_key_repeat(&self, key: KeyboardButton) -> bool {
+    pub fn is_key_repeat(&self, key: Key) -> bool {
         self.keyboard.read().unwrap().is_key_repeat(key)
     }
 
