@@ -9,8 +9,8 @@ keywords = ["crayon", "game-dev", "scene", "3d"]
 categories = ["multimedia", "game-engines"]
 
 [dependencies]
-crayon = { path = "../../", version = "0.5.1" }
-serde = { version = "1.0.74", features = ["serde_derive"] }
+crayon = { path = "../../", version = "0.6.0" }
+serde = { version = "1.0.76", features = ["serde_derive"] }
 failure = "0.1.2"
 
 [dev-dependencies]
