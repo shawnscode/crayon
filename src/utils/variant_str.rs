@@ -1,8 +1,8 @@
 //! UTF-8 encoded owned str with varient length. It will store short string in place
 //! instead of another heap space.
 
-use std::borrow::Borrow;
-use std::ops::Deref;
+use std::borrow::{Borrow, Cow};
+use std::ops::{Deref, Index, Range, RangeFrom, RangeFull, RangeTo};
 use std::{fmt, ptr, str};
 
 #[derive(PartialEq, Eq, Clone)]
@@ -80,6 +80,56 @@ impl Default for VariantStr {
     }
 }
 
+macro_rules! impl_index {
+    ($index_type:ty) => {
+        impl Index<$index_type> for VariantStr {
+            type Output = str;
+
+            #[inline]
+            fn index(&self, index: $index_type) -> &str {
+                &self.as_str()[index]
+            }
+        }
+    };
+}
+
+impl_index!(Range<usize>);
+impl_index!(RangeFrom<usize>);
+impl_index!(RangeTo<usize>);
+impl_index!(RangeFull);
+
+macro_rules! impl_eq {
+    ($lhs:ty, $rhs:ty) => {
+        impl<'a, 'b> PartialEq<$rhs> for $lhs {
+            #[inline]
+            fn eq(&self, other: &$rhs) -> bool {
+                PartialEq::eq(&self[..], &other[..])
+            }
+
+            #[inline]
+            fn ne(&self, other: &$rhs) -> bool {
+                PartialEq::ne(&self[..], &other[..])
+            }
+        }
+
+        impl<'a, 'b> PartialEq<$lhs> for $rhs {
+            #[inline]
+            fn eq(&self, other: &$lhs) -> bool {
+                PartialEq::eq(&self[..], &other[..])
+            }
+
+            #[inline]
+            fn ne(&self, other: &$lhs) -> bool {
+                PartialEq::ne(&self[..], &other[..])
+            }
+        }
+    };
+}
+
+impl_eq! { VariantStr, &'a str }
+impl_eq! { VariantStr, String }
+impl_eq! { VariantStr, Cow<'a, str> }
+
 impl VariantStr {
     /// Gets the len of str.
     #[inline]
@@ -147,5 +197,18 @@ mod test {
     #[test]
     fn layout() {
         assert_eq!(::std::mem::size_of::<VariantStr>(), 32);
+    }
+
+    #[test]
+    fn index() {
+        let v = VariantStr::from("hello, world!");
+        assert_eq!(&v[..], "hello, world!");
+        assert_eq!(&v[0..5], "hello");
+    }
+
+    #[test]
+    fn compare() {
+        let v = VariantStr::from("hello, world!");
+        assert_eq!(v, "hello, world!");
     }
 }
