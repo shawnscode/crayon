@@ -3,10 +3,11 @@ use std::sync::Arc;
 use crayon::errors::*;
 use crayon::utils::HandlePool;
 
-use assets::{PrefabHandle, WorldResourcesShared};
+use assets::PrefabHandle;
 use renderers::{MeshRenderer, Renderable, Renderer};
 use scene::SceneGraph;
 use tags::Tags;
+use WorldResourcesShared;
 
 impl_handle!(Entity);
 

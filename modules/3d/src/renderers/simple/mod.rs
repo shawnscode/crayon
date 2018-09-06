@@ -10,8 +10,7 @@ use crayon::video::prelude::*;
 use std::sync::Arc;
 
 use super::{Camera, Lit, LitSource, MeshRenderer};
-use assets::WorldResourcesShared;
-use {Component, Entity};
+use {Component, Entity, WorldResourcesShared};
 
 pub const MAX_DIR_LITS: usize = 1;
 pub const MAX_POINT_LITS: usize = 4;

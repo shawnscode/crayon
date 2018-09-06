@@ -7,7 +7,7 @@ use crayon::res::location::Location;
 use crayon::res::{ResourceHandle, ResourceLoader, ResourceSystemShared};
 
 use super::prefab::*;
-use super::WorldResourcesShared;
+use world_resources::WorldResourcesShared;
 
 pub const MAGIC: [u8; 8] = [
     'P' as u8, 'R' as u8, 'E' as u8, 'B' as u8, ' ' as u8, 0, 0, 1,
