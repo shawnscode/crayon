@@ -15,5 +15,6 @@ pub use self::handle::{Handle, HandleIndex};
 pub use self::handle_pool::HandlePool;
 pub use self::hash::{FastHashMap, FastHashSet};
 pub use self::hash_value::HashValue;
+pub use self::object_pool::ObjectPool;
 pub use self::variant_str::VariantStr;
 pub use self::variant_vec::VariantVec;

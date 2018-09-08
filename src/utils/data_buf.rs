@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::{mem, slice, str};
 
 /// Where we store all the intermediate bytes.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DataBuffer(Vec<u8>);
 
 impl DataBuffer {
@@ -101,7 +101,7 @@ impl DataBuffer {
 }
 
 /// A view into our `DataBuffer`, indicates where the object `T` stored.
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 pub struct DataBufferPtr<T>
 where
     T: ?Sized,
