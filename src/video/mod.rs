@@ -242,7 +242,7 @@ use std::time::Duration;
 
 use application::window::Window;
 use math;
-use utils::object_pool;
+use utils::ObjectPool;
 
 use self::assets::prelude::*;
 use self::backends::frame::*;
@@ -357,11 +357,11 @@ enum AsyncState<T> {
 pub struct VideoSystemShared {
     pub(crate) frames: Arc<DoubleFrame>,
 
-    textures: RwLock<object_pool::ObjectPool<AsyncState<()>>>,
-    surfaces: RwLock<object_pool::ObjectPool<SurfaceParams>>,
-    shaders: RwLock<object_pool::ObjectPool<ShaderParams>>,
-    render_textures: RwLock<object_pool::ObjectPool<RenderTextureParams>>,
-    meshes: RwLock<object_pool::ObjectPool<AsyncState<MeshParams>>>,
+    textures: RwLock<ObjectPool<TextureHandle, AsyncState<()>>>,
+    surfaces: RwLock<ObjectPool<SurfaceHandle, SurfaceParams>>,
+    shaders: RwLock<ObjectPool<ShaderHandle, ShaderParams>>,
+    render_textures: RwLock<ObjectPool<RenderTextureHandle, RenderTextureParams>>,
+    meshes: RwLock<ObjectPool<MeshHandle, AsyncState<MeshParams>>>,
 }
 
 impl VideoSystemShared {
@@ -370,11 +370,11 @@ impl VideoSystemShared {
         VideoSystemShared {
             frames: frames,
 
-            surfaces: RwLock::new(object_pool::ObjectPool::new()),
-            shaders: RwLock::new(object_pool::ObjectPool::new()),
-            meshes: RwLock::new(object_pool::ObjectPool::new()),
-            textures: RwLock::new(object_pool::ObjectPool::new()),
-            render_textures: RwLock::new(object_pool::ObjectPool::new()),
+            surfaces: RwLock::new(ObjectPool::new()),
+            shaders: RwLock::new(ObjectPool::new()),
+            meshes: RwLock::new(ObjectPool::new()),
+            textures: RwLock::new(ObjectPool::new()),
+            render_textures: RwLock::new(ObjectPool::new()),
         }
     }
 
@@ -468,7 +468,7 @@ impl VideoSystemShared {
     }
 
     /// Gets the `ShaderParams` if available.
-    pub fn shader(&self, handle: MeshHandle) -> Option<ShaderParams> {
+    pub fn shader(&self, handle: ShaderHandle) -> Option<ShaderParams> {
         self.shaders.read().unwrap().get(handle).cloned()
     }
 

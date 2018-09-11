@@ -5,7 +5,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use errors::*;
-use utils::{FastHashMap, Handle, ObjectPool};
+use utils::{FastHashMap, HandleLike, ObjectPool};
 
 use super::{Loader, Location, Promise, ResourceSystemShared};
 
@@ -22,13 +22,13 @@ struct Entry<T> {
 
 // The `Registry` is a standardized resources manager that defines a set of interface for creation,
 // destruction, sharing and lifetime management. It is used in all the built-in crayon modules.
-pub struct Registry<T> {
+pub struct Registry<H: HandleLike, T> {
     res: Arc<ResourceSystemShared>,
-    items: ObjectPool<Entry<T>>,
-    redirects: FastHashMap<Uuid, Handle>,
+    items: ObjectPool<H, Entry<T>>,
+    redirects: FastHashMap<Uuid, H>,
 }
 
-impl<T> Registry<T> {
+impl<H: HandleLike, T> Registry<H, T> {
     /// Creates a new and empty `Registry`.
     pub fn new(res: Arc<ResourceSystemShared>) -> Self {
         Registry {
@@ -41,7 +41,7 @@ impl<T> Registry<T> {
     /// Creates a resource with provided value instance.
     ///
     /// A associated `Handle` is returned.
-    pub fn create(&mut self, value: T) -> Handle {
+    pub fn create(&mut self, value: T) -> H {
         let entry = Entry {
             rc: 1,
             uuid: None,
@@ -52,7 +52,7 @@ impl<T> Registry<T> {
     }
 
     /// Deletes a resource from registery.
-    pub fn delete(&mut self, handle: Handle) -> Option<T> {
+    pub fn delete(&mut self, handle: H) -> Option<T> {
         let free = self.items
             .get_mut(handle)
             .map(|entry| {
@@ -77,7 +77,7 @@ impl<T> Registry<T> {
     }
 
     /// Gets the stored value.
-    pub fn get(&self, handle: Handle) -> Option<&T> {
+    pub fn get(&self, handle: H) -> Option<&T> {
         self.items.get(handle).and_then(|entry| {
             if let AsyncState::Ok(ref v) = entry.state {
                 Some(v)
@@ -88,7 +88,7 @@ impl<T> Registry<T> {
     }
 
     /// Blocks current thread until loader is finished.
-    pub fn promise(&self, handle: Handle) -> Option<Arc<Promise>> {
+    pub fn promise(&self, handle: H) -> Option<Arc<Promise>> {
         self.items.get(handle).and_then(|entry| {
             if let AsyncState::NotReady(ref v) = entry.state {
                 Some(v.clone())
@@ -99,7 +99,7 @@ impl<T> Registry<T> {
     }
 
     /// Creates a resource from readable location.
-    pub fn create_from<L: Loader>(&mut self, loader: L, location: Location) -> Result<Handle> {
+    pub fn create_from<L: Loader>(&mut self, loader: L, location: Location) -> Result<H> {
         let uuid = self.res.redirect(location).ok_or_else(|| {
             format_err!(
                 "Undefined virtual filesystem with identifier {}.",
@@ -111,7 +111,7 @@ impl<T> Registry<T> {
     }
 
     /// Creates a resource from Uuid.
-    pub fn create_from_uuid<L: Loader>(&mut self, loader: L, uuid: Uuid) -> Result<Handle> {
+    pub fn create_from_uuid<L: Loader>(&mut self, loader: L, uuid: Uuid) -> Result<H> {
         if let Some(handle) = self.redirects.get(&uuid).cloned() {
             self.items.get_mut(handle).unwrap().rc += 1;
             Ok(handle)
@@ -133,7 +133,7 @@ impl<T> Registry<T> {
     ///
     /// Notes that the resource might be deleted before updating happens. The value will
     /// be returned if its freed.
-    pub fn update(&mut self, handle: Handle, value: T) -> Option<T> {
+    pub fn update(&mut self, handle: H, value: T) -> Option<T> {
         if let Some(entry) = self.items.get_mut(handle) {
             entry.state = AsyncState::Ok(value);
             None

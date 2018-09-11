@@ -1,17 +1,15 @@
-use std::borrow::Borrow;
-
-use super::handle::Handle;
+use super::handle::HandleLike;
 use super::handle_pool::{HandlePool, Iter};
 
 /// A named object collections. Every time u create or free a handle, a
 /// attached instance `T` will be created/ freed.
 #[derive(Default)]
-pub struct ObjectPool<T: Sized> {
-    handles: HandlePool,
+pub struct ObjectPool<H: HandleLike, T: Sized> {
+    handles: HandlePool<H>,
     entries: Vec<Option<T>>,
 }
 
-impl<T: Sized> ObjectPool<T> {
+impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
     /// Constructs a new, empty `ObjectPool`.
     pub fn new() -> Self {
         ObjectPool {
@@ -29,7 +27,7 @@ impl<T: Sized> ObjectPool<T> {
     }
 
     /// Creates a `T` and named it with `Handle`.
-    pub fn create(&mut self, value: T) -> Handle {
+    pub fn create(&mut self, value: T) -> H {
         let handle = self.handles.create();
 
         if handle.index() >= self.entries.len() as u32 {
@@ -43,11 +41,7 @@ impl<T: Sized> ObjectPool<T> {
 
     /// Returns mutable reference to internal value with name `Handle`.
     #[inline]
-    pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
-    where
-        H: Borrow<Handle>,
-    {
-        let handle = handle.borrow();
+    pub fn get_mut(&mut self, handle: H) -> Option<&mut T> {
         if self.handles.is_alive(handle) {
             self.entries[handle.index() as usize].as_mut()
         } else {
@@ -57,11 +51,7 @@ impl<T: Sized> ObjectPool<T> {
 
     /// Returns immutable reference to internal value with name `Handle`.
     #[inline]
-    pub fn get<H>(&self, handle: H) -> Option<&T>
-    where
-        H: Borrow<Handle>,
-    {
-        let handle = handle.borrow();
+    pub fn get(&self, handle: H) -> Option<&T> {
         if self.handles.is_alive(handle) {
             self.entries[handle.index() as usize].as_ref()
         } else {
@@ -72,20 +62,13 @@ impl<T: Sized> ObjectPool<T> {
     /// Returns true if this `Handle` was created by `ObjectPool`, and has not been
     /// freed yet.
     #[inline]
-    pub fn is_alive<H>(&self, handle: H) -> bool
-    where
-        H: Borrow<Handle>,
-    {
+    pub fn is_alive(&self, handle: H) -> bool {
         self.handles.is_alive(handle)
     }
 
     /// Recycles the value with name `Handle`.
     #[inline]
-    pub fn free<H>(&mut self, handle: H) -> Option<T>
-    where
-        H: Borrow<Handle>,
-    {
-        let handle = handle.borrow();
+    pub fn free(&mut self, handle: H) -> Option<T> {
         if self.handles.free(handle) {
             let mut v = None;
             ::std::mem::swap(&mut v, &mut self.entries[handle.index() as usize]);
@@ -96,7 +79,7 @@ impl<T: Sized> ObjectPool<T> {
     }
 
     /// Remove all objects matching with `predicate` from pool incrementally.
-    pub fn free_if<P>(&mut self, predicate: P) -> FreeIter<T, P>
+    pub fn free_if<P>(&mut self, predicate: P) -> FreeIter<H, T, P>
     where
         P: FnMut(&T) -> bool,
     {
@@ -122,26 +105,26 @@ impl<T: Sized> ObjectPool<T> {
 
     /// Returns an iterator over the `ObjectPool`.
     #[inline]
-    pub fn iter(&self) -> Iter {
+    pub fn iter(&self) -> Iter<H> {
         self.handles.iter()
     }
 }
 
-pub struct FreeIter<'a, T: 'a, P>
+pub struct FreeIter<'a, H: 'a + HandleLike, T: 'a, P>
 where
     P: FnMut(&T) -> bool,
 {
     index: usize,
     entries: &'a mut [Option<T>],
-    handles: &'a mut HandlePool,
+    handles: &'a mut HandlePool<H>,
     predicate: P,
 }
 
-impl<'a, T: 'a, P> Iterator for FreeIter<'a, T, P>
+impl<'a, H: 'a + HandleLike, T: 'a, P> Iterator for FreeIter<'a, H, T, P>
 where
     P: FnMut(&T) -> bool,
 {
-    type Item = Handle;
+    type Item = H;
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
@@ -168,11 +151,12 @@ where
 
 #[cfg(test)]
 mod test {
+    use super::super::Handle;
     use super::*;
 
     #[test]
     fn basic() {
-        let mut set = ObjectPool::<i32>::new();
+        let mut set = ObjectPool::<Handle, i32>::new();
 
         let e1 = set.create(3);
         assert_eq!(set.get(e1), Some(&3));

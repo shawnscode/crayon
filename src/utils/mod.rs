@@ -11,7 +11,7 @@ pub mod variant_str;
 pub mod variant_vec;
 
 pub use self::data_buf::{DataBuffer, DataBufferPtr};
-pub use self::handle::{Handle, HandleIndex};
+pub use self::handle::{Handle, HandleIndex, HandleLike};
 pub use self::handle_pool::HandlePool;
 pub use self::hash::{FastHashMap, FastHashSet};
 pub use self::hash_value::HashValue;

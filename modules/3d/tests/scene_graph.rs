@@ -7,7 +7,7 @@ use crayon::utils::handle_pool::HandlePool;
 use crayon_3d::prelude::*;
 
 struct Testbed {
-    world: HandlePool,
+    world: HandlePool<Entity>,
     scene: SceneGraph,
 }
 
@@ -206,7 +206,7 @@ fn look_at() {
 #[test]
 #[should_panic]
 pub fn duplicated_add() {
-    let mut world = HandlePool::new();
+    let mut world: HandlePool<Entity> = HandlePool::new();
     let mut scene = SceneGraph::new();
 
     let e1 = world.create().into();

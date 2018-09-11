@@ -33,7 +33,7 @@ enum AsyncState<T> {
 }
 
 pub struct WorldResourcesShared {
-    prefabs: RwLock<ObjectPool<AsyncState<Arc<Prefab>>>>,
+    prefabs: RwLock<ObjectPool<PrefabHandle, AsyncState<Arc<Prefab>>>>,
 
     pub meshes: WorldBuiltinMeshes,
     pub textures: WorldBuiltinTextures,
