@@ -1,8 +1,9 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crayon::application::{Context, Engine};
 use crayon::errors::*;
-use crayon::utils::object_pool::ObjectPool;
+use crayon::res::location::Location;
+use crayon::res::registry::Registry;
 
 use assets::mesh_builder::WorldBuiltinMeshes;
 use assets::prefab::{Prefab, PrefabHandle};
@@ -16,9 +17,6 @@ pub struct WorldResources {
 impl WorldResources {
     pub fn new(engine: &mut Engine) -> Result<Self> {
         let shared = Arc::new(WorldResourcesShared::new(engine.context())?);
-        let loader = PrefabLoader::new(engine.res.shared(), shared.clone());
-        engine.res.register(loader);
-
         Ok(WorldResources { shared: shared })
     }
 
@@ -27,13 +25,10 @@ impl WorldResources {
     }
 }
 
-enum AsyncState<T> {
-    Ok(T),
-    NotReady,
-}
+pub type PrefabRegistry = Registry<PrefabHandle, PrefabLoader>;
 
 pub struct WorldResourcesShared {
-    prefabs: RwLock<ObjectPool<PrefabHandle, AsyncState<Arc<Prefab>>>>,
+    prefabs: PrefabRegistry,
 
     pub meshes: WorldBuiltinMeshes,
     pub textures: WorldBuiltinTextures,
@@ -41,8 +36,10 @@ pub struct WorldResourcesShared {
 
 impl WorldResourcesShared {
     fn new(ctx: &Context) -> Result<Self> {
+        let register = PrefabLoader::new(ctx);
+
         let shared = WorldResourcesShared {
-            prefabs: RwLock::new(ObjectPool::new()),
+            prefabs: PrefabRegistry::new(ctx.res.clone(), register),
             meshes: WorldBuiltinMeshes::new(ctx)?,
             textures: WorldBuiltinTextures::new(ctx)?,
         };
@@ -50,46 +47,25 @@ impl WorldResourcesShared {
         Ok(shared)
     }
 
-    pub(crate) fn create_prefab_async(&self) -> PrefabHandle {
-        self.prefabs
-            .write()
-            .unwrap()
-            .create(AsyncState::NotReady)
-            .into()
-    }
-
-    pub(crate) fn update_prefab_async(
-        &self,
-        handle: PrefabHandle,
-        prefab: Prefab,
-    ) -> Result<Option<Prefab>> {
-        prefab.validate()?;
-
-        if let Some(v) = self.prefabs.write().unwrap().get_mut(handle) {
-            *v = AsyncState::Ok(Arc::new(prefab));
-            Ok(None)
-        } else {
-            Ok(Some(prefab))
-        }
-    }
-
-    pub(crate) fn delete_prefab_async(&self, handle: PrefabHandle) -> Option<Arc<Prefab>> {
-        self.prefabs
-            .write()
-            .unwrap()
-            .free(handle)
-            .and_then(|v| match v {
-                AsyncState::Ok(prefab) => Some(prefab),
-                _ => None,
-            })
+    #[inline]
+    pub fn create_prefab_from<'a, T>(&'a self, location: T) -> Result<PrefabHandle>
+    where
+        T: Into<Location<'a>>,
+    {
+        let handle = self.prefabs.create_from(location)?;
+        Ok(handle)
     }
 
     #[inline]
     pub fn prefab(&self, handle: PrefabHandle) -> Option<Arc<Prefab>> {
-        if let Some(AsyncState::Ok(v)) = self.prefabs.read().unwrap().get(handle) {
-            Some(v.clone())
-        } else {
-            None
-        }
+        self.prefabs
+            .wait_until(handle)
+            .ok()
+            .and_then(|_| self.prefabs.get(handle, |v| v.clone()))
+    }
+
+    #[inline]
+    pub fn delete_prefab(&self, handle: PrefabHandle) {
+        self.prefabs.delete(handle);
     }
 }

@@ -1,48 +1,39 @@
 use bincode;
-use std::io::Read;
+use std::io::Cursor;
 use std::sync::Arc;
 
 use errors::*;
 
-use super::super::VideoSystemShared;
+use super::super::backends::frame::Command;
+use super::super::DoubleFrame;
 use super::texture::*;
 
 pub const MAGIC: [u8; 8] = [
     'V' as u8, 'T' as u8, 'E' as u8, 'X' as u8, ' ' as u8, 0, 0, 1,
 ];
 
+#[derive(Clone)]
 pub struct TextureLoader {
-    video: Arc<VideoSystemShared>,
+    frames: Arc<DoubleFrame>,
 }
 
 impl TextureLoader {
-    pub fn new(video: Arc<VideoSystemShared>) -> Self {
-        TextureLoader { video: video }
+    pub(crate) fn new(frames: Arc<DoubleFrame>) -> Self {
+        TextureLoader { frames: frames }
     }
 }
 
-impl ::res::ResourceHandle for TextureHandle {
-    type Loader = TextureLoader;
-}
-
-impl ::res::ResourceLoader for TextureLoader {
+impl ::res::registry::Register for TextureLoader {
     type Handle = TextureHandle;
+    type Intermediate = (TextureParams, Option<TextureData>);
+    type Value = ();
 
-    fn create(&self) -> Result<Self::Handle> {
-        let handle = self.video.create_texture_async()?;
-        info!("[TextureLoader] creates {:?}.", handle);
-        Ok(handle)
-    }
-
-    fn load(&self, handle: Self::Handle, mut file: &mut dyn Read) -> Result<()> {
-        let mut buf = [0; 8];
-        file.read_exact(&mut buf[0..8])?;
-
-        // magic: [u8; 8]
-        if &buf[0..8] != &MAGIC[..] {
+    fn load(&self, handle: Self::Handle, bytes: &[u8]) -> Result<Self::Intermediate> {
+        if &bytes[0..8] != &MAGIC[..] {
             bail!("[TextureLoader] MAGIC number not match.");
         }
 
+        let mut file = Cursor::new(&bytes[8..]);
         let params: TextureParams = bincode::deserialize_from(&mut file)?;
         let data = bincode::deserialize_from(&mut file)?;
 
@@ -51,13 +42,21 @@ impl ::res::ResourceLoader for TextureLoader {
             handle, params.dimensions.x, params.dimensions.y, params.format
         );
 
-        self.video.update_texture_async(handle, params, data)?;
+        Ok((params, Some(data)))
+    }
+
+    fn attach(&self, handle: Self::Handle, item: Self::Intermediate) -> Result<Self::Value> {
+        item.0.validate(item.1.as_ref())?;
+
+        let mut frame = self.frames.front();
+        let task = Command::CreateTexture(handle, item.0, item.1);
+        frame.cmds.push(task);
+
         Ok(())
     }
 
-    fn delete(&self, handle: Self::Handle) -> Result<()> {
-        self.video.delete_texture(handle);
-        info!("[TextureLoader] deletes {:?}.", handle);
-        Ok(())
+    fn detach(&self, handle: Self::Handle, _: Self::Value) {
+        let cmd = Command::DeleteTexture(handle);
+        self.frames.front().cmds.push(cmd);
     }
 }

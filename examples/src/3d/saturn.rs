@@ -28,7 +28,7 @@ impl Window {
         let saturn = world.create();
         world.renderables.add_mesh(saturn, sphere);
         let mut m = SimpleMaterial::default();
-        m.diffuse_texture = Some(ctx.res.load("res:crate.bmp")?);
+        m.diffuse_texture = Some(ctx.video.create_texture_from("res:crate.bmp")?);
         world.renderer.add(saturn, m);
 
         let mut satellites = Vec::new();

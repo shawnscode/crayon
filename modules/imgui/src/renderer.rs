@@ -3,8 +3,8 @@ use std::sync::Arc;
 use crayon::{application, math};
 
 use crayon::application::window;
+use crayon::errors::*;
 use crayon::video::assets::prelude::*;
-use crayon::video::errors::*;
 use crayon::video::prelude::*;
 
 use imgui::{DrawList, ImGui, Ui};

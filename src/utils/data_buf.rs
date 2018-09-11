@@ -3,10 +3,15 @@ use std::marker::PhantomData;
 use std::{mem, slice, str};
 
 /// Where we store all the intermediate bytes.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct DataBuffer(Vec<u8>);
 
 impl DataBuffer {
+    /// Creates a new and emplty `DataBuffer`.
+    pub fn new() -> Self {
+        DataBuffer(Vec::new())
+    }
+
     /// Creates a new task buffer with specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         DataBuffer(Vec::with_capacity(capacity))

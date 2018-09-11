@@ -25,8 +25,8 @@ pub struct ManifestItem {
 /// Manifest for all the resources in the build.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Manifest {
-    items: Vec<ManifestItem>,
-    buf: DataBuffer,
+    pub items: Vec<ManifestItem>,
+    pub buf: DataBuffer,
 
     #[serde(skip)]
     uuids: FastHashMap<Uuid, usize>,
@@ -35,25 +35,13 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    pub fn new(items: &[(&str, &[usize], Uuid)]) -> Self {
-        let mut m = Manifest {
+    pub fn new() -> Self {
+        Manifest {
             items: Vec::new(),
             buf: DataBuffer::with_capacity(0),
             uuids: FastHashMap::default(),
             filenames: FastHashMap::default(),
-        };
-
-        for v in items {
-            let i = ManifestItem {
-                filename: m.buf.extend_from_str(v.0),
-                dependencies: m.buf.extend_from_slice(v.1),
-                uuid: v.2,
-            };
-
-            m.items.push(i);
         }
-
-        m
     }
 
     pub fn load_from(mut file: &mut dyn Read) -> Result<Manifest> {

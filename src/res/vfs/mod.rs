@@ -1,21 +1,22 @@
-pub mod disk;
+pub mod directory;
+pub use self::directory::Directory;
 
-pub use self::disk::DiskFS;
+pub mod manifest;
+pub use self::manifest::Manifest;
 
-use std::io::Read;
-use std::path::Path;
+use std::io::Cursor;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::SystemTime;
 
+use uuid::Uuid;
+
 use errors::*;
-use utils::hash::FastHashMap;
-use utils::hash_value::HashValue;
+use utils::{FastHashMap, HashValue};
 
-pub trait VFS: Send + Sync {
+pub trait VFS: Send + Sync + 'static {
     /// Opens a readable file at location.
-    fn read(&self, location: &Path) -> Result<Box<Read + Send>>;
-
-    // /// Retrieves all file and directory entries in the given directory.
-    // fn read_dir(&self, location: &Path) -> Result<Box<Iterator<Item = PathBuf>>>;
+    fn read_to_end(&self, location: &Path, buf: &mut Vec<u8>) -> Result<usize>;
 
     /// Checks whether or not it is a directory.
     fn is_dir(&self, location: &Path) -> bool;
@@ -27,8 +28,67 @@ pub trait VFS: Send + Sync {
     fn modified_since(&self, location: &Path, ts: SystemTime) -> bool;
 }
 
+pub struct VFSInstance {
+    vfs: Box<dyn VFS>,
+    manifest: Manifest,
+}
+
+impl VFSInstance {
+    pub fn new<T: VFS>(vfs: T) -> Result<Self> {
+        let mut buf = Vec::new();
+        vfs.read_to_end(manifest::NAME.as_ref(), &mut buf)?;
+
+        let instance = VFSInstance {
+            vfs: Box::new(vfs),
+            manifest: manifest::Manifest::load_from(&mut Cursor::new(&buf))?,
+        };
+
+        Ok(instance)
+    }
+
+    #[inline]
+    pub fn redirect<T>(&self, filename: T) -> Option<Uuid>
+    where
+        T: AsRef<str>,
+    {
+        self.manifest.redirect(filename)
+    }
+
+    #[inline]
+    pub fn locate(&self, uuid: Uuid) -> Option<PathBuf> {
+        self.manifest.locate(uuid)
+    }
+
+    #[inline]
+    pub fn contains(&self, uuid: Uuid) -> bool {
+        self.manifest.contains(uuid)
+    }
+}
+
+impl VFS for VFSInstance {
+    #[inline]
+    fn read_to_end(&self, location: &Path, buf: &mut Vec<u8>) -> Result<usize> {
+        self.vfs.read_to_end(location, buf)
+    }
+
+    #[inline]
+    fn is_dir(&self, location: &Path) -> bool {
+        self.vfs.is_dir(location)
+    }
+
+    #[inline]
+    fn exists(&self, location: &Path) -> bool {
+        self.vfs.exists(location)
+    }
+
+    #[inline]
+    fn modified_since(&self, location: &Path, ts: SystemTime) -> bool {
+        self.vfs.modified_since(location, ts)
+    }
+}
+
 pub struct VFSDriver {
-    mounts: FastHashMap<HashValue<str>, Box<VFS>>,
+    mounts: FastHashMap<HashValue<str>, Arc<VFSInstance>>,
 }
 
 impl VFSDriver {
@@ -53,55 +113,26 @@ impl VFSDriver {
             );
         }
 
-        self.mounts.insert(hash, Box::new(vfs));
+        self.mounts.insert(hash, Arc::new(VFSInstance::new(vfs)?));
         Ok(())
     }
 
-    pub fn read<T>(&self, fs: T, file: &Path) -> Result<Box<Read + Send>>
-    where
-        T: Into<HashValue<str>>,
-    {
-        let fs = fs.into();
-        if let Some(vfs) = self.mounts.get(&fs) {
-            vfs.read(file)
-        } else {
-            bail!("Undefined virtual file system {:?}.", fs);
+    /// Gets vfs instance which contains resource with `uuid`.
+    pub fn vfs_from_uuid(&self, uuid: Uuid) -> Option<Arc<VFSInstance>> {
+        for v in self.mounts.values() {
+            if v.contains(uuid) {
+                return Some(v.clone());
+            }
         }
+
+        None
     }
 
-    pub fn is_dir<T>(&self, fs: T, file: &Path) -> Result<bool>
+    /// Gets vfs with specified identifier `fs`.
+    pub fn vfs<T>(&self, fs: T) -> Option<Arc<VFSInstance>>
     where
         T: Into<HashValue<str>>,
     {
-        let fs = fs.into();
-        if let Some(vfs) = self.mounts.get(&fs.into()) {
-            Ok(vfs.is_dir(file))
-        } else {
-            bail!("Undefined virtual file system {:?}.", fs);
-        }
-    }
-
-    pub fn exists<T>(&self, fs: T, file: &Path) -> Result<bool>
-    where
-        T: Into<HashValue<str>>,
-    {
-        let fs = fs.into();
-        if let Some(vfs) = self.mounts.get(&fs.into()) {
-            Ok(vfs.exists(file))
-        } else {
-            bail!("Undefined virtual file system {:?}.", fs);
-        }
-    }
-
-    pub fn modified_since<T>(&self, fs: T, file: &Path, ts: SystemTime) -> Result<bool>
-    where
-        T: Into<HashValue<str>>,
-    {
-        let fs = fs.into();
-        if let Some(vfs) = self.mounts.get(&fs.into()) {
-            Ok(vfs.modified_since(file, ts))
-        } else {
-            bail!("Undefined virtual file system {:?}.", fs);
-        }
+        self.mounts.get(&fs.into()).map(|vfs| vfs.clone())
     }
 }

@@ -27,7 +27,7 @@ where
     params
 }
 
-pub fn find_res_dir() -> crayon::res::vfs::DiskFS {
+pub fn find_res_dir() -> crayon::res::vfs::Directory {
     use std::path::Path;
 
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
@@ -38,8 +38,8 @@ pub fn find_res_dir() -> crayon::res::vfs::DiskFS {
     ];
 
     for v in &search_dirs {
-        if v.is_dir() && v.join(crayon::res::manifest::NAME).exists() {
-            return crayon::res::vfs::DiskFS::new(v).unwrap();
+        if v.is_dir() && v.join(crayon::res::vfs::manifest::NAME).exists() {
+            return crayon::res::vfs::Directory::new(v).unwrap();
         }
     }
 

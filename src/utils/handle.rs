@@ -88,7 +88,7 @@ impl fmt::Display for Handle {
     }
 }
 
-pub trait HandleLike: Copy {
+pub trait HandleLike: Copy + Send + Sync {
     fn new(index: HandleIndex, version: HandleIndex) -> Self;
     fn index(&self) -> HandleIndex;
     fn version(&self) -> HandleIndex;
