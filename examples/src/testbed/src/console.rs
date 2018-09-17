@@ -59,7 +59,7 @@ impl ConsoleCanvas {
             .resizable(false)
             .title_bar(false)
             .position((0.0, 0.0), ImGuiCond::FirstUseEver)
-            .size((250.0, 65.0), ImGuiCond::FirstUseEver)
+            .size((256.0, 64.0), ImGuiCond::FirstUseEver)
             .build(|| {
                 ui.text(im_str!("FPS: {:?}", info.fps));
                 ui.text(im_str!(

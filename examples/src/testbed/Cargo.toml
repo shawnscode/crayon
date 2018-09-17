@@ -7,5 +7,6 @@ authors = ["maojingkai <oammix@gmail.com>"]
 crayon = { path = "../../.." }
 crayon-imgui = { path = "../../../modules/imgui" }
 crayon-3d = { path = "../../../modules/3d" }
+crayon-audio = { path = "../../../modules/audio" }
 env_logger = "0.5.12"
 rand = "0.5.5"

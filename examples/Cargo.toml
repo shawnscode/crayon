@@ -33,3 +33,11 @@ path = "src/3d/prefab.rs"
 [[bin]]
 name = "saturn"
 path = "src/3d/saturn.rs"
+
+[[bin]]
+name = "audio"
+path = "src/audio/audio.rs"
+
+[[bin]]
+name = "audio_3d"
+path = "src/audio/audio_3d.rs"

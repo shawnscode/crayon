@@ -6,6 +6,9 @@ extern crate crayon_3d;
 extern crate crayon_imgui;
 pub use crayon_imgui::*;
 
+extern crate crayon_audio;
+pub use crayon_audio::*;
+
 extern crate env_logger;
 pub extern crate rand;
 
@@ -54,4 +57,5 @@ pub mod prelude {
     pub use crayon::prelude::*;
     pub use crayon::video::assets::prelude::*;
     pub use crayon_3d::prelude::*;
+    pub use crayon_audio::prelude::*;
 }

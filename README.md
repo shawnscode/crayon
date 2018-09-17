@@ -29,7 +29,8 @@ Currently, we are supporting assets with:
     * Notes that not only `Mesh`, but also the nodes will be imported as `Prefab` for scene creation.
 2. Texture files like `.psd`, `.png`, `.jpeg`, `.bmp`, etc.. through [PvrTexTool](https://community.imgtec.com/developers/powervr/tools/pvrtextool/) and [crunch](https://github.com/BKcore/crunch-osx).
     * Notes that texture files could be compressed into `PVRTC`, `ETC2` or `S3TC` formats based on platform.
-3. Universal shader files through [SPIRV](https://www.khronos.org/registry/spir-v/) are also in planning, and should be ready in next few releases.
+3. Audio files like `.mp3`, `.wav`, `.ogg`, `.flac` through [RustAudio](https://github.com/RustAudio).
+4. Universal shader files through [SPIRV](https://www.khronos.org/registry/spir-v/) are also in planning, and should be ready in next few releases.
 
 The assets manipulation codes are placed under [crayon-tools](https://github.com/shawnscode/crayon-tools), checks out the repository for further details.
 

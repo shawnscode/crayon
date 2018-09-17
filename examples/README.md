@@ -25,3 +25,8 @@ Pre-compiled assets are placed under `resources` folder for convenience, so you 
 1. ImGui windows: ```cargo run --bin imgui```
 
 ![ImGui](./screenshots/imgui.png)
+
+## Audio
+
+1. Audio: ```cargo run --bin audio```
+2. Audio3D: ```cargo run --bin audio_3d```
