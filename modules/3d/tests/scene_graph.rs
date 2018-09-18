@@ -7,7 +7,7 @@ use crayon::utils::handle_pool::HandlePool;
 use crayon_3d::prelude::*;
 
 struct Testbed {
-    world: HandlePool,
+    world: HandlePool<Entity>,
     scene: SceneGraph,
 }
 
@@ -82,24 +82,23 @@ pub fn hierachy() {
     assert!(!testbed.is_leaf(e3));
     assert!(testbed.is_leaf(e4));
 
-    {
-        let point = [1.0, 0.0, 0.0];
-        testbed.set_position(e3, point);
-        assert_ulps_eq!(testbed.position(e4).unwrap(), point.into());
-    }
+    let point = [1.0, 0.0, 0.0];
+    testbed.set_position(e3, point);
+    assert_ulps_eq!(testbed.position(e4).unwrap(), point.into());
 
-    {
-        let point = [1.0, 0.0, 2.0];
-        testbed.set_position(e1, point);
-        assert_ulps_eq!(testbed.position(e4).unwrap(), [2.0, 0.0, 2.0].into());
-    }
+    let point = [1.0, 0.0, 2.0];
+    testbed.set_position(e1, point);
+    assert_ulps_eq!(testbed.position(e4).unwrap(), [2.0, 0.0, 2.0].into());
 
-    {
-        assert_ulps_eq!(testbed.local_position(e4).unwrap(), [0.0, 0.0, 0.0].into());
-        testbed.set_parent(e4, Some(e2), false).unwrap();
-        assert_ulps_eq!(testbed.position(e4).unwrap(), [1.0, 0.0, 2.0].into());
-        assert_ulps_eq!(testbed.local_position(e4).unwrap(), [0.0, 0.0, 0.0].into());
-    }
+    assert_ulps_eq!(testbed.local_position(e4).unwrap(), [0.0, 0.0, 0.0].into());
+    testbed.set_parent(e4, Some(e2), false).unwrap();
+    assert_ulps_eq!(testbed.position(e4).unwrap(), [1.0, 0.0, 2.0].into());
+    assert_ulps_eq!(testbed.local_position(e4).unwrap(), [0.0, 0.0, 0.0].into());
+
+    testbed.set_local_position(e2, [1.0, 0.0, 0.0]);
+    let euler = Euler::new(Deg(0.0), Deg(90.0), Deg(0.0));
+    testbed.set_rotation(e1, euler);
+    assert_ulps_eq!(testbed.position(e2).unwrap(), [1.0, 0.0, 1.0].into());
 }
 
 #[test]
@@ -206,7 +205,7 @@ fn look_at() {
 #[test]
 #[should_panic]
 pub fn duplicated_add() {
-    let mut world = HandlePool::new();
+    let mut world: HandlePool<Entity> = HandlePool::new();
     let mut scene = SceneGraph::new();
 
     let e1 = world.create().into();

@@ -1,48 +1,39 @@
 use bincode;
-use std::io::Read;
+use std::io::Cursor;
 use std::sync::Arc;
 
 use errors::*;
 
-use super::super::VideoSystemShared;
+use super::super::backends::frame::Command;
+use super::super::DoubleFrame;
 use super::mesh::*;
 
 pub const MAGIC: [u8; 8] = [
     'V' as u8, 'M' as u8, 'S' as u8, 'H' as u8, ' ' as u8, 0, 0, 1,
 ];
 
+#[derive(Clone)]
 pub struct MeshLoader {
-    video: Arc<VideoSystemShared>,
+    frames: Arc<DoubleFrame>,
 }
 
 impl MeshLoader {
-    pub fn new(video: Arc<VideoSystemShared>) -> Self {
-        MeshLoader { video: video }
+    pub(crate) fn new(frames: Arc<DoubleFrame>) -> Self {
+        MeshLoader { frames: frames }
     }
 }
 
-impl ::res::ResourceHandle for MeshHandle {
-    type Loader = MeshLoader;
-}
-
-impl ::res::ResourceLoader for MeshLoader {
+impl ::res::registry::Register for MeshLoader {
     type Handle = MeshHandle;
+    type Intermediate = (MeshParams, Option<MeshData>);
+    type Value = MeshParams;
 
-    fn create(&self) -> Result<Self::Handle> {
-        let handle = self.video.create_mesh_async()?;
-        info!("[MeshLoader] creates {:?}.", handle);
-        Ok(handle)
-    }
-
-    fn load(&self, handle: Self::Handle, mut file: &mut dyn Read) -> Result<()> {
-        let mut buf = [0; 8];
-        file.read_exact(&mut buf[0..8])?;
-
-        // MAGIC: [u8; 8]
-        if &buf[0..8] != &MAGIC[..] {
+    fn load(&self, handle: Self::Handle, bytes: &[u8]) -> Result<Self::Intermediate> {
+        if &bytes[0..8] != &MAGIC[..] {
             bail!("[MeshLoader] MAGIC number not match.");
         }
 
+        let mut file = Cursor::new(&bytes[8..]);
         let params: MeshParams = bincode::deserialize_from(&mut file)?;
         let data = bincode::deserialize_from(&mut file)?;
 
@@ -51,13 +42,21 @@ impl ::res::ResourceLoader for MeshLoader {
             handle, params.num_verts, params.num_idxes
         );
 
-        self.video.update_mesh_async(handle, params, data)?;
-        Ok(())
+        Ok((params, Some(data)))
     }
 
-    fn delete(&self, handle: Self::Handle) -> Result<()> {
-        self.video.delete_mesh(handle);
-        info!("[MeshLoader] deletes {:?}.", handle);
-        Ok(())
+    fn attach(&self, handle: Self::Handle, item: Self::Intermediate) -> Result<Self::Value> {
+        item.0.validate(item.1.as_ref())?;
+
+        let mut frame = self.frames.front();
+        let task = Command::CreateMesh(handle, item.0.clone(), item.1);
+        frame.cmds.push(task);
+
+        Ok(item.0)
+    }
+
+    fn detach(&self, handle: Self::Handle, _: Self::Value) {
+        let cmd = Command::DeleteMesh(handle);
+        self.frames.front().cmds.push(cmd);
     }
 }

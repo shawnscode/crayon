@@ -65,7 +65,8 @@ impl<'s> Scope<'s> {
                 // capture the first error we see, free the rest
                 let nil = ptr::null_mut();
                 let mut err = Box::new(err); // box up the fat ptr
-                if self.panic
+                if self
+                    .panic
                     .compare_exchange(nil, &mut *err, Ordering::Release, Ordering::Relaxed)
                     .is_ok()
                 {

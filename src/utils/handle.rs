@@ -88,6 +88,32 @@ impl fmt::Display for Handle {
     }
 }
 
+pub trait HandleLike: Copy + Send + Sync {
+    fn new(index: HandleIndex, version: HandleIndex) -> Self;
+    fn index(&self) -> HandleIndex;
+    fn version(&self) -> HandleIndex;
+}
+
+impl HandleLike for Handle {
+    #[inline]
+    fn new(index: HandleIndex, version: HandleIndex) -> Self {
+        Handle {
+            index: index,
+            version: version,
+        }
+    }
+
+    #[inline]
+    fn index(&self) -> HandleIndex {
+        self.index
+    }
+
+    #[inline]
+    fn version(&self) -> HandleIndex {
+        self.version
+    }
+}
+
 #[macro_export]
 macro_rules! impl_handle {
     ($name:ident) => {
@@ -116,6 +142,26 @@ macro_rules! impl_handle {
         impl ::std::borrow::Borrow<$crate::utils::handle::Handle> for $name {
             fn borrow(&self) -> &$crate::utils::handle::Handle {
                 &self.0
+            }
+        }
+
+        impl $crate::utils::handle::HandleLike for $name {
+            #[inline]
+            fn new(
+                index: $crate::utils::handle::HandleIndex,
+                version: $crate::utils::handle::HandleIndex,
+            ) -> Self {
+                $name($crate::utils::handle::Handle::new(index, version))
+            }
+
+            #[inline]
+            fn index(&self) -> $crate::utils::handle::HandleIndex {
+                self.0.index()
+            }
+
+            #[inline]
+            fn version(&self) -> $crate::utils::handle::HandleIndex {
+                self.0.version()
             }
         }
 

@@ -9,7 +9,7 @@ use crayon_3d::tags::Tags;
 use crayon_3d::world_impl;
 
 struct Testbed {
-    entities: HandlePool,
+    entities: HandlePool<Entity>,
     scene: SceneGraph,
     tags: Tags,
     renderables: Renderable,

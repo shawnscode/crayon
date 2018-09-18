@@ -1,8 +1,8 @@
 use std::ops::{Deref, DerefMut};
 
 use crayon::application::Context;
+use crayon::errors::*;
 use crayon::input::prelude::*;
-use crayon::video::errors::*;
 use crayon::video::prelude::*;
 use imgui;
 use renderer::Renderer;
@@ -102,40 +102,40 @@ impl Canvas {
     }
 
     fn update_keycode_state(imgui: &mut imgui::ImGui, input: &InputSystemShared) {
-        imgui.set_key(0, input.is_key_down(KeyboardButton::Tab));
-        imgui.set_key(1, input.is_key_down(KeyboardButton::Left));
-        imgui.set_key(2, input.is_key_down(KeyboardButton::Right));
-        imgui.set_key(3, input.is_key_down(KeyboardButton::Up));
-        imgui.set_key(4, input.is_key_down(KeyboardButton::Down));
-        imgui.set_key(5, input.is_key_down(KeyboardButton::PageUp));
-        imgui.set_key(6, input.is_key_down(KeyboardButton::PageDown));
-        imgui.set_key(7, input.is_key_down(KeyboardButton::Home));
-        imgui.set_key(8, input.is_key_down(KeyboardButton::End));
-        imgui.set_key(9, input.is_key_down(KeyboardButton::Delete));
-        imgui.set_key(10, input.is_key_down(KeyboardButton::Back));
-        imgui.set_key(11, input.is_key_down(KeyboardButton::Return));
-        imgui.set_key(12, input.is_key_down(KeyboardButton::Escape));
-        imgui.set_key(13, input.is_key_down(KeyboardButton::A));
-        imgui.set_key(14, input.is_key_down(KeyboardButton::C));
-        imgui.set_key(15, input.is_key_down(KeyboardButton::V));
-        imgui.set_key(16, input.is_key_down(KeyboardButton::X));
-        imgui.set_key(17, input.is_key_down(KeyboardButton::Y));
-        imgui.set_key(18, input.is_key_down(KeyboardButton::Z));
+        imgui.set_key(0, input.is_key_down(Key::Tab));
+        imgui.set_key(1, input.is_key_down(Key::Left));
+        imgui.set_key(2, input.is_key_down(Key::Right));
+        imgui.set_key(3, input.is_key_down(Key::Up));
+        imgui.set_key(4, input.is_key_down(Key::Down));
+        imgui.set_key(5, input.is_key_down(Key::PageUp));
+        imgui.set_key(6, input.is_key_down(Key::PageDown));
+        imgui.set_key(7, input.is_key_down(Key::Home));
+        imgui.set_key(8, input.is_key_down(Key::End));
+        imgui.set_key(9, input.is_key_down(Key::Delete));
+        imgui.set_key(10, input.is_key_down(Key::Back));
+        imgui.set_key(11, input.is_key_down(Key::Return));
+        imgui.set_key(12, input.is_key_down(Key::Escape));
+        imgui.set_key(13, input.is_key_down(Key::A));
+        imgui.set_key(14, input.is_key_down(Key::C));
+        imgui.set_key(15, input.is_key_down(Key::V));
+        imgui.set_key(16, input.is_key_down(Key::X));
+        imgui.set_key(17, input.is_key_down(Key::Y));
+        imgui.set_key(18, input.is_key_down(Key::Z));
 
-        let lcontrol = input.is_key_down(KeyboardButton::LControl);
-        let rcontrol = input.is_key_down(KeyboardButton::RControl);
+        let lcontrol = input.is_key_down(Key::LControl);
+        let rcontrol = input.is_key_down(Key::RControl);
         imgui.set_key_ctrl(lcontrol || rcontrol);
 
-        let lshift = input.is_key_down(KeyboardButton::LShift);
-        let rshift = input.is_key_down(KeyboardButton::RShift);
+        let lshift = input.is_key_down(Key::LShift);
+        let rshift = input.is_key_down(Key::RShift);
         imgui.set_key_shift(lshift || rshift);
 
-        let lalt = input.is_key_down(KeyboardButton::LAlt);
-        let ralt = input.is_key_down(KeyboardButton::RAlt);
+        let lalt = input.is_key_down(Key::LAlt);
+        let ralt = input.is_key_down(Key::RAlt);
         imgui.set_key_alt(lalt || ralt);
 
-        let lwin = input.is_key_down(KeyboardButton::LWin);
-        let rwin = input.is_key_down(KeyboardButton::RWin);
+        let lwin = input.is_key_down(Key::LWin);
+        let rwin = input.is_key_down(Key::RWin);
         imgui.set_key_super(lwin || rwin);
     }
 

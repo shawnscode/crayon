@@ -250,7 +250,8 @@ impl<S: BaseFloat> Frustum<S> {
             self.bottom,
             self.near,
             self.far,
-        ].iter()
+        ]
+            .iter()
             .fold(PlaneRelation::In, |cur, p| {
                 use std::cmp::max;
                 let r = bound.relate(*p);

@@ -23,3 +23,11 @@ extensions = [
     '.dae',
     '.3ds',
 ]
+
+[[assets.importers]]
+type = 'Audio'
+extensions = [
+    '.mp3',
+    '.wav',
+    '.ogg',
+]

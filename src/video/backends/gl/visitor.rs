@@ -2,7 +2,6 @@ use gl;
 use gl::types::*;
 use std::cell::RefCell;
 
-use application::window::Window;
 use errors::*;
 use math;
 use utils::hash::{FastHashMap, FastHashSet};
@@ -12,7 +11,7 @@ use super::super::super::assets::prelude::*;
 use super::super::super::MAX_UNIFORM_TEXTURE_SLOTS;
 use super::super::{UniformVar, Visitor};
 use super::capabilities::{Capabilities, Version};
-use super::types::DataVec;
+use super::types::{self, DataVec};
 
 #[derive(Debug, Clone)]
 struct GLSurfaceFBO {
@@ -119,9 +118,7 @@ pub struct GLVisitor {
 }
 
 impl GLVisitor {
-    pub unsafe fn new(window: &Window) -> Result<Self> {
-        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
-
+    pub unsafe fn new() -> Result<Self> {
         let capabilities = Capabilities::parse()?;
         info!("GLVisitor {:#?}", capabilities);
         check_capabilities(&capabilities)?;
@@ -186,7 +183,8 @@ impl Visitor for GLVisitor {
             let mut dimensions = None;
             for (i, attachment) in params.colors.iter().enumerate() {
                 if let Some(v) = *attachment {
-                    let rt = self.render_textures
+                    let rt = self
+                        .render_textures
                         .get(v)
                         .ok_or_else(|| format_err!("RenderTexture handle {:?} is invalid.", v))?;
 
@@ -210,7 +208,8 @@ impl Visitor for GLVisitor {
             }
 
             if let Some(v) = params.depth_stencil {
-                let rt = self.render_textures
+                let rt = self
+                    .render_textures
                     .get(v)
                     .ok_or_else(|| format_err!("RenderTexture handle {:?} is invalid.", v))?;
 
@@ -252,7 +251,8 @@ impl Visitor for GLVisitor {
     }
 
     unsafe fn delete_surface(&mut self, handle: SurfaceHandle) -> Result<()> {
-        let surface = self.surfaces
+        let surface = self
+            .surfaces
             .free(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -316,7 +316,8 @@ impl Visitor for GLVisitor {
     }
 
     unsafe fn delete_shader(&mut self, handle: ShaderHandle) -> Result<()> {
-        let shader = self.shaders
+        let shader = self
+            .shaders
             .free(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -347,7 +348,8 @@ impl Visitor for GLVisitor {
         gl::GenTextures(1, &mut id);
         assert!(id != 0);
 
-        let (internal_format, format, pixel_type) = params.format.into();
+        let (internal_format, format, pixel_type) =
+            types::texture_format(params.format, &self.capabilities);
         let is_compression = params.format.is_compression();
         let mut allocated = false;
 
@@ -421,7 +423,8 @@ impl Visitor for GLVisitor {
         area: math::Aabb2<u32>,
         data: &[u8],
     ) -> Result<()> {
-        let texture = *self.textures
+        let texture = *self
+            .textures
             .get(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -440,7 +443,8 @@ impl Visitor for GLVisitor {
             bail!("Trying to update texture data out of bounds.");
         }
 
-        let (internal_format, format, pixel_type) = texture.params.format.into();
+        let (internal_format, format, pixel_type) =
+            types::texture_format(texture.params.format, &self.capabilities);
 
         self.bind_texture(0, texture.id)?;
 
@@ -478,7 +482,8 @@ impl Visitor for GLVisitor {
     }
 
     unsafe fn delete_texture(&mut self, handle: TextureHandle) -> Result<()> {
-        let texture = self.textures
+        let texture = self
+            .textures
             .free(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
         self.delete_texture_intern(texture.id)
@@ -542,7 +547,8 @@ impl Visitor for GLVisitor {
     }
 
     unsafe fn delete_render_texture(&mut self, handle: RenderTextureHandle) -> Result<()> {
-        let rt = self.render_textures
+        let rt = self
+            .render_textures
             .free(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -598,7 +604,8 @@ impl Visitor for GLVisitor {
         data: &[u8],
     ) -> Result<()> {
         let vbo = {
-            let mesh = self.meshes
+            let mesh = self
+                .meshes
                 .get(handle)
                 .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -620,7 +627,8 @@ impl Visitor for GLVisitor {
         data: &[u8],
     ) -> Result<()> {
         let ibo = {
-            let mesh = self.meshes
+            let mesh = self
+                .meshes
                 .get(handle)
                 .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -636,7 +644,8 @@ impl Visitor for GLVisitor {
     }
 
     unsafe fn delete_mesh(&mut self, handle: MeshHandle) -> Result<()> {
-        let mesh = self.meshes
+        let mesh = self
+            .meshes
             .free(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -656,7 +665,8 @@ impl Visitor for GLVisitor {
             return Ok(());
         }
 
-        let surface = self.surfaces
+        let surface = self
+            .surfaces
             .get(id)
             .ok_or_else(|| format_err!("{:?} is invalid.", id))?;
 
@@ -715,7 +725,8 @@ impl Visitor for GLVisitor {
     ) -> Result<u32> {
         let mesh = {
             // Bind program and associated uniforms and textures.
-            let shader = self.shaders
+            let shader = self
+                .shaders
                 .get(shader)
                 .ok_or_else(|| format_err!("{:?} is invalid.", shader))?;
 
@@ -724,39 +735,54 @@ impl Visitor for GLVisitor {
 
             let mut index = 0usize;
             for &(field, variable) in uniforms {
-                let location = shader.hash_uniform_location(field).unwrap();
-                match variable {
-                    UniformVariable::Texture(handle) => {
-                        let v = UniformVariable::I32(index as i32);
-                        let texture = self.textures.get(handle).map(|v| v.id).unwrap_or(0);
-                        self.bind_uniform_variable(location, &v)?;
-                        self.bind_texture(index, texture)?;
-                        index += 1;
+                if let Some(tp) = shader.params.uniforms.variable_type(field) {
+                    if tp != variable.variable_type() {
+                        let name = shader.params.uniforms.variable_name(field).unwrap();
+                        bail!(
+                            "The uniform {} needs a {:?} instead of {:?}.",
+                            name,
+                            tp,
+                            variable.variable_type(),
+                        );
                     }
-                    UniformVariable::RenderTexture(handle) => {
-                        let v = UniformVariable::I32(index as i32);
-                        self.bind_uniform_variable(location, &v)?;
 
-                        if let Some(texture) = self.render_textures.get(handle) {
-                            if !texture.params.sampler {
-                                bail!("The render buffer does not have a sampler.");
+                    let location = shader.hash_uniform_location(field).unwrap();
+                    match variable {
+                        UniformVariable::Texture(handle) => {
+                            let v = UniformVariable::I32(index as i32);
+                            let texture = self.textures.get(handle).map(|v| v.id).unwrap_or(0);
+                            self.bind_uniform_variable(location, &v)?;
+                            self.bind_texture(index, texture)?;
+                            index += 1;
+                        }
+                        UniformVariable::RenderTexture(handle) => {
+                            let v = UniformVariable::I32(index as i32);
+                            self.bind_uniform_variable(location, &v)?;
+
+                            if let Some(texture) = self.render_textures.get(handle) {
+                                if !texture.params.sampler {
+                                    bail!("The render buffer does not have a sampler.");
+                                }
+
+                                self.bind_texture(index, texture.id)?;
+                            } else {
+                                self.bind_texture(index, 0)?;
                             }
 
-                            self.bind_texture(index, texture.id)?;
-                        } else {
-                            self.bind_texture(index, 0)?;
+                            index += 1;
                         }
-
-                        index += 1;
+                        _ => {
+                            self.bind_uniform_variable(location, &variable)?;
+                        }
                     }
-                    _ => {
-                        self.bind_uniform_variable(location, &variable)?;
-                    }
+                } else {
+                    bail!("Undefined uniform field {:?}.", field);
                 }
             }
 
             // Bind vertex buffer and vertex array object.
-            let mesh = self.meshes
+            let mesh = self
+                .meshes
                 .get(mesh)
                 .ok_or_else(|| format_err!("{:?} is invalid.", mesh))?;
 
@@ -778,7 +804,8 @@ impl Visitor for GLVisitor {
             }
             MeshIndex::SubMesh(index) => {
                 let num = mesh.params.sub_mesh_offsets.len();
-                let from = mesh.params
+                let from = mesh
+                    .params
                     .sub_mesh_offsets
                     .get(index)
                     .ok_or_else(|| format_err!("MeshIndex is out of bounds"))?;
@@ -1512,14 +1539,16 @@ impl GLVisitor {
 }
 
 unsafe fn check_capabilities(caps: &Capabilities) -> Result<()> {
-    if caps.version < Version::GL(1, 5) && caps.version < Version::ES(2, 0)
+    if caps.version < Version::GL(1, 5)
+        && caps.version < Version::ES(2, 0)
         && (!caps.extensions.gl_arb_vertex_buffer_object
             || !caps.extensions.gl_arb_map_buffer_range)
     {
         bail!("The OpenGL implementation does not supports vertex buffer objects.");
     }
 
-    if caps.version < Version::GL(2, 0) && caps.version < Version::ES(2, 0)
+    if caps.version < Version::GL(2, 0)
+        && caps.version < Version::ES(2, 0)
         && (!caps.extensions.gl_arb_shader_objects
             || !caps.extensions.gl_arb_vertex_shader
             || !caps.extensions.gl_arb_fragment_shader)

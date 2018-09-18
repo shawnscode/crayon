@@ -1,7 +1,9 @@
 use {Component, Entity};
 
+use crayon::utils::VariantStr;
+
 pub struct Tags {
-    names: Component<String>,
+    names: Component<VariantStr>,
 }
 
 impl Tags {
@@ -13,7 +15,7 @@ impl Tags {
 
     #[inline]
     pub fn add<T: AsRef<str>>(&mut self, ent: Entity, name: T) {
-        self.names.add(ent, name.as_ref().to_owned());
+        self.names.add(ent, name.as_ref().into());
     }
 
     #[inline]
@@ -23,6 +25,6 @@ impl Tags {
 
     #[inline]
     pub fn name(&self, ent: Entity) -> Option<&str> {
-        self.names.get(ent).map(|v| v.as_ref())
+        self.names.get(ent).map(|v| v.as_str())
     }
 }

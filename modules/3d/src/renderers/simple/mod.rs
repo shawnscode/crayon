@@ -10,8 +10,7 @@ use crayon::video::prelude::*;
 use std::sync::Arc;
 
 use super::{Camera, Lit, LitSource, MeshRenderer};
-use assets::WorldResourcesShared;
-use {Component, Entity};
+use {Component, Entity, WorldResourcesShared};
 
 pub const MAX_DIR_LITS: usize = 1;
 pub const MAX_POINT_LITS: usize = 4;
@@ -46,7 +45,7 @@ impl SimpleRenderer {
             .with("u_ModelViewMatrix", UniformVariableType::Matrix4f)
             .with("u_MVPMatrix", UniformVariableType::Matrix4f)
             .with("u_ViewNormalMatrix", UniformVariableType::Matrix4f)
-            .with("u_Ambient", UniformVariableType::Vector3f)
+            .with("u_GlobalAmbient", UniformVariableType::Vector3f)
             .with("u_Diffuse", UniformVariableType::Vector3f)
             .with("u_DiffuseTexture", UniformVariableType::Texture)
             .with("u_Specular", UniformVariableType::Vector3f)
@@ -63,8 +62,8 @@ impl SimpleRenderer {
             );
 
             uniforms = uniforms
-                .with(name.0.as_ref(), UniformVariableType::Matrix4f)
-                .with(name.1.as_ref(), UniformVariableType::Matrix4f);
+                .with(name.0.as_ref(), UniformVariableType::Vector3f)
+                .with(name.1.as_ref(), UniformVariableType::Vector3f);
 
             dir_lits.push(name);
         }
@@ -77,9 +76,9 @@ impl SimpleRenderer {
             );
 
             uniforms = uniforms
-                .with(name.0.as_ref(), UniformVariableType::Matrix4f)
-                .with(name.1.as_ref(), UniformVariableType::Matrix4f)
-                .with(name.2.as_ref(), UniformVariableType::Matrix4f);
+                .with(name.0.as_ref(), UniformVariableType::Vector3f)
+                .with(name.1.as_ref(), UniformVariableType::Vector3f)
+                .with(name.2.as_ref(), UniformVariableType::Vector3f);
 
             point_lits.push(name);
         }
@@ -195,7 +194,7 @@ impl super::Renderer for SimpleRenderer {
             ambient[1] *= self.global_ambient.g;
             ambient[2] *= self.global_ambient.b;
 
-            dc.set_uniform_variable("u_Ambient", ambient);
+            dc.set_uniform_variable("u_GlobalAmbient", ambient);
             dc.set_uniform_variable("u_Diffuse", mat.diffuse.rgb());
             dc.set_uniform_variable("u_DiffuseTexture", diffuse);
             dc.set_uniform_variable("u_Specular", mat.specular.rgb());

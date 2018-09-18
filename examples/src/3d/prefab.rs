@@ -16,8 +16,8 @@ impl Window {
         let mut world = World::new(world_resources.shared(), pipeline);
 
         //
-        let prefab = ctx.res.load("res:cornell_box.obj")?;
-        ctx.res.wait(prefab)?;
+        let prefab = world.res.create_prefab_from("res:cornell_box.obj")?;
+        // ctx.res.wait(prefab)?;
         let room = world.instantiate(prefab).unwrap();
 
         // Lets give shortBox some red color.

@@ -43,8 +43,7 @@ impl Scheduler {
                 stealer: v,
                 primed: LockLatch::new(),
                 terminated: LockLatch::new(),
-            })
-            .collect();
+            }).collect();
 
         let scheduler = Arc::new(Scheduler {
             threads: stealers,
@@ -290,7 +289,8 @@ impl WorkerThread {
         let abort_guard = AbortIfPanic {};
 
         while !latch.is_set() {
-            if let Some(job) = self.steal_local()
+            if let Some(job) = self
+                .steal_local()
                 .or_else(|| self.steal())
                 .or_else(|| self.scheduler.inject_stealer.steal())
             {
@@ -308,7 +308,8 @@ impl WorkerThread {
         let abort_guard = AbortIfPanic {};
 
         while !latch.is_set() {
-            if let Some(job) = self.steal_local()
+            if let Some(job) = self
+                .steal_local()
                 .or_else(|| self.steal())
                 .or_else(|| self.scheduler.inject_stealer.steal())
             {

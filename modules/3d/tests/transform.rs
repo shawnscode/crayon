@@ -31,3 +31,16 @@ fn concat() {
     let e3 = e2 * e1;
     assert_ulps_eq!(e3.position, [1.0, 0.0, 0.0].into());
 }
+
+#[test]
+fn inverse() {
+    let mut e1 = Transform::default();
+    e1.position = [0.0, 0.0, 1.0].into();
+    let euler = math::Euler::new(math::Deg(0.0), math::Deg(90.0), math::Deg(0.0));
+    e1.rotation = euler.into();
+
+    let v = e1.inverse().unwrap() * e1;
+    assert_ulps_eq!(v.position, [0.0, 0.0, 0.0].into());
+    assert_ulps_eq!(v.scale, 1.0);
+    assert_ulps_eq!(v.rotation, math::Quaternion::one());
+}
