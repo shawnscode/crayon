@@ -32,6 +32,7 @@ addons:
       - gcc
       - binutils-dev
       - libiberty-dev
+      - portaudio19-dev
       # - xvfb
 
 before_install:
