@@ -339,7 +339,8 @@ impl VideoSystem {
             window.resize(dimensions);
         }
 
-        let (dc, tris) = self.frames
+        let (dc, tris) = self
+            .frames
             .back()
             .dispatch(self.visitor.as_mut(), dimensions)?;
         let mut info = VideoFrameInfo::default();
@@ -545,8 +546,7 @@ impl VideoSystemShared {
                 let ptr = frame.bufs.extend_from_slice(data);
                 let cmd = Command::UpdateVertexBuffer(handle, offset, ptr);
                 frame.cmds.push(cmd);
-            })
-            .ok_or_else(|| format_err!("{:?}", handle))
+            }).ok_or_else(|| format_err!("{:?}", handle))
     }
 
     /// Update a subset of dynamic index buffer. Use `offset` specifies the offset
@@ -564,8 +564,7 @@ impl VideoSystemShared {
                 let ptr = frame.bufs.extend_from_slice(data);
                 let cmd = Command::UpdateIndexBuffer(handle, offset, ptr);
                 frame.cmds.push(cmd);
-            })
-            .ok_or_else(|| format_err!("{:?}", handle))
+            }).ok_or_else(|| format_err!("{:?}", handle))
     }
 
     /// Delete mesh object.
@@ -618,8 +617,7 @@ impl VideoSystemShared {
                 let ptr = frame.bufs.extend_from_slice(data);
                 let cmd = Command::UpdateTexture(handle, area, ptr);
                 frame.cmds.push(cmd);
-            })
-            .ok_or_else(|| format_err!("{:?}", handle))
+            }).ok_or_else(|| format_err!("{:?}", handle))
     }
 
     /// Delete the texture object.

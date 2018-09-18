@@ -129,8 +129,7 @@ impl<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> Registr
                     AsyncState::Ok(_) | AsyncState::Err => entry.rc == 0,
                     _ => false,
                 }
-            })
-            .unwrap_or(false);
+            }).unwrap_or(false);
 
         if disposed {
             let entry = payload.items.free(handle).unwrap();
@@ -188,8 +187,7 @@ impl<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> Registr
             .and_then(|v| match v.state {
                 AsyncState::Ok(ref value) => Some(value),
                 _ => None,
-            })
-            .map(|v| map(v))
+            }).map(|v| map(v))
     }
 }
 

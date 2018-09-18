@@ -72,7 +72,8 @@ impl Version {
             (false, &desc[..])
         };
 
-        let desc = desc.split(' ')
+        let desc = desc
+            .split(' ')
             .next()
             .ok_or_else(|| format_err!("[GL] String is unformaled."))?;
 
@@ -261,7 +262,8 @@ impl Capabilities {
     pub fn has_compression(&self, compression: TextureCompression) -> bool {
         match compression {
             TextureCompression::ETC2 => {
-                self.version >= Version::ES(3, 0) || self.extensions.gl_arb_es3_compatibility
+                self.version >= Version::ES(3, 0)
+                    || self.extensions.gl_arb_es3_compatibility
                     || (self.extensions.gl_oes_compressed_etc2_rgb8_texture
                         && self.extensions.gl_oes_compressed_etc2_rgba8_texture)
             }

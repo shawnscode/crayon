@@ -183,7 +183,8 @@ impl Visitor for GLVisitor {
             let mut dimensions = None;
             for (i, attachment) in params.colors.iter().enumerate() {
                 if let Some(v) = *attachment {
-                    let rt = self.render_textures
+                    let rt = self
+                        .render_textures
                         .get(v)
                         .ok_or_else(|| format_err!("RenderTexture handle {:?} is invalid.", v))?;
 
@@ -207,7 +208,8 @@ impl Visitor for GLVisitor {
             }
 
             if let Some(v) = params.depth_stencil {
-                let rt = self.render_textures
+                let rt = self
+                    .render_textures
                     .get(v)
                     .ok_or_else(|| format_err!("RenderTexture handle {:?} is invalid.", v))?;
 
@@ -249,7 +251,8 @@ impl Visitor for GLVisitor {
     }
 
     unsafe fn delete_surface(&mut self, handle: SurfaceHandle) -> Result<()> {
-        let surface = self.surfaces
+        let surface = self
+            .surfaces
             .free(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -313,7 +316,8 @@ impl Visitor for GLVisitor {
     }
 
     unsafe fn delete_shader(&mut self, handle: ShaderHandle) -> Result<()> {
-        let shader = self.shaders
+        let shader = self
+            .shaders
             .free(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -419,7 +423,8 @@ impl Visitor for GLVisitor {
         area: math::Aabb2<u32>,
         data: &[u8],
     ) -> Result<()> {
-        let texture = *self.textures
+        let texture = *self
+            .textures
             .get(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -477,7 +482,8 @@ impl Visitor for GLVisitor {
     }
 
     unsafe fn delete_texture(&mut self, handle: TextureHandle) -> Result<()> {
-        let texture = self.textures
+        let texture = self
+            .textures
             .free(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
         self.delete_texture_intern(texture.id)
@@ -541,7 +547,8 @@ impl Visitor for GLVisitor {
     }
 
     unsafe fn delete_render_texture(&mut self, handle: RenderTextureHandle) -> Result<()> {
-        let rt = self.render_textures
+        let rt = self
+            .render_textures
             .free(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -597,7 +604,8 @@ impl Visitor for GLVisitor {
         data: &[u8],
     ) -> Result<()> {
         let vbo = {
-            let mesh = self.meshes
+            let mesh = self
+                .meshes
                 .get(handle)
                 .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -619,7 +627,8 @@ impl Visitor for GLVisitor {
         data: &[u8],
     ) -> Result<()> {
         let ibo = {
-            let mesh = self.meshes
+            let mesh = self
+                .meshes
                 .get(handle)
                 .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -635,7 +644,8 @@ impl Visitor for GLVisitor {
     }
 
     unsafe fn delete_mesh(&mut self, handle: MeshHandle) -> Result<()> {
-        let mesh = self.meshes
+        let mesh = self
+            .meshes
             .free(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
@@ -655,7 +665,8 @@ impl Visitor for GLVisitor {
             return Ok(());
         }
 
-        let surface = self.surfaces
+        let surface = self
+            .surfaces
             .get(id)
             .ok_or_else(|| format_err!("{:?} is invalid.", id))?;
 
@@ -714,7 +725,8 @@ impl Visitor for GLVisitor {
     ) -> Result<u32> {
         let mesh = {
             // Bind program and associated uniforms and textures.
-            let shader = self.shaders
+            let shader = self
+                .shaders
                 .get(shader)
                 .ok_or_else(|| format_err!("{:?} is invalid.", shader))?;
 
@@ -769,7 +781,8 @@ impl Visitor for GLVisitor {
             }
 
             // Bind vertex buffer and vertex array object.
-            let mesh = self.meshes
+            let mesh = self
+                .meshes
                 .get(mesh)
                 .ok_or_else(|| format_err!("{:?} is invalid.", mesh))?;
 
@@ -791,7 +804,8 @@ impl Visitor for GLVisitor {
             }
             MeshIndex::SubMesh(index) => {
                 let num = mesh.params.sub_mesh_offsets.len();
-                let from = mesh.params
+                let from = mesh
+                    .params
                     .sub_mesh_offsets
                     .get(index)
                     .ok_or_else(|| format_err!("MeshIndex is out of bounds"))?;
@@ -1525,14 +1539,16 @@ impl GLVisitor {
 }
 
 unsafe fn check_capabilities(caps: &Capabilities) -> Result<()> {
-    if caps.version < Version::GL(1, 5) && caps.version < Version::ES(2, 0)
+    if caps.version < Version::GL(1, 5)
+        && caps.version < Version::ES(2, 0)
         && (!caps.extensions.gl_arb_vertex_buffer_object
             || !caps.extensions.gl_arb_map_buffer_range)
     {
         bail!("The OpenGL implementation does not supports vertex buffer objects.");
     }
 
-    if caps.version < Version::GL(2, 0) && caps.version < Version::ES(2, 0)
+    if caps.version < Version::GL(2, 0)
+        && caps.version < Version::ES(2, 0)
         && (!caps.extensions.gl_arb_shader_objects
             || !caps.extensions.gl_arb_vertex_shader
             || !caps.extensions.gl_arb_fragment_shader)

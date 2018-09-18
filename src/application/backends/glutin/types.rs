@@ -97,9 +97,11 @@ fn from_window_event(
             }))
         }),
 
-        glutin::WindowEvent::ReceivedCharacter(character) => Some(Event::InputDevice(
-            InputDeviceEvent::ReceivedCharacter { character },
-        )),
+        glutin::WindowEvent::ReceivedCharacter(character) => {
+            Some(Event::InputDevice(InputDeviceEvent::ReceivedCharacter {
+                character,
+            }))
+        }
 
         glutin::WindowEvent::Touch(touch) => Some(Event::InputDevice(InputDeviceEvent::Touch {
             id: touch.id as u8,

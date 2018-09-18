@@ -195,7 +195,8 @@ impl ResourceSystemShared {
 
     /// Loads a resource with uuid asynchronously.
     pub fn load_from_uuid<T: Loader>(&self, loader: T, uuid: Uuid) -> Result<Arc<Promise>> {
-        let vfs = self.driver
+        let vfs = self
+            .driver
             .read()
             .unwrap()
             .vfs_from_uuid(uuid)

@@ -37,8 +37,7 @@ impl<'a> Location<'a> {
             .map(|index| {
                 let (fs, name) = location.split_at(index);
                 (fs, &name[1..])
-            })
-            .ok_or_else(|| {
+            }).ok_or_else(|| {
                 format_err!(
                     "{} does not match location schema [vfs:filename].",
                     location

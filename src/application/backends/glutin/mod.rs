@@ -23,8 +23,7 @@ impl GlutinVisitor {
             .with_dimensions(glutin::dpi::LogicalSize::new(
                 params.size.x as f64,
                 params.size.y as f64,
-            ))
-            .with_multitouch();
+            )).with_multitouch();
 
         let context = glutin::ContextBuilder::new()
             .with_multisampling(params.multisample as u16)
