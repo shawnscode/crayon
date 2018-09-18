@@ -83,7 +83,7 @@ impl Manifest {
     #[inline]
     pub fn locate(&self, uuid: Uuid) -> Option<PathBuf> {
         if self.uuids.contains_key(&uuid) {
-            Some(format!("{:X}", uuid.simple()).into())
+            Some(format!("{:X}", uuid.to_simple()).into())
         } else {
             None
         }

@@ -26,10 +26,10 @@ crossbeam-deque = "0.5.1"
 failure = "0.1.2"
 log = "0.4.5"
 
-serde = { version = "1.0.76", features = ["serde_derive"] }
+serde = { version = "1.0.79", features = ["serde_derive"] }
 bincode = "1.0.1"
 
-uuid = { version = "0.6.5", features = ["serde"] }
+uuid = { version = "0.7.1", features = ["serde"] }
 cgmath = { version = "0.16.1", features = ["serde"] }
 
 [dev-dependencies]
