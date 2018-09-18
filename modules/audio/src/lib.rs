@@ -26,9 +26,9 @@ pub mod prelude {
 }
 
 pub type Result<T> = ::std::result::Result<T, ::failure::Error>;
-
 pub type AudioClipRegistry = Registry<AudioClipHandle, AudioClipLoader>;
 
+/// The centralized management of audio sub-system.
 pub struct AudioSystem {
     shared: Arc<AudioSystemShared>,
 }
@@ -53,6 +53,7 @@ impl AudioSystem {
     }
 }
 
+/// The multi-thread friendly parts of `AudioSystem`.
 pub struct AudioSystemShared {
     clips: Arc<AudioClipRegistry>,
     mixer: MixerController,
