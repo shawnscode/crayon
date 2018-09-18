@@ -19,6 +19,12 @@ Some goals include:
 
 This project adheres to [Semantic Versioning](http://semver.org/), all notable changes will be documented in this [file](./CHANGELOG.md).
 
+### Built-in Modules
+
+1. [Audio](./modules/audio): The audio module based on [cpal](https://github.com/tomaka/cpal).
+2. [ImGui](./modules/imgui): The immediate mode GUI module based on [imgui-rs](https://github.com/Gekkio/imgui-rs).
+3. [3D](./modules/3d): The 3d module which still works in progress. It should provides basic supports for building a simple 3d simulation world.
+
 ### Assets Workflow
 
 The asset workflow comes with the version 0.5.0. During the development, the assets could be stored in formats which could producing and editing by authoring tools directly, and it will be compiled into some kind of effecient format for runtime (which is dependent on platform and hardware devices usually).
