@@ -7,7 +7,7 @@ use crayon::utils::*;
 
 #[test]
 fn handle_set() {
-    let mut set = HandlePool::new();
+    let mut set: HandlePool<Handle> = HandlePool::new();
     assert_eq!(set.len(), 0);
 
     // Spawn entities.
@@ -36,7 +36,7 @@ fn handle_set() {
 
 #[test]
 fn index_reuse() {
-    let mut set = HandlePool::new();
+    let mut set: HandlePool<Handle> = HandlePool::new();
 
     assert_eq!(set.len(), 0);
 
@@ -59,7 +59,7 @@ fn index_reuse() {
 
 #[test]
 fn index_compact_reuse() {
-    let mut set = HandlePool::new();
+    let mut set: HandlePool<Handle> = HandlePool::new();
 
     let mut v = vec![];
     for _ in 0..5 {
@@ -86,7 +86,7 @@ fn index_compact_reuse() {
 
 #[test]
 fn iter() {
-    let mut set = HandlePool::new();
+    let mut set: HandlePool<Handle> = HandlePool::new();
     let mut v = vec![];
 
     for m in 2..3 {

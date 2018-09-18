@@ -1,8 +1,8 @@
-use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::binary_heap::BinaryHeap;
+use std::marker::PhantomData;
 
-use super::{Handle, HandleIndex};
+use super::handle::{HandleIndex, HandleLike};
 
 #[derive(PartialEq, Eq)]
 struct InverseHandleIndex(HandleIndex);
@@ -23,19 +23,24 @@ impl Ord for InverseHandleIndex {
 /// created with a continuous `index` field. It also have the ability to find
 /// out the current status of a specified `Handle`.
 #[derive(Default)]
-pub struct HandlePool {
+pub struct HandlePool<T: HandleLike> {
     versions: Vec<HandleIndex>,
     frees: BinaryHeap<InverseHandleIndex>,
+    _marker: PhantomData<T>,
 }
 
-impl HandlePool {
+impl<T: HandleLike> HandlePool<T> {
     /// Constructs a new, empty `HandlePool`.
-    pub fn new() -> HandlePool {
-        HandlePool::default()
+    pub fn new() -> HandlePool<T> {
+        HandlePool {
+            versions: Vec::new(),
+            frees: BinaryHeap::new(),
+            _marker: PhantomData::default(),
+        }
     }
 
     /// Constructs a new `HandlePool` with the specified capacity.
-    pub fn with_capacity(capacity: usize) -> HandlePool {
+    pub fn with_capacity(capacity: usize) -> HandlePool<T> {
         let versions = Vec::with_capacity(capacity);
         let mut frees = BinaryHeap::with_capacity(capacity);
         for i in 0..versions.len() {
@@ -45,30 +50,27 @@ impl HandlePool {
         HandlePool {
             versions: versions,
             frees: frees,
+            _marker: PhantomData::default(),
         }
     }
 
     /// Creates a unused `Handle`.
-    pub fn create(&mut self) -> Handle {
+    pub fn create(&mut self) -> T {
         if !self.frees.is_empty() {
             // If we have available free slots.
             let index = self.frees.pop().unwrap().0 as usize;
             self.versions[index] += 1;
-            Handle::new(index as HandleIndex, self.versions[index])
+            T::new(index as HandleIndex, self.versions[index])
         } else {
             // Or we just spawn a new index and corresponding version.
             self.versions.push(1);
-            Handle::new(self.versions.len() as HandleIndex - 1, 1)
+            T::new(self.versions.len() as HandleIndex - 1, 1)
         }
     }
 
     /// Returns true if this `Handle` was created by `HandlePool`, and has not been
     /// freed yet.
-    pub fn is_alive<T>(&self, handle: T) -> bool
-    where
-        T: Borrow<Handle>,
-    {
-        let handle = handle.borrow();
+    pub fn is_alive(&self, handle: T) -> bool {
         let index = handle.index() as usize;
         self.is_alive_at(index) && (self.versions[index] == handle.version())
     }
@@ -79,11 +81,7 @@ impl HandlePool {
     }
 
     /// Recycles the `Handle` index, and mark its version as dead.
-    pub fn free<T>(&mut self, handle: T) -> bool
-    where
-        T: Borrow<Handle>,
-    {
-        let handle = handle.borrow();
+    pub fn free(&mut self, handle: T) -> bool {
         if !self.is_alive(handle) {
             false
         } else {
@@ -94,13 +92,13 @@ impl HandlePool {
     }
 
     /// Recycles the `Handle` index, and mark its version as dead.
-    pub fn free_at(&mut self, index: usize) -> Option<Handle> {
+    pub fn free_at(&mut self, index: usize) -> Option<T> {
         if !self.is_alive_at(index) {
             None
         } else {
             self.versions[index] += 1;
             self.frees.push(InverseHandleIndex(index as HandleIndex));
-            Some(Handle::new(index as HandleIndex, self.versions[index] - 1))
+            Some(T::new(index as HandleIndex, self.versions[index] - 1))
         }
     }
 
@@ -125,23 +123,23 @@ impl HandlePool {
 
     /// Returns an iterator over the `HandlePool`.
     #[inline]
-    pub fn iter(&self) -> Iter {
+    pub fn iter(&self) -> Iter<T> {
         Iter::new(self)
     }
 }
 
-impl<'a> IntoIterator for &'a HandlePool {
-    type Item = Handle;
-    type IntoIter = Iter<'a>;
+impl<'a, T: HandleLike> IntoIterator for &'a HandlePool<T> {
+    type Item = T;
+    type IntoIter = Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
         Iter::new(self)
     }
 }
 
-impl<'a> IntoIterator for &'a mut HandlePool {
-    type Item = Handle;
-    type IntoIter = Iter<'a>;
+impl<'a, T: HandleLike> IntoIterator for &'a mut HandlePool<T> {
+    type Item = T;
+    type IntoIter = Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
         Iter::new(self)
@@ -150,23 +148,25 @@ impl<'a> IntoIterator for &'a mut HandlePool {
 
 /// Immutable `HandlePool` iterator, this struct is created by `iter` method on `HandlePool`.
 #[derive(Copy, Clone)]
-pub struct Iter<'a> {
+pub struct Iter<'a, T: HandleLike> {
     versions: &'a [HandleIndex],
     start: HandleIndex,
     end: HandleIndex,
+    _marker: PhantomData<T>,
 }
 
-impl<'a> Iter<'a> {
-    fn new(handles: &'a HandlePool) -> Self {
+impl<'a, T: HandleLike> Iter<'a, T> {
+    fn new(handles: &'a HandlePool<T>) -> Self {
         Iter {
             versions: &handles.versions,
             start: 0,
             end: handles.versions.len() as u32,
+            _marker: handles._marker,
         }
     }
 
     /// Divides iterator into two with specified stripe in the first `Iter`.
-    pub fn split_at(&self, len: usize) -> (Iter<'a>, Iter<'a>) {
+    pub fn split_at(&self, len: usize) -> (Iter<'a, T>, Iter<'a, T>) {
         let len = len as HandleIndex;
         let mid = if self.start + len >= self.end {
             self.end
@@ -178,12 +178,14 @@ impl<'a> Iter<'a> {
             versions: self.versions,
             start: self.start,
             end: mid,
+            _marker: self._marker,
         };
 
         let right = Iter {
             versions: self.versions,
             start: mid,
             end: self.end,
+            _marker: self._marker,
         };
 
         (left, right)
@@ -194,7 +196,7 @@ impl<'a> Iter<'a> {
     /// The first will contain all indices from [start, mid) (excluding the index mid itself)
     /// and the second will contain all indices from [mid, end) (excluding the index end itself).
     #[inline]
-    pub fn split(&self) -> (Iter<'a>, Iter<'a>) {
+    pub fn split(&self) -> (Iter<'a, T>, Iter<'a, T>) {
         let mid = (self.end - self.start) / 2;
         self.split_at(mid as usize)
     }
@@ -212,16 +214,16 @@ impl<'a> Iter<'a> {
     }
 }
 
-impl<'a> Iterator for Iter<'a> {
-    type Item = Handle;
+impl<'a, T: HandleLike> Iterator for Iter<'a, T> {
+    type Item = T;
 
-    fn next(&mut self) -> Option<Handle> {
+    fn next(&mut self) -> Option<T> {
         unsafe {
             for i in self.start..self.end {
                 let v = self.versions.get_unchecked(i as usize);
                 if v & 0x1 == 1 {
                     self.start = i + 1;
-                    return Some(Handle::new(i, *v));
+                    return Some(T::new(i, *v));
                 }
             }
         }

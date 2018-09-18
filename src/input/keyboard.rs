@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use utils::hash::{FastHashMap, FastHashSet};
 
-pub use application::event::KeyboardButton;
+pub use application::events::Key;
 
 /// The setup parameters of keyboard device.
 #[derive(Debug, Clone, Copy)]
@@ -31,9 +31,9 @@ enum KeyDownState {
 }
 
 pub struct Keyboard {
-    downs: FastHashMap<KeyboardButton, KeyDownState>,
-    presses: FastHashSet<KeyboardButton>,
-    releases: FastHashSet<KeyboardButton>,
+    downs: FastHashMap<Key, KeyDownState>,
+    presses: FastHashSet<Key>,
+    releases: FastHashSet<Key>,
     chars: Vec<char>,
     setup: KeyboardParams,
     now: Instant,
@@ -83,7 +83,7 @@ impl Keyboard {
     }
 
     #[inline]
-    pub fn on_key_pressed(&mut self, key: KeyboardButton) {
+    pub fn on_key_pressed(&mut self, key: Key) {
         if !self.downs.contains_key(&key) {
             self.presses.insert(key);
             self.downs.insert(key, KeyDownState::Start(self.now));
@@ -91,7 +91,7 @@ impl Keyboard {
     }
 
     #[inline]
-    pub fn on_key_released(&mut self, key: KeyboardButton) {
+    pub fn on_key_released(&mut self, key: Key) {
         self.downs.remove(&key);
         self.releases.insert(key);
     }
@@ -104,21 +104,21 @@ impl Keyboard {
     }
 
     #[inline]
-    pub fn is_key_down(&self, key: KeyboardButton) -> bool {
+    pub fn is_key_down(&self, key: Key) -> bool {
         self.downs.contains_key(&key)
     }
 
     #[inline]
-    pub fn is_key_press(&self, key: KeyboardButton) -> bool {
+    pub fn is_key_press(&self, key: Key) -> bool {
         self.presses.contains(&key)
     }
 
     #[inline]
-    pub fn is_key_release(&self, key: KeyboardButton) -> bool {
+    pub fn is_key_release(&self, key: Key) -> bool {
         self.releases.contains(&key)
     }
 
-    pub fn is_key_repeat(&self, key: KeyboardButton) -> bool {
+    pub fn is_key_repeat(&self, key: Key) -> bool {
         if let Some(v) = self.downs.get(&key) {
             match *v {
                 KeyDownState::Start(ts) => (self.now - ts) > self.setup.repeat_timeout,

@@ -3,7 +3,7 @@ use gl::types::*;
 use std::borrow::Borrow;
 
 use super::super::super::assets::prelude::*;
-use super::capabilities::{Capabilities, TextureCompression};
+use super::capabilities::{Capabilities, TextureCompression, Version};
 use utils::handle;
 
 #[derive(Debug)]
@@ -170,9 +170,21 @@ impl From<IndexFormat> for GLenum {
     }
 }
 
-impl From<TextureFormat> for (GLenum, GLenum, GLenum) {
-    fn from(format: TextureFormat) -> Self {
-        // Notes that OpenGL ES 2.0 does NOT supports sized internal format.
+pub fn texture_format(format: TextureFormat, caps: &Capabilities) -> (GLenum, GLenum, GLenum) {
+    let sized = match caps.version {
+        Version::GL(_, _) => true,
+        Version::ES(major, _) => major >= 3,
+    };
+
+    // FIXME
+    // gl::COMPRESSED_RGB_S3TC_DXT1_EXT = 0x83F0
+    // gl::COMPRESSED_RGBA_S3TC_DXT5_EXT = 0x83F3
+    // gl::COMPRESSED_RGB_PVRTC_2BPPV1_IMG = 0x8C01
+    // gl::COMPRESSED_RGB_PVRTC_4BPPV1_IMG = 0x8C00
+    // gl::COMPRESSED_RGBA_PVRTC_2BPPV1_IMG = 0x8C03
+    // gl::COMPRESSED_RGBA_PVRTC_4BPPV1_IMG = 0x8C02
+
+    if sized {
         match format {
             TextureFormat::R8 => (gl::R8, gl::RED, gl::UNSIGNED_BYTE),
             TextureFormat::RG8 => (gl::RG8, gl::RG, gl::UNSIGNED_BYTE),
@@ -194,43 +206,41 @@ impl From<TextureFormat> for (GLenum, GLenum, GLenum) {
             TextureFormat::Etc2RGBA8BPP => {
                 (gl::COMPRESSED_RGBA8_ETC2_EAC, gl::RGB, gl::UNSIGNED_BYTE)
             }
-            TextureFormat::S3tcDxt1RGB4BPP => (
-                // FIXME
-                // gl::COMPRESSED_RGB_S3TC_DXT1_EXT,
-                0x83F0,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-            ),
-            TextureFormat::S3tcDxt5RGBA8BPP => (
-                // gl::COMPRESSED_RGBA_S3TC_DXT5_EXT,
-                0x83F3,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-            ),
-            TextureFormat::PvrtcRGB2BPP => (
-                // gl::COMPRESSED_RGB_PVRTC_2BPPV1_IMG,
-                0x8C01,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-            ),
-            TextureFormat::PvrtcRGB4BPP => (
-                // gl::COMPRESSED_RGB_PVRTC_4BPPV1_IMG,
-                0x8C00,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-            ),
-            TextureFormat::PvrtcRGBA2BPP => (
-                // gl::COMPRESSED_RGBA_PVRTC_2BPPV1_IMG,
-                0x8C03,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-            ),
-            TextureFormat::PvrtcRGBA4BPP => (
-                // gl::COMPRESSED_RGBA_PVRTC_4BPPV1_IMG,
-                0x8C02,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-            ),
+            TextureFormat::S3tcDxt1RGB4BPP => (0x83F0, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::S3tcDxt5RGBA8BPP => (0x83F3, gl::RGBA, gl::UNSIGNED_BYTE),
+            TextureFormat::PvrtcRGB2BPP => (0x8C01, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::PvrtcRGB4BPP => (0x8C00, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::PvrtcRGBA2BPP => (0x8C03, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::PvrtcRGBA4BPP => (0x8C02, gl::RGB, gl::UNSIGNED_BYTE),
+        }
+    } else {
+        match format {
+            TextureFormat::R8 => (gl::RED, gl::RED, gl::UNSIGNED_BYTE),
+            TextureFormat::RG8 => (gl::RG, gl::RG, gl::UNSIGNED_BYTE),
+            TextureFormat::RGB8 => (gl::RGB, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::RGBA8 => (gl::RGBA, gl::RGBA, gl::UNSIGNED_BYTE),
+            TextureFormat::RGB565 => (gl::RGB, gl::RGB, gl::UNSIGNED_SHORT_5_6_5),
+            TextureFormat::RGBA4 => (gl::RGBA, gl::RGBA, gl::UNSIGNED_SHORT_4_4_4_4),
+            TextureFormat::RGBA5551 => (gl::RGBA, gl::RGBA, gl::UNSIGNED_SHORT_5_5_5_1),
+            TextureFormat::RGBA1010102 => (gl::RGBA, gl::RGBA, gl::UNSIGNED_INT_2_10_10_10_REV),
+            TextureFormat::R16F => (gl::RED, gl::RED, gl::HALF_FLOAT),
+            TextureFormat::RG16F => (gl::RG, gl::RG, gl::HALF_FLOAT),
+            TextureFormat::RGB16F => (gl::RGB, gl::RGB, gl::HALF_FLOAT),
+            TextureFormat::RGBA16F => (gl::RGBA, gl::RGBA, gl::HALF_FLOAT),
+            TextureFormat::R32F => (gl::RED, gl::RED, gl::FLOAT),
+            TextureFormat::RG32F => (gl::RG, gl::RG, gl::FLOAT),
+            TextureFormat::RGB32F => (gl::RGB, gl::RGB, gl::FLOAT),
+            TextureFormat::RGBA32F => (gl::RGBA, gl::RGBA, gl::FLOAT),
+            TextureFormat::Etc2RGB4BPP => (gl::COMPRESSED_RGB8_ETC2, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::Etc2RGBA8BPP => {
+                (gl::COMPRESSED_RGBA8_ETC2_EAC, gl::RGB, gl::UNSIGNED_BYTE)
+            }
+            TextureFormat::S3tcDxt1RGB4BPP => (0x83F0, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::S3tcDxt5RGBA8BPP => (0x83F3, gl::RGBA, gl::UNSIGNED_BYTE),
+            TextureFormat::PvrtcRGB2BPP => (0x8C01, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::PvrtcRGB4BPP => (0x8C00, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::PvrtcRGBA2BPP => (0x8C03, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::PvrtcRGBA4BPP => (0x8C02, gl::RGB, gl::UNSIGNED_BYTE),
         }
     }
 }

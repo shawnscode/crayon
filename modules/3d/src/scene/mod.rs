@@ -223,7 +223,8 @@ impl SceneGraph {
     /// Returns an iterator of references to this transform's children.
     #[inline]
     pub fn children(&self, ent: Entity) -> Children {
-        let first_child = self.remap
+        let first_child = self
+            .remap
             .get(&ent)
             .and_then(|v| self.nodes[*v].first_child);
 
@@ -236,7 +237,8 @@ impl SceneGraph {
     /// Returns an iterator of references to this transform's descendants in tree order.
     #[inline]
     pub fn descendants(&self, ent: Entity) -> Descendants {
-        let first_child = self.remap
+        let first_child = self
+            .remap
             .get(&ent)
             .and_then(|v| self.nodes[*v].first_child);
 
@@ -377,13 +379,7 @@ impl SceneGraph {
 
     /// Gets position of the transform in world space.
     pub fn position(&self, ent: Entity) -> Option<math::Vector3<f32>> {
-        self.remap.get(&ent).map(|&index| unsafe {
-            self.ancestors(ent)
-                .map(|v| self.index_unchecked(v))
-                .fold(self.local_transforms[index].position, |acc, rhs| {
-                    self.local_transforms[rhs].position + acc
-                })
-        })
+        self.transform(ent).map(|transform| transform.position)
     }
 
     /// Sets position of the transform in world space.
@@ -391,15 +387,14 @@ impl SceneGraph {
     where
         T: Into<math::Vector3<f32>>,
     {
-        unsafe {
-            if let Some(&index) = self.remap.get(&ent) {
-                let ancestor_position = self.ancestors(ent)
-                    .map(|v| self.index_unchecked(v))
-                    .fold(math::Vector3::new(0.0, 0.0, 0.0), |acc, rhs| {
-                        self.local_transforms[rhs].position + acc
-                    });
+        if let Some(&index) = self.remap.get(&ent) {
+            let t = self
+                .parent(ent)
+                .map(|v| self.transform(v).unwrap())
+                .unwrap_or(Transform::default());
 
-                self.local_transforms[index].position = position.into() - ancestor_position;
+            if let Some(inverse) = t.inverse() {
+                self.local_transforms[index].position = inverse.transform_point(position);
             }
         }
     }
@@ -474,7 +469,8 @@ impl SceneGraph {
         use crayon::math::Rotation;
         unsafe {
             if let Some(&index) = self.remap.get(&ent) {
-                let ancestor_rotation = self.ancestors(ent)
+                let ancestor_rotation = self
+                    .ancestors(ent)
                     .map(|v| self.index_unchecked(v))
                     .fold(math::Quaternion::one(), |acc, rhs| {
                         self.local_transforms[rhs].rotation * acc
@@ -520,7 +516,8 @@ impl SceneGraph {
     pub fn set_scale(&mut self, ent: Entity, scale: f32) {
         unsafe {
             if let Some(&index) = self.remap.get(&ent) {
-                let ancestor_scale = self.ancestors(ent)
+                let ancestor_scale = self
+                    .ancestors(ent)
                     .map(|v| self.index_unchecked(v))
                     .fold(1.0, |acc, rhs| self.local_transforms[rhs].scale * acc);
 

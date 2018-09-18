@@ -3,15 +3,17 @@ use std::sync::Arc;
 use crayon::errors::*;
 use crayon::utils::HandlePool;
 
-use assets::{PrefabHandle, WorldResourcesShared};
+use assets::PrefabHandle;
 use renderers::{MeshRenderer, Renderable, Renderer};
 use scene::SceneGraph;
 use tags::Tags;
+use WorldResourcesShared;
 
 impl_handle!(Entity);
 
 pub struct World<T: Renderer> {
-    entities: HandlePool,
+    entities: HandlePool<Entity>,
+
     pub tags: Tags,
     pub scene: SceneGraph,
     pub renderables: Renderable,
@@ -80,14 +82,14 @@ pub mod world_impl {
     use super::*;
     use assets::Prefab;
 
-    pub fn create(entities: &mut HandlePool, scene: &mut SceneGraph) -> Entity {
+    pub fn create(entities: &mut HandlePool<Entity>, scene: &mut SceneGraph) -> Entity {
         let ent = entities.create().into();
         scene.add(ent);
         ent
     }
 
     pub fn remove(
-        entities: &mut HandlePool,
+        entities: &mut HandlePool<Entity>,
         scene: &mut SceneGraph,
         renderables: &mut Renderable,
         tags: &mut Tags,
@@ -109,7 +111,7 @@ pub mod world_impl {
     }
 
     pub fn instantiate(
-        mut entities: &mut HandlePool,
+        mut entities: &mut HandlePool<Entity>,
         mut scene: &mut SceneGraph,
         renderables: &mut Renderable,
         tags: &mut Tags,

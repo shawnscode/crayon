@@ -78,23 +78,15 @@ impl Engine {
         let res_shared = res.shared();
 
         let video = if settings.headless {
-            video::VideoSystem::headless()
+            video::VideoSystem::headless(res_shared.clone())
         } else {
-            video::VideoSystem::new(&window)?
+            video::VideoSystem::new(&window, res_shared.clone())?
         };
 
         let video_shared = video.shared();
 
         let time = time::TimeSystem::new(settings.engine);
         let time_shared = time.shared();
-
-        res.register(video::assets::texture_loader::TextureLoader::new(
-            video_shared.clone(),
-        ));
-
-        res.register(video::assets::mesh_loader::MeshLoader::new(
-            video_shared.clone(),
-        ));
 
         let context = Context {
             res: res_shared,
@@ -144,18 +136,18 @@ impl Engine {
             // Poll any possible events first.
             for v in self.window.advance() {
                 match *v {
-                    event::Event::Application(value) => {
+                    events::Event::Application(value) => {
                         {
                             let mut application = application.write().unwrap();
                             application.on_receive_event(&self.context, value)?;
                         }
 
-                        if let event::ApplicationEvent::Closed = value {
+                        if let events::ApplicationEvent::Closed = value {
                             alive = false;
                         }
                     }
 
-                    event::Event::InputDevice(value) => self.input.update_with(value),
+                    events::Event::InputDevice(value) => self.input.update_with(value),
                 }
             }
 
@@ -164,7 +156,6 @@ impl Engine {
                 break;
             }
 
-            self.res.advance();
             self.time.advance();
             self.video.swap_frames();
 

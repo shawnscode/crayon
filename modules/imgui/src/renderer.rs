@@ -3,8 +3,8 @@ use std::sync::Arc;
 use crayon::{application, math};
 
 use crayon::application::window;
+use crayon::errors::*;
 use crayon::video::assets::prelude::*;
-use crayon::video::errors::*;
 use crayon::video::prelude::*;
 
 use imgui::{DrawList, ImGui, Ui};
@@ -60,8 +60,8 @@ impl Renderer {
         params.attributes = layout;
         params.uniforms = uniforms;
         params.state = render_state;
-        let vs = include_str!("../assets/imgui.vs").to_owned();
-        let fs = include_str!("../assets/imgui.fs").to_owned();
+        let vs = include_str!("shaders/imgui.vs").to_owned();
+        let fs = include_str!("shaders/imgui.fs").to_owned();
         let shader = ctx.video.create_shader(params, vs, fs)?;
 
         let texture = imgui.prepare_texture(|v| {

@@ -32,6 +32,26 @@ impl ::std::ops::Mul for Transform {
 }
 
 impl Transform {
+    /// Returns a transform that "un-does" this one.
+    #[inline]
+    pub fn inverse(self) -> Option<Self> {
+        use crayon::Rotation;
+
+        if self.scale <= ::std::f32::EPSILON {
+            None
+        } else {
+            let s = 1.0 / self.scale;
+            let r = self.rotation.invert();
+            let d = r.rotate_vector(self.position) * -s;
+
+            Some(Transform {
+                scale: s,
+                rotation: r,
+                position: d,
+            })
+        }
+    }
+
     /// Transforms direction from local space to transform's space.
     ///
     /// This operation is not affected by scale or position of the transform. The returned

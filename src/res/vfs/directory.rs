@@ -7,29 +7,30 @@ use errors::*;
 
 use super::VFS;
 
-pub struct DiskFS {
+pub struct Directory {
     root: PathBuf,
 }
 
-impl DiskFS {
+impl Directory {
     pub fn new<T: Into<PathBuf>>(root: T) -> Result<Self> {
         let root = root.into();
-        info!("Creates disk based virtual file system at {:?}.", root);
+        info!("Creates directory based virtual file system at {:?}.", root);
 
         let metadata = fs::metadata(&root)?;
         if metadata.is_dir() {
-            Ok(DiskFS { root: root })
+            Ok(Directory { root: root })
         } else {
             bail!("Disk file-system must be associated with a readable directory.");
         }
     }
 }
 
-impl VFS for DiskFS {
-    fn read(&self, location: &Path) -> Result<Box<Read + Send>> {
+impl VFS for Directory {
+    fn read_to_end(&self, location: &Path, mut buf: &mut Vec<u8>) -> Result<usize> {
         let location = self.root.join(location);
-        let file = fs::File::open(&location)?;
-        Ok(Box::new(file))
+        let mut file = fs::File::open(&location)?;
+        let len = file.read_to_end(&mut buf)?;
+        Ok(len)
     }
 
     fn is_dir(&self, location: &Path) -> bool {

@@ -27,11 +27,7 @@ where
     }
 }
 
-impl<T> Copy for HashValue<T>
-where
-    T: Hash + ?Sized,
-{
-}
+impl<T> Copy for HashValue<T> where T: Hash + ?Sized {}
 
 impl<T> Hash for HashValue<T>
 where

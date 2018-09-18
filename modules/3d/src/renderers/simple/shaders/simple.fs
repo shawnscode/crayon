@@ -9,7 +9,7 @@ uniform vec3 u_PointLitViewPos[MAX_POINT_LITS];
 uniform vec3 u_PointLitColor[MAX_POINT_LITS];
 uniform vec3 u_PointLitAttenuation[MAX_POINT_LITS];
 
-uniform vec3 u_Ambient;
+uniform vec3 u_GlobalAmbient;
 
 uniform vec3 u_Diffuse;
 uniform sampler2D u_DiffuseTexture;
@@ -35,7 +35,7 @@ void main()
     vec3 specular = texture2D(u_SpecularTexture, v_Texcoord).rgb;
 
     //
-    vec3 result = u_Ambient * diffuse;
+    vec3 result = u_GlobalAmbient * diffuse;
 
     // directional light
     for(int i = 0; i < MAX_DIR_LITS; i++)
