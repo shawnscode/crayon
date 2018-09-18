@@ -9,17 +9,14 @@ pub mod assets;
 mod mixer;
 pub mod source;
 
-use cpal::{EventLoop, StreamId};
 use std::sync::Arc;
-use std::thread::Builder;
 
-use crayon::application::Context;
 use crayon::math::Vector3;
 use crayon::res::prelude::{Location, ResourceSystemShared};
 use crayon::res::registry::Registry;
 
 use self::assets::{AudioClipHandle, AudioClipLoader};
-use self::mixer::{Mixer, MixerController};
+use self::mixer::MixerController;
 use self::source::{AudioSource, AudioSourceHandle};
 
 pub mod prelude {
@@ -38,70 +35,57 @@ pub struct AudioSystem {
 
 impl AudioSystem {
     /// Setups the audio system with default audio output device.
-    pub fn new(ctx: &Context) -> Result<Self> {
-        let (mixer, shared) = AudioSystemShared::new(ctx.res.clone())?;
-        let shared = Arc::new(shared);
+    pub fn new(res: Arc<ResourceSystemShared>) -> Result<Self> {
+        let shared = Arc::new(AudioSystemShared::new(res)?);
+        Ok(AudioSystem { shared: shared })
+    }
 
-        Self::run(mixer, shared.clone());
+    pub fn headless<T>(res: T) -> Result<Self>
+    where
+        T: Into<Option<Arc<ResourceSystemShared>>>,
+    {
+        let shared = Arc::new(AudioSystemShared::headless(res)?);
         Ok(AudioSystem { shared: shared })
     }
 
     pub fn shared(&self) -> Arc<AudioSystemShared> {
         self.shared.clone()
     }
-
-    fn run(mut mixer: Mixer, audio: Arc<AudioSystemShared>) {
-        Builder::new()
-            .name("Audio".into())
-            .spawn(move || {
-                audio.events.run(|stream, buffer| {
-                    if audio.stream != stream {
-                        return;
-                    }
-
-                    mixer.run(buffer);
-                })
-            }).expect("Failed to create thread for `AudioSystem`.");
-    }
 }
 
 pub struct AudioSystemShared {
     clips: Arc<AudioClipRegistry>,
     mixer: MixerController,
-    events: EventLoop,
-    stream: StreamId,
 }
 
 impl AudioSystemShared {
-    fn new(res: Arc<ResourceSystemShared>) -> Result<(Mixer, Self)> {
-        let events = EventLoop::new();
+    fn new(res: Arc<ResourceSystemShared>) -> Result<Self> {
+        let clips = Arc::new(AudioClipRegistry::new(res, AudioClipLoader::new()));
+        let mixer_controller = mixer::mixer(clips.clone())?;
 
-        let device = cpal::default_output_device()
-            .ok_or_else(|| format_err!("No avaiable audio output device"))?;
+        Ok(AudioSystemShared {
+            clips: clips,
+            mixer: mixer_controller,
+        })
+    }
 
-        let format = device
-            .default_output_format()
-            .expect("The device doesn't support any format.");
+    fn headless<T>(res: T) -> Result<Self>
+    where
+        T: Into<Option<Arc<ResourceSystemShared>>>,
+    {
+        let res = res.into().unwrap_or_else(|| {
+            use crayon::{res, sched};
 
-        let stream = events.build_output_stream(&device, &format).unwrap();
-        info!("Create audio system on {:?} ({:?}).", device.name(), format);
+            let sched = sched::ScheduleSystem::new(1, None, None);
+            res::ResourceSystem::new(sched.shared()).unwrap().shared()
+        });
 
         let clips = Arc::new(AudioClipRegistry::new(res, AudioClipLoader::new()));
-        let (mixer, mixer_controller) = mixer::mixer(
-            format.channels as u8,
-            format.sample_rate.0 as u32,
-            clips.clone(),
-        );
-
-        Ok((
-            mixer,
-            AudioSystemShared {
-                clips: clips,
-                mixer: mixer_controller,
-                events: events,
-                stream: stream,
-            },
-        ))
+        let mixer_controller = mixer::headless(clips.clone())?;
+        Ok(AudioSystemShared {
+            clips: clips,
+            mixer: mixer_controller,
+        })
     }
 
     /// Sets the position of listener.

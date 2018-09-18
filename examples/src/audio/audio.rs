@@ -16,9 +16,14 @@ struct Window {
 }
 
 impl Window {
-    fn new(engine: &mut Engine) -> Result<Self> {
+    fn new(engine: &mut Engine, settings: Settings) -> Result<Self> {
         let ctx = engine.context();
-        let audio = (AudioSystem::new(&ctx)?).shared();
+
+        let audio = (if settings.headless {
+            AudioSystem::headless(ctx.res.clone())
+        } else {
+            AudioSystem::new(ctx.res.clone())
+        }?).shared();
 
         let sfx = audio.create_clip_from("res:sfx.ogg")?;
         let music = audio.create_clip_from("res:music.mp3")?;
@@ -113,6 +118,6 @@ fn main() {
     let mut engine = Engine::new_with(&params).unwrap();
     engine.res.mount("res", res).unwrap();
 
-    let window = Window::new(&mut engine).unwrap();
+    let window = Window::new(&mut engine, params).unwrap();
     engine.run(window).unwrap();
 }

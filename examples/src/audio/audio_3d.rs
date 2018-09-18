@@ -13,7 +13,7 @@ struct Window {
 }
 
 impl Window {
-    fn new(engine: &mut Engine) -> Result<Self> {
+    fn new(engine: &mut Engine, settings: Settings) -> Result<Self> {
         //
         let world_resources = (WorldResources::new(engine)?).shared();
         let ctx = engine.context();
@@ -43,7 +43,12 @@ impl Window {
         world.scene.look_at(camera, center, [0.0, 1.0, 0.0]);
 
         //
-        let audio = (AudioSystem::new(&ctx)?).shared();
+        let audio = (if settings.headless {
+            AudioSystem::headless(ctx.res.clone())
+        } else {
+            AudioSystem::new(ctx.res.clone())
+        }?).shared();
+
         let music = audio.create_clip_from("res:music.mp3")?;
         let mut source = AudioSource::from(music);
         source.loops = AudioSourceWrap::Infinite;
@@ -95,6 +100,6 @@ fn main() {
     engine.res.mount("res", res).unwrap();
     engine.input.set_touch_emulation(true);
 
-    let window = Window::new(&mut engine).unwrap();
+    let window = Window::new(&mut engine, params).unwrap();
     engine.run(window).unwrap();
 }

@@ -1,6 +1,7 @@
 use std::sync::{Arc, RwLock};
+use std::thread::Builder;
 
-use cpal::{StreamData, UnknownTypeOutputBuffer};
+use cpal::{self, EventLoop, StreamData, UnknownTypeOutputBuffer};
 use crayon::math::Vector3;
 use crayon::utils::HandlePool;
 
@@ -8,31 +9,54 @@ use assets::AudioClip;
 use source::{AudioSource, AudioSourceHandle, AudioSourceSpatial, AudioSourceWrap};
 use {AudioClipRegistry, Result};
 
-pub fn mixer(
-    channels: u8,
-    sample_rate: u32,
-    clips: Arc<AudioClipRegistry>,
-) -> (Mixer, MixerController) {
-    assert!(channels >= 1 && sample_rate >= 1);
+pub fn mixer(clips: Arc<AudioClipRegistry>) -> Result<MixerController> {
+    let device = cpal::default_output_device()
+        .ok_or_else(|| format_err!("No avaiable audio output device"))?;
+    let format = device
+        .default_output_format()
+        .expect("The device doesn't support any format.");
+
+    let events = EventLoop::new();
+    let stream = events.build_output_stream(&device, &format).unwrap();
+    info!("Created audio mixer. [{:?}] {:?}.", device.name(), format);
 
     let cmds = Arc::new(RwLock::new(Vec::new()));
-    let mixer_controller = MixerController {
-        clips: clips,
-        sources: RwLock::new(HandlePool::new()),
-        tx: cmds.clone(),
-    };
-
-    let mixer = Mixer {
-        channels: channels,
+    let mut mixer = Mixer {
+        channels: format.channels as u8,
         channels_iter: 0,
-        sample_rate: sample_rate,
+        sample_rate: format.sample_rate.0 as u32,
         listener: Vector3::new(0.0, 0.0, 0.0),
         sources: Vec::new(),
-        rx: cmds,
+        rx: cmds.clone(),
         bufs: Vec::new(),
     };
 
-    (mixer, mixer_controller)
+    Builder::new()
+        .name("Audio".into())
+        .spawn(move || {
+            events.run(move |id, buffer| {
+                if stream != id {
+                    return;
+                }
+
+                mixer.run(buffer);
+            })
+        }).expect("Failed to create thread for `AudioSystem`.");
+
+    Ok(MixerController {
+        clips: clips,
+        sources: RwLock::new(HandlePool::new()),
+        tx: cmds,
+    })
+}
+
+pub fn headless(clips: Arc<AudioClipRegistry>) -> Result<MixerController> {
+    let cmds = Arc::new(RwLock::new(Vec::new()));
+    Ok(MixerController {
+        clips: clips,
+        sources: RwLock::new(HandlePool::new()),
+        tx: cmds,
+    })
 }
 
 pub struct MixerController {
@@ -109,7 +133,7 @@ enum Command {
     UpdateSourcePosition(AudioSourceHandle, Vector3<f32>),
 }
 
-pub struct Mixer {
+struct Mixer {
     channels: u8,
     sample_rate: u32,
     listener: Vector3<f32>,
@@ -121,7 +145,7 @@ pub struct Mixer {
 }
 
 impl Mixer {
-    pub fn run(&mut self, data: StreamData) {
+    fn run(&mut self, data: StreamData) {
         self.update();
 
         if let StreamData::Output { buffer } = data {
@@ -189,16 +213,7 @@ impl Mixer {
                         self.sources.resize(index + 1, None);
                     }
 
-                    let instance = AudioSourceInstance {
-                        clip: clip,
-                        volume: source.volume,
-                        pitch: source.pitch,
-                        loops: source.loops,
-                        spatial: source.spatial,
-                        iter: 0.0,
-                    };
-
-                    self.sources[index] = Some(instance);
+                    self.sources[index] = Some(AudioSourceInstance::new(clip, source));
                 }
                 Command::DeleteSource(handle) => {
                     let index = handle.index() as usize;
@@ -242,6 +257,17 @@ struct AudioSourceInstance {
 }
 
 impl AudioSourceInstance {
+    fn new(clip: Arc<AudioClip>, source: AudioSource) -> Self {
+        AudioSourceInstance {
+            clip: clip,
+            volume: source.volume,
+            pitch: source.pitch,
+            loops: source.loops,
+            spatial: source.spatial,
+            iter: 0.0,
+        }
+    }
+
     fn sample(&self, channels_iter: u8, listener: Vector3<f32>) -> f32 {
         let mut idx = (self.iter as usize) * (self.clip.channels as usize);
         idx += (channels_iter % self.clip.channels) as usize;
@@ -250,7 +276,7 @@ impl AudioSourceInstance {
             let mut v = sample_i16_to_f32(self.clip.pcm[idx]) * self.volume;
 
             if let Some(spatial) = self.spatial {
-                v *= spatial.resolve(listener);
+                v *= spatial.volume(listener);
             }
 
             v
@@ -267,7 +293,7 @@ impl AudioSourceInstance {
         while (self.iter as usize) * (self.clip.channels as usize) >= self.clip.pcm.len() {
             match self.loops {
                 AudioSourceWrap::Repeat(ref mut c) => {
-                    if *c > 0 {
+                    if *c > 1 {
                         *c -= 1;
                         self.iter -= samples;
                     } else {

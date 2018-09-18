@@ -62,7 +62,7 @@ impl AudioSourceSpatial {
         }
     }
 
-    pub fn resolve<T>(&self, listener: T) -> f32
+    pub fn volume<T>(&self, listener: T) -> f32
     where
         T: Into<Vector3<f32>>,
     {
