@@ -1,5 +1,7 @@
 use std::borrow::Borrow;
 use std::fmt;
+use std::fmt::Debug;
+use std::hash::Hash;
 use std::ops::Deref;
 
 /// `HandleIndex` type is arbitrary. Keeping it 32-bits allows for
@@ -88,7 +90,7 @@ impl fmt::Display for Handle {
     }
 }
 
-pub trait HandleLike: Copy + Send + Sync {
+pub trait HandleLike: Debug + Copy + Hash + PartialEq + Eq + Send + Sync {
     fn new(index: HandleIndex, version: HandleIndex) -> Self;
     fn index(&self) -> HandleIndex;
     fn version(&self) -> HandleIndex;

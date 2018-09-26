@@ -164,6 +164,17 @@ impl<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> Registr
         }
     }
 
+    /// Blocks current thread until the loading process of resource finished.
+    pub fn wait_and<F: FnOnce(&R::Value) -> T, T>(&self, handle: H, map: F) -> Option<T> {
+        if let Some(uuid) = self.uuid(handle) {
+            if self.res.wait_until(uuid).is_ok() {
+                return self.get(handle, map);
+            }
+        }
+
+        None
+    }
+
     /// Gets the length of this `Registry`.
     #[inline]
     pub fn len(&self) -> usize {
