@@ -119,28 +119,30 @@ impl Engine {
     /// thread until we finished.
     pub fn run<T>(mut self, application: T) -> Result<Self>
     where
-        T: Application + Send + Sync + 'static,
+        T: Application + Send + 'static,
     {
-        let application = Arc::new(RwLock::new(application));
-
         let dir = ::std::env::current_dir()?;
         info!("CWD: {:?}.", dir);
 
         let latch = Arc::new(sched::latch::LockLatch::new());
-        Self::execute_frame(&self.context, latch.clone(), application.clone());
+        Self::execute_frame(latch.clone(), self.context.clone(), application);
 
         let mut alive = true;
+        let mut frame_info = None;
         while alive {
-            self.input.advance(self.window.hidpi());
+            self.time.advance();
 
+            let (mut application, duration) = latch.wait_and_take()?;
+            if let Some(frame_info) = frame_info {
+                application.on_post_update(&self.context, &frame_info)?;
+            }
+
+            self.input.advance(self.window.hidpi());
             // Poll any possible events first.
             for v in self.window.advance() {
                 match *v {
                     events::Event::Application(value) => {
-                        {
-                            let mut application = application.write().unwrap();
-                            application.on_receive_event(&self.context, value)?;
-                        }
+                        application.on_receive_event(&self.context, value)?;
 
                         if let events::ApplicationEvent::Closed = value {
                             alive = false;
@@ -151,44 +153,27 @@ impl Engine {
                 }
             }
 
-            alive = alive && !self.context.is_shutdown();
+            alive = alive && !self.context.is_shutdown() && !self.headless;
             if !alive {
+                application.on_exit(&self.context)?;
                 break;
             }
 
-            self.time.advance();
+            // Perform update and render submitting for frame [x], and drawing
+            // frame [x-1] at the same time.
             self.video.swap_frames();
+            Self::execute_frame(latch.clone(), self.context.clone(), application);
 
-            let (video_info, duration) = {
-                let duration = latch.wait_and_take()?;
-
-                // Perform update and render submitting for frame [x], and drawing
-                // frame [x-1] at the same time.
-                Self::execute_frame(&self.context, latch.clone(), application.clone());
-                // This will block the main-thread until all the video commands is finished by GPU.
-                let video_info = self.video.advance(&self.window)?;
-                (video_info, duration)
-            };
-
+            // This will block the main-thread until all the video commands is finished by GPU.
+            let video_info = self.video.advance(&self.window)?;
             self.window.swap_buffers()?;
 
-            {
-                let info = FrameInfo {
-                    video: video_info,
-                    duration: duration,
-                    fps: self.time.shared().get_fps(),
-                };
-
-                let mut application = application.write().unwrap();
-                application.on_post_update(&self.context, &info)?;
-            }
-
-            alive = alive && !self.context.is_shutdown() && !self.headless;
-        }
-
-        {
-            let mut application = application.write().unwrap();
-            application.on_exit(&self.context)?;
+            //
+            frame_info = Some(FrameInfo {
+                video: video_info,
+                duration: duration,
+                fps: self.time.shared().get_fps(),
+            });
         }
 
         self.sched.terminate();
@@ -197,23 +182,21 @@ impl Engine {
     }
 
     fn execute_frame<T>(
-        ctx: &Context,
-        latch: Arc<sched::latch::LockLatch<Result<Duration>>>,
-        app: Arc<RwLock<T>>,
+        latch: Arc<sched::latch::LockLatch<Result<(T, Duration)>>>,
+        ctx: Context,
+        mut application: T,
     ) where
-        T: Application + Send + Sync + 'static,
+        T: Application + Send + 'static,
     {
-        let run = |ctx, app: Arc<RwLock<T>>| {
+        let ctx_clone = ctx.clone();
+        let run = move || {
             let ts = Instant::now();
+            application.on_update(&ctx_clone)?;
+            application.on_render(&ctx_clone)?;
 
-            let mut application = app.write().unwrap();
-            application.on_update(&ctx)?;
-            application.on_render(&ctx)?;
-
-            Ok(Instant::now() - ts)
+            Ok((application, Instant::now() - ts))
         };
 
-        let ctx_clone = ctx.clone();
-        ctx.sched.spawn(move || latch.set(run(ctx_clone, app)));
+        ctx.sched.spawn(move || latch.set(run()));
     }
 }
