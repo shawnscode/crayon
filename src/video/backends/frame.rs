@@ -1,7 +1,7 @@
 use std::sync::{Mutex, MutexGuard, RwLock};
 
 use errors::*;
-use math;
+use math::prelude::{Aabb2, Vector2};
 use utils::{data_buf, hash_value};
 
 use super::super::assets::prelude::*;
@@ -24,7 +24,7 @@ pub enum Command {
     DeleteShader(ShaderHandle),
 
     CreateTexture(TextureHandle, TextureParams, Option<TextureData>),
-    UpdateTexture(TextureHandle, math::Aabb2<u32>, BytesPtr),
+    UpdateTexture(TextureHandle, Aabb2<u32>, BytesPtr),
     DeleteTexture(TextureHandle),
 
     CreateRenderTexture(RenderTextureHandle, RenderTextureParams),
@@ -58,7 +58,7 @@ impl Frame {
     pub fn dispatch(
         &mut self,
         visitor: &mut Visitor,
-        dimensions: math::Vector2<u32>,
+        dimensions: Vector2<u32>,
     ) -> Result<(u32, u32)> {
         unsafe {
             visitor.advance()?;

@@ -105,6 +105,7 @@ pub mod vfs;
 pub mod prelude {
     pub use super::location::Location;
     pub use super::promise::Promise;
+    pub use super::registry::{Register, Registry};
     pub use super::vfs::Directory;
     pub use super::{ResourceSystem, ResourceSystemShared};
 }

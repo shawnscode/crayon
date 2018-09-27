@@ -1,4 +1,4 @@
-use crayon::math::Vector3;
+use crayon::math::prelude::Vector3;
 
 use assets::AudioClipHandle;
 
@@ -66,7 +66,7 @@ impl AudioSourceSpatial {
     where
         T: Into<Vector3<f32>>,
     {
-        use crayon::math::InnerSpace;
+        use crayon::math::prelude::InnerSpace;
 
         let distance = (listener.into() - self.position)
             .magnitude()

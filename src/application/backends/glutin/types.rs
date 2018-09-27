@@ -2,10 +2,9 @@ use glutin;
 
 use application::events::{ApplicationEvent, Event, InputDeviceEvent};
 use application::events::{Key, MouseButton, TouchState};
+use math::prelude::Vector2;
 
-use math;
-
-pub fn from_event(source: glutin::Event, dimensions: math::Vector2<u32>) -> Option<Event> {
+pub fn from_event(source: glutin::Event, dimensions: Vector2<u32>) -> Option<Event> {
     match source {
         glutin::Event::WindowEvent { event, .. } => from_window_event(&event, dimensions),
 
@@ -21,10 +20,7 @@ pub fn from_event(source: glutin::Event, dimensions: math::Vector2<u32>) -> Opti
     }
 }
 
-fn from_window_event(
-    source: &glutin::WindowEvent,
-    dimensions: math::Vector2<u32>,
-) -> Option<Event> {
+fn from_window_event(source: &glutin::WindowEvent, dimensions: Vector2<u32>) -> Option<Event> {
     match *source {
         glutin::WindowEvent::CloseRequested => Some(Event::Application(ApplicationEvent::Closed)),
 

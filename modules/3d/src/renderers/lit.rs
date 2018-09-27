@@ -1,4 +1,4 @@
-use crayon::math;
+use crayon::math::prelude::Color;
 
 use scene::Transform;
 
@@ -9,7 +9,7 @@ pub struct Lit {
     /// Is this light casting shadow.
     pub shadow_caster: bool,
     /// Color of the light.
-    pub color: math::Color<f32>,
+    pub color: Color<f32>,
     /// Brightness of the light source, in lumens.
     pub intensity: f32,
     /// Lit source
@@ -38,7 +38,7 @@ impl Default for Lit {
         Lit {
             enable: true,
             shadow_caster: false,
-            color: math::Color::white(),
+            color: Color::white(),
             intensity: 1.0,
             source: LitSource::Dir,
             transform: Transform::default(),

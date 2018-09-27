@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use crayon::{application, math};
+use crayon::application::prelude::*;
 
-use crayon::application::window;
 use crayon::errors::*;
+use crayon::math::prelude::{Color, Vector2};
 use crayon::video::assets::prelude::*;
 use crayon::video::prelude::*;
 
@@ -19,7 +19,7 @@ impl_vertex!{
 
 pub struct Renderer {
     video: Arc<VideoSystemShared>,
-    window: Arc<window::WindowShared>,
+    window: Arc<WindowShared>,
 
     surface: SurfaceHandle,
     shader: ShaderHandle,
@@ -31,7 +31,7 @@ pub struct Renderer {
 impl Renderer {
     /// Creates a new `CanvasRenderer`. This will allocates essential video
     /// resources in background.
-    pub fn new(ctx: &application::Context, imgui: &mut ImGui) -> Result<Self> {
+    pub fn new(ctx: &Context, imgui: &mut ImGui) -> Result<Self> {
         let mut params = SurfaceParams::default();
         params.set_clear(None, None, None);
         let surface = ctx.video.create_surface(params)?;
@@ -104,7 +104,7 @@ impl Renderer {
         let mut verts = Vec::with_capacity(tasks.vtx_buffer.len());
 
         for v in tasks.vtx_buffer {
-            let color = math::Color::from_abgr_u32(v.col).into();
+            let color = Color::from_abgr_u32(v.col).into();
             verts.push(CanvasVertex::new(
                 [v.pos.x, v.pos.y],
                 [v.uv.x, v.uv.y],
@@ -136,12 +136,12 @@ impl Renderer {
         for cmd in tasks.cmd_buffer {
             assert!(font_texture_id == cmd.texture_id as usize);
 
-            let scissor_pos = math::Vector2::new(
+            let scissor_pos = Vector2::new(
                 (cmd.clip_rect.x as f32 * hidpi) as i32,
                 ((height - cmd.clip_rect.w) as f32 * hidpi) as i32,
             );
 
-            let scissor_size = math::Vector2::new(
+            let scissor_size = Vector2::new(
                 ((cmd.clip_rect.z - cmd.clip_rect.x) as f32 * hidpi) as u32,
                 ((cmd.clip_rect.w - cmd.clip_rect.y) as f32 * hidpi) as u32,
             );

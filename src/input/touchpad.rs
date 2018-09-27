@@ -2,8 +2,7 @@ use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
 use application::events::TouchState;
-use math;
-use math::MetricSpace;
+use math::prelude::{MetricSpace, Vector2};
 
 use super::MAX_TOUCHES;
 
@@ -83,7 +82,7 @@ impl TouchPad {
         self.double_tap = GestureTap::None;
     }
 
-    pub fn on_touch(&mut self, id: u8, state: TouchState, position: math::Vector2<f32>) {
+    pub fn on_touch(&mut self, id: u8, state: TouchState, position: Vector2<f32>) {
         let touch = TouchEvent {
             id: id,
             state: state,
@@ -103,7 +102,7 @@ impl TouchPad {
     }
 
     #[inline]
-    pub fn position(&self, index: usize) -> Option<math::Vector2<f32>> {
+    pub fn position(&self, index: usize) -> Option<Vector2<f32>> {
         self.record.position(index)
     }
 
@@ -127,7 +126,7 @@ impl TouchPad {
 pub enum GestureTap {
     Action {
         /// The current tap position.
-        position: math::Vector2<f32>,
+        position: Vector2<f32>,
     },
     None,
 }
@@ -147,7 +146,7 @@ impl GestureTap {
 struct GestureTapDetector {
     record: TouchesRecord,
 
-    last_tap_position: math::Vector2<f32>,
+    last_tap_position: Vector2<f32>,
     last_tap_time: Instant,
     count: u32,
 
@@ -159,7 +158,7 @@ impl GestureTapDetector {
     pub fn new(required: u32, params: TouchPadParams) -> Self {
         GestureTapDetector {
             record: TouchesRecord::default(),
-            last_tap_position: math::Vector2::new(0.0, 0.0),
+            last_tap_position: Vector2::new(0.0, 0.0),
             last_tap_time: Instant::now(),
             count: 0,
 
@@ -247,21 +246,21 @@ impl GestureTapDetector {
 pub enum GesturePan {
     Start {
         /// The start touch position.
-        start_position: math::Vector2<f32>,
+        start_position: Vector2<f32>,
     },
     Move {
         /// The start touch position.
-        start_position: math::Vector2<f32>,
+        start_position: Vector2<f32>,
         /// The current touch position.
-        position: math::Vector2<f32>,
+        position: Vector2<f32>,
         /// The movement during last frame.
-        movement: math::Vector2<f32>,
+        movement: Vector2<f32>,
     },
     End {
         /// The start touch position.
-        start_position: math::Vector2<f32>,
+        start_position: Vector2<f32>,
         /// The current touch position.
-        position: math::Vector2<f32>,
+        position: Vector2<f32>,
     },
     None,
 }
@@ -297,8 +296,8 @@ impl GesturePan {
 }
 
 struct GesturePanDetector {
-    position: math::Vector2<f32>,
-    start_position: math::Vector2<f32>,
+    position: Vector2<f32>,
+    start_position: Vector2<f32>,
     pan: bool,
     record: TouchesRecord,
 
@@ -308,8 +307,8 @@ struct GesturePanDetector {
 impl GesturePanDetector {
     pub fn new(params: TouchPadParams) -> Self {
         GesturePanDetector {
-            position: math::Vector2::new(0.0, 0.0),
-            start_position: math::Vector2::new(0.0, 0.0),
+            position: Vector2::new(0.0, 0.0),
+            start_position: Vector2::new(0.0, 0.0),
             pan: false,
             record: TouchesRecord::default(),
 
@@ -393,7 +392,7 @@ impl GesturePanDetector {
 struct TouchEvent {
     pub id: u8,
     pub state: TouchState,
-    pub position: math::Vector2<f32>,
+    pub position: Vector2<f32>,
 }
 
 impl Default for TouchEvent {
@@ -401,7 +400,7 @@ impl Default for TouchEvent {
         TouchEvent {
             id: 0,
             state: TouchState::End,
-            position: math::Vector2::new(0.0, 0.0),
+            position: Vector2::new(0.0, 0.0),
         }
     }
 }
@@ -441,7 +440,7 @@ impl TouchesRecord {
         true
     }
 
-    fn position(&self, index: usize) -> Option<math::Vector2<f32>> {
+    fn position(&self, index: usize) -> Option<Vector2<f32>> {
         if self.len > index {
             Some(self.touches[index].1.position)
         } else {

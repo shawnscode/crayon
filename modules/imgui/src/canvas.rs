@@ -1,9 +1,10 @@
 use std::ops::{Deref, DerefMut};
 
-use crayon::application::Context;
+use crayon::application::prelude::*;
 use crayon::errors::*;
 use crayon::input::prelude::*;
 use crayon::video::prelude::*;
+
 use imgui;
 use renderer::Renderer;
 

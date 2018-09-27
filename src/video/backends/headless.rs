@@ -2,7 +2,7 @@ use super::super::assets::prelude::*;
 use super::{UniformVar, Visitor};
 
 use errors::*;
-use math;
+use math::prelude::{Aabb2, Vector2};
 
 pub struct HeadlessVisitor {}
 
@@ -44,12 +44,7 @@ impl Visitor for HeadlessVisitor {
         Ok(())
     }
 
-    unsafe fn update_texture(
-        &mut self,
-        _: TextureHandle,
-        _: math::Aabb2<u32>,
-        _: &[u8],
-    ) -> Result<()> {
+    unsafe fn update_texture(&mut self, _: TextureHandle, _: Aabb2<u32>, _: &[u8]) -> Result<()> {
         Ok(())
     }
 
@@ -90,7 +85,7 @@ impl Visitor for HeadlessVisitor {
         Ok(())
     }
 
-    unsafe fn bind(&mut self, _: SurfaceHandle, _: math::Vector2<u32>) -> Result<()> {
+    unsafe fn bind(&mut self, _: SurfaceHandle, _: Vector2<u32>) -> Result<()> {
         Ok(())
     }
 

@@ -11,9 +11,8 @@ pub mod source;
 
 use std::sync::Arc;
 
-use crayon::math::Vector3;
-use crayon::res::prelude::{Location, ResourceSystemShared};
-use crayon::res::registry::Registry;
+use crayon::math::prelude::Vector3;
+use crayon::res::prelude::*;
 
 use self::assets::{AudioClipHandle, AudioClipLoader};
 use self::mixer::MixerController;

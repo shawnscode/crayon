@@ -8,7 +8,7 @@ pub mod headless;
 use super::assets::prelude::*;
 
 use errors::*;
-use math;
+use math::prelude::{Aabb2, Vector2};
 use utils::hash_value;
 
 pub type UniformVar = (hash_value::HashValue<str>, UniformVariable);
@@ -39,7 +39,7 @@ pub trait Visitor {
     unsafe fn update_texture(
         &mut self,
         handle: TextureHandle,
-        area: math::Aabb2<u32>,
+        area: Aabb2<u32>,
         bytes: &[u8],
     ) -> Result<()>;
 
@@ -76,8 +76,7 @@ pub trait Visitor {
 
     unsafe fn delete_mesh(&mut self, handle: MeshHandle) -> Result<()>;
 
-    unsafe fn bind(&mut self, surface: SurfaceHandle, dimensions: math::Vector2<u32>)
-        -> Result<()>;
+    unsafe fn bind(&mut self, surface: SurfaceHandle, dimensions: Vector2<u32>) -> Result<()>;
 
     unsafe fn draw(
         &mut self,

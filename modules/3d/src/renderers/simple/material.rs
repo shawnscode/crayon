@@ -1,12 +1,12 @@
-use crayon::math;
+use crayon::math::prelude::Color;
 use crayon::video::assets::texture::TextureHandle;
 
 #[derive(Debug, Copy, Clone)]
 pub struct SimpleMaterial {
-    pub ambient: math::Color<f32>,
-    pub diffuse: math::Color<f32>,
+    pub ambient: Color<f32>,
+    pub diffuse: Color<f32>,
     pub diffuse_texture: Option<TextureHandle>,
-    pub specular: math::Color<f32>,
+    pub specular: Color<f32>,
     pub specular_texture: Option<TextureHandle>,
     pub shininess: f32,
 }
@@ -14,10 +14,10 @@ pub struct SimpleMaterial {
 impl Default for SimpleMaterial {
     fn default() -> Self {
         SimpleMaterial {
-            ambient: math::Color::white(),
-            diffuse: math::Color::white(),
+            ambient: Color::white(),
+            diffuse: Color::white(),
             diffuse_texture: None,
-            specular: math::Color::black(),
+            specular: Color::black(),
             specular_texture: None,
             shininess: 0.0,
         }

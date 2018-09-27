@@ -2,7 +2,7 @@ use std::slice::Iter;
 use std::sync::{Arc, RwLock};
 
 use errors::*;
-use math;
+use math::prelude::Vector2;
 
 use super::backends::{self, Visitor};
 use super::events::Event;
@@ -22,8 +22,8 @@ impl Window {
             visitor: backends::new(params)?,
             events: Vec::new(),
             shared: Arc::new(WindowShared {
-                dimensions: RwLock::new(math::Vector2::new(0, 0)),
-                dimensions_in_points: RwLock::new(math::Vector2::new(0, 0)),
+                dimensions: RwLock::new(Vector2::new(0, 0)),
+                dimensions_in_points: RwLock::new(Vector2::new(0, 0)),
                 hidpi: RwLock::new(1.0),
             }),
         };
@@ -38,8 +38,8 @@ impl Window {
             visitor: Box::new(backends::HeadlessVisitor {}),
             events: Vec::new(),
             shared: Arc::new(WindowShared {
-                dimensions: RwLock::new(math::Vector2::new(0, 0)),
-                dimensions_in_points: RwLock::new(math::Vector2::new(0, 0)),
+                dimensions: RwLock::new(Vector2::new(0, 0)),
+                dimensions_in_points: RwLock::new(Vector2::new(0, 0)),
                 hidpi: RwLock::new(1.0),
             }),
         }
@@ -106,7 +106,7 @@ impl Window {
 
     /// Resize the GL context.
     #[inline]
-    pub fn resize(&self, dimensions: math::Vector2<u32>) {
+    pub fn resize(&self, dimensions: Vector2<u32>) {
         self.visitor.resize(dimensions);
     }
 
@@ -119,7 +119,7 @@ impl Window {
     /// The coordinates can be negative if the lower-left hand corner of the window is outside of
     /// the visible screen region.
     #[inline]
-    pub fn position_in_points(&self) -> math::Vector2<i32> {
+    pub fn position_in_points(&self) -> Vector2<i32> {
         self.visitor.position_in_points()
     }
 
@@ -128,16 +128,16 @@ impl Window {
     /// The client area is the content of the window, excluding the title bar and borders. These are
     /// the size of the frame buffer.
     #[inline]
-    pub fn dimensions_in_points(&self) -> math::Vector2<u32> {
+    pub fn dimensions_in_points(&self) -> Vector2<u32> {
         self.visitor.dimensions_in_points()
     }
 
     /// Returns the size in *pixels* of the client area of the window.
     #[inline]
-    pub fn dimensions(&self) -> math::Vector2<u32> {
+    pub fn dimensions(&self) -> Vector2<u32> {
         let size = self.dimensions_in_points();
         let hi = self.hidpi();
-        math::Vector2::new((size.x as f32 * hi) as u32, (size.y as f32 * hi) as u32)
+        Vector2::new((size.x as f32 * hi) as u32, (size.y as f32 * hi) as u32)
     }
 
     /// Returns the ratio between the backing framebuffer resolution and the window size in
@@ -149,8 +149,8 @@ impl Window {
 }
 
 pub struct WindowShared {
-    dimensions_in_points: RwLock<math::Vector2<u32>>,
-    dimensions: RwLock<math::Vector2<u32>>,
+    dimensions_in_points: RwLock<Vector2<u32>>,
+    dimensions: RwLock<Vector2<u32>>,
     hidpi: RwLock<f32>,
 }
 
@@ -160,13 +160,13 @@ impl WindowShared {
     /// The client area is the content of the window, excluding the title bar and borders. These are
     /// the size of the frame buffer.
     #[inline]
-    pub fn dimensions_in_points(&self) -> math::Vector2<u32> {
+    pub fn dimensions_in_points(&self) -> Vector2<u32> {
         *self.dimensions_in_points.read().unwrap()
     }
 
     /// Returns the size in *pixels* of the client area of the window.
     #[inline]
-    pub fn dimensions(&self) -> math::Vector2<u32> {
+    pub fn dimensions(&self) -> Vector2<u32> {
         *self.dimensions.read().unwrap()
     }
 

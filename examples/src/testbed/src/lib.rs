@@ -14,14 +14,16 @@ pub extern crate rand;
 
 pub mod console;
 
-pub fn settings<T1, T2>(titile: T1, dimesions: T2) -> crayon::application::Settings
+use crayon::application::prelude::*;
+
+pub fn settings<T1, T2>(titile: T1, dimesions: T2) -> Settings
 where
     T1: Into<String>,
-    T2: Into<crayon::math::Vector2<u32>>,
+    T2: Into<Vector2<u32>>,
 {
     ::env_logger::init();
 
-    let mut params = crayon::application::Settings::default();
+    let mut params = Settings::default();
     params.window.title = titile.into();
     params.window.size = dimesions.into();
 

@@ -70,7 +70,8 @@ impl<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> Registr
 
         let uuid = self.res.redirect(location).ok_or_else(|| {
             format_err!(
-                "Undefined virtual filesystem with identifier {}.",
+                "Could NOT found resource '{}' at '{}'.",
+                location.filename(),
                 location.vfs()
             )
         })?;

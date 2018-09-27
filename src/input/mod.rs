@@ -184,7 +184,7 @@ pub mod prelude {
 use std::sync::{Arc, RwLock};
 
 use application::events::{self, Key, MouseButton};
-use math;
+use math::prelude::Vector2;
 
 /// The setup parameters of all supported input devices.
 #[derive(Debug, Clone, Copy, Default)]
@@ -419,37 +419,37 @@ impl InputSystemShared {
 
     /// Gets the mouse position in pixels relative to the lower-left hand corner of the window.
     #[inline]
-    pub fn mouse_position(&self) -> math::Vector2<f32> {
+    pub fn mouse_position(&self) -> Vector2<f32> {
         self.mouse.read().unwrap().position() * (*self.hidpi.read().unwrap())
     }
 
     /// Gets the mouse position relative to the lower-left hand corner of the window.
     #[inline]
-    pub fn mouse_position_in_points(&self) -> math::Vector2<f32> {
+    pub fn mouse_position_in_points(&self) -> Vector2<f32> {
         self.mouse.read().unwrap().position()
     }
 
     /// Gets mouse movement in pixels since last frame.
     #[inline]
-    pub fn mouse_movement(&self) -> math::Vector2<f32> {
+    pub fn mouse_movement(&self) -> Vector2<f32> {
         self.mouse.read().unwrap().movement() * (*self.hidpi.read().unwrap())
     }
 
     /// Gets mouse movement since last frame.
     #[inline]
-    pub fn mouse_movement_in_points(&self) -> math::Vector2<f32> {
+    pub fn mouse_movement_in_points(&self) -> Vector2<f32> {
         self.mouse.read().unwrap().movement()
     }
 
     /// Gets the scroll movement of mouse in pixels, usually provided by mouse wheel.
     #[inline]
-    pub fn mouse_scroll(&self) -> math::Vector2<f32> {
+    pub fn mouse_scroll(&self) -> Vector2<f32> {
         self.mouse.read().unwrap().scroll() * (*self.hidpi.read().unwrap())
     }
 
     /// Gets the scroll movement of mouse, usually provided by mouse wheel.
     #[inline]
-    pub fn mouse_scroll_in_points(&self) -> math::Vector2<f32> {
+    pub fn mouse_scroll_in_points(&self) -> Vector2<f32> {
         self.mouse.read().unwrap().scroll()
     }
 }
@@ -470,13 +470,13 @@ impl InputSystemShared {
 
     /// Gets the position of the `n`th touched finger in pixels.
     #[inline]
-    pub fn finger_position(&self, n: usize) -> Option<math::Vector2<f32>> {
+    pub fn finger_position(&self, n: usize) -> Option<Vector2<f32>> {
         self.touchpad.read().unwrap().position(n)
     }
 
     /// Gets the position of the `n`th touched finger in pixels.
     #[inline]
-    pub fn finger_position_in_points(&self, n: usize) -> Option<math::Vector2<f32>> {
+    pub fn finger_position_in_points(&self, n: usize) -> Option<Vector2<f32>> {
         let hidpi = *self.hidpi.read().unwrap();
         self.touchpad.read().unwrap().position(n).map(|v| v * hidpi)
     }

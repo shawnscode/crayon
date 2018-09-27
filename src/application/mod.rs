@@ -30,22 +30,21 @@ pub mod events;
 pub mod settings;
 pub mod time;
 pub mod window;
-pub use self::settings::Settings;
-
-mod engine;
-pub use self::engine::{Context, Engine};
 
 mod backends;
+mod engine;
 
 pub mod prelude {
-    pub use super::FrameInfo;
-    pub use super::{Application, Context, Engine, Settings};
-    pub use errors::Result;
+    pub use super::engine::{Context, Engine};
+    pub use super::settings::Settings;
+    pub use super::window::{Window, WindowShared};
+    pub use super::{Application, FrameInfo};
 }
 
 use std::time::Duration;
 
 use errors::*;
+use prelude::Context;
 use video::VideoFrameInfo;
 
 /// The collected information during last frame.

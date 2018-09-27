@@ -1,7 +1,7 @@
 //! Functions for loading game settings.
 
 use input;
-use math;
+use math::prelude::Vector2;
 
 /// A structure containing configuration data for the game engine, which are
 /// used to specify hardware setup stuff to create the window and other
@@ -38,7 +38,7 @@ pub struct WindowParams {
     /// Sets the title of window.
     pub title: String,
     /// Sets the size in *points* of the client area of the window.
-    pub size: math::Vector2<u32>,
+    pub size: Vector2<u32>,
     /// Sets the multisampling level to request. A value of 0 indicates that
     /// multisampling must not be enabled.
     pub multisample: u16,
@@ -50,7 +50,7 @@ impl Default for WindowParams {
     fn default() -> Self {
         WindowParams {
             title: "Window".to_owned(),
-            size: math::Vector2::new(640, 320),
+            size: Vector2::new(640, 320),
             multisample: 2,
             vsync: false,
         }

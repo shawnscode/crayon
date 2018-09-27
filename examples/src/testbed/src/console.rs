@@ -27,7 +27,7 @@ impl Drop for ConsoleCanvas {
 impl ConsoleCanvas {
     pub fn new<C>(ctx: &Context, clear_color: C) -> Result<Self>
     where
-        C: Into<Option<math::Color<f32>>>,
+        C: Into<Option<Color<f32>>>,
     {
         let canvas = Canvas::new(ctx).unwrap();
 

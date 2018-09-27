@@ -2,8 +2,9 @@ extern crate crayon;
 extern crate crayon_3d;
 extern crate rand;
 
-use crayon::math::*;
+use crayon::prelude::*;
 use crayon::utils::handle_pool::HandlePool;
+use crayon::*;
 use crayon_3d::prelude::*;
 
 struct Testbed {
@@ -121,12 +122,12 @@ fn remove() {
     assert!(testbed.world.len() == 6);
 
     testbed.remove(e3);
-    assert!(testbed.world.is_alive(e1));
-    assert!(testbed.world.is_alive(e2));
-    assert!(!testbed.world.is_alive(e3));
-    assert!(!testbed.world.is_alive(e4));
-    assert!(!testbed.world.is_alive(e5));
-    assert!(!testbed.world.is_alive(e6));
+    assert!(testbed.world.contains(e1));
+    assert!(testbed.world.contains(e2));
+    assert!(!testbed.world.contains(e3));
+    assert!(!testbed.world.contains(e4));
+    assert!(!testbed.world.contains(e5));
+    assert!(!testbed.world.contains(e6));
     assert!(testbed.world.len() == 2);
 }
 

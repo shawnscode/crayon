@@ -1,9 +1,9 @@
 mod material;
 pub use self::material::SimpleMaterial;
 
-use crayon::application::Context;
+use crayon::application::prelude::Context;
 use crayon::errors::*;
-use crayon::math;
+use crayon::math::prelude::{Color, Vector3};
 use crayon::video::assets::prelude::*;
 use crayon::video::prelude::*;
 
@@ -24,7 +24,7 @@ pub struct SimpleRenderer {
     video: Arc<VideoSystemShared>,
     drawcalls: OrderDrawBatch<DrawOrder>,
 
-    global_ambient: math::Color<f32>,
+    global_ambient: Color<f32>,
     dir_lits: Vec<(String, String)>,
     point_lits: Vec<(String, String, String)>,
 
@@ -130,7 +130,7 @@ impl SimpleRenderer {
             drawcalls: OrderDrawBatch::new(),
             dir_lits: dir_lits,
             point_lits: point_lits,
-            global_ambient: math::Color::gray(),
+            global_ambient: Color::gray(),
             res: res,
         })
     }
@@ -161,14 +161,14 @@ impl SimpleRenderer {
     }
 
     #[inline]
-    pub fn set_global_ambient<T: Into<math::Color<f32>>>(&mut self, color: T) {
+    pub fn set_global_ambient<T: Into<Color<f32>>>(&mut self, color: T) {
         self.global_ambient = color.into();
     }
 }
 
 impl super::Renderer for SimpleRenderer {
     fn submit(&mut self, camera: &Camera, lits: &[Lit], meshes: &[MeshRenderer]) {
-        use crayon::math::{InnerSpace, Matrix, MetricSpace, SquareMatrix};
+        use crayon::math::prelude::{InnerSpace, Matrix, MetricSpace, SquareMatrix};
 
         let view_matrix = camera.transform.view_matrix();
         let projection_matrix = camera.frustum().to_matrix();
@@ -224,7 +224,7 @@ impl super::Renderer for SimpleRenderer {
                             let names = &self.point_lits[point_index];
                             let mut pos = view_matrix * lit.transform.position.extend(1.0);
                             pos /= pos.w;
-                            let attenuation = math::Vector3::new(
+                            let attenuation = Vector3::new(
                                 1.0,
                                 -1.0 / (radius + smoothness * radius * radius),
                                 -smoothness / (radius + smoothness * radius * radius),

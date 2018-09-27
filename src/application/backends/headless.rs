@@ -1,7 +1,6 @@
-use math;
-
 use application::events::Event;
 use errors::*;
+use math::prelude::Vector2;
 
 use super::Visitor;
 
@@ -15,12 +14,12 @@ impl Visitor for HeadlessVisitor {
     fn hide(&self) {}
 
     #[inline]
-    fn position_in_points(&self) -> math::Vector2<i32> {
+    fn position_in_points(&self) -> Vector2<i32> {
         (0, 0).into()
     }
 
     #[inline]
-    fn dimensions_in_points(&self) -> math::Vector2<u32> {
+    fn dimensions_in_points(&self) -> Vector2<u32> {
         (0, 0).into()
     }
 
@@ -30,7 +29,7 @@ impl Visitor for HeadlessVisitor {
     }
 
     #[inline]
-    fn resize(&self, _: math::Vector2<u32>) {}
+    fn resize(&self, _: Vector2<u32>) {}
 
     #[inline]
     fn poll_events(&mut self, _: &mut Vec<Event>) {}

@@ -1,4 +1,4 @@
-use math;
+use math::prelude::Vector2;
 
 /// The enumerations of all events that come from various kinds of user input.
 #[derive(Debug, Clone, Copy)]
@@ -230,7 +230,7 @@ pub enum InputDeviceEvent {
     Touch {
         id: u8,
         state: TouchState,
-        position: math::Vector2<f32>,
+        position: Vector2<f32>,
     },
 }
 

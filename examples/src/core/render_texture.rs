@@ -63,7 +63,7 @@ impl Window {
             // Create the surface state for pass 1.
             let mut params = SurfaceParams::default();
             params.set_attachments(&[rendered_texture], None)?;
-            params.set_clear(math::Color::gray(), None, None);
+            params.set_clear(Color::gray(), None, None);
             let surface = ctx.video.create_surface(params)?;
 
             // Create shader state.

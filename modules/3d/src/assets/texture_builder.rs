@@ -1,6 +1,6 @@
 use crayon::errors::*;
 
-use crayon::application::Context;
+use crayon::application::prelude::Context;
 use crayon::video::assets::texture::*;
 
 pub struct WorldBuiltinTextures {

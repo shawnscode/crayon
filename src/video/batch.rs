@@ -1,4 +1,4 @@
-use math;
+use math::prelude::Aabb2;
 use utils::data_buf;
 use utils::hash_value;
 
@@ -106,7 +106,7 @@ impl Batch {
 
     /// Update a contiguous subregion of an existing two-dimensional texture object.
     #[inline]
-    pub fn update_texture(&mut self, id: TextureHandle, area: math::Aabb2<u32>, bytes: &[u8]) {
+    pub fn update_texture(&mut self, id: TextureHandle, area: Aabb2<u32>, bytes: &[u8]) {
         let bufs = &mut self.bufs;
         let ptr = bufs.extend_from_slice(bytes);
         self.cmds.push(Command::UpdateTexture(id, area, ptr));

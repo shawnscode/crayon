@@ -3,7 +3,7 @@ use gl::types::*;
 use std::cell::RefCell;
 
 use errors::*;
-use math;
+use math::prelude::{Aabb2, Color, Vector2};
 use utils::hash::{FastHashMap, FastHashSet};
 use utils::hash_value::HashValue;
 
@@ -16,7 +16,7 @@ use super::types::{self, DataVec};
 #[derive(Debug, Clone)]
 struct GLSurfaceFBO {
     id: GLuint,
-    dimensions: math::Vector2<u32>,
+    dimensions: Vector2<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -127,8 +127,8 @@ impl GLVisitor {
             render_state: RenderState::default(),
             scissor: SurfaceScissor::Disable,
             view: SurfaceViewport {
-                position: math::Vector2::new(0, 0),
-                size: math::Vector2::new(0, 0),
+                position: Vector2::new(0, 0),
+                size: Vector2::new(0, 0),
             },
             binded_render_buffer: None,
             binded_buffers: FastHashMap::default(),
@@ -420,7 +420,7 @@ impl Visitor for GLVisitor {
     unsafe fn update_texture(
         &mut self,
         handle: TextureHandle,
-        area: math::Aabb2<u32>,
+        area: Aabb2<u32>,
         data: &[u8],
     ) -> Result<()> {
         let texture = *self
@@ -660,7 +660,7 @@ impl Visitor for GLVisitor {
         Ok(())
     }
 
-    unsafe fn bind(&mut self, id: SurfaceHandle, dimensions: math::Vector2<u32>) -> Result<()> {
+    unsafe fn bind(&mut self, id: SurfaceHandle, dimensions: Vector2<u32>) -> Result<()> {
         if self.mutables.borrow().binded_surface == Some(id) {
             return Ok(());
         }
@@ -681,7 +681,7 @@ impl Visitor for GLVisitor {
 
         // Reset the viewport and scissor box.
         let vp = SurfaceViewport {
-            position: math::Vector2::new(0, 0),
+            position: Vector2::new(0, 0),
             size: dimensions,
         };
 
@@ -1265,7 +1265,7 @@ impl GLVisitor {
 
     unsafe fn clear<C, D, S>(&self, color: C, depth: D, stencil: S) -> Result<()>
     where
-        C: Into<Option<math::Color<f32>>>,
+        C: Into<Option<Color<f32>>>,
         D: Into<Option<f32>>,
         S: Into<Option<i32>>,
     {

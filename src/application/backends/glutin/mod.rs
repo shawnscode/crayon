@@ -6,7 +6,7 @@ use glutin::GlContext;
 
 use application::events::Event;
 use errors::*;
-use math;
+use math::prelude::Vector2;
 
 use super::super::settings::WindowParams;
 use super::Visitor;
@@ -58,15 +58,15 @@ impl Visitor for GlutinVisitor {
     }
 
     #[inline]
-    fn position_in_points(&self) -> math::Vector2<i32> {
+    fn position_in_points(&self) -> Vector2<i32> {
         let pos = self.window.get_position().unwrap();
-        math::Vector2::new(pos.x as i32, pos.y as i32)
+        Vector2::new(pos.x as i32, pos.y as i32)
     }
 
     #[inline]
-    fn dimensions_in_points(&self) -> math::Vector2<u32> {
+    fn dimensions_in_points(&self) -> Vector2<u32> {
         let size = self.window.get_inner_size().unwrap();
-        math::Vector2::new(size.width as u32, size.height as u32)
+        Vector2::new(size.width as u32, size.height as u32)
     }
 
     #[inline]
@@ -75,7 +75,7 @@ impl Visitor for GlutinVisitor {
     }
 
     #[inline]
-    fn resize(&self, dimensions: math::Vector2<u32>) {
+    fn resize(&self, dimensions: Vector2<u32>) {
         let size = glutin::dpi::PhysicalSize::new(dimensions.x as f64, dimensions.y as f64);
         self.window.resize(size)
     }

@@ -32,7 +32,7 @@ impl Window {
 
         //
         let lit = world.create();
-        let rotation = math::Euler::new(math::Deg(45.0), math::Deg(0.0), math::Deg(0.0));
+        let rotation = Euler::new(Deg(45.0), Deg(0.0), Deg(0.0));
         world.renderables.add_lit(lit, Lit::default());
         world.scene.set_rotation(lit, rotation);
 
@@ -57,11 +57,7 @@ impl Application for Window {
         self.world.advance();
 
         if let GesturePan::Move { movement, .. } = ctx.input.finger_pan() {
-            let rotation = math::Euler::new(
-                math::Deg(movement.y),
-                math::Deg(-movement.x),
-                math::Deg(0.0),
-            );
+            let rotation = Euler::new(Deg(movement.y), Deg(-movement.x), Deg(0.0));
 
             self.world.scene.rotate(self.room, rotation);
         }

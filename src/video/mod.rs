@@ -85,7 +85,7 @@
 //!
 //! ```rust
 //! use crayon::video::prelude::*;
-//! use crayon::math::Color;
+//! use crayon::math::prelude::*;
 //! let video = VideoSystem::headless(None).shared();
 //!
 //! // Creates a `SurfaceParams` object.
@@ -187,7 +187,7 @@
 //!
 //! ```rust
 //! use crayon::video::prelude::*;
-//! use crayon::math;
+//! use crayon::math::prelude::*;
 //! let video = VideoSystem::headless(None).shared();
 //!
 //! let mut params = SurfaceParams::default();
@@ -207,7 +207,7 @@
 //! // Creates a draw call with specified shader and mesh object.
 //! let mut dc = DrawCall::new(shader, mesh);
 //! // You can set the uniform variables for this dc.
-//! dc.set_uniform_variable("someUniform", math::Vector3::new(0.0, 0.0, 0.0));
+//! dc.set_uniform_variable("someUniform", Vector3::new(0.0, 0.0, 0.0));
 //! // Commits the draw call into surface.
 //! video.draw(surface, dc);
 //! ```
@@ -242,7 +242,7 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use application::window::Window;
-use math;
+use math::prelude::{Aabb2, Aabb3, Vector2};
 use res::prelude::{Location, ResourceSystemShared};
 use res::registry::Registry;
 use utils::ObjectPool;
@@ -271,7 +271,7 @@ pub struct VideoSystem {
     visitor: Box<Visitor>,
     frames: Arc<DoubleFrame>,
     shared: Arc<VideoSystemShared>,
-    last_dimensions: math::Vector2<u32>,
+    last_dimensions: Vector2<u32>,
 }
 
 impl VideoSystem {
@@ -527,7 +527,7 @@ impl VideoSystemShared {
 
     /// Gets the `MeshParams` if available.
     #[inline]
-    pub fn mesh_aabb(&self, handle: MeshHandle) -> Option<math::Aabb3<f32>> {
+    pub fn mesh_aabb(&self, handle: MeshHandle) -> Option<Aabb3<f32>> {
         self.meshes.get(handle, |v| v.aabb)
     }
 
@@ -608,7 +608,7 @@ impl VideoSystemShared {
     pub fn update_texture(
         &self,
         handle: TextureHandle,
-        area: math::Aabb2<u32>,
+        area: Aabb2<u32>,
         data: &[u8],
     ) -> ::errors::Result<()> {
         self.textures

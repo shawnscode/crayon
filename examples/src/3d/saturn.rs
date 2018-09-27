@@ -7,7 +7,7 @@ struct Window {
 
     sun: Entity,
     saturn: Entity,
-    satellites: Vec<(Entity, math::Quaternion<f32>)>,
+    satellites: Vec<(Entity, Quaternion<f32>)>,
 }
 
 impl Window {
@@ -36,11 +36,7 @@ impl Window {
             let center = world.create();
             world.scene.set_parent(center, saturn, false).unwrap();
 
-            let rotation = math::Euler::new(
-                math::Deg(0.0),
-                math::Deg(rand::random::<f32>()),
-                math::Deg(0.0),
-            );
+            let rotation = Euler::new(Deg(0.0), Deg(rand::random::<f32>()), Deg(0.0));
 
             satellites.push((center, rotation.into()));
 
@@ -56,10 +52,10 @@ impl Window {
                 v.cos() * distance,
             ];
 
-            let rotation = math::Euler::new(
-                math::Deg(rand::random::<f32>() * 360.0),
-                math::Deg(rand::random::<f32>() * 360.0),
-                math::Deg(rand::random::<f32>() * 360.0),
+            let rotation = Euler::new(
+                Deg(rand::random::<f32>() * 360.0),
+                Deg(rand::random::<f32>() * 360.0),
+                Deg(rand::random::<f32>() * 360.0),
             );
 
             world.scene.set_local_rotation(satellite, rotation);
@@ -67,7 +63,7 @@ impl Window {
             world.scene.set_local_scale(satellite, 0.1);
 
             m.diffuse_texture = None;
-            m.diffuse = math::Color::gray();
+            m.diffuse = Color::gray();
             world.renderer.add(satellite, m);
         }
 
@@ -86,7 +82,7 @@ impl Window {
 
         //
         let camera = world.create();
-        let params = Camera::perspective(math::Deg(50.0), 1.33, 0.1, 50.0);
+        let params = Camera::perspective(Deg(50.0), 1.33, 0.1, 50.0);
         world.renderables.add_camera(camera, params);
         world.scene.set_position(camera, [0.0, 5.0, -5.0]);
         world.scene.look_at(camera, center, [0.0, 1.0, 0.0]);
@@ -103,18 +99,18 @@ impl Window {
 
 impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> Result<()> {
-        let rotation = math::Euler::new(
-            math::Deg(0.0),
-            math::Deg(ctx.time.frame_delta().subsec_millis() as f32 / 100.0),
-            math::Deg(0.0),
+        let rotation = Euler::new(
+            Deg(0.0),
+            Deg(ctx.time.frame_delta().subsec_millis() as f32 / 100.0),
+            Deg(0.0),
         );
 
         self.world.scene.rotate(self.saturn, rotation);
 
-        let rotation = math::Euler::new(
-            math::Deg(0.0),
-            math::Deg(ctx.time.frame_delta().subsec_millis() as f32 / 50.0),
-            math::Deg(0.0),
+        let rotation = Euler::new(
+            Deg(0.0),
+            Deg(ctx.time.frame_delta().subsec_millis() as f32 / 50.0),
+            Deg(0.0),
         );
 
         self.world.scene.rotate(self.sun, rotation);

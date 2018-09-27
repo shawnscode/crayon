@@ -1,6 +1,6 @@
 //! View frustum for visibility determination
 
-use math::{Aabb3, Plane, PlaneBound, PlaneRelation};
+use math::prelude::{Aabb3, Plane, PlaneBound, PlaneRelation};
 
 use cgmath::num_traits::cast;
 use cgmath::prelude::*;

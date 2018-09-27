@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use crayon::application::{Context, Engine};
+use crayon::application::prelude::*;
 use crayon::errors::*;
-use crayon::res::location::Location;
-use crayon::res::registry::Registry;
+use crayon::res::prelude::*;
 
 use assets::mesh_builder::WorldBuiltinMeshes;
 use assets::prefab::{Prefab, PrefabHandle};

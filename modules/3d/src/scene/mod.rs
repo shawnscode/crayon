@@ -9,7 +9,7 @@ pub use self::errors::{Error, Result};
 
 use std::iter;
 
-use crayon::math::{self, One};
+use crayon::prelude::*;
 use crayon::utils::hash::{FastHashMap, FastHashSet};
 
 use Entity;
@@ -370,7 +370,7 @@ impl SceneGraph {
     /// Moves the transform in the direction and distance of translation.
     pub fn translate<T>(&mut self, ent: Entity, translation: T)
     where
-        T: Into<math::Vector3<f32>>,
+        T: Into<Vector3<f32>>,
     {
         if let Some(&index) = self.remap.get(&ent) {
             self.local_transforms[index].position += translation.into();
@@ -378,14 +378,14 @@ impl SceneGraph {
     }
 
     /// Gets position of the transform in world space.
-    pub fn position(&self, ent: Entity) -> Option<math::Vector3<f32>> {
+    pub fn position(&self, ent: Entity) -> Option<Vector3<f32>> {
         self.transform(ent).map(|transform| transform.position)
     }
 
     /// Sets position of the transform in world space.
     pub fn set_position<T>(&mut self, ent: Entity, position: T)
     where
-        T: Into<math::Vector3<f32>>,
+        T: Into<Vector3<f32>>,
     {
         if let Some(&index) = self.remap.get(&ent) {
             let t = self
@@ -400,7 +400,7 @@ impl SceneGraph {
     }
 
     /// Gets position of the transform in local space.
-    pub fn local_position(&self, ent: Entity) -> Option<math::Vector3<f32>> {
+    pub fn local_position(&self, ent: Entity) -> Option<Vector3<f32>> {
         self.remap
             .get(&ent)
             .map(|&index| self.local_transforms[index].position)
@@ -409,7 +409,7 @@ impl SceneGraph {
     /// Sets position of the transform in local space.
     pub fn set_local_position<T>(&mut self, ent: Entity, position: T)
     where
-        T: Into<math::Vector3<f32>>,
+        T: Into<Vector3<f32>>,
     {
         if let Some(&index) = self.remap.get(&ent) {
             self.local_transforms[index].position = position.into();
@@ -421,7 +421,7 @@ impl SceneGraph {
     /// Applies a rotation of Entity.
     pub fn rotate<T>(&mut self, ent: Entity, rotation: T)
     where
-        T: Into<math::Quaternion<f32>>,
+        T: Into<Quaternion<f32>>,
     {
         if let Some(&index) = self.remap.get(&ent) {
             self.local_transforms[index].rotation =
@@ -432,11 +432,9 @@ impl SceneGraph {
     /// Rotate the transform so the forward vector points at target's current position.
     pub fn look_at<T1, T2>(&mut self, ent: Entity, center: T1, up: T2)
     where
-        T1: Into<math::Vector3<f32>>,
-        T2: Into<math::Vector3<f32>>,
+        T1: Into<Vector3<f32>>,
+        T2: Into<Vector3<f32>>,
     {
-        use crayon::math::InnerSpace;
-
         if let Some(eye) = self.position(ent) {
             let center = center.into();
             let up = up.into();
@@ -444,14 +442,14 @@ impl SceneGraph {
             let dir = (center - eye).normalize();
             let side = up.cross(dir).normalize();
             let up = dir.cross(side).normalize();
-            let rotation: math::Quaternion<f32> = math::Matrix3::from_cols(side, up, dir).into();
+            let rotation: Quaternion<f32> = Matrix3::from_cols(side, up, dir).into();
 
             self.set_rotation(ent, rotation);
         }
     }
 
     /// Get rotation of the transform in world space.
-    pub fn rotation(&self, ent: Entity) -> Option<math::Quaternion<f32>> {
+    pub fn rotation(&self, ent: Entity) -> Option<Quaternion<f32>> {
         self.remap.get(&ent).map(|&index| unsafe {
             self.ancestors(ent)
                 .map(|v| self.index_unchecked(v))
@@ -464,15 +462,14 @@ impl SceneGraph {
     /// Sets rotation of the transform in world space.
     pub fn set_rotation<T>(&mut self, ent: Entity, rotation: T)
     where
-        T: Into<math::Quaternion<f32>>,
+        T: Into<Quaternion<f32>>,
     {
-        use crayon::math::Rotation;
         unsafe {
             if let Some(&index) = self.remap.get(&ent) {
                 let ancestor_rotation = self
                     .ancestors(ent)
                     .map(|v| self.index_unchecked(v))
-                    .fold(math::Quaternion::one(), |acc, rhs| {
+                    .fold(Quaternion::one(), |acc, rhs| {
                         self.local_transforms[rhs].rotation * acc
                     });
 
@@ -483,7 +480,7 @@ impl SceneGraph {
     }
 
     /// Gets rotation of the transform in local space.
-    pub fn local_rotation(&self, ent: Entity) -> Option<math::Quaternion<f32>> {
+    pub fn local_rotation(&self, ent: Entity) -> Option<Quaternion<f32>> {
         self.remap
             .get(&ent)
             .map(|&index| self.local_transforms[index].rotation)
@@ -492,7 +489,7 @@ impl SceneGraph {
     /// Sets rotation of the transform in local space.
     pub fn set_local_rotation<T>(&mut self, ent: Entity, rotation: T)
     where
-        T: Into<math::Quaternion<f32>>,
+        T: Into<Quaternion<f32>>,
     {
         if let Some(&index) = self.remap.get(&ent) {
             self.local_transforms[index].rotation = rotation.into();

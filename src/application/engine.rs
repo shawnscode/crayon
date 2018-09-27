@@ -2,6 +2,7 @@ use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 use super::*;
+
 use input;
 use res;
 use sched;
@@ -57,11 +58,11 @@ pub struct Engine {
 impl Engine {
     /// Constructs a new, empty engine.
     pub fn new() -> Result<Self> {
-        Engine::new_with(&Settings::default())
+        Engine::new_with(&settings::Settings::default())
     }
 
     /// Setup engine with specified settings.
-    pub fn new_with(settings: &Settings) -> Result<Self> {
+    pub fn new_with(settings: &settings::Settings) -> Result<Self> {
         let sched = sched::ScheduleSystem::new(6, None, None);
         let sched_shared = sched.shared();
 

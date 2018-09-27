@@ -37,7 +37,7 @@ impl Window {
         //
         let center = [0.0, 0.0, 0.0];
         let camera = world.create();
-        let params = Camera::perspective(math::Deg(50.0), 1.33, 0.1, 50.0);
+        let params = Camera::perspective(Deg(50.0), 1.33, 0.1, 50.0);
         world.renderables.add_camera(camera, params);
         world.scene.set_position(camera, [0.0, 5.0, -5.0]);
         world.scene.look_at(camera, center, [0.0, 1.0, 0.0]);
@@ -74,10 +74,10 @@ impl Application for Window {
         self.audio
             .set_position(self.music_source, (position.x, 0.0, 0.0));
 
-        let rotation = math::Euler::new(
-            math::Deg(0.0),
-            math::Deg(ctx.time.frame_delta().subsec_millis() as f32 / 25.0),
-            math::Deg(0.0),
+        let rotation = Euler::new(
+            Deg(0.0),
+            Deg(ctx.time.frame_delta().subsec_millis() as f32 / 25.0),
+            Deg(0.0),
         );
 
         self.world.scene.rotate(self.saturn, rotation);

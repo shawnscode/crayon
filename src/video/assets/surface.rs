@@ -1,7 +1,8 @@
 //! Named bucket of draw calls with the wrapping of rendering operations to a render
 //! target, clearing, MSAA resolving and so on.
 
-use math;
+use math::prelude::{Color, Vector2};
+
 use video::assets::texture::RenderTextureHandle;
 use video::errors::{Error, Result};
 use video::MAX_FRAMEBUFFER_ATTACHMENTS;
@@ -14,7 +15,7 @@ use video::MAX_FRAMEBUFFER_ATTACHMENTS;
 pub struct SurfaceParams {
     pub(crate) colors: [Option<RenderTextureHandle>; MAX_FRAMEBUFFER_ATTACHMENTS],
     pub(crate) depth_stencil: Option<RenderTextureHandle>,
-    pub(crate) clear_color: Option<math::Color<f32>>,
+    pub(crate) clear_color: Option<Color<f32>>,
     pub(crate) clear_depth: Option<f32>,
     pub(crate) clear_stencil: Option<i32>,
 }
@@ -24,7 +25,7 @@ impl Default for SurfaceParams {
         SurfaceParams {
             colors: [None; MAX_FRAMEBUFFER_ATTACHMENTS],
             depth_stencil: None,
-            clear_color: Some(math::Color::black()),
+            clear_color: Some(Color::black()),
             clear_depth: Some(1.0),
             clear_stencil: None,
         }
@@ -67,7 +68,7 @@ impl SurfaceParams {
     #[inline]
     pub fn set_clear<C, D, S>(&mut self, color: C, depth: D, stentil: S)
     where
-        C: Into<Option<math::Color<f32>>>,
+        C: Into<Option<Color<f32>>>,
         D: Into<Option<f32>>,
         S: Into<Option<i32>>,
     {
@@ -84,10 +85,10 @@ impl SurfaceParams {
 pub enum SurfaceScissor {
     Enable {
         /// Specify the lower left corner of the scissor box, in pixels. Initially (0, 0).
-        position: math::Vector2<i32>,
+        position: Vector2<i32>,
         /// Specify the width and height of the scissor box. When a surface is first attached to
         /// a window, width and height are set to the dimensions of that window.
-        size: math::Vector2<u32>,
+        size: Vector2<u32>,
     },
     Disable,
 }
@@ -99,8 +100,8 @@ pub enum SurfaceScissor {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SurfaceViewport {
     /// Specify the lower left corner of the viewport rectangle, in pixels. Initially (0, 0).
-    pub position: math::Vector2<i32>,
+    pub position: Vector2<i32>,
     /// Specify the width and height of the viewport. When a surface is first attached to
     /// a window, width and height are set to the dimensions of that window.
-    pub size: math::Vector2<u32>,
+    pub size: Vector2<u32>,
 }

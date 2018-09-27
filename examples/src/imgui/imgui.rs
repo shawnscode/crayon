@@ -9,7 +9,7 @@ impl Window {
     fn new(engine: &mut Engine) -> Result<Self> {
         let ctx = engine.context();
         Ok(Window {
-            canvas: ConsoleCanvas::new(&ctx, math::Color::white())?,
+            canvas: ConsoleCanvas::new(&ctx, Color::white())?,
         })
     }
 }

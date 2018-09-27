@@ -29,7 +29,7 @@ impl Window {
         let music = audio.create_clip_from("res:music.mp3")?;
 
         Ok(Window {
-            canvas: ConsoleCanvas::new(&ctx, math::Color::white())?,
+            canvas: ConsoleCanvas::new(&ctx, Color::white())?,
             audio: audio,
             sfx: sfx,
             music: music,

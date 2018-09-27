@@ -1,12 +1,11 @@
 use std::io::Cursor;
 use std::sync::Arc;
 
-use crayon::application::Context;
+use crayon::application::prelude::*;
 use crayon::bincode;
 use crayon::errors::*;
-use crayon::res::registry::Register;
-use crayon::res::ResourceSystemShared;
-use crayon::video::VideoSystemShared;
+use crayon::res::prelude::*;
+use crayon::video::prelude::*;
 
 use super::prefab::*;
 

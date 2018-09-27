@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 use std::thread::Builder;
 
 use cpal::{self, EventLoop, StreamData, UnknownTypeOutputBuffer};
-use crayon::math::Vector3;
+use crayon::math::prelude::Vector3;
 use crayon::utils::HandlePool;
 
 use assets::AudioClip;
