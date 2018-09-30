@@ -113,7 +113,10 @@
 //!
 //! ```rust
 //! use crayon::video::prelude::*;
+//! println!("0000");
 //! let video = VideoSystem::headless(None).shared();
+//!
+//! println!("1111");
 //!
 //! // Declares the uniform variable layouts.
 //! let mut uniforms = UniformVariableLayout::build()
@@ -121,11 +124,15 @@
 //!     .with("u_MVPMatrix", UniformVariableType::Matrix4f)
 //!     .finish();
 //!
+//! println!("2222");
+//!
 //! // Declares the attributes.
 //! let attributes = AttributeLayout::build()
 //!      .with(Attribute::Position, 3)
 //!      .with(Attribute::Normal, 3)
 //!      .finish();
+//!
+//! println!("333");
 //!
 //! let mut params = ShaderParams::default();
 //! params.attributes = attributes;
@@ -135,12 +142,16 @@
 //! let vs = "..".into();
 //! let fs = "..".into();
 //!
+//! println!("4444");
 //! // Create a shader with initial shaders and render state. It encapusulates all the
 //! // informations we need to configurate graphics pipeline before real drawing.
 //! let shader = video.create_shader(params, vs, fs).unwrap();
 //!
+//! println!("45555");
+//!
 //! // Deletes shader object.
 //! video.delete_shader(shader);
+//! println!("666");
 //! ```
 //!
 //! ### Texture Object

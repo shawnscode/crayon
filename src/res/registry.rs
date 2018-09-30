@@ -185,7 +185,7 @@ impl<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> Registr
     /// Returns true if the `Registry` contains a resource associated with `handle`.
     #[inline]
     pub fn contains(&self, handle: H) -> bool {
-        self.payload.read().unwrap().items.is_alive(handle)
+        self.payload.read().unwrap().items.contains(handle)
     }
 
     /// Gets the registery value if available.
