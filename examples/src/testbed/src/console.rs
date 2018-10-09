@@ -54,6 +54,7 @@ impl ConsoleCanvas {
     pub fn render<'a>(&'a mut self, ctx: &Context) -> crayon_imgui::canvas::FrameGuard<'a> {
         let ui = self.canvas.frame(ctx, self.surface);
         let info = self.info;
+
         ui.window(im_str!("ImGui & Crayon"))
             .movable(false)
             .resizable(false)

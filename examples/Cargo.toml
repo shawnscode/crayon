@@ -5,6 +5,7 @@ authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 
 [dependencies]
 crayon-testbed = { path = "src/testbed" }
+crayon-lua = { path = "../modules/lua"}
 
 [[bin]]
 name = "render_texture"
@@ -41,3 +42,7 @@ path = "src/audio/audio.rs"
 [[bin]]
 name = "audio_3d"
 path = "src/audio/audio_3d.rs"
+
+[[bin]]
+name = "lua"
+path = "src/lua/lua.rs"

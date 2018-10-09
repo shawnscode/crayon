@@ -9,10 +9,14 @@ pub use crayon_imgui::*;
 extern crate crayon_audio;
 pub use crayon_audio::*;
 
+extern crate crayon_2d;
+extern crate crayon_lua;
+
 extern crate env_logger;
 pub extern crate rand;
 
 pub mod console;
+pub mod lua;
 
 use crayon::application::prelude::*;
 
@@ -53,6 +57,7 @@ pub fn find_res_dir() -> crayon::res::vfs::Directory {
 
 pub mod prelude {
     pub use super::console::ConsoleCanvas;
+    pub use super::lua::LuaWindow;
     pub use super::rand;
 
     pub use crayon::errors::*;
