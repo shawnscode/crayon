@@ -27,13 +27,14 @@ impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
     }
 
     /// Creates a `T` and named it with `Handle`.
-    pub fn create(&mut self, value: T) -> H {
+    pub fn create(&mut self, mut value: T) -> H {
         let handle = self.handles.create();
 
         if handle.index() >= self.entries.len() as u32 {
             self.entries.push(value);
         } else {
-            self.entries[handle.index() as usize] = value;
+            ::std::mem::swap(&mut value, &mut self.entries[handle.index() as usize]);
+            ::std::mem::forget(value);
         }
 
         handle
