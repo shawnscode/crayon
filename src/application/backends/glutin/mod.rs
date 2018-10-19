@@ -32,17 +32,24 @@ impl GlutinVisitor {
             .with_vsync(params.vsync);
 
         let events_loop = glutin::EventsLoop::new();
-        let device = glutin::GlWindow::new(builder, context, &events_loop).unwrap();
+        let window = glutin::GlWindow::new(builder, context, &events_loop).unwrap();
+        let mut visitor = GlutinVisitor {
+            window: window,
+            events_loop: events_loop,
+        };
+
+        let size = visitor.dimensions_in_points();
+        let hi = visitor.hidpi();
+        let dims = Vector2::new((size.x as f32 * hi) as u32, (size.y as f32 * hi) as u32);
+        visitor.events_loop.poll_events(|_| {});
+        visitor.resize(dims);
 
         unsafe {
-            device.make_current()?;
-            gl::load_with(|symbol| device.get_proc_address(symbol) as *const _);
+            visitor.window.make_current()?;
+            gl::load_with(|symbol| visitor.window.get_proc_address(symbol) as *const _);
         }
 
-        Ok(GlutinVisitor {
-            window: device,
-            events_loop: events_loop,
-        })
+        Ok(visitor)
     }
 }
 
