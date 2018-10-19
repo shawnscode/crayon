@@ -26,7 +26,7 @@ impl TextureLoader {
 impl ::res::registry::Register for TextureLoader {
     type Handle = TextureHandle;
     type Intermediate = (TextureParams, Option<TextureData>);
-    type Value = ();
+    type Value = TextureParams;
 
     fn load(&self, handle: Self::Handle, bytes: &[u8]) -> Result<Self::Intermediate> {
         if &bytes[0..8] != &MAGIC[..] {
@@ -52,7 +52,7 @@ impl ::res::registry::Register for TextureLoader {
         let task = Command::CreateTexture(handle, item.0, item.1);
         frame.cmds.push(task);
 
-        Ok(())
+        Ok(item.0)
     }
 
     fn detach(&self, handle: Self::Handle, _: Self::Value) {

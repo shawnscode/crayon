@@ -146,6 +146,18 @@ impl RenderTextureFormat {
             || *self == RenderTextureFormat::RGBA4
             || *self == RenderTextureFormat::RGBA8
     }
+
+    /// Returns the size in bytes of texture with `dimensions`.
+    pub fn size(&self, dimensions: Vector2<u32>) -> u32 {
+        let square = dimensions.x * dimensions.y;
+        match *self {
+            RenderTextureFormat::RGBA4 | RenderTextureFormat::Depth16 => 2 * square,
+            RenderTextureFormat::RGB8 | RenderTextureFormat::Depth24 => 3 * square,
+            RenderTextureFormat::RGBA8
+            | RenderTextureFormat::Depth32
+            | RenderTextureFormat::Depth24Stencil8 => 4 * square,
+        }
+    }
 }
 
 /// List of all the possible formats of input data when uploading to texture.
@@ -210,7 +222,7 @@ impl TextureFormat {
         }
     }
 
-    /// Returns the size in bytes of a pixel of this type.
+    /// Returns the size in bytes of texture with `dimensions`.
     pub fn size(&self, dimensions: Vector2<u32>) -> u32 {
         let square = dimensions.x * dimensions.y;
         match *self {

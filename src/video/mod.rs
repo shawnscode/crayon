@@ -239,6 +239,7 @@ pub const MAX_UNIFORM_TEXTURE_SLOTS: usize = 8;
 pub mod assets;
 pub mod batch;
 pub mod errors;
+pub mod protocal;
 
 mod backends;
 
@@ -377,12 +378,11 @@ pub type MeshRegistry = Registry<MeshHandle, self::assets::mesh_loader::MeshLoad
 /// The multi-thread friendly parts of `VideoSystem`.
 pub struct VideoSystemShared {
     pub(crate) frames: Arc<DoubleFrame>,
-
-    surfaces: RwLock<ObjectPool<SurfaceHandle, SurfaceParams>>,
-    shaders: RwLock<ObjectPool<ShaderHandle, ShaderParams>>,
-    meshes: MeshRegistry,
-    textures: TextureRegistry,
-    render_textures: RwLock<ObjectPool<RenderTextureHandle, RenderTextureParams>>,
+    pub(crate) surfaces: RwLock<ObjectPool<SurfaceHandle, SurfaceParams>>,
+    pub(crate) shaders: RwLock<ObjectPool<ShaderHandle, ShaderParams>>,
+    pub(crate) meshes: MeshRegistry,
+    pub(crate) textures: TextureRegistry,
+    pub(crate) render_textures: RwLock<ObjectPool<RenderTextureHandle, RenderTextureParams>>,
 }
 
 impl VideoSystemShared {

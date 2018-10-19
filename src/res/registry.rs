@@ -145,6 +145,17 @@ impl<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> Registr
         }
     }
 
+    /// Visits all key-value pairs in order.
+    #[inline]
+    pub fn iter<T: FnMut(H, &R::Value, u32, Option<Uuid>)>(&self, mut cb: T) {
+        let payload = self.payload.read().unwrap();
+        for (k, v) in payload.items.iter() {
+            if let AsyncState::Ok(ref w) = v.state {
+                cb(k, w, v.rc, v.uuid);
+            }
+        }
+    }
+
     /// Gets the underlying `uuid` of handle.
     #[inline]
     pub fn uuid(&self, handle: H) -> Option<Uuid> {

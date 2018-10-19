@@ -27,6 +27,7 @@
 //!
 
 pub mod events;
+pub mod ins;
 pub mod settings;
 pub mod time;
 pub mod window;

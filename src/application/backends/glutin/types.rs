@@ -30,6 +30,10 @@ fn from_window_event(source: &glutin::WindowEvent, dimensions: Vector2<u32>) -> 
             Some(Event::Application(ApplicationEvent::LostFocus))
         },
 
+        glutin::WindowEvent::Resized(glutin::dpi::LogicalSize { width, height }) => Some(
+            Event::Application(ApplicationEvent::Resized(width as u32, height as u32)),
+        ),
+
         glutin::WindowEvent::CursorMoved { position, .. } => {
             Some(Event::InputDevice(InputDeviceEvent::MouseMoved {
                 position: (position.x as f32, dimensions.y as f32 - position.y as f32),
