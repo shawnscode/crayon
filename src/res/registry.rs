@@ -177,10 +177,13 @@ impl<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> Registr
     }
 
     /// Blocks current thread until the loading process of resource finished.
-    pub fn wait_and<F: FnOnce(&R::Value) -> T, T>(&self, handle: H, map: F) -> Option<T> {
+    ///
+    /// Returns None if the resource does not exist, otherwise calls f with the
+    /// value and returns the result.
+    pub fn wait_until_and<F: FnOnce(&R::Value) -> T, T>(&self, handle: H, f: F) -> Option<T> {
         if let Some(uuid) = self.uuid(handle) {
             if self.res.wait_until(uuid).is_ok() {
-                return self.get(handle, map);
+                return self.get(handle, f);
             }
         }
 

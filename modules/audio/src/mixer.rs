@@ -68,7 +68,7 @@ pub struct MixerController {
 impl MixerController {
     #[inline]
     pub fn create_source(&self, params: AudioSource) -> Result<AudioSourceHandle> {
-        if let Some(clip) = self.clips.wait_and(params.clip, |v| v.clone()) {
+        if let Some(clip) = self.clips.wait_until_and(params.clip, |v| v.clone()) {
             let handle = self.sources.write().unwrap().create();
             self.tx
                 .write()

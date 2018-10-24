@@ -34,17 +34,11 @@ impl ScheduleSystem {
         self.shared.clone()
     }
 
-    /// Signals that the thread-pool which owns this scheduler has been dropped.
-    /// The worker threads will gradually terminate, once any extant work is
-    /// completed.
+    /// Signals that the thread-pool which owns this scheduler has been dropped. Blocks current
+    /// thread until all the workers finished their jobs gracefully.
     #[inline]
     pub fn terminate(&self) {
         self.shared.scheduler.terminate_dec();
-    }
-
-    /// Blocks current thread until all the workers finished their jobs gracefully.
-    #[inline]
-    pub fn wait_until_terminated(&self) {
         self.shared.scheduler.wait_until_terminated();
     }
 }

@@ -89,9 +89,9 @@ impl Engine {
         let time = time::TimeSystem::new(settings.engine);
         let time_shared = time.shared();
 
-        // let mut ins = ins::InspectSystem::new();
-        // ins.attach("Video", video_shared.clone());
-        // ins.listen();
+        let mut ins = ins::InspectSystem::new();
+        ins.attach("Video", video_shared.clone());
+        ins.listen();
 
         let context = Context {
             res: res_shared,
@@ -182,7 +182,6 @@ impl Engine {
         }
 
         self.sched.terminate();
-        self.sched.wait_until_terminated();
         Ok(self)
     }
 

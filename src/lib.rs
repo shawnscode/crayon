@@ -36,10 +36,10 @@ extern crate log;
 
 #[macro_use]
 extern crate serde;
+extern crate byteorder;
 extern crate serde_json;
 
 pub extern crate bincode;
-extern crate byteorder;
 pub extern crate uuid;
 
 #[doc(hidden)]

@@ -81,7 +81,7 @@ impl<'s> Scope<'s> {
 
     pub(crate) unsafe fn wait_until_completed(&self, worker: &WorkerThread) {
         // wait for job counter to reach 0:
-        worker.hot_wait_until(&self.latch);
+        worker.wait_until(&self.latch);
 
         // propagate panic, if any occurred; at this point, all outstanding jobs have completed,
         // so we can use a relaxed ordering:
