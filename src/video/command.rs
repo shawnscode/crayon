@@ -8,73 +8,17 @@ use super::errors::*;
 use super::VideoSystemShared;
 use super::MAX_UNIFORM_VARIABLES;
 
-/// `OrderDrawBatch` as the named bucket of draw commands. Drawcalls inside `OrderDrawBatch`
-/// are sorted before submitting to underlaying OpenGL.
-pub struct OrderDrawBatch<T: Ord + Copy> {
-    cmds: Vec<(T, Command)>,
-    bufs: data_buf::DataBuffer,
-}
-
-impl<T: Ord + Copy> OrderDrawBatch<T> {
-    #[inline]
-    pub fn new() -> Self {
-        OrderDrawBatch {
-            cmds: Vec::with_capacity(32),
-            bufs: data_buf::DataBuffer::with_capacity(512),
-        }
-    }
-
-    /// Draws ur mesh.
-    #[inline]
-    pub fn draw(&mut self, order: T, dc: DrawCall) {
-        let len = dc.uniforms_len;
-        let ptr = self.bufs.extend_from_slice(&dc.uniforms[0..len]);
-        let cmd = Command::Draw(dc.shader, dc.mesh, dc.mesh_index, ptr);
-        self.cmds.push((order, cmd));
-    }
-
-    /// Clears the batch, and submits all the sorted commands into video device. Its guaranteed that
-    /// all the commands in this batch will be executed one by one in order.
-    ///
-    /// Notes that this method has no effect on the allocated capacity of the underlying storage.
-    pub fn submit(&mut self, video: &VideoSystemShared, surface: SurfaceHandle) -> Result<()> {
-        let mut frame = video.frames.front();
-        frame.cmds.push(Command::Bind(surface));
-
-        self.cmds.as_mut_slice().sort_by_key(|v| v.0);
-        for v in self.cmds.drain(..) {
-            match v {
-                (_, Command::Draw(shader, mesh, mesh_index, ptr)) => {
-                    let vars = self.bufs.as_slice(ptr);
-                    let ptr = frame.bufs.extend_from_slice(vars);
-                    let cmd = Command::Draw(shader, mesh, mesh_index, ptr);
-                    frame.cmds.push(cmd);
-                }
-
-                _ => {}
-            }
-        }
-
-        self.bufs.clear();
-        Ok(())
-    }
-}
-
-/// In case where order has to be preserved (for example in rendering GUIs), view can be set to
-/// be in sequential order with `Batch`. Sequential order is less efficient, because it
-/// doesn't allow state change optimization, and should be avoided when possible.
-pub struct Batch {
+/// The command buffer of video system.
+pub struct CommandBuffer {
     cmds: Vec<Command>,
     bufs: data_buf::DataBuffer,
 }
 
-impl Batch {
-    /// Creates a new and empty `Batch`.
-    ///
-    /// Batch will be cleared
+impl CommandBuffer {
+    /// Creates a new and empty `CommandBuffer`.
     #[inline]
     pub fn new() -> Self {
-        Batch {
+        CommandBuffer {
             cmds: Vec::with_capacity(32),
             bufs: data_buf::DataBuffer::with_capacity(512),
         }
@@ -82,7 +26,7 @@ impl Batch {
 
     /// Draws ur mesh.
     #[inline]
-    pub fn draw(&mut self, dc: DrawCall) {
+    pub fn draw(&mut self, dc: Draw) {
         let len = dc.uniforms_len;
         let ptr = self.bufs.extend_from_slice(&dc.uniforms[0..len]);
         let cmd = Command::Draw(dc.shader, dc.mesh, dc.mesh_index, ptr);
@@ -175,9 +119,60 @@ impl Batch {
     }
 }
 
+/// The draw call buffer of video system, which provides simple sort functionality for convenience.
+pub struct DrawCommandBuffer<T: Ord + Copy> {
+    cmds: Vec<(T, Command)>,
+    bufs: data_buf::DataBuffer,
+}
+
+impl<T: Ord + Copy> DrawCommandBuffer<T> {
+    #[inline]
+    pub fn new() -> Self {
+        DrawCommandBuffer {
+            cmds: Vec::with_capacity(32),
+            bufs: data_buf::DataBuffer::with_capacity(512),
+        }
+    }
+
+    /// Draws ur mesh.
+    #[inline]
+    pub fn draw(&mut self, order: T, dc: Draw) {
+        let len = dc.uniforms_len;
+        let ptr = self.bufs.extend_from_slice(&dc.uniforms[0..len]);
+        let cmd = Command::Draw(dc.shader, dc.mesh, dc.mesh_index, ptr);
+        self.cmds.push((order, cmd));
+    }
+
+    /// Clears the batch, and submits all the sorted commands into video device. Its guaranteed that
+    /// all the commands in this batch will be executed one by one in order.
+    ///
+    /// Notes that this method has no effect on the allocated capacity of the underlying storage.
+    pub fn submit(&mut self, video: &VideoSystemShared, surface: SurfaceHandle) -> Result<()> {
+        let mut frame = video.frames.front();
+        frame.cmds.push(Command::Bind(surface));
+
+        self.cmds.as_mut_slice().sort_by_key(|v| v.0);
+        for v in self.cmds.drain(..) {
+            match v {
+                (_, Command::Draw(shader, mesh, mesh_index, ptr)) => {
+                    let vars = self.bufs.as_slice(ptr);
+                    let ptr = frame.bufs.extend_from_slice(vars);
+                    let cmd = Command::Draw(shader, mesh, mesh_index, ptr);
+                    frame.cmds.push(cmd);
+                }
+
+                _ => {}
+            }
+        }
+
+        self.bufs.clear();
+        Ok(())
+    }
+}
+
 /// A draw call.
 #[derive(Debug, Copy, Clone)]
-pub struct DrawCall {
+pub struct Draw {
     pub(crate) uniforms: [(hash_value::HashValue<str>, UniformVariable); MAX_UNIFORM_VARIABLES],
     pub(crate) uniforms_len: usize,
 
@@ -186,11 +181,11 @@ pub struct DrawCall {
     pub mesh_index: MeshIndex,
 }
 
-impl DrawCall {
+impl Draw {
     /// Creates a new and empty draw call.
     pub fn new(shader: ShaderHandle, mesh: MeshHandle) -> Self {
         let nil = (hash_value::HashValue::zero(), UniformVariable::I32(0));
-        DrawCall {
+        Draw {
             shader: shader,
             uniforms: [nil; MAX_UNIFORM_VARIABLES],
             uniforms_len: 0,

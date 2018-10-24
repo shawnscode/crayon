@@ -20,7 +20,7 @@ struct Window {
     texture: RenderTextureHandle,
 
     canvas: ConsoleCanvas,
-    batch: Batch,
+    batch: CommandBuffer,
     time: f32,
 }
 
@@ -132,7 +132,7 @@ impl Window {
             texture: rendered_texture,
 
             canvas: ConsoleCanvas::new(&ctx, None)?,
-            batch: Batch::new(),
+            batch: CommandBuffer::new(),
             time: 0.0,
         })
     }
@@ -141,12 +141,12 @@ impl Window {
 impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> Result<()> {
         let surface = self.pass.surface;
-        let dc = DrawCall::new(self.pass.shader, self.pass.mesh);
+        let dc = Draw::new(self.pass.shader, self.pass.mesh);
         self.batch.draw(dc);
         self.batch.submit(&ctx.video, surface)?;
 
         let surface = self.post_effect.surface;
-        let mut dc = DrawCall::new(self.post_effect.shader, self.post_effect.mesh);
+        let mut dc = Draw::new(self.post_effect.shader, self.post_effect.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
         dc.set_uniform_variable("time", self.time);
         self.batch.draw(dc);

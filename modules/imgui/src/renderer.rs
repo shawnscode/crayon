@@ -24,7 +24,7 @@ pub struct Renderer {
     surface: SurfaceHandle,
     shader: ShaderHandle,
     texture: TextureHandle,
-    batch: Batch,
+    batch: CommandBuffer,
     mesh: Option<(usize, usize, MeshHandle)>,
 }
 
@@ -81,7 +81,7 @@ impl Renderer {
             video: ctx.video.clone(),
             window: ctx.window.clone(),
 
-            batch: Batch::new(),
+            batch: CommandBuffer::new(),
             shader: shader,
             texture: texture,
             surface: surface,
@@ -156,7 +156,7 @@ impl Renderer {
             }
 
             {
-                let mut dc = DrawCall::new(self.shader, mesh);
+                let mut dc = Draw::new(self.shader, mesh);
                 dc.set_uniform_variable("matrix", matrix);
                 dc.set_uniform_variable("texture", self.texture);
                 dc.mesh_index = MeshIndex::Ptr(idx_start, cmd.elem_count as usize);

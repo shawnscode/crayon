@@ -113,10 +113,7 @@
 //!
 //! ```rust
 //! use crayon::video::prelude::*;
-//! println!("0000");
 //! let video = VideoSystem::headless(None).shared();
-//!
-//! println!("1111");
 //!
 //! // Declares the uniform variable layouts.
 //! let mut uniforms = UniformVariableLayout::build()
@@ -124,15 +121,11 @@
 //!     .with("u_MVPMatrix", UniformVariableType::Matrix4f)
 //!     .finish();
 //!
-//! println!("2222");
-//!
 //! // Declares the attributes.
 //! let attributes = AttributeLayout::build()
 //!      .with(Attribute::Position, 3)
 //!      .with(Attribute::Normal, 3)
 //!      .finish();
-//!
-//! println!("333");
 //!
 //! let mut params = ShaderParams::default();
 //! params.attributes = attributes;
@@ -142,16 +135,12 @@
 //! let vs = "..".into();
 //! let fs = "..".into();
 //!
-//! println!("4444");
 //! // Create a shader with initial shaders and render state. It encapusulates all the
 //! // informations we need to configurate graphics pipeline before real drawing.
 //! let shader = video.create_shader(params, vs, fs).unwrap();
 //!
-//! println!("45555");
-//!
 //! // Deletes shader object.
 //! video.delete_shader(shader);
-//! println!("666");
 //! ```
 //!
 //! ### Texture Object
@@ -216,15 +205,15 @@
 //! let shader = video.create_shader(params, vs, fs).unwrap();
 //!
 //! // Creates a draw call with specified shader and mesh object.
-//! let mut dc = DrawCall::new(shader, mesh);
+//! let mut dc = Draw::new(shader, mesh);
 //! // You can set the uniform variables for this dc.
 //! dc.set_uniform_variable("someUniform", Vector3::new(0.0, 0.0, 0.0));
 //! // Commits the draw call into surface.
 //! video.draw(surface, dc);
 //! ```
 //!
-//! _TODO_: Batch
-//! _TODO_: OrderDrawBatch
+//! _TODO_: CommandBuffer
+//! _TODO_: DrawCommandBuffer
 
 /// Maximum number of attributes in vertex layout.
 pub const MAX_VERTEX_ATTRIBUTES: usize = 12;
@@ -237,7 +226,7 @@ pub const MAX_UNIFORM_TEXTURE_SLOTS: usize = 8;
 
 #[macro_use]
 pub mod assets;
-pub mod batch;
+pub mod command;
 pub mod errors;
 pub mod protocal;
 
@@ -245,7 +234,7 @@ mod backends;
 
 pub mod prelude {
     pub use super::assets::prelude::*;
-    pub use super::batch::{Batch, DrawCall, OrderDrawBatch};
+    pub use super::command::{CommandBuffer, Draw, DrawCommandBuffer};
     pub use super::{VideoFrameInfo, VideoSystem, VideoSystemShared};
 }
 
@@ -263,7 +252,6 @@ use self::assets::prelude::*;
 use self::backends::frame::*;
 use self::backends::gl::visitor::GLVisitor;
 use self::backends::Visitor;
-use self::batch::DrawCall;
 use self::errors::*;
 
 /// The information of video module during last frame.
@@ -403,46 +391,6 @@ impl VideoSystemShared {
             textures: textures,
             render_textures: RwLock::new(ObjectPool::new()),
         }
-    }
-
-    /// Draws ur mesh.
-    ///
-    /// Notes that you should use [Batch](crate::video::batch::Batch) if possible.
-    #[inline]
-    pub fn draw(&self, handle: SurfaceHandle, dc: DrawCall) {
-        let mut frame = self.frames.front();
-        let len = dc.uniforms_len;
-        let ptr = frame.bufs.extend_from_slice(&dc.uniforms[0..len]);
-        let cmd = Command::Draw(dc.shader, dc.mesh, dc.mesh_index, ptr);
-
-        frame.cmds.push(Command::Bind(handle));
-        frame.cmds.push(cmd);
-    }
-
-    /// Updates the scissor test of surface.
-    ///
-    /// The test is initially disabled. While the test is enabled, only pixels that lie within
-    /// the scissor box can be modified by drawing commands.
-    ///
-    /// Notes that you should use [Batch](crate::video::batch::Batch) if possible.
-    #[inline]
-    pub fn update_scissor(&self, handle: SurfaceHandle, scissor: SurfaceScissor) {
-        let mut frame = self.frames.front();
-        frame.cmds.push(Command::Bind(handle));
-        frame.cmds.push(Command::UpdateScissor(scissor));
-    }
-
-    /// Updates the scissor test of surface.
-    ///
-    /// The test is initially disabled. While the test is enabled, only pixels that lie within
-    /// the scissor box can be modified by drawing commands.
-    ///
-    /// Notes that you should use [Batch](crate::video::batch::Batch) if possible.
-    #[inline]
-    pub fn update_viewport(&self, handle: SurfaceHandle, viewport: SurfaceViewport) {
-        let mut frame = self.frames.front();
-        frame.cmds.push(Command::Bind(handle));
-        frame.cmds.push(Command::UpdateViewport(viewport));
     }
 }
 

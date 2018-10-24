@@ -22,7 +22,7 @@ pub struct SimpleRenderer {
     surface: SurfaceHandle,
     shader: ShaderHandle,
     video: Arc<VideoSystemShared>,
-    drawcalls: OrderDrawBatch<DrawOrder>,
+    drawcalls: DrawCommandBuffer<DrawOrder>,
 
     global_ambient: Color<f32>,
     dir_lits: Vec<(String, String)>,
@@ -127,7 +127,7 @@ impl SimpleRenderer {
             video: ctx.video.clone(),
             surface: surface,
             shader: shader,
-            drawcalls: OrderDrawBatch::new(),
+            drawcalls: DrawCommandBuffer::new(),
             dir_lits: dir_lits,
             point_lits: point_lits,
             global_ambient: Color::gray(),
@@ -180,7 +180,7 @@ impl super::Renderer for SimpleRenderer {
             let mvp = projection_matrix * mv;
             let vn = mv.invert().and_then(|v| Some(v.transpose())).unwrap_or(mv);
 
-            let mut dc = DrawCall::new(self.shader, mesh.mesh);
+            let mut dc = Draw::new(self.shader, mesh.mesh);
             dc.set_uniform_variable("u_ModelViewMatrix", mv);
             dc.set_uniform_variable("u_MVPMatrix", mvp);
             dc.set_uniform_variable("u_ViewNormalMatrix", vn);

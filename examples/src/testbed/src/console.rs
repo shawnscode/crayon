@@ -63,7 +63,7 @@ impl ConsoleCanvas {
             .build(|| {
                 ui.text(im_str!("FPS: {:?}", info.fps));
                 ui.text(im_str!(
-                    "DrawCalls: {:?}, Triangles: {:?}",
+                    "Draws: {:?}, Triangles: {:?}",
                     info.video.drawcall,
                     info.video.triangles
                 ));

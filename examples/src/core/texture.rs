@@ -14,6 +14,7 @@ struct Window {
     mesh: MeshHandle,
     texture: TextureHandle,
     canvas: ConsoleCanvas,
+    vcmds: CommandBuffer,
 }
 
 impl Window {
@@ -68,15 +69,17 @@ impl Window {
             mesh: mesh,
             texture: texture,
             canvas: ConsoleCanvas::new(&ctx, None)?,
+            vcmds: CommandBuffer::new(),
         })
     }
 }
 
 impl Application for Window {
     fn on_update(&mut self, ctx: &Context) -> Result<()> {
-        let mut dc = DrawCall::new(self.shader, self.mesh);
+        let mut dc = Draw::new(self.shader, self.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
-        ctx.video.draw(self.surface, dc);
+        self.vcmds.draw(dc);
+        self.vcmds.submit(&ctx.video, self.surface);
 
         self.canvas.render(ctx);
         Ok(())
