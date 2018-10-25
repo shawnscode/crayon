@@ -1,9 +1,9 @@
 use {Component, Entity};
 
-use crayon::utils::VariantStr;
+use crayon::utils::InlineString;
 
 pub struct Tags {
-    names: Component<VariantStr>,
+    names: Component<InlineString>,
 }
 
 impl Tags {
@@ -25,6 +25,6 @@ impl Tags {
 
     #[inline]
     pub fn name(&self, ent: Entity) -> Option<&str> {
-        self.names.get(ent).map(|v| v.as_str())
+        self.names.get(ent).map(|v| v.as_ref())
     }
 }

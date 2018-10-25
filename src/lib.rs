@@ -39,6 +39,9 @@ extern crate serde;
 extern crate byteorder;
 extern crate serde_json;
 
+extern crate inlinable_string;
+extern crate smallvec;
+
 pub extern crate bincode;
 pub extern crate uuid;
 
@@ -46,13 +49,6 @@ pub extern crate uuid;
 pub use cgmath::*;
 #[doc(hidden)]
 pub use log::*;
-
-// FIXME: unresolved serde proc-macro re-export. https://github.com/serde-rs/serde/issues/1147
-// #[doc(hidden)]
-// pub use serde::*;
-// FIXME: unresolved failure proc-macro re-export.
-// #[doc(hidden)]
-// pub use failure::*;
 
 #[macro_use]
 pub mod errors;

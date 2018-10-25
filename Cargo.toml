@@ -32,6 +32,8 @@ serde_json = { version = "1.0.32" }
 bincode = "1.0.1"
 byteorder = "1.2.6"
 
+inlinable_string = { version = "0.1.10", features = ["serde"] }
+smallvec = { version = "0.6.5", features = ["serde"] }
 uuid = { version = "0.7.1", features = ["serde"] }
 cgmath = { version = "0.16.1", features = ["serde"] }
 

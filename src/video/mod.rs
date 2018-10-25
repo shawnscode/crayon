@@ -183,35 +183,6 @@
 //!
 //! # Commands
 //!
-//! Finally, when we finished the preparation of video resources, to make draw call:
-//!
-//! ```rust
-//! use crayon::video::prelude::*;
-//! use crayon::math::prelude::*;
-//! let video = VideoSystem::headless(None).shared();
-//!
-//! let mut params = SurfaceParams::default();
-//! // ..
-//! let surface = video.create_surface(params).unwrap();
-//!
-//! let mut params = MeshParams::default();
-//! // ...
-//! let mesh = video.create_mesh(params, None).unwrap();
-//!
-//! let mut params = ShaderParams::default();
-//! // ...
-//! let vs = "..".into();
-//! let fs = "..".into();
-//! let shader = video.create_shader(params, vs, fs).unwrap();
-//!
-//! // Creates a draw call with specified shader and mesh object.
-//! let mut dc = Draw::new(shader, mesh);
-//! // You can set the uniform variables for this dc.
-//! dc.set_uniform_variable("someUniform", Vector3::new(0.0, 0.0, 0.0));
-//! // Commits the draw call into surface.
-//! video.draw(surface, dc);
-//! ```
-//!
 //! _TODO_: CommandBuffer
 //! _TODO_: DrawCommandBuffer
 

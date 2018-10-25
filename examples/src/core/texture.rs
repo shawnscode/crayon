@@ -79,7 +79,7 @@ impl Application for Window {
         let mut dc = Draw::new(self.shader, self.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
         self.vcmds.draw(dc);
-        self.vcmds.submit(&ctx.video, self.surface);
+        self.vcmds.submit(&ctx.video, self.surface)?;
 
         self.canvas.render(ctx);
         Ok(())
