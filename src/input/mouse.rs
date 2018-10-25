@@ -1,4 +1,5 @@
-use std::time::{Duration, Instant};
+use application::time::Instant;
+use std::time::Duration;
 
 use math::prelude::{MetricSpace, Vector2};
 use utils::hash::{FastHashMap, FastHashSet};

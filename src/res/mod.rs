@@ -116,7 +116,6 @@ use uuid::Uuid;
 use self::vfs::{VFSDriver, VFS};
 
 use errors::*;
-use sched::ScheduleSystemShared;
 use utils::FastHashMap;
 
 /// The `ResourceSystem` Takes care of loading data asynchronously through pluggable filesystems.
@@ -127,12 +126,12 @@ pub struct ResourceSystem {
 
 impl ResourceSystem {
     /// Creates a new `ResourceSystem`.
-    pub fn new(sched: Arc<ScheduleSystemShared>) -> Result<Self> {
+    pub fn new() -> Result<Self> {
         let driver = Arc::new(RwLock::new(VFSDriver::new()));
 
         let shared = Arc::new(ResourceSystemShared {
             driver: driver.clone(),
-            sched: sched,
+            // sched: sched,
             bufs: Arc::new(RwLock::new(Vec::new())),
             promises: Arc::new(RwLock::new(FastHashMap::default())),
         });
@@ -166,8 +165,7 @@ pub trait Loader: Send + Sync + 'static {
 
 pub struct ResourceSystemShared {
     driver: Arc<RwLock<VFSDriver>>,
-    sched: Arc<ScheduleSystemShared>,
-
+    // sched: Arc<ScheduleSystemShared>,
     bufs: Arc<RwLock<Vec<Vec<u8>>>>,
     promises: Arc<RwLock<FastHashMap<Uuid, Arc<Promise>>>>,
 }
@@ -218,7 +216,8 @@ impl ResourceSystemShared {
         let bufs = self.bufs.clone();
         let promises = self.promises.clone();
 
-        self.sched.spawn(move || {
+        // self.sched.spawn(move || {
+        {
             let mut bytes = bufs.write().unwrap().pop().unwrap_or(Vec::new());
             let uri = vfs.locate(uuid).unwrap();
 
@@ -231,7 +230,8 @@ impl ResourceSystemShared {
             promises.write().unwrap().remove(&uuid);
             bytes.clear();
             bufs.write().unwrap().push(bytes);
-        });
+        }
+        // });
 
         Ok(latch)
     }
@@ -240,7 +240,7 @@ impl ResourceSystemShared {
     pub fn wait_until(&self, uuid: Uuid) -> Result<()> {
         let promise = self.promises.read().unwrap().get(&uuid).cloned();
         if let Some(promise) = promise {
-            self.sched.wait_until(promise.as_ref());
+            // self.sched.wait_until(promise.as_ref());
             promise.take()
         } else {
             Ok(())

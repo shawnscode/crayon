@@ -16,12 +16,38 @@ travis-ci = { repository = "shawnscode/crayon", branch = "master" }
 appveyor = { repository = "shawnscode/crayon", branch = "master", service = "github" }
 codecov = { repository = "shawnscode/crayon", branch = "master", service = "github" }
 
-[workspace]
-members = [ "examples", "modules/imgui", "modules/3d", "modules/audio" ]
-
-[dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 gl = "0.10.0"
 glutin = "0.18.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2.25"
+js-sys = "0.3.2"
+console_error_panic_hook = "0.1.5"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
+version = "0.3.2"
+features = [
+    'Node',
+    'Document',
+    'Element',
+    'HtmlCanvasElement',
+    "HtmlElement",
+    'WebGlBuffer',
+    'WebGl2RenderingContext',
+    'WebGlProgram',
+    'WebGlShader',
+    'WebGlUniformLocation',
+    'WebGlRenderbuffer',
+    'WebGlTexture',
+    'WebGlBuffer',
+    'WebGlFramebuffer',
+    'WebGlVertexArrayObject',
+    'Window',
+    'Performance',
+]
+
+[dependencies]
 crossbeam-deque = "0.5.1"
 failure = "0.1.2"
 log = "0.4.5"
@@ -39,3 +65,6 @@ cgmath = { version = "0.16.1", features = ["serde"] }
 
 [dev-dependencies]
 rand = "0.5.5"
+
+[profile.release]
+lto = true

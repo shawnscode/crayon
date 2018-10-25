@@ -36,8 +36,10 @@ mod backends;
 mod engine;
 
 pub mod prelude {
+    pub use super::backends::sys;
     pub use super::engine::{Context, Engine};
     pub use super::settings::Settings;
+    pub use super::time::Instant;
     pub use super::window::{Window, WindowShared};
     pub use super::{Application, FrameInfo};
 }

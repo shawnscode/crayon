@@ -1,4 +1,5 @@
-use std::time::{Duration, Instant};
+use application::time::Instant;
+use std::time::Duration;
 
 use utils::hash::{FastHashMap, FastHashSet};
 
@@ -47,7 +48,7 @@ impl Keyboard {
             releases: FastHashSet::default(),
             chars: Vec::with_capacity(setup.max_chars),
             setup: setup,
-            now: Instant::now(),
+            now: crate::sys::instant(),
         }
     }
 
@@ -79,7 +80,7 @@ impl Keyboard {
             }
         }
 
-        self.now = Instant::now();
+        self.now = crate::sys::instant();
     }
 
     #[inline]

@@ -3,9 +3,38 @@
 use std;
 use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use application::settings::EngineParams;
+
+/// A measurement of a monotonically nondecreasing clock.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Instant(u64);
+
+impl Instant {
+    #[inline]
+    pub fn from_millis(millis: u64) -> Instant {
+        Instant(millis)
+    }
+
+    #[inline]
+    pub fn now() -> Instant {
+        crate::sys::instant()
+    }
+
+    #[inline]
+    pub fn elapsed(&self) -> Duration {
+        crate::sys::instant() - *self
+    }
+}
+
+impl std::ops::Sub for Instant {
+    type Output = Duration;
+
+    fn sub(self, rhs: Instant) -> Self::Output {
+        Duration::from_millis((self.0 - rhs.0) as u64)
+    }
+}
 
 /// `TimeSystem`
 pub struct TimeSystem {
@@ -41,7 +70,7 @@ impl TimeSystem {
         self.shared.clone()
     }
 
-    pub(crate) fn advance(&mut self) -> Duration {
+    pub(crate) fn advance(&mut self, active: bool) -> Duration {
         // Synchonize with configurations.
         self.min_fps = *self.shared.min_fps.read().unwrap();
         self.max_fps = *self.shared.max_fps.read().unwrap();
@@ -50,7 +79,7 @@ impl TimeSystem {
 
         // Perform waiting loop if maximum fps set, cooperatively gives up
         // a timeslice to the OS scheduler.
-        if self.max_fps > 0 {
+        if active && self.max_fps > 0 {
             let td = Duration::from_millis(u64::from(1000 / self.max_fps));
             while self.last_frame_timepoint.elapsed() <= td {
                 if (self.last_frame_timepoint.elapsed() + Duration::from_millis(2)) < td {
@@ -62,7 +91,7 @@ impl TimeSystem {
         }
 
         let mut elapsed = self.last_frame_timepoint.elapsed();
-        self.last_frame_timepoint = Instant::now();
+        self.last_frame_timepoint = crate::sys::instant();
 
         // If fps lower than minimum, simply clamp it.
         if self.min_fps > 0 {
@@ -145,7 +174,7 @@ impl TimeSystemShared {
 
     /// Gets current fps.
     #[inline]
-    pub fn get_fps(&self) -> u32 {
+    pub fn fps(&self) -> u32 {
         let ts = self.timestep.read().unwrap();
         if ts.subsec_nanos() == 0 {
             0

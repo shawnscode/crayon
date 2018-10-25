@@ -1,5 +1,6 @@
+use application::time::Instant;
 use std::cmp::Ordering;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use application::events::TouchState;
 use math::prelude::{MetricSpace, Vector2};

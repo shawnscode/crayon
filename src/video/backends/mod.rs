@@ -2,8 +2,8 @@
 //! submitting draw-calls using low-level OpenGL video APIs.
 
 pub mod frame;
-pub mod gl;
 pub mod headless;
+mod utils;
 
 use super::assets::prelude::*;
 
@@ -96,4 +96,26 @@ pub trait Visitor {
 
     /// Advance one frame, it will be called every frames.
     unsafe fn advance(&mut self) -> Result<()>;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod gl;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn new() -> Result<Box<Visitor>> {
+    let visitor = unsafe { self::gl::visitor::GLVisitor::new()? };
+    Ok(Box::new(visitor))
+}
+
+#[cfg(target_arch = "wasm32")]
+pub mod webgl;
+
+#[cfg(target_arch = "wasm32")]
+pub fn new() -> Result<Box<Visitor>> {
+    let visitor = unsafe { webgl::visitor::WebGLVisitor::new()? };
+    Ok(Box::new(visitor))
+}
+
+pub fn new_headless() -> Box<Visitor> {
+    Box::new(self::headless::HeadlessVisitor::new())
 }

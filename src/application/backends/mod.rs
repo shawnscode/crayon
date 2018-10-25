@@ -1,8 +1,6 @@
 mod headless;
-pub use self::headless::HeadlessVisitor;
 
 use application::events::Event;
-use application::settings::WindowParams;
 use errors::*;
 use math::prelude::Vector2;
 
@@ -19,9 +17,16 @@ pub trait Visitor {
     fn swap_buffers(&self) -> Result<()>;
 }
 
-mod glutin;
-
-pub fn new(params: WindowParams) -> Result<Box<Visitor>> {
-    let visitor = glutin::GlutinVisitor::new(params)?;
-    Ok(Box::new(visitor))
+pub fn new_headless() -> Box<Visitor> {
+    Box::new(self::headless::HeadlessVisitor {})
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+mod glutin;
+#[cfg(not(target_arch = "wasm32"))]
+pub use self::glutin::{new, sys};
+
+#[cfg(target_arch = "wasm32")]
+mod web;
+#[cfg(target_arch = "wasm32")]
+pub use self::web::{new, sys};

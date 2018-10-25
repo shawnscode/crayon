@@ -23,11 +23,23 @@
 //! cargo run --example modules_3d_prefab
 //! ```
 
+#[cfg(not(target_arch = "wasm32"))]
+extern crate gl;
+#[cfg(not(target_arch = "wasm32"))]
+extern crate glutin;
+
+#[cfg(target_arch = "wasm32")]
+extern crate console_error_panic_hook;
+#[cfg(target_arch = "wasm32")]
+extern crate js_sys;
+#[cfg(target_arch = "wasm32")]
+extern crate wasm_bindgen;
+#[cfg(target_arch = "wasm32")]
+extern crate web_sys;
+
 extern crate crossbeam_deque;
 #[macro_use]
 extern crate cgmath;
-extern crate gl;
-extern crate glutin;
 
 #[macro_use]
 extern crate failure;
@@ -62,3 +74,5 @@ pub mod math;
 pub mod prelude;
 pub mod res;
 pub mod sched;
+
+pub use application::prelude::sys;

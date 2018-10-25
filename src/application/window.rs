@@ -35,7 +35,7 @@ impl Window {
     /// Creates a new `Window` with headless context.
     pub fn headless() -> Self {
         Window {
-            visitor: Box::new(backends::HeadlessVisitor {}),
+            visitor: backends::new_headless(),
             events: Vec::new(),
             shared: Arc::new(WindowShared {
                 dimensions: RwLock::new(Vector2::new(0, 0)),

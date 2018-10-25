@@ -1,5 +1,5 @@
 use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use super::*;
 
@@ -19,11 +19,11 @@ struct ContextData {
 #[derive(Clone)]
 pub struct Context {
     pub res: Arc<res::ResourceSystemShared>,
+    // pub sched: Arc<sched::ScheduleSystemShared>,
     pub input: Arc<input::InputSystemShared>,
     pub time: Arc<time::TimeSystemShared>,
     pub video: Arc<video::VideoSystemShared>,
     pub window: Arc<window::WindowShared>,
-    pub sched: Arc<sched::ScheduleSystemShared>,
 
     data: Arc<RwLock<ContextData>>,
 }
@@ -49,10 +49,9 @@ pub struct Engine {
     pub video: video::VideoSystem,
     pub res: res::ResourceSystem,
     pub time: time::TimeSystem,
-    pub sched: sched::ScheduleSystem,
-
-    context: Context,
-    headless: bool,
+    // pub sched: sched::ScheduleSystem,
+    pub(crate) context: Context,
+    pub(crate) headless: bool,
 }
 
 impl Engine {
@@ -63,19 +62,19 @@ impl Engine {
 
     /// Setup engine with specified settings.
     pub fn new_with(settings: &settings::Settings) -> Result<Self> {
-        let sched = sched::ScheduleSystem::new(6, None, None);
-        let sched_shared = sched.shared();
-
-        let input = input::InputSystem::new(settings.input);
-        let input_shared = input.shared();
-
         let window = if settings.headless {
             window::Window::headless()
         } else {
             window::Window::new(settings.window.clone())?
         };
 
-        let res = res::ResourceSystem::new(sched_shared.clone())?;
+        let input = input::InputSystem::new(settings.input);
+        let input_shared = input.shared();
+
+        // let sched = sched::ScheduleSystem::new(6, None, None);
+        // let sched_shared = sched.shared();
+
+        let res = res::ResourceSystem::new()?;
         let res_shared = res.shared();
 
         let video = if settings.headless {
@@ -89,9 +88,9 @@ impl Engine {
         let time = time::TimeSystem::new(settings.engine);
         let time_shared = time.shared();
 
-        let mut ins = ins::InspectSystem::new();
-        ins.attach("Video", video_shared.clone());
-        ins.listen();
+        // let mut ins = ins::InspectSystem::new();
+        // ins.attach("Video", video_shared.clone());
+        // ins.listen();
 
         let context = Context {
             res: res_shared,
@@ -99,7 +98,7 @@ impl Engine {
             time: time_shared,
             video: video_shared,
             window: window.shared(),
-            sched: sched_shared,
+            // sched: sched_shared,
             data: Arc::new(RwLock::new(ContextData::default())),
         };
 
@@ -109,8 +108,7 @@ impl Engine {
             video: video,
             res: res,
             time: time,
-            sched: sched,
-
+            // sched: sched,
             context: context,
             headless: settings.headless,
         })
@@ -120,14 +118,24 @@ impl Engine {
         &self.context
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub fn run_wasm<T>(self, application: T) -> Result<()>
+    where
+        T: Application + Send + 'static,
+    {
+        let wasm = crate::sys::WasmEngine::new(self, application);
+        wasm.borrow_mut().run()?;
+        Ok(())
+    }
+
     /// Run the main loop of `Engine`, this will block the working
     /// thread until we finished.
     pub fn run<T>(mut self, application: T) -> Result<Self>
     where
         T: Application + Send + 'static,
     {
-        let dir = ::std::env::current_dir()?;
-        info!("CWD: {:?}.", dir);
+        // let dir = ::std::env::current_dir()?;
+        // info!("CWD: {:?}.", dir);
 
         let latch = Arc::new(sched::latch::LockLatch::new());
         Self::execute_frame(latch.clone(), self.context.clone(), application);
@@ -135,7 +143,7 @@ impl Engine {
         let mut alive = true;
         let mut frame_info = None;
         while alive {
-            self.time.advance();
+            self.time.advance(true);
 
             let (mut application, duration) = latch.wait_and_take()?;
             if let Some(frame_info) = frame_info {
@@ -177,11 +185,11 @@ impl Engine {
             frame_info = Some(FrameInfo {
                 video: video_info,
                 duration: duration,
-                fps: self.time.shared().get_fps(),
+                fps: self.time.shared().fps(),
             });
         }
 
-        self.sched.terminate();
+        // self.sched.terminate();
         Ok(self)
     }
 
@@ -193,14 +201,16 @@ impl Engine {
         T: Application + Send + 'static,
     {
         let ctx_clone = ctx.clone();
+
         let run = move || {
-            let ts = Instant::now();
+            let ts = crate::sys::instant();
             application.on_update(&ctx_clone)?;
             application.on_render(&ctx_clone)?;
-
-            Ok((application, Instant::now() - ts))
+            Ok((application, crate::sys::instant() - ts))
         };
 
-        ctx.sched.spawn(move || latch.set(run()));
+        latch.set(run());
+
+        // ctx.sched.spawn(move || latch.set(run()));
     }
 }

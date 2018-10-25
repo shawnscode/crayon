@@ -221,7 +221,6 @@ use utils::ObjectPool;
 
 use self::assets::prelude::*;
 use self::backends::frame::*;
-use self::backends::gl::visitor::GLVisitor;
 use self::backends::Visitor;
 use self::errors::*;
 
@@ -250,12 +249,10 @@ impl VideoSystem {
     pub fn new(window: &Window, res: Arc<ResourceSystemShared>) -> ::errors::Result<Self> {
         let frames = Arc::new(DoubleFrame::with_capacity(64 * 1024));
         let shared = VideoSystemShared::new(frames.clone(), res);
-        let visitor = unsafe { Box::new(GLVisitor::new()?) };
 
         Ok(VideoSystem {
             last_dimensions: window.dimensions(),
-            visitor: visitor,
-
+            visitor: backends::new()?,
             frames: frames,
             shared: Arc::new(shared),
         })
@@ -266,18 +263,16 @@ impl VideoSystem {
     where
         T: Into<Option<Arc<ResourceSystemShared>>>,
     {
-        let res = res.into().unwrap_or_else(|| {
-            let sched = ::sched::ScheduleSystem::new(1, None, None);
-            ::res::ResourceSystem::new(sched.shared()).unwrap().shared()
-        });
+        let res = res
+            .into()
+            .unwrap_or_else(|| ::res::ResourceSystem::new().unwrap().shared());
 
         let frames = Arc::new(DoubleFrame::with_capacity(0));
         let shared = VideoSystemShared::new(frames.clone(), res);
-        let visitor = backends::headless::HeadlessVisitor::new();
 
         VideoSystem {
             last_dimensions: (0, 0).into(),
-            visitor: Box::new(visitor),
+            visitor: backends::new_headless(),
             frames: frames,
             shared: Arc::new(shared),
         }
@@ -290,7 +285,7 @@ impl VideoSystem {
 
     /// Swap internal commands frame.
     #[inline]
-    pub fn swap_frames(&self) {
+    pub(crate) fn swap_frames(&self) {
         self.frames.swap_frames();
     }
 
@@ -298,10 +293,8 @@ impl VideoSystem {
     ///
     /// Notes that this method MUST be called at main thread, and will NOT return
     /// until all commands is finished by GPU.
-    pub fn advance(&mut self, window: &Window) -> ::errors::Result<VideoFrameInfo> {
-        use std::time;
-
-        let ts = time::Instant::now();
+    pub(crate) fn advance(&mut self, window: &Window) -> ::errors::Result<VideoFrameInfo> {
+        let ts = crate::sys::instant();
         let dimensions = window.dimensions();
 
         // Resize the window, which would recreate the underlying framebuffer.
@@ -326,7 +319,7 @@ impl VideoSystem {
             info.triangles = tris;
         }
 
-        info.duration = time::Instant::now() - ts;
+        info.duration = crate::sys::instant() - ts;
         Ok(info)
     }
 }

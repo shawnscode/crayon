@@ -9,9 +9,10 @@ use utils::hash_value::HashValue;
 
 use super::super::super::assets::prelude::*;
 use super::super::super::MAX_UNIFORM_TEXTURE_SLOTS;
+use super::super::utils::DataVec;
 use super::super::{UniformVar, Visitor};
 use super::capabilities::{Capabilities, Version};
-use super::types::{self, DataVec};
+use super::types;
 
 #[derive(Debug, Clone)]
 struct GLSurfaceFBO {
@@ -325,8 +326,16 @@ impl Visitor for GLVisitor {
         self.mutables
             .borrow_mut()
             .vaos
-            .retain(|&(sid, _), _| sid != shader.id);
+            .retain(|&(shader_id, _), vao| {
+                if shader_id == shader.id {
+                    gl::DeleteVertexArrays(1, vao as *mut u32);
+                    false
+                } else {
+                    true
+                }
+            });
 
+        check()?;
         self.delete_shader_intern(shader.id)
     }
 
@@ -650,11 +659,16 @@ impl Visitor for GLVisitor {
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
         // Removes deprecated `VertexArrayObject`s.
-        self.mutables
-            .borrow_mut()
-            .vaos
-            .retain(|&(_, vbo), _| vbo != mesh.vbo);
+        self.mutables.borrow_mut().vaos.retain(|&(_, h), vao| {
+            if h == mesh.vbo {
+                gl::DeleteVertexArrays(1, vao as *mut u32);
+                false
+            } else {
+                true
+            }
+        });
 
+        check()?;
         self.delete_buffer_intern(gl::ARRAY_BUFFER, mesh.vbo)?;
         self.delete_buffer_intern(gl::ELEMENT_ARRAY_BUFFER, mesh.ibo)?;
         Ok(())
@@ -691,6 +705,7 @@ impl Visitor for GLVisitor {
         if !self.mutables.borrow().binded_frame_surfaces.contains(&id) {
             // Sets depth write enable to make sure that we can clear depth buffer properly.
             if surface.params.clear_depth.is_some() {
+                self.mutables.borrow_mut().binded_shader = None;
                 self.set_depth_test(true, Comparison::Always)?;
             }
 
@@ -846,7 +861,7 @@ impl GLVisitor {
 
         gl::BindFramebuffer(gl::FRAMEBUFFER, id);
 
-        if check_status && gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
+        if check_status {
             let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
             if status != gl::FRAMEBUFFER_COMPLETE {
                 gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
@@ -973,6 +988,7 @@ impl GLVisitor {
             }
         }
 
+        mutables.binded_texture_index = mutables.binded_textures.len() - 1;
         check()
     }
 
@@ -1313,13 +1329,7 @@ impl GLVisitor {
                 let location = gl::COLOR_ATTACHMENT0 + index as u32;
 
                 if params.sampler {
-                    gl::FramebufferTexture2D(
-                        gl::FRAMEBUFFER,
-                        gl::COLOR_ATTACHMENT0,
-                        gl::TEXTURE_2D,
-                        id,
-                        0,
-                    );
+                    gl::FramebufferTexture2D(gl::FRAMEBUFFER, location, gl::TEXTURE_2D, id, 0);
                 } else {
                     gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, location, gl::RENDERBUFFER, id);
                 }
