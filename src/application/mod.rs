@@ -73,7 +73,7 @@ pub trait Application {
     }
 
     /// `Application::on_post_update` is called after camera has rendered the scene.
-    fn on_post_update(&mut self, _: &Context, _: &FrameInfo) -> Result<()> {
+    fn on_post_update(&mut self, _: &Context) -> Result<()> {
         Ok(())
     }
 

@@ -82,34 +82,6 @@ impl Window {
         self.visitor.is_current()
     }
 
-    /// Polls events from window, and returns the iterator over them.
-    pub fn advance(&mut self) -> Iter<Event> {
-        *self.shared.dimensions_in_points.write().unwrap() = self.dimensions_in_points();
-        *self.shared.dimensions.write().unwrap() = self.dimensions();
-        *self.shared.hidpi.write().unwrap() = self.hidpi();
-
-        self.events.clear();
-        self.visitor.poll_events(&mut self.events);
-        self.events.iter()
-    }
-
-    /// Swaps the buffers in case of double or triple buffering.
-    ///
-    /// **Warning**: if you enabled vsync, this function will block until the next time the screen
-    /// is refreshed. However drivers can choose to override your vsync settings, which means that
-    /// you can't know in advance whether swap_buffers will block or not.
-    #[inline]
-    pub fn swap_buffers(&self) -> Result<()> {
-        self.visitor.swap_buffers()?;
-        Ok(())
-    }
-
-    /// Resize the GL context.
-    #[inline]
-    pub fn resize(&self, dimensions: Vector2<u32>) {
-        self.visitor.resize(dimensions);
-    }
-
     /// Returns the position of the lower-left hand corner of the window relative to the lower-left
     /// hand corner of the desktop. Note that the lower-left hand corner of the desktop is not
     /// necessarily the same as the screen. If the user uses a desktop with multiple monitors,
@@ -145,6 +117,34 @@ impl Window {
     #[inline]
     pub fn hidpi(&self) -> f32 {
         self.visitor.hidpi()
+    }
+
+    /// Swaps the buffers in case of double or triple buffering.
+    ///
+    /// **Warning**: if you enabled vsync, this function will block until the next time the screen
+    /// is refreshed. However drivers can choose to override your vsync settings, which means that
+    /// you can't know in advance whether swap_buffers will block or not.
+    #[inline]
+    pub(crate) fn swap_buffers(&self) -> Result<()> {
+        self.visitor.swap_buffers()?;
+        Ok(())
+    }
+
+    /// Resize the GL context.
+    #[inline]
+    pub(crate) fn resize(&self, dimensions: Vector2<u32>) {
+        self.visitor.resize(dimensions);
+    }
+
+    /// Polls events from window, and returns the iterator over them.
+    pub(crate) fn advance(&mut self) -> Iter<Event> {
+        *self.shared.dimensions_in_points.write().unwrap() = self.dimensions_in_points();
+        *self.shared.dimensions.write().unwrap() = self.dimensions();
+        *self.shared.hidpi.write().unwrap() = self.hidpi();
+
+        self.events.clear();
+        self.visitor.poll_events(&mut self.events);
+        self.events.iter()
     }
 }
 

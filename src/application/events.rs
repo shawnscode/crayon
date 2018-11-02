@@ -7,6 +7,27 @@ pub enum Event {
     InputDevice(InputDeviceEvent),
 }
 
+/// The status of application.
+#[derive(Debug, Clone, Copy)]
+pub enum ApplicationEvent {
+    /// The window has been woken up by another thread.
+    Awakened,
+    /// The window has been resumed.
+    Resumed,
+    /// The window has been suspended.
+    Suspended,
+    /// The window has been closed.
+    Closed,
+    /// The window gained focus of user input.
+    GainFocus,
+    /// The window lost focus of user input.
+    LostFocus,
+    /// The size of window has changed.
+    Resized(u32, u32),
+    /// The position of window has changed.
+    Moved(u32, u32),
+}
+
 /// Symbolic name for a keyboard key.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub enum Key {
@@ -174,27 +195,6 @@ pub enum MouseButton {
     Right,
     Middle,
     Other(u8),
-}
-
-/// The status of application.
-#[derive(Debug, Clone, Copy)]
-pub enum ApplicationEvent {
-    /// The window has been woken up by another thread.
-    Awakened,
-    /// The window has been resumed.
-    Resumed,
-    /// The window has been suspended.
-    Suspended,
-    /// The window has been closed.
-    Closed,
-    /// The window gained focus of user input.
-    GainFocus,
-    /// The window lost focus of user input.
-    LostFocus,
-    /// The size of window has changed.
-    Resized(u32, u32),
-    /// The position of window has changed.
-    Moved(u32, u32),
 }
 
 /// Input device event, supports mouse and keyboard only.

@@ -3,9 +3,9 @@ use std::io::Cursor;
 use std::sync::Arc;
 
 use errors::*;
+use utils::DoubleBuf;
 
-use super::super::backends::frame::Command;
-use super::super::DoubleFrame;
+use super::super::backends::frame::{Command, Frame};
 use super::mesh::*;
 
 pub const MAGIC: [u8; 8] = [
@@ -14,11 +14,11 @@ pub const MAGIC: [u8; 8] = [
 
 #[derive(Clone)]
 pub struct MeshLoader {
-    frames: Arc<DoubleFrame>,
+    frames: Arc<DoubleBuf<Frame>>,
 }
 
 impl MeshLoader {
-    pub(crate) fn new(frames: Arc<DoubleFrame>) -> Self {
+    pub(crate) fn new(frames: Arc<DoubleBuf<Frame>>) -> Self {
         MeshLoader { frames: frames }
     }
 }
@@ -48,15 +48,14 @@ impl ::res::registry::Register for MeshLoader {
     fn attach(&self, handle: Self::Handle, item: Self::Intermediate) -> Result<Self::Value> {
         item.0.validate(item.1.as_ref())?;
 
-        let mut frame = self.frames.front();
-        let task = Command::CreateMesh(handle, item.0.clone(), item.1);
-        frame.cmds.push(task);
+        let cmd = Command::CreateMesh(handle, item.0.clone(), item.1);
+        self.frames.write().cmds.push(cmd);
 
         Ok(item.0)
     }
 
     fn detach(&self, handle: Self::Handle, _: Self::Value) {
         let cmd = Command::DeleteMesh(handle);
-        self.frames.front().cmds.push(cmd);
+        self.frames.write().cmds.push(cmd);
     }
 }

@@ -148,6 +148,7 @@ impl Application for Window {
         let mut dc = Draw::new(self.post_effect.shader, self.post_effect.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
         dc.set_uniform_variable("time", self.time);
+        println!("set uniform {:?}", self.time);
         self.batch.draw(dc);
         self.batch.submit(&ctx.video, surface)?;
         self.time += 0.05;
@@ -168,8 +169,7 @@ impl Application for Window {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-fn main() {
+fn run() {
     let mut params = Settings::default();
     params.window.title = "CR: RenderTexture".into();
     params.window.size = (568, 320).into();
@@ -179,23 +179,18 @@ fn main() {
     engine.run(window).unwrap();
 }
 
+fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
+    run();
+}
+
 #[cfg(target_arch = "wasm32")]
 extern crate wasm_bindgen;
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
-#[cfg(target_arch = "wasm32")]
-fn main() {}
+use wasm_bindgen::prelude::wasm_bindgen;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn wasm_main() {
-    crayon::application::prelude::sys::init();
-
-    let mut params = Settings::default();
-    params.window.title = "CR: RenderTexture".into();
-    params.window.size = (568, 320).into();
-    let mut engine = Engine::new_with(&params).unwrap();
-    let window = Window::new(&mut engine).unwrap();
-    engine.run_wasm(window).unwrap();
+    run();
 }

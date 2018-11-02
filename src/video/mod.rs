@@ -217,7 +217,7 @@ use application::window::Window;
 use math::prelude::{Aabb2, Aabb3, Vector2};
 use res::prelude::{Location, ResourceSystemShared};
 use res::registry::Registry;
-use utils::ObjectPool;
+use utils::{DoubleBuf, ObjectPool};
 
 use self::assets::prelude::*;
 use self::backends::frame::*;
@@ -239,7 +239,7 @@ pub struct VideoFrameInfo {
 /// The centralized management of video sub-system.
 pub struct VideoSystem {
     visitor: Box<Visitor>,
-    frames: Arc<DoubleFrame>,
+    frames: Arc<DoubleBuf<Frame>>,
     shared: Arc<VideoSystemShared>,
     last_dimensions: Vector2<u32>,
 }
@@ -247,7 +247,11 @@ pub struct VideoSystem {
 impl VideoSystem {
     /// Create a new `VideoSystem` with one `Window` context.
     pub fn new(window: &Window, res: Arc<ResourceSystemShared>) -> ::errors::Result<Self> {
-        let frames = Arc::new(DoubleFrame::with_capacity(64 * 1024));
+        let frames = Arc::new(DoubleBuf::new(
+            Frame::with_capacity(64 * 1024),
+            Frame::with_capacity(64 * 1024),
+        ));
+
         let shared = VideoSystemShared::new(frames.clone(), res);
 
         Ok(VideoSystem {
@@ -267,7 +271,7 @@ impl VideoSystem {
             .into()
             .unwrap_or_else(|| ::res::ResourceSystem::new().unwrap().shared());
 
-        let frames = Arc::new(DoubleFrame::with_capacity(0));
+        let frames = Arc::new(DoubleBuf::default());
         let shared = VideoSystemShared::new(frames.clone(), res);
 
         VideoSystem {
@@ -286,7 +290,8 @@ impl VideoSystem {
     /// Swap internal commands frame.
     #[inline]
     pub(crate) fn swap_frames(&self) {
-        self.frames.swap_frames();
+        self.frames.swap();
+        self.frames.write().clear();
     }
 
     /// Advance to next frame.
@@ -305,8 +310,9 @@ impl VideoSystem {
 
         let (dc, tris) = self
             .frames
-            .back()
+            .write_back_buf()
             .dispatch(self.visitor.as_mut(), dimensions)?;
+
         let mut info = VideoFrameInfo::default();
 
         {
@@ -329,7 +335,7 @@ pub type MeshRegistry = Registry<MeshHandle, self::assets::mesh_loader::MeshLoad
 
 /// The multi-thread friendly parts of `VideoSystem`.
 pub struct VideoSystemShared {
-    pub(crate) frames: Arc<DoubleFrame>,
+    pub(crate) frames: Arc<DoubleBuf<Frame>>,
     pub(crate) surfaces: RwLock<ObjectPool<SurfaceHandle, SurfaceParams>>,
     pub(crate) shaders: RwLock<ObjectPool<ShaderHandle, ShaderParams>>,
     pub(crate) meshes: MeshRegistry,
@@ -339,7 +345,7 @@ pub struct VideoSystemShared {
 
 impl VideoSystemShared {
     /// Create a new `VideoSystem` with one `Window` context.
-    fn new(frames: Arc<DoubleFrame>, res: Arc<ResourceSystemShared>) -> Self {
+    fn new(frames: Arc<DoubleBuf<Frame>>, res: Arc<ResourceSystemShared>) -> Self {
         use self::assets::mesh_loader::MeshLoader;
         use self::assets::texture_loader::TextureLoader;
 
@@ -365,7 +371,7 @@ impl VideoSystemShared {
 
         {
             let cmd = Command::CreateSurface(handle, params);
-            self.frames.front().cmds.push(cmd);
+            self.frames.write().cmds.push(cmd);
         }
 
         Ok(handle)
@@ -380,7 +386,7 @@ impl VideoSystemShared {
     pub fn delete_surface(&self, handle: SurfaceHandle) {
         if self.surfaces.write().unwrap().free(handle).is_some() {
             let cmd = Command::DeleteSurface(handle);
-            self.frames.front().cmds.push(cmd);
+            self.frames.write().cmds.push(cmd);
         }
     }
 }
@@ -400,7 +406,7 @@ impl VideoSystemShared {
 
         {
             let cmd = Command::CreateShader(handle, params, vs, fs);
-            self.frames.front().cmds.push(cmd);
+            self.frames.write().cmds.push(cmd);
         }
 
         Ok(handle)
@@ -415,7 +421,7 @@ impl VideoSystemShared {
     pub fn delete_shader(&self, handle: ShaderHandle) {
         if self.shaders.write().unwrap().free(handle).is_some() {
             let cmd = Command::DeleteShader(handle);
-            self.frames.front().cmds.push(cmd);
+            self.frames.write().cmds.push(cmd);
         }
     }
 }
@@ -465,7 +471,7 @@ impl VideoSystemShared {
     ) -> ::errors::Result<()> {
         self.meshes
             .get(handle, |_| {
-                let mut frame = self.frames.front();
+                let mut frame = self.frames.write();
                 let ptr = frame.bufs.extend_from_slice(data);
                 let cmd = Command::UpdateVertexBuffer(handle, offset, ptr);
                 frame.cmds.push(cmd);
@@ -483,7 +489,7 @@ impl VideoSystemShared {
     ) -> ::errors::Result<()> {
         self.meshes
             .get(handle, |_| {
-                let mut frame = self.frames.front();
+                let mut frame = self.frames.write();
                 let ptr = frame.bufs.extend_from_slice(data);
                 let cmd = Command::UpdateIndexBuffer(handle, offset, ptr);
                 frame.cmds.push(cmd);
@@ -536,7 +542,7 @@ impl VideoSystemShared {
     ) -> ::errors::Result<()> {
         self.textures
             .get(handle, |_| {
-                let mut frame = self.frames.front();
+                let mut frame = self.frames.write();
                 let ptr = frame.bufs.extend_from_slice(data);
                 let cmd = Command::UpdateTexture(handle, area, ptr);
                 frame.cmds.push(cmd);
@@ -559,7 +565,7 @@ impl VideoSystemShared {
 
         {
             let cmd = Command::CreateRenderTexture(handle, params);
-            self.frames.front().cmds.push(cmd);
+            self.frames.write().cmds.push(cmd);
         }
 
         Ok(handle)
@@ -574,7 +580,7 @@ impl VideoSystemShared {
     pub fn delete_render_texture(&self, handle: RenderTextureHandle) {
         if self.render_textures.write().unwrap().free(handle).is_some() {
             let cmd = Command::DeleteRenderTexture(handle);
-            self.frames.front().cmds.push(cmd);
+            self.frames.write().cmds.push(cmd);
         }
     }
 }

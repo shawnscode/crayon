@@ -165,7 +165,6 @@ pub trait Loader: Send + Sync + 'static {
 
 pub struct ResourceSystemShared {
     driver: Arc<RwLock<VFSDriver>>,
-    // sched: Arc<ScheduleSystemShared>,
     bufs: Arc<RwLock<Vec<Vec<u8>>>>,
     promises: Arc<RwLock<FastHashMap<Uuid, Arc<Promise>>>>,
 }

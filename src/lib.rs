@@ -73,6 +73,14 @@ pub mod input;
 pub mod math;
 pub mod prelude;
 pub mod res;
-pub mod sched;
 
 pub use application::prelude::sys;
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn hello_world() {
+    println!("FUCK",);
+}

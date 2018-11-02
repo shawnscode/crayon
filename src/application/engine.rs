@@ -1,11 +1,10 @@
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
 
 use super::*;
 
 use input;
 use res;
-use sched;
+use utils::DoubleBuf;
 use video;
 
 type Result<T> = ::std::result::Result<T, ::failure::Error>;
@@ -19,7 +18,6 @@ struct ContextData {
 #[derive(Clone)]
 pub struct Context {
     pub res: Arc<res::ResourceSystemShared>,
-    // pub sched: Arc<sched::ScheduleSystemShared>,
     pub input: Arc<input::InputSystemShared>,
     pub time: Arc<time::TimeSystemShared>,
     pub video: Arc<video::VideoSystemShared>,
@@ -49,9 +47,20 @@ pub struct Engine {
     pub video: video::VideoSystem,
     pub res: res::ResourceSystem,
     pub time: time::TimeSystem,
-    // pub sched: sched::ScheduleSystem,
+
+    chan: Arc<DoubleBuf<Vec<Command>>>,
+
     pub(crate) context: Context,
     pub(crate) headless: bool,
+}
+
+#[derive(Debug, Clone)]
+enum Command {
+    ReceiveEvent(events::ApplicationEvent),
+    Update,
+    Render,
+    PostUpdate,
+    Exit,
 }
 
 impl Engine {
@@ -70,9 +79,6 @@ impl Engine {
 
         let input = input::InputSystem::new(settings.input);
         let input_shared = input.shared();
-
-        // let sched = sched::ScheduleSystem::new(6, None, None);
-        // let sched_shared = sched.shared();
 
         let res = res::ResourceSystem::new()?;
         let res_shared = res.shared();
@@ -98,7 +104,6 @@ impl Engine {
             time: time_shared,
             video: video_shared,
             window: window.shared(),
-            // sched: sched_shared,
             data: Arc::new(RwLock::new(ContextData::default())),
         };
 
@@ -108,7 +113,7 @@ impl Engine {
             video: video,
             res: res,
             time: time,
-            // sched: sched,
+            chan: Arc::new(DoubleBuf::default()),
             context: context,
             headless: settings.headless,
         })
@@ -118,99 +123,155 @@ impl Engine {
         &self.context
     }
 
-    #[cfg(target_arch = "wasm32")]
-    pub fn run_wasm<T>(self, application: T) -> Result<()>
-    where
-        T: Application + Send + 'static,
-    {
-        let wasm = crate::sys::WasmEngine::new(self, application);
-        wasm.borrow_mut().run()?;
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn run<T: Application + Send + 'static>(mut self, application: T) -> Result<()> {
+        let mut processor = Processor::new(&self, application);
+        let (tx, rx) = ::std::sync::mpsc::channel();
+        let (tx2, rx2) = ::std::sync::mpsc::channel();
+
+        ::std::thread::Builder::new()
+            .name("MainThread".into())
+            .spawn(move || {
+                while let Ok(_) = rx2.recv() {
+                    if let Err(_) = tx.send(processor.advance()) {
+                        break;
+                    }
+                }
+            }).unwrap();
+
+        self.chan.write().push(Command::Update);
+        self.chan.write().push(Command::Render);
+        self.chan.write().push(Command::PostUpdate);
+        tx2.send(())?;
+
+        while let Ok(Ok(_)) = rx.recv() {
+            self.chan.swap();
+            self.video.swap_frames();
+
+            tx2.send(())?;
+            if !self.advance(true)? {
+                break;
+            }
+        }
+
         Ok(())
     }
 
-    /// Run the main loop of `Engine`, this will block the working
-    /// thread until we finished.
-    pub fn run<T>(mut self, application: T) -> Result<Self>
-    where
-        T: Application + Send + 'static,
-    {
-        // let dir = ::std::env::current_dir()?;
-        // info!("CWD: {:?}.", dir);
+    #[cfg(target_arch = "wasm32")]
+    pub fn run<T: Application + Send + 'static>(mut self, application: T) -> Result<()> {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+        use wasm_bindgen::prelude::*;
+        use wasm_bindgen::JsCast;
 
-        let latch = Arc::new(sched::latch::LockLatch::new());
-        Self::execute_frame(latch.clone(), self.context.clone(), application);
+        let mut processor = Processor::new(&self, application);
+        let window = web_sys::window().expect("should have a window in this context");
+        let closure: Rc<RefCell<Option<Closure<FnMut(f64)>>>> = Rc::new(RefCell::new(None));
+        let clone = closure.clone();
 
-        let mut alive = true;
-        let mut frame_info = None;
-        while alive {
-            self.time.advance(true);
+        *closure.borrow_mut() = Some(Closure::wrap(Box::new(move |_: f64| {
+            self.chan.swap();
+            self.video.swap_frames();
 
-            let (mut application, duration) = latch.wait_and_take()?;
-            if let Some(frame_info) = frame_info {
-                application.on_post_update(&self.context, &frame_info)?;
-            }
-
-            self.input.advance(self.window.hidpi());
-            // Poll any possible events first.
-            for v in self.window.advance() {
-                match *v {
-                    events::Event::Application(value) => {
-                        application.on_receive_event(&self.context, value)?;
-
-                        if let events::ApplicationEvent::Closed = value {
-                            alive = false;
-                        }
-                    }
-
-                    events::Event::InputDevice(value) => self.input.update_with(value),
+            processor.advance().unwrap();
+            if self.advance(false).unwrap() {
+                if let Some(inner) = clone.borrow().as_ref() {
+                    let window = web_sys::window().expect("should have a window in this context");
+                    window
+                        .request_animation_frame(inner.as_ref().unchecked_ref())
+                        .unwrap();
                 }
             }
+        })));
 
-            alive = alive && !self.context.is_shutdown() && !self.headless;
-            if !alive {
-                application.on_exit(&self.context)?;
-                break;
-            }
-
-            // Perform update and render submitting for frame [x], and drawing
-            // frame [x-1] at the same time.
-            self.video.swap_frames();
-            Self::execute_frame(latch.clone(), self.context.clone(), application);
-
-            // This will block the main-thread until all the video commands is finished by GPU.
-            let video_info = self.video.advance(&self.window)?;
-            self.window.swap_buffers()?;
-
-            //
-            frame_info = Some(FrameInfo {
-                video: video_info,
-                duration: duration,
-                fps: self.time.shared().fps(),
-            });
+        if let Some(inner) = closure.borrow().as_ref() {
+            window
+                .request_animation_frame(inner.as_ref().unchecked_ref())
+                .unwrap();
         }
 
-        // self.sched.terminate();
-        Ok(self)
+        Ok(())
+    }
+}
+
+impl Engine {
+    fn advance(&mut self, schedule: bool) -> Result<bool> {
+        let mut alive = true;
+        let mut chan = self.chan.write();
+
+        self.time.advance(schedule);
+        self.input.advance(self.window.hidpi());
+
+        for v in self.window.advance() {
+            match *v {
+                events::Event::Application(value) => {
+                    chan.push(Command::ReceiveEvent(value));
+
+                    if let events::ApplicationEvent::Closed = value {
+                        alive = false;
+                    }
+                }
+
+                events::Event::InputDevice(value) => self.input.update_with(value),
+            }
+        }
+
+        chan.push(Command::Update);
+        chan.push(Command::Render);
+        chan.push(Command::PostUpdate);
+
+        if !alive || self.context.is_shutdown() || self.headless {
+            chan.push(Command::Exit);
+            return Ok(false);
+        }
+
+        self.video.advance(&self.window)?;
+        self.window.swap_buffers()?;
+        Ok(true)
+    }
+}
+
+pub struct Processor<T: Application> {
+    ctx: Context,
+    chan: Arc<DoubleBuf<Vec<Command>>>,
+    application: T,
+}
+
+impl<T: Application> Processor<T> {
+    fn new(master: &Engine, application: T) -> Self {
+        Processor {
+            ctx: master.context.clone(),
+            chan: master.chan.clone(),
+            application: application,
+        }
     }
 
-    fn execute_frame<T>(
-        latch: Arc<sched::latch::LockLatch<Result<(T, Duration)>>>,
-        ctx: Context,
-        mut application: T,
-    ) where
-        T: Application + Send + 'static,
-    {
-        let ctx_clone = ctx.clone();
+    fn advance(&mut self) -> Result<()> {
+        let mut cmds = self.chan.write_back_buf();
+        for v in cmds.drain(..) {
+            match v {
+                Command::ReceiveEvent(evt) => {
+                    self.application.on_receive_event(&self.ctx, evt)?;
+                }
 
-        let run = move || {
-            let ts = crate::sys::instant();
-            application.on_update(&ctx_clone)?;
-            application.on_render(&ctx_clone)?;
-            Ok((application, crate::sys::instant() - ts))
-        };
+                Command::Update => {
+                    self.application.on_update(&self.ctx)?;
+                }
 
-        latch.set(run());
+                Command::Render => {
+                    self.application.on_render(&self.ctx)?;
+                }
 
-        // ctx.sched.spawn(move || latch.set(run()));
+                Command::PostUpdate => {
+                    self.application.on_post_update(&self.ctx)?;
+                }
+
+                Command::Exit => {
+                    self.application.on_exit(&self.ctx)?;
+                }
+            }
+        }
+
+        Ok(())
     }
 }

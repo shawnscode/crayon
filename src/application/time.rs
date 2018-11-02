@@ -70,7 +70,7 @@ impl TimeSystem {
         self.shared.clone()
     }
 
-    pub(crate) fn advance(&mut self, active: bool) -> Duration {
+    pub(crate) fn advance(&mut self, schedule: bool) -> Duration {
         // Synchonize with configurations.
         self.min_fps = *self.shared.min_fps.read().unwrap();
         self.max_fps = *self.shared.max_fps.read().unwrap();
@@ -79,7 +79,7 @@ impl TimeSystem {
 
         // Perform waiting loop if maximum fps set, cooperatively gives up
         // a timeslice to the OS scheduler.
-        if active && self.max_fps > 0 {
+        if schedule && self.max_fps > 0 {
             let td = Duration::from_millis(u64::from(1000 / self.max_fps));
             while self.last_frame_timepoint.elapsed() <= td {
                 if (self.last_frame_timepoint.elapsed() + Duration::from_millis(2)) < td {

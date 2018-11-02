@@ -1,7 +1,6 @@
 use std::sync::{Condvar, Mutex};
 
 use errors::*;
-use sched::latch::{LatchProbe, LatchWaitProbe};
 
 enum PromiseState {
     NotReady,
@@ -41,9 +40,7 @@ impl Promise {
             unreachable!();
         }
     }
-}
 
-impl LatchProbe for Promise {
     fn is_set(&self) -> bool {
         let guard = self.m.lock().unwrap();
         if let PromiseState::NotReady = *guard {
@@ -52,9 +49,7 @@ impl LatchProbe for Promise {
             true
         }
     }
-}
 
-impl LatchWaitProbe for Promise {
     fn wait(&self) {
         let mut guard = self.m.lock().unwrap();
         while let PromiseState::NotReady = *guard {
