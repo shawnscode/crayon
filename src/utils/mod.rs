@@ -16,5 +16,5 @@ pub use self::handle_pool::HandlePool;
 pub use self::hash::{FastHashMap, FastHashSet};
 pub use self::hash_value::HashValue;
 pub use self::object_pool::ObjectPool;
-pub use inlinable_string::InlineString;
+pub use inlinable_string::InlinableString;
 pub use smallvec::SmallVec;

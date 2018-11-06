@@ -37,15 +37,13 @@ extern crate wasm_bindgen;
 #[cfg(target_arch = "wasm32")]
 extern crate web_sys;
 
-extern crate crossbeam_deque;
-#[macro_use]
-extern crate cgmath;
-
 #[macro_use]
 extern crate failure;
 #[macro_use]
 extern crate log;
 
+#[macro_use]
+extern crate cgmath;
 #[macro_use]
 extern crate serde;
 extern crate byteorder;
@@ -75,12 +73,3 @@ pub mod prelude;
 pub mod res;
 
 pub use application::prelude::sys;
-
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::wasm_bindgen;
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub fn hello_world() {
-    println!("FUCK",);
-}

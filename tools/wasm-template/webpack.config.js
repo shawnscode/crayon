@@ -19,5 +19,8 @@ module.exports = {
             TextEncoder: ['text-encoding', 'TextEncoder']
         })
     ],
+    devServer: {
+        contentBase: [__dirname, path.join(__dirname, '../../examples')]
+    },
     mode: 'development'
 };

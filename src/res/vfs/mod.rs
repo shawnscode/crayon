@@ -1,5 +1,5 @@
-pub mod directory;
-pub use self::directory::Directory;
+pub mod dir;
+pub use self::dir::Directory;
 
 pub mod manifest;
 pub use self::manifest::Manifest;

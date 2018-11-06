@@ -92,15 +92,21 @@
 //! drop the ownership of the resource. And when the last ownership to a given resource is dropped,
 //! the corresponding resource is also destroyed.
 //!
+// pub mod types;
 
 pub mod location;
 use self::location::Location;
 
+pub mod registry;
+pub mod vfs;
+
 pub mod promise;
 use self::promise::Promise;
 
-pub mod registry;
-pub mod vfs;
+pub mod url;
+
+pub mod shortcut;
+use self::shortcut::Shortcut;
 
 pub mod prelude {
     pub use super::location::Location;
@@ -122,6 +128,7 @@ use utils::FastHashMap;
 pub struct ResourceSystem {
     driver: Arc<RwLock<VFSDriver>>,
     shared: Arc<ResourceSystemShared>,
+    // shortcuts: Arc<RwLock<Shortcut>>,
 }
 
 impl ResourceSystem {
@@ -131,7 +138,6 @@ impl ResourceSystem {
 
         let shared = Arc::new(ResourceSystemShared {
             driver: driver.clone(),
-            // sched: sched,
             bufs: Arc::new(RwLock::new(Vec::new())),
             promises: Arc::new(RwLock::new(FastHashMap::default())),
         });
@@ -190,6 +196,10 @@ impl ResourceSystemShared {
 
         self.load_from_uuid(loader, uuid)
     }
+
+    // pub fn load(&self, uuid: Uuid) -> Result<request::Request> {}
+    // pub fn load_file()
+    // pub fn load()
 
     /// Loads a resource with uuid asynchronously.
     pub fn load_from_uuid<T: Loader>(&self, loader: T, uuid: Uuid) -> Result<Arc<Promise>> {
