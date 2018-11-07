@@ -92,167 +92,17 @@
 //! drop the ownership of the resource. And when the last ownership to a given resource is dropped,
 //! the corresponding resource is also destroyed.
 //!
-// pub mod types;
 
-pub mod location;
-use self::location::Location;
-
-pub mod registry;
+pub mod manifest;
+pub mod request;
+pub mod shortcut;
+pub mod url;
+pub mod utils;
 pub mod vfs;
 
-pub mod promise;
-use self::promise::Promise;
+mod ctx;
+mod worker;
 
-pub mod url;
-
-pub mod shortcut;
-use self::shortcut::Shortcut;
-
-pub mod prelude {
-    pub use super::location::Location;
-    pub use super::promise::Promise;
-    pub use super::registry::{Register, Registry};
-    pub use super::vfs::Directory;
-    pub use super::{ResourceSystem, ResourceSystemShared};
-}
-
-use std::sync::{Arc, RwLock};
-use uuid::Uuid;
-
-use self::vfs::{VFSDriver, VFS};
-
-use errors::*;
-use utils::FastHashMap;
-
-/// The `ResourceSystem` Takes care of loading data asynchronously through pluggable filesystems.
-pub struct ResourceSystem {
-    driver: Arc<RwLock<VFSDriver>>,
-    shared: Arc<ResourceSystemShared>,
-    // shortcuts: Arc<RwLock<Shortcut>>,
-}
-
-impl ResourceSystem {
-    /// Creates a new `ResourceSystem`.
-    pub fn new() -> Result<Self> {
-        let driver = Arc::new(RwLock::new(VFSDriver::new()));
-
-        let shared = Arc::new(ResourceSystemShared {
-            driver: driver.clone(),
-            bufs: Arc::new(RwLock::new(Vec::new())),
-            promises: Arc::new(RwLock::new(FastHashMap::default())),
-        });
-
-        Ok(ResourceSystem {
-            driver: driver,
-            shared: shared,
-        })
-    }
-
-    /// Mount a file-system drive with identifier.
-    pub fn mount<T, F>(&mut self, name: T, vfs: F) -> Result<()>
-    where
-        T: AsRef<str>,
-        F: VFS + 'static,
-    {
-        let name = name.as_ref();
-        info!("Mounts virtual file system {}.", name);
-        self.driver.write().unwrap().mount(name, vfs)
-    }
-
-    /// Returns the multi-thread friendly parts of `ResourceSystem`.
-    pub fn shared(&self) -> Arc<ResourceSystemShared> {
-        self.shared.clone()
-    }
-}
-
-pub trait Loader: Send + Sync + 'static {
-    fn load(&self, file: &[u8]) -> Result<()>;
-}
-
-pub struct ResourceSystemShared {
-    driver: Arc<RwLock<VFSDriver>>,
-    bufs: Arc<RwLock<Vec<Vec<u8>>>>,
-    promises: Arc<RwLock<FastHashMap<Uuid, Arc<Promise>>>>,
-}
-
-impl ResourceSystemShared {
-    /// Redirects a readabke location into universe-uniqued identifier (Uuid).
-    pub fn redirect(&self, location: Location) -> Option<Uuid> {
-        self.driver
-            .read()
-            .unwrap()
-            .vfs(location.vfs())
-            .and_then(|vfs| vfs.redirect(location.filename()))
-    }
-
-    /// Loads a resource at readable location asynchronously.
-    pub fn load_from<T: Loader>(&self, loader: T, location: Location) -> Result<Arc<Promise>> {
-        let uuid = self.redirect(location).ok_or_else(|| {
-            format_err!(
-                "Undefined virtual filesystem with identifier {}.",
-                location.vfs()
-            )
-        })?;
-
-        self.load_from_uuid(loader, uuid)
-    }
-
-    // pub fn load(&self, uuid: Uuid) -> Result<request::Request> {}
-    // pub fn load_file()
-    // pub fn load()
-
-    /// Loads a resource with uuid asynchronously.
-    pub fn load_from_uuid<T: Loader>(&self, loader: T, uuid: Uuid) -> Result<Arc<Promise>> {
-        let vfs = self
-            .driver
-            .read()
-            .unwrap()
-            .vfs_from_uuid(uuid)
-            .ok_or_else(|| format_err!("Undefined uuid with {}", uuid))?;
-
-        let latch = {
-            let mut promises = self.promises.write().unwrap();
-            if promises.contains_key(&uuid) {
-                bail!("Circular reference of resource {} found!", uuid);
-            }
-
-            let latch = Arc::new(Promise::new());
-            promises.insert(uuid, latch.clone());
-            latch
-        };
-
-        let tx = latch.clone();
-        let bufs = self.bufs.clone();
-        let promises = self.promises.clone();
-
-        // self.sched.spawn(move || {
-        {
-            let mut bytes = bufs.write().unwrap().pop().unwrap_or(Vec::new());
-            let uri = vfs.locate(uuid).unwrap();
-
-            if let Err(err) = vfs.read_to_end(&uri, &mut bytes) {
-                tx.set(Err(err));
-            } else {
-                tx.set(loader.load(&bytes));
-            }
-
-            promises.write().unwrap().remove(&uuid);
-            bytes.clear();
-            bufs.write().unwrap().push(bytes);
-        }
-        // });
-
-        Ok(latch)
-    }
-
-    /// Blocks current thread until the loading process of resource `uuid` finished.
-    pub fn wait_until(&self, uuid: Uuid) -> Result<()> {
-        let promise = self.promises.read().unwrap().get(&uuid).cloned();
-        if let Some(promise) = promise {
-            // self.sched.wait_until(promise.as_ref());
-            promise.take()
-        } else {
-            Ok(())
-        }
-    }
-}
+pub use self::ctx::{discard, setup, valid};
+pub use self::ctx::{exists, find, load, load_from, resolve};
+pub use self::ctx::{load_from_with_callback, load_with_callback};

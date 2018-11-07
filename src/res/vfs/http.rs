@@ -1,16 +1,19 @@
 use std::fs;
 use std::io::Read;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
+
+use errors::*;
 
 use super::super::request::{RequestState, Response};
 use super::super::url::Url;
 use super::VFS;
 
-pub struct Dir {}
+pub struct Http {}
 
-impl Dir {
+impl Http {
     pub fn new() -> Self {
-        Dir {}
+        Http {}
     }
 
     fn load_from(&self, location: &str) -> Response {
@@ -21,7 +24,7 @@ impl Dir {
     }
 }
 
-impl VFS for Dir {
+impl VFS for Http {
     fn request(&self, url: Url, state: Arc<Mutex<RequestState>>) {
         let response = self.load_from(url.path());
         *state.lock().unwrap() = RequestState::Ok(response);

@@ -19,6 +19,7 @@ codecov = { repository = "shawnscode/crayon", branch = "master", service = "gith
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 gl = "0.10.0"
 glutin = "0.18.0"
+crossbeam-deque = "0.5.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2.27"

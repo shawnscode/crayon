@@ -86,7 +86,7 @@
 //! ```rust
 //! use crayon::video::prelude::*;
 //! use crayon::math::prelude::*;
-//! let video = VideoSystem::headless(None).shared();
+//! let video = VideoSystem::headless().shared();
 //!
 //! // Creates a `SurfaceParams` object.
 //! let mut params = SurfaceParams::default();
@@ -113,7 +113,7 @@
 //!
 //! ```rust
 //! use crayon::video::prelude::*;
-//! let video = VideoSystem::headless(None).shared();
+//! let video = VideoSystem::headless().shared();
 //!
 //! // Declares the uniform variable layouts.
 //! let mut uniforms = UniformVariableLayout::build()
@@ -150,7 +150,7 @@
 //!
 //! ```rust
 //! use crayon::video::prelude::*;
-//! let video = VideoSystem::headless(None).shared();
+//! let video = VideoSystem::headless().shared();
 //!
 //! let mut params = TextureParams::default();
 //!
@@ -170,7 +170,7 @@
 //!
 //! ```rust
 //! use crayon::video::prelude::*;
-//! let video = VideoSystem::headless(None).shared();
+//! let video = VideoSystem::headless().shared();
 //!
 //! let mut params = MeshParams::default();
 //!
@@ -215,8 +215,7 @@ use uuid::Uuid;
 
 use application::window::Window;
 use math::prelude::{Aabb2, Aabb3, Vector2};
-use res::prelude::{Location, ResourceSystemShared};
-use res::registry::Registry;
+use res::utils::Registry;
 use utils::{DoubleBuf, ObjectPool};
 
 use self::assets::prelude::*;
@@ -246,13 +245,13 @@ pub struct VideoSystem {
 
 impl VideoSystem {
     /// Create a new `VideoSystem` with one `Window` context.
-    pub fn new(window: &Window, res: Arc<ResourceSystemShared>) -> ::errors::Result<Self> {
+    pub fn new(window: &Window) -> ::errors::Result<Self> {
         let frames = Arc::new(DoubleBuf::new(
             Frame::with_capacity(64 * 1024),
             Frame::with_capacity(64 * 1024),
         ));
 
-        let shared = VideoSystemShared::new(frames.clone(), res);
+        let shared = VideoSystemShared::new(frames.clone());
 
         Ok(VideoSystem {
             last_dimensions: window.dimensions(),
@@ -263,16 +262,9 @@ impl VideoSystem {
     }
 
     /// Creates a new headless `VideoSystem`.
-    pub fn headless<T>(res: T) -> Self
-    where
-        T: Into<Option<Arc<ResourceSystemShared>>>,
-    {
-        let res = res
-            .into()
-            .unwrap_or_else(|| ::res::ResourceSystem::new().unwrap().shared());
-
+    pub fn headless() -> Self {
         let frames = Arc::new(DoubleBuf::default());
-        let shared = VideoSystemShared::new(frames.clone(), res);
+        let shared = VideoSystemShared::new(frames.clone());
 
         VideoSystem {
             last_dimensions: (0, 0).into(),
@@ -345,12 +337,12 @@ pub struct VideoSystemShared {
 
 impl VideoSystemShared {
     /// Create a new `VideoSystem` with one `Window` context.
-    fn new(frames: Arc<DoubleBuf<Frame>>, res: Arc<ResourceSystemShared>) -> Self {
+    fn new(frames: Arc<DoubleBuf<Frame>>) -> Self {
         use self::assets::mesh_loader::MeshLoader;
         use self::assets::texture_loader::TextureLoader;
 
-        let textures = TextureRegistry::new(res.clone(), TextureLoader::new(frames.clone()));
-        let meshes = MeshRegistry::new(res.clone(), MeshLoader::new(frames.clone()));
+        let textures = TextureRegistry::new(TextureLoader::new(frames.clone()));
+        let meshes = MeshRegistry::new(MeshLoader::new(frames.clone()));
 
         VideoSystemShared {
             frames: frames,
@@ -439,11 +431,8 @@ impl VideoSystemShared {
 
     /// Creates a mesh object from file asynchronously.
     #[inline]
-    pub fn create_mesh_from<'a, T>(&'a self, location: T) -> ::errors::Result<MeshHandle>
-    where
-        T: Into<Location<'a>>,
-    {
-        let handle = self.meshes.create_from(location)?;
+    pub fn create_mesh_from<T: AsRef<str>>(&self, url: T) -> ::errors::Result<MeshHandle> {
+        let handle = self.meshes.create_from(url)?;
         Ok(handle)
     }
 
@@ -519,11 +508,8 @@ impl VideoSystemShared {
     }
 
     /// Creates a texture object from file asynchronously.
-    pub fn create_texture_from<'a, T>(&'a self, location: T) -> ::errors::Result<TextureHandle>
-    where
-        T: Into<Location<'a>>,
-    {
-        let handle = self.textures.create_from(location)?;
+    pub fn create_texture_from<T: AsRef<str>>(&self, url: T) -> ::errors::Result<TextureHandle> {
+        let handle = self.textures.create_from(url)?;
         Ok(handle)
     }
 

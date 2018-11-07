@@ -148,7 +148,6 @@ impl Application for Window {
         let mut dc = Draw::new(self.post_effect.shader, self.post_effect.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
         dc.set_uniform_variable("time", self.time);
-        println!("set uniform {:?}", self.time);
         self.batch.draw(dc);
         self.batch.submit(&ctx.video, surface)?;
         self.time += 0.05;

@@ -23,7 +23,7 @@ impl MeshLoader {
     }
 }
 
-impl ::res::registry::Register for MeshLoader {
+impl crate::res::utils::Register for MeshLoader {
     type Handle = MeshHandle;
     type Intermediate = (MeshParams, Option<MeshData>);
     type Value = MeshParams;

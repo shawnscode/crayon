@@ -24,6 +24,8 @@
 //! ```
 
 #[cfg(not(target_arch = "wasm32"))]
+extern crate crossbeam_deque;
+#[cfg(not(target_arch = "wasm32"))]
 extern crate gl;
 #[cfg(not(target_arch = "wasm32"))]
 extern crate glutin;
@@ -62,6 +64,8 @@ pub use log::*;
 
 #[macro_use]
 pub mod errors;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod sched;
 #[macro_use]
 pub mod utils;
 pub mod application;

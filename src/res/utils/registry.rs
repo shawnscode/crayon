@@ -7,8 +7,6 @@ use uuid::Uuid;
 use errors::*;
 use utils::{FastHashMap, HandleLike, ObjectPool};
 
-use super::{Loader, Location, ResourceSystemShared};
-
 pub trait Register: Send + Sync {
     type Handle: Send + Sync;
     type Intermediate;
@@ -22,21 +20,19 @@ pub trait Register: Send + Sync {
 // The `Registry` is a standardized resources manager that defines a set of interface for creation,
 // destruction, sharing and lifetime management. It is used in all the built-in crayon modules.
 pub struct Registry<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> {
-    res: Arc<ResourceSystemShared>,
     payload: Arc<RwLock<Payload<H, R>>>,
     register: R,
 }
 
 impl<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> Registry<H, R> {
     /// Creates a new and empty `Registry`.
-    pub fn new(res: Arc<ResourceSystemShared>, register: R) -> Self {
+    pub fn new(register: R) -> Self {
         let payload = Payload {
             items: ObjectPool::new(),
             redirects: FastHashMap::default(),
         };
 
         Registry {
-            res: res,
             payload: Arc::new(RwLock::new(payload)),
             register: register,
         }
@@ -62,19 +58,11 @@ impl<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> Registr
     }
 
     /// Creates a resource from readable location.
-    pub fn create_from<'a, T>(&'a self, location: T) -> Result<H>
-    where
-        T: Into<Location<'a>>,
-    {
-        let location = location.into();
+    pub fn create_from<T: AsRef<str>>(&self, url: T) -> Result<H> {
+        let url = url.as_ref();
 
-        let uuid = self.res.redirect(location).ok_or_else(|| {
-            format_err!(
-                "Could NOT found resource '{}' at '{}'.",
-                location.filename(),
-                location.vfs()
-            )
-        })?;
+        let uuid = crate::res::find(url)
+            .ok_or_else(|| format_err!("Could not found resource '{}'.", url))?;
 
         self.create_from_uuid(uuid)
     }
@@ -100,13 +88,53 @@ impl<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> Registr
             handle
         };
 
-        let loader = RegistryLoader {
-            handle: handle,
-            register: self.register.clone(),
-            payload: self.payload.clone(),
+        let payload = self.payload.clone();
+        let register = self.register.clone();
+        let cb = move |rsp: &crate::res::request::Response| match *rsp {
+            Ok(ref bytes) => {
+                let itermediate = register.load(handle, &bytes);
+                let mut payload = payload.write().unwrap();
+                let disposed = payload.items.get(handle).unwrap().rc <= 0;
+
+                if disposed {
+                    let entry = payload.items.free(handle).unwrap();
+
+                    if let Some(uuid) = entry.uuid {
+                        payload.redirects.remove(&uuid);
+                    }
+
+                    if let AsyncState::Ok(value) = entry.state {
+                        register.detach(handle, value);
+                    }
+                } else {
+                    match itermediate {
+                        Ok(item) => match register.attach(handle, item) {
+                            Ok(value) => {
+                                payload.items.get_mut(handle).unwrap().state =
+                                    AsyncState::Ok(value);
+                            }
+                            Err(err) => {
+                                warn!("{:?}", err);
+                                payload.items.get_mut(handle).unwrap().state = AsyncState::Err;
+                            }
+                        },
+                        Err(err) => {
+                            warn!("{:?}", err);
+                            payload.items.get_mut(handle).unwrap().state = AsyncState::Err;
+                        }
+                    }
+                }
+            }
+            Err(ref err) => {
+                warn!("{:?}", err);
+                let mut payload = payload.write().unwrap();
+                if let Some(entry) = payload.items.get_mut(handle) {
+                    entry.state = AsyncState::Err;
+                }
+            }
         };
 
-        match self.res.load_from_uuid(loader, uuid) {
+        match crate::res::load_with_callback(uuid, cb) {
             Err(err) => {
                 self.payload.write().unwrap().items.free(handle).unwrap();
                 return Err(err);
@@ -167,29 +195,6 @@ impl<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> Registr
             .and_then(|v| v.uuid)
     }
 
-    /// Blocks current thread until the loading process of resource finished.
-    pub fn wait_until(&self, handle: H) -> Result<()> {
-        if let Some(uuid) = self.uuid(handle) {
-            self.res.wait_until(uuid)
-        } else {
-            Ok(())
-        }
-    }
-
-    /// Blocks current thread until the loading process of resource finished.
-    ///
-    /// Returns None if the resource does not exist, otherwise calls f with the
-    /// value and returns the result.
-    pub fn wait_until_and<F: FnOnce(&R::Value) -> T, T>(&self, handle: H, f: F) -> Option<T> {
-        if let Some(uuid) = self.uuid(handle) {
-            if self.res.wait_until(uuid).is_ok() {
-                return self.get(handle, f);
-            }
-        }
-
-        None
-    }
-
     /// Gets the length of this `Registry`.
     #[inline]
     pub fn len(&self) -> usize {
@@ -232,54 +237,4 @@ struct Entry<T> {
     rc: u32,
     uuid: Option<Uuid>,
     state: AsyncState<T>,
-}
-
-struct RegistryLoader<H: HandleLike, R: Register<Handle = H>> {
-    handle: H,
-    register: R,
-    payload: Arc<RwLock<Payload<H, R>>>,
-}
-
-impl<H: HandleLike + 'static, R: Register<Handle = H> + 'static> Loader for RegistryLoader<H, R> {
-    fn load(&self, bytes: &[u8]) -> Result<()> {
-        let rsp = self.register.load(self.handle, bytes);
-
-        {
-            let mut payload = self.payload.write().unwrap();
-            let disposed = payload.items.get(self.handle).unwrap().rc <= 0;
-
-            if disposed {
-                let entry = payload.items.free(self.handle).unwrap();
-
-                if let Some(uuid) = entry.uuid {
-                    payload.redirects.remove(&uuid);
-                }
-
-                if let AsyncState::Ok(value) = entry.state {
-                    self.register.detach(self.handle, value);
-                }
-            } else {
-                match rsp {
-                    Ok(item) => match self.register.attach(self.handle, item) {
-                        Ok(value) => {
-                            payload.items.get_mut(self.handle).unwrap().state =
-                                AsyncState::Ok(value);
-                        }
-                        Err(err) => {
-                            warn!("{:?}", err);
-                            payload.items.get_mut(self.handle).unwrap().state = AsyncState::Err;
-                            return Err(err);
-                        }
-                    },
-                    Err(err) => {
-                        warn!("{:?}", err);
-                        payload.items.get_mut(self.handle).unwrap().state = AsyncState::Err;
-                        return Err(err);
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
 }

@@ -3,7 +3,6 @@ use std::sync::{Arc, RwLock};
 use super::*;
 
 use input;
-use res;
 use utils::DoubleBuf;
 use video;
 
@@ -17,7 +16,6 @@ struct ContextData {
 /// The context of sub-systems that could be accessed from multi-thread environments safely.
 #[derive(Clone)]
 pub struct Context {
-    pub res: Arc<res::ResourceSystemShared>,
     pub input: Arc<input::InputSystemShared>,
     pub time: Arc<time::TimeSystemShared>,
     pub video: Arc<video::VideoSystemShared>,
@@ -45,7 +43,6 @@ pub struct Engine {
     pub window: window::Window,
     pub input: input::InputSystem,
     pub video: video::VideoSystem,
-    pub res: res::ResourceSystem,
     pub time: time::TimeSystem,
 
     chan: Arc<DoubleBuf<Vec<Command>>>,
@@ -71,6 +68,15 @@ impl Engine {
 
     /// Setup engine with specified settings.
     pub fn new_with(settings: &settings::Settings) -> Result<Self> {
+        unsafe {
+            ctx::setup();
+
+            #[cfg(not(target_arch = "wasm32"))]
+            crate::sched::setup(4, None, None);
+
+            crate::res::setup();
+        }
+
         let window = if settings.headless {
             window::Window::headless()
         } else {
@@ -80,13 +86,10 @@ impl Engine {
         let input = input::InputSystem::new(settings.input);
         let input_shared = input.shared();
 
-        let res = res::ResourceSystem::new()?;
-        let res_shared = res.shared();
-
         let video = if settings.headless {
-            video::VideoSystem::headless(res_shared.clone())
+            video::VideoSystem::headless()
         } else {
-            video::VideoSystem::new(&window, res_shared.clone())?
+            video::VideoSystem::new(&window)?
         };
 
         let video_shared = video.shared();
@@ -99,7 +102,6 @@ impl Engine {
         // ins.listen();
 
         let context = Context {
-            res: res_shared,
             input: input_shared,
             time: time_shared,
             video: video_shared,
@@ -111,7 +113,6 @@ impl Engine {
             input: input,
             window: window,
             video: video,
-            res: res,
             time: time,
             chan: Arc::new(DoubleBuf::default()),
             context: context,
@@ -198,6 +199,8 @@ impl Engine {
     fn advance(&mut self, schedule: bool) -> Result<bool> {
         let mut alive = true;
         let mut chan = self.chan.write();
+
+        ctx::foreach(|v| v.on_update());
 
         self.time.advance(schedule);
         self.input.advance(self.window.hidpi());

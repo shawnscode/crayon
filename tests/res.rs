@@ -1,23 +1,23 @@
-extern crate crayon;
-extern crate rand;
+// extern crate crayon;
+// extern crate rand;
 
-use std::sync::mpsc;
-use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
+// use std::sync::mpsc;
+// use std::sync::Arc;
+// use std::thread;
+// use std::time::Duration;
 
-use crayon::res::prelude::*;
+// use crayon::res::prelude::*;
 
-fn testbed() -> Arc<ResourceSystemShared> {
-    let dir = ::std::env::current_dir()
-        .unwrap()
-        .join("examples")
-        .join("resources");
+// fn testbed() -> Arc<ResourceSystemShared> {
+//     let dir = ::std::env::current_dir()
+//         .unwrap()
+//         .join("examples")
+//         .join("resources");
 
-    let mut res = ResourceSystem::new().unwrap();
-    res.mount("res", Directory::new(dir).unwrap()).unwrap();
-    res.shared()
-}
+//     let mut res = ResourceSystem::new().unwrap();
+//     res.mount("res", Directory::new(dir).unwrap()).unwrap();
+//     res.shared()
+// }
 
 // #[test]
 // fn stress() {

@@ -77,14 +77,10 @@ impl Url {
                 components[HOST_END] = iter_end;
             }
 
-            if components[HOST_END] == components[HOST] {
-                bail!("The hostname of URL({}) could not be empty!", url);
-            }
-
             iter = iter_end + 1;
             iter_end = url.len();
 
-            components[PATH] = iter;
+            components[PATH] = iter - 1;
             components[PATH_END] = iter_end;
 
             // extract query
@@ -112,12 +108,10 @@ impl Url {
                 components[FRAGMENT_END] = iter_end;
             }
 
-            if components[PATH_END] == components[PATH] {
-                bail!("The filename of URL({}) could not be empty!", url);
+            if components[PATH_END] <= components[PATH] {
+                bail!("The path of URL({}) could not be empty!", url);
             }
         }
-
-        println!("url {} has {:?}", url, components);
 
         Ok(Url {
             url: url,
@@ -126,7 +120,7 @@ impl Url {
     }
 
     /// Get the queries of this URL if exists.
-    pub fn queries(&self) -> Option<FastHashMap<InlinableString, InlinableString>> {
+    pub fn queries(&self) -> Option<FastHashMap<InlinableString, Option<InlinableString>>> {
         if self.components[QUERY_END] > self.components[QUERY] {
             let mut queries = FastHashMap::default();
             let (mut lhs, rhs) = (self.components[QUERY], self.components[QUERY_END]);
@@ -146,7 +140,12 @@ impl Url {
                         if (eq_index > lhs) && (end > (eq_index + 1)) {
                             let k = self.url.get_unchecked(lhs..eq_index);
                             let v = self.url.get_unchecked((eq_index + 1)..end);
-                            queries.insert(k.into(), v.into());
+                            queries.insert(k.into(), Some(v.into()));
+                        }
+                    } else {
+                        if end > lhs {
+                            let k = self.url.get_unchecked(lhs..end);
+                            queries.insert(k.into(), None);
                         }
                     }
 
@@ -158,6 +157,20 @@ impl Url {
         } else {
             None
         }
+    }
+}
+
+impl std::ops::Deref for Url {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.url
+    }
+}
+
+impl std::fmt::Display for Url {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.url)
     }
 }
 

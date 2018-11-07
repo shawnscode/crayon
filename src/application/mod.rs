@@ -35,6 +35,10 @@ pub mod window;
 mod backends;
 mod engine;
 
+mod ctx;
+
+pub use self::ctx::{attach, detach, valid, LifecycleListener, LifecycleListenerHandle};
+
 pub mod prelude {
     pub use super::backends::sys;
     pub use super::engine::{Context, Engine};

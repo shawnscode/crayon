@@ -23,7 +23,7 @@ impl TextureLoader {
     }
 }
 
-impl ::res::registry::Register for TextureLoader {
+impl crate::res::utils::Register for TextureLoader {
     type Handle = TextureHandle;
     type Intermediate = (TextureParams, Option<TextureData>);
     type Value = TextureParams;

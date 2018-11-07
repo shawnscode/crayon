@@ -98,9 +98,6 @@ fn main() {
     params.window.size = (464, 434).into();
 
     let mut engine = Engine::new_with(&params).unwrap();
-    let res = find_res_dir();
-    engine.res.mount("res", res).unwrap();
-
     let window = Window::new(&mut engine).unwrap();
     engine.run(window).unwrap();
 }
@@ -123,24 +120,21 @@ pub fn wasm_main() {
     params.window.size = (464, 434).into();
 
     let mut engine = Engine::new_with(&params).unwrap();
-    let res = find_res_dir();
-    engine.res.mount("res", res).unwrap();
-
     let window = Window::new(&mut engine).unwrap();
     engine.run_wasm(window).unwrap();
 }
 
-pub fn find_res_dir() -> crayon::res::vfs::Directory {
-    use std::path::Path;
+// pub fn find_res_dir() -> crayon::res::vfs::Directory {
+//     use std::path::Path;
 
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let search_dirs = [root.join("examples").join("resources")];
+//     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+//     let search_dirs = [root.join("examples").join("resources")];
 
-    for v in &search_dirs {
-        if v.is_dir() && v.join(crayon::res::vfs::manifest::NAME).exists() {
-            return crayon::res::vfs::Directory::new(v).unwrap();
-        }
-    }
+//     for v in &search_dirs {
+//         if v.is_dir() && v.join(crayon::res::vfs::manifest::NAME).exists() {
+//             return crayon::res::vfs::Directory::new(v).unwrap();
+//         }
+//     }
 
-    panic!("Could not found compiled resources.");
-}
+//     panic!("Could not found compiled resources.");
+// }
