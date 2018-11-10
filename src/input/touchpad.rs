@@ -1,9 +1,8 @@
-use application::time::Instant;
 use std::cmp::Ordering;
 use std::time::Duration;
 
-use application::events::TouchState;
 use math::prelude::{MetricSpace, Vector2};
+use utils::time::Timestamp;
 
 use super::MAX_TOUCHES;
 
@@ -36,6 +35,15 @@ impl Default for TouchPadParams {
             max_touch_distance: 20.0,
         }
     }
+}
+
+/// Describes touch-screen input state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TouchState {
+    Start,
+    Move,
+    End,
+    Cancel,
 }
 
 pub struct TouchPad {
@@ -133,10 +141,10 @@ pub enum GestureTap {
 }
 
 impl GestureTap {
-    pub fn scale(&self, hidpi: f32) -> GestureTap {
+    pub fn scale(&self, device_pixel_ratio: f32) -> GestureTap {
         match *self {
             GestureTap::Action { position } => GestureTap::Action {
-                position: position * hidpi,
+                position: position * device_pixel_ratio,
             },
 
             GestureTap::None => GestureTap::None,
@@ -148,7 +156,7 @@ struct GestureTapDetector {
     record: TouchesRecord,
 
     last_tap_position: Vector2<f32>,
-    last_tap_time: Instant,
+    last_tap_time: Timestamp,
     count: u32,
 
     required: u32,
@@ -160,7 +168,7 @@ impl GestureTapDetector {
         GestureTapDetector {
             record: TouchesRecord::default(),
             last_tap_position: Vector2::new(0.0, 0.0),
-            last_tap_time: Instant::now(),
+            last_tap_time: Timestamp::now(),
             count: 0,
 
             required: required,
@@ -267,10 +275,10 @@ pub enum GesturePan {
 }
 
 impl GesturePan {
-    pub fn scale(&self, hidpi: f32) -> GesturePan {
+    pub fn scale(&self, device_pixel_ratio: f32) -> GesturePan {
         match *self {
             GesturePan::Start { start_position } => GesturePan::Start {
-                start_position: start_position * hidpi,
+                start_position: start_position * device_pixel_ratio,
             },
 
             GesturePan::Move {
@@ -278,17 +286,17 @@ impl GesturePan {
                 position,
                 movement,
             } => GesturePan::Move {
-                start_position: start_position * hidpi,
-                position: position * hidpi,
-                movement: movement * hidpi,
+                start_position: start_position * device_pixel_ratio,
+                position: position * device_pixel_ratio,
+                movement: movement * device_pixel_ratio,
             },
 
             GesturePan::End {
                 start_position,
                 position,
             } => GesturePan::End {
-                start_position: start_position * hidpi,
-                position: position * hidpi,
+                start_position: start_position * device_pixel_ratio,
+                position: position * device_pixel_ratio,
             },
 
             GesturePan::None => GesturePan::None,
@@ -408,13 +416,13 @@ impl Default for TouchEvent {
 
 #[derive(Debug, Clone, Copy)]
 struct TouchesRecord {
-    touches: [(Instant, TouchEvent); MAX_TOUCHES + 1],
+    touches: [(Timestamp, TouchEvent); MAX_TOUCHES + 1],
     len: usize,
 }
 
 impl Default for TouchesRecord {
     fn default() -> Self {
-        let now = Instant::now();
+        let now = Timestamp::now();
         TouchesRecord {
             touches: [(now, TouchEvent::default()); MAX_TOUCHES + 1],
             len: 0,
@@ -460,7 +468,7 @@ impl TouchesRecord {
         }
 
         if !found {
-            self.touches[MAX_TOUCHES] = (Instant::now(), touch);
+            self.touches[MAX_TOUCHES] = (Timestamp::now(), touch);
         }
 
         self.touches.sort_by(Self::sort);
@@ -473,7 +481,7 @@ impl TouchesRecord {
         }
     }
 
-    fn sort(lhs: &(Instant, TouchEvent), rhs: &(Instant, TouchEvent)) -> Ordering {
+    fn sort(lhs: &(Timestamp, TouchEvent), rhs: &(Timestamp, TouchEvent)) -> Ordering {
         lhs.1.state.cmp(&rhs.1.state).then(lhs.0.cmp(&rhs.0))
     }
 }

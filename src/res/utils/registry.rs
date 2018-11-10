@@ -1,5 +1,29 @@
-//! The `Registry` is a standardized resources manager that defines a set of interface for creation,
+//! # Registry
+//!
+//! The `Registry` is a standardized resource manager that defines a set of interface for creation,
 //! destruction, sharing and lifetime management. It is used in all the built-in crayon modules.
+//!
+//! ## Handle
+//!
+//! We are using a unique `Handle` object to represent a resource object safely. This approach
+//! has several advantages, since it helps for saving state externally. E.G.:
+//!
+//! 1. It allows for the resource to be destroyed without leaving dangling pointers.
+//! 2. Its perfectly safe to store and share the `Handle` even the underlying resource is
+//! loading on the background thread.
+//!
+//! In some systems, actual resource objects are private and opaque, application will usually
+//! not have direct access to a resource object in form of reference.
+//!
+//! ## Ownership & Lifetime
+//!
+//! For the sake of simplicity, the refenerce-counting technique is used for providing shared ownership
+//! of a resource.
+//!
+//! Everytime you create a resource at runtime, the `Registry` will increases the reference count of
+//! the resource by 1. And when you are done with the resource, its the user's responsibility to
+//! drop the ownership of the resource. And when the last ownership to a given resource is dropped,
+//! the corresponding resource is also destroyed.
 
 use std::sync::{Arc, RwLock};
 use uuid::Uuid;

@@ -8,6 +8,7 @@ pub mod handle_pool;
 pub mod hash;
 pub mod hash_value;
 pub mod object_pool;
+pub mod time;
 
 pub use self::data_buf::{DataBuffer, DataBufferPtr};
 pub use self::double_buf::DoubleBuf;

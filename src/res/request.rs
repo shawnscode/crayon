@@ -1,27 +1,28 @@
 //! A asynchronous loading request.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use sched::prelude::{LatchProbe, LatchWaitProbe, LockLatch};
 
 pub type Response = Result<Box<[u8]>, failure::Error>;
-
-pub enum RequestState {
-    Pending,
-    Ok(Response),
-    Invalid,
-}
 
 /// A asynchronous loading request. You sould checks the completion status with
 /// `poll` method manually. Once the polling returns true, you could fetch the
 /// result by `response`.
 pub enum Request {
-    NotReady(Arc<Mutex<RequestState>>),
+    NotReady(Arc<LockLatch<Response>>),
     Ok(Response),
 }
 
 impl Request {
     #[inline]
-    pub fn new(state: Arc<Mutex<RequestState>>) -> Self {
-        Request::NotReady(state)
+    pub fn latch() -> Arc<LockLatch<Response>> {
+        Arc::new(LockLatch::new())
+    }
+
+    #[inline]
+    pub fn new(latch: Arc<LockLatch<Response>>) -> Self {
+        Request::NotReady(latch)
     }
 
     #[inline]
@@ -34,29 +35,36 @@ impl Request {
         Request::Ok(Err(err.into()))
     }
 
+    /// Blocks the current thread until the request has been resolved.
+    #[inline]
+    pub fn wait(&mut self) {
+        let rsp = match *self {
+            Request::NotReady(ref state) => {
+                state.wait();
+                state.take()
+            }
+            _ => return,
+        };
+
+        *self = Request::Ok(rsp);
+    }
+
     /// Attempt to resolve the request to a final state, and returns true if the
     /// loading result is ready for user.
     #[inline]
     pub fn poll(&mut self) -> bool {
-        let state = match *self {
+        let rsp = match *self {
             Request::Ok(_) => return true,
             Request::NotReady(ref state) => {
-                let mut state = state.lock().unwrap();
-                match *state {
-                    RequestState::Ok(_) => {}
-                    _ => return false,
+                if !state.is_set() {
+                    return false;
                 }
 
-                let mut tmp = RequestState::Invalid;
-                std::mem::swap::<RequestState>(&mut state, &mut tmp);
-                tmp
+                state.take()
             }
         };
 
-        if let RequestState::Ok(rsp) = state {
-            *self = Request::Ok(rsp);
-        }
-
+        *self = Request::Ok(rsp);
         true
     }
 

@@ -7,8 +7,8 @@ use crossbeam_deque as deque;
 
 use super::job::{JobRef, StackJob};
 use super::latch::{CountLatch, Latch, LatchProbe, LatchWaitProbe, LockLatch};
+use super::system::PanicHandler;
 use super::unwind::AbortIfPanic;
-use super::PanicHandler;
 
 pub struct Scheduler {
     terminator: CountLatch,
@@ -93,7 +93,6 @@ impl Scheduler {
     //             injector.push(job);
     //         }
     //     }
-
     //     self.watcher.notify_all();
     // }
 

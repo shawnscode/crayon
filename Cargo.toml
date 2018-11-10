@@ -19,15 +19,14 @@ codecov = { repository = "shawnscode/crayon", branch = "master", service = "gith
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 gl = "0.10.0"
 glutin = "0.18.0"
-crossbeam-deque = "0.5.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2.27"
-js-sys = "0.3.4"
+wasm-bindgen = "0.2.28"
+js-sys = "0.3.5"
 console_error_panic_hook = "0.1.5"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
-version = "0.3.4"
+version = "0.3.5"
 features = [
     'Node',
     'Document',
@@ -62,6 +61,7 @@ inlinable_string = { version = "0.1.10", features = ["serde"] }
 smallvec = { version = "0.6.5", features = ["serde"] }
 uuid = { version = "0.7.1", features = ["serde"] }
 cgmath = { version = "0.16.1", features = ["serde"] }
+crossbeam-deque = "0.5.1"
 
 [dev-dependencies]
 rand = "0.5.5"

@@ -2,13 +2,13 @@ use gl;
 use glutin;
 use glutin::GlContext;
 
-use application::events::Event;
 use errors::*;
 use math::prelude::Vector2;
 
+use super::super::super::events::Event;
+use super::super::super::WindowParams;
 use super::super::Visitor;
 use super::types;
-use application::settings::WindowParams;
 
 pub struct GlutinVisitor {
     window: glutin::GlWindow,
@@ -37,9 +37,10 @@ impl GlutinVisitor {
             events_loop: events_loop,
         };
 
-        let size = visitor.dimensions_in_points();
-        let hi = visitor.hidpi();
-        let dims = Vector2::new((size.x as f32 * hi) as u32, (size.y as f32 * hi) as u32);
+        let size = visitor.dimensions();
+        let dpr = visitor.device_pixel_ratio();
+        let dims = Vector2::new((size.x as f32 * dpr) as u32, (size.y as f32 * dpr) as u32);
+
         visitor.events_loop.poll_events(|_| {});
         visitor.resize(dims);
 
@@ -64,19 +65,19 @@ impl Visitor for GlutinVisitor {
     }
 
     #[inline]
-    fn position_in_points(&self) -> Vector2<i32> {
+    fn position(&self) -> Vector2<i32> {
         let pos = self.window.get_position().unwrap();
         Vector2::new(pos.x as i32, pos.y as i32)
     }
 
     #[inline]
-    fn dimensions_in_points(&self) -> Vector2<u32> {
+    fn dimensions(&self) -> Vector2<u32> {
         let size = self.window.get_inner_size().unwrap();
         Vector2::new(size.width as u32, size.height as u32)
     }
 
     #[inline]
-    fn hidpi(&self) -> f32 {
+    fn device_pixel_ratio(&self) -> f32 {
         self.window.get_hidpi_factor() as f32
     }
 
@@ -88,7 +89,7 @@ impl Visitor for GlutinVisitor {
 
     #[inline]
     fn poll_events(&mut self, events: &mut Vec<Event>) {
-        let dims = self.dimensions_in_points();
+        let dims = self.dimensions();
         self.events_loop.poll_events(|v| {
             if let Some(e) = types::from_event(v, dims) {
                 events.push(e);

@@ -1,7 +1,7 @@
-use application::events::Event;
 use errors::*;
 use math::prelude::Vector2;
 
+use super::super::events::Event;
 use super::Visitor;
 
 pub struct HeadlessVisitor {}
@@ -14,17 +14,17 @@ impl Visitor for HeadlessVisitor {
     fn hide(&self) {}
 
     #[inline]
-    fn position_in_points(&self) -> Vector2<i32> {
+    fn position(&self) -> Vector2<i32> {
         (0, 0).into()
     }
 
     #[inline]
-    fn dimensions_in_points(&self) -> Vector2<u32> {
+    fn dimensions(&self) -> Vector2<u32> {
         (0, 0).into()
     }
 
     #[inline]
-    fn hidpi(&self) -> f32 {
+    fn device_pixel_ratio(&self) -> f32 {
         1.0
     }
 

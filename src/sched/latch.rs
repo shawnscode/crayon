@@ -73,7 +73,7 @@ impl<T> LockLatch<T> {
     }
 
     #[inline]
-    pub fn wait_and_take(&self) -> T {
+    pub fn take(&self) -> T {
         let mut lock = self.m.lock().unwrap();
 
         while lock.is_none() {
@@ -147,5 +147,59 @@ impl LatchProbe for CountLatch {
     fn is_set(&self) -> bool {
         // Need to acquire any memory reads before latch was set:
         self.counter.load(Ordering::SeqCst) == 0
+    }
+}
+
+/// A Count Latch starts as false and eventually becomes true. You can block until
+/// it becomes true.
+pub struct LockCountLatch {
+    counter: AtomicUsize,
+    m: Mutex<()>,
+    v: Condvar,
+}
+
+impl LockCountLatch {
+    #[inline]
+    pub fn new() -> LockCountLatch {
+        LockCountLatch {
+            counter: AtomicUsize::new(1),
+            m: Mutex::new(()),
+            v: Condvar::new(),
+        }
+    }
+
+    #[inline]
+    pub fn increment(&self) {
+        debug_assert!(!self.is_set());
+        self.counter.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+impl Latch for LockCountLatch {
+    /// Set the latch to true, releasing all threads who are waiting.
+    #[inline]
+    fn set(&self) {
+        self.counter.fetch_sub(1, Ordering::SeqCst);
+
+        if self.is_set() {
+            self.v.notify_all();
+        }
+    }
+}
+
+impl LatchProbe for LockCountLatch {
+    #[inline]
+    fn is_set(&self) -> bool {
+        // Need to acquire any memory reads before latch was set:
+        self.counter.load(Ordering::SeqCst) == 0
+    }
+}
+
+impl LatchWaitProbe for LockCountLatch {
+    fn wait(&self) {
+        let mut guard = self.m.lock().unwrap();
+        while !self.is_set() {
+            guard = self.v.wait(guard).unwrap();
+        }
     }
 }

@@ -11,7 +11,7 @@ use super::unwind;
 
 /// Represents a fork-join scope which can be used to spawn any number of tasks.
 pub struct Scope<'s> {
-    scheduler: Arc<Scheduler>,
+    scheduler: Option<Arc<Scheduler>>,
     latch: CountLatch,
     marker: PhantomData<Box<FnOnce(&Scope<'s>) + Send + Sync + 's>>,
     /// if some job panicked, the error is stored here; it will be
@@ -20,7 +20,7 @@ pub struct Scope<'s> {
 }
 
 impl<'s> Scope<'s> {
-    pub fn new(scheduler: Arc<Scheduler>) -> Self {
+    pub fn new(scheduler: Option<Arc<Scheduler>>) -> Self {
         Scope {
             scheduler: scheduler,
             latch: CountLatch::new(),
@@ -38,15 +38,19 @@ impl<'s> Scope<'s> {
         F: FnOnce(&Scope<'s>) + Send + 's,
     {
         unsafe {
-            self.latch.increment();
+            if let Some(ref scheduler) = self.scheduler {
+                self.latch.increment();
 
-            let job = Box::new(HeapJob::new(move || {
-                let _v = self.execute(func);
-            })).as_job_ref();
+                let job = Box::new(HeapJob::new(move || {
+                    let _v = self.execute(func);
+                })).as_job_ref();
 
-            // Since `Scope` implements `Sync`, we can't be sure that we're still in a thread
-            // of this pool, so we  can't just push to the local worker thread.
-            self.scheduler.inject_or_push(job);
+                // Since `Scope` implements `Sync`, we can't be sure that we're still in a thread
+                // of this pool, so we can't just push to the local worker thread.
+                scheduler.inject_or_push(job);
+            } else {
+                func(self);
+            }
         }
     }
 

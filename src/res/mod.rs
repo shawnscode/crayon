@@ -26,30 +26,6 @@
 //! files. These .meta files are generated when _crayon-cli_ first imports an asset, and are stored
 //! in the same directory as the asset.
 //!
-//! ## Location
-//!
-//! User could locates a `resource` with `Location`. A `Location` consists of two parts, a virtual
-//! filesystem prefix and a readable identifier of resource.
-//!
-//! For example, let's say a game has all its textures in a special asset subdirectory called
-//! `resources/textures`. The game would define an virtual filesystem called `res:` pointing to that
-//! directory, and texture location would be defined like this:
-//!
-//! ```sh
-//! "res:textures/crate.png"
-//! ```
-//!
-//! Before those textures are actually loaded, the `res:` prefix is replaced with an absolute directory
-//! location, and the readable path is replaced with the actual local path (which are usually the hex
-//! representation of UUID).
-//!
-//! ```sh
-//! "res:textures/crate.png" => "/Applications/My Game/resources/textures/2943B9386A274730A50702A904F384D5"
-//! ```
-//!
-//! This makes it easier to load data from other places than the local hard disc, like web servers,
-//! communicating with HTTP REST services or implementing more exotic ways to load data.
-//!
 //! # Virtual Filesystem (VFS)
 //!
 //! The `ResourceSystem` allows load data asynchronously from web servers, the local host
@@ -65,33 +41,6 @@
 //! from general UUID or readable identifier. The `Manifest` file is generated after the build
 //! process of `crayon-cli`.
 //!
-//! # Registry
-//!
-//! The `Registry` is a standardized resource manager that defines a set of interface for creation,
-//! destruction, sharing and lifetime management. It is used in all the built-in crayon modules.
-//!
-//! ## Handle
-//!
-//! We are using a unique `Handle` object to represent a resource object safely. This approach
-//! has several advantages, since it helps for saving state externally. E.G.:
-//!
-//! 1. It allows for the resource to be destroyed without leaving dangling pointers.
-//! 2. Its perfectly safe to store and share the `Handle` even the underlying resource is
-//! loading on the background thread.
-//!
-//! In some systems, actual resource objects are private and opaque, application will usually
-//! not have direct access to a resource object in form of reference.
-//!
-//! ## Ownership & Lifetime
-//!
-//! For the sake of simplicity, the refenerce-counting technique is used for providing shared ownership
-//! of a resource.
-//!
-//! Everytime you create a resource at runtime, the `Registry` will increases the reference count of
-//! the resource by 1. And when you are done with the resource, its the user's responsibility to
-//! drop the ownership of the resource. And when the last ownership to a given resource is dropped,
-//! the corresponding resource is also destroyed.
-//!
 
 pub mod manifest;
 pub mod request;
@@ -100,9 +49,132 @@ pub mod url;
 pub mod utils;
 pub mod vfs;
 
-mod ctx;
-mod worker;
+pub mod prelude {
+    pub use super::ResourceParams;
+}
 
-pub use self::ctx::{discard, setup, valid};
-pub use self::ctx::{exists, find, load, load_from, resolve};
-pub use self::ctx::{load_from_with_callback, load_with_callback};
+mod system;
+
+use uuid::Uuid;
+
+use self::ins::{ctx, CTX};
+use self::request::{Request, Response};
+use self::shortcut::ShortcutResolver;
+use self::system::ResourceSystem;
+use self::vfs::SchemaResolver;
+
+#[derive(Debug, Clone)]
+pub struct ResourceParams {
+    pub shortcuts: ShortcutResolver,
+    pub schemas: SchemaResolver,
+    pub dirs: Vec<String>,
+}
+
+impl Default for ResourceParams {
+    fn default() -> Self {
+        let mut params = ResourceParams {
+            shortcuts: ShortcutResolver::new(),
+            schemas: SchemaResolver::new(),
+            dirs: Vec::new(),
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        params.schemas.add("file", self::vfs::dir::Dir::new());
+        #[cfg(target_arch = "wasm32")]
+        params.schemas.add("http", self::vfs::http::Http::new());
+
+        params
+    }
+}
+
+/// Setup the resource system.
+pub(crate) unsafe fn setup(params: ResourceParams) -> Result<(), failure::Error> {
+    debug_assert!(CTX.is_null(), "duplicated setup of resource system.");
+
+    let ctx = ResourceSystem::new(params)?;
+    CTX = Box::into_raw(Box::new(ctx));
+    Ok(())
+}
+
+/// Discard the resource system.
+pub(crate) unsafe fn discard() {
+    if CTX.is_null() {
+        return;
+    }
+
+    drop(Box::from_raw(CTX as *mut ResourceSystem));
+    CTX = 0 as *const ResourceSystem;
+}
+
+/// Checks if the resource system is enabled.
+#[inline]
+pub fn valid() -> bool {
+    unsafe { !CTX.is_null() }
+}
+
+/// Resolve shortcuts in the provided string recursively and return None if not exists.
+#[inline]
+pub fn resolve<T: AsRef<str>>(url: T) -> Option<String> {
+    ctx().resolve(url)
+}
+
+/// Return the UUID of resource located at provided path, and return None if not exists.
+#[inline]
+pub fn find<T: AsRef<str>>(filename: T) -> Option<Uuid> {
+    ctx().find(filename)
+}
+
+/// Checks if the resource exists in this registry.
+#[inline]
+pub fn exists(uuid: Uuid) -> bool {
+    ctx().exists(uuid)
+}
+
+/// Loads file asynchronously with response callback.
+#[inline]
+pub fn load_with_callback<T>(uuid: Uuid, func: T) -> Result<(), failure::Error>
+where
+    T: Fn(&Response) + 'static,
+{
+    ctx().load_with_callback(uuid, func)
+}
+
+/// Loads file asynchronously with response callback.
+#[inline]
+pub fn load_from_with_callback<T1, T2>(filename: T1, func: T2) -> Result<(), failure::Error>
+where
+    T1: AsRef<str>,
+    T2: Fn(&Response) + 'static,
+{
+    ctx().load_from_with_callback(filename, func)
+}
+
+/// Loads file asynchronously. This method will returns a `Request` object immediatedly,
+/// its user's responsibility to store the object and frequently check it for completion.
+pub fn load(uuid: Uuid) -> Result<Request, failure::Error> {
+    ctx().load(uuid)
+}
+
+/// Loads file asynchronously. This method will returns a `Request` object immediatedly,
+/// its user's responsibility to store the object and frequently check it for completion.
+pub fn load_from<T: AsRef<str>>(filename: T) -> Result<Request, failure::Error> {
+    ctx().load_from(filename)
+}
+
+mod ins {
+    use super::system::ResourceSystem;
+
+    pub static mut CTX: *const ResourceSystem = 0 as *const ResourceSystem;
+
+    #[inline]
+    pub fn ctx() -> &'static ResourceSystem {
+        unsafe {
+            debug_assert!(
+                !CTX.is_null(),
+                "resource system has not been initialized properly."
+            );
+
+            &*CTX
+        }
+    }
+}

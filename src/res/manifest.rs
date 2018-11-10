@@ -81,8 +81,6 @@ impl ManfiestResolver {
             let filename = manifest.buf.as_str(v.filename);
             let fullname = format!("{}{}", prefix, filename);
 
-            println!("insert {}", fullname);
-
             self.uuids.insert(v.uuid, (index, sub_index));
             self.filenames.insert(fullname.into(), v.uuid);
         }

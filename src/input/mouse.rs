@@ -1,10 +1,8 @@
-use application::time::Instant;
 use std::time::Duration;
 
 use math::prelude::{MetricSpace, Vector2};
 use utils::hash::{FastHashMap, FastHashSet};
-
-pub use application::events::MouseButton;
+use utils::time::Timestamp;
 
 /// The setup parameters of mouse device.
 ///
@@ -28,6 +26,15 @@ impl Default for MouseParams {
             max_click_distance: 25.0,
         }
     }
+}
+
+/// Describes a button of a mouse controller.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum MouseButton {
+    Left,
+    Right,
+    Middle,
+    Other(u8),
 }
 
 pub struct Mouse {
@@ -173,10 +180,10 @@ impl Mouse {
 }
 
 struct ClickDetector {
-    last_press_time: Instant,
+    last_press_time: Timestamp,
     last_press_position: Vector2<f32>,
 
-    last_click_time: Instant,
+    last_click_time: Timestamp,
     last_click_position: Vector2<f32>,
 
     clicks: u32,
@@ -188,10 +195,10 @@ struct ClickDetector {
 impl ClickDetector {
     pub fn new(params: MouseParams) -> Self {
         ClickDetector {
-            last_press_time: Instant::now(),
+            last_press_time: Timestamp::now(),
             last_press_position: Vector2::new(0.0, 0.0),
 
-            last_click_time: Instant::now(),
+            last_click_time: Timestamp::now(),
             last_click_position: Vector2::new(0.0, 0.0),
 
             clicks: 0,
@@ -212,7 +219,7 @@ impl ClickDetector {
 
     pub fn on_pressed(&mut self, position: Vector2<f32>) {
         // Store press down as start of a new potential click.
-        let now = Instant::now();
+        let now = Timestamp::now();
 
         // If multi-click, checks if within max distance and press timeout of
         // last click, if not, start a new multi-click sequence.
@@ -231,7 +238,7 @@ impl ClickDetector {
     }
 
     pub fn on_released(&mut self, position: Vector2<f32>) {
-        let now = Instant::now();
+        let now = Timestamp::now();
 
         if (now - self.last_press_time) < self.params.press_timeout
             && (position.distance(self.last_press_position)) < self.params.max_press_distance

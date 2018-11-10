@@ -115,7 +115,7 @@ impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
 
     /// an iterator visiting all key-value pairs in order. the iterator element type is (h, &t).
     #[inline]
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (H, &T)> + 'a {
+    pub fn iter<'a>(&'a self) -> impl DoubleEndedIterator<Item = (H, &T)> + 'a {
         self.handles
             .iter()
             .map(move |v| unsafe { (v, self.entries.get_unchecked(v.index() as usize)) })
@@ -123,7 +123,7 @@ impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
 
     /// an iterator visiting all key-value pairs in order. the iterator element type is (h, &mut t).
     #[inline]
-    pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = (H, &'a mut T)> {
+    pub fn iter_mut<'a>(&'a mut self) -> impl DoubleEndedIterator<Item = (H, &'a mut T)> {
         let entries = &mut self.entries;
         self.handles.iter().map(move |v| unsafe {
             let w = entries.get_unchecked_mut(v.index() as usize);
@@ -133,13 +133,13 @@ impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
 
     /// An iterator visiting all keys in order. The iterator element type is H.
     #[inline]
-    pub fn keys<'a>(&'a self) -> impl Iterator<Item = H> + 'a {
+    pub fn keys<'a>(&'a self) -> impl DoubleEndedIterator<Item = H> + 'a {
         self.handles.iter()
     }
 
     /// An iterator visiting all entries in order. The iterator element type is &T.
     #[inline]
-    pub fn values<'a>(&'a self) -> impl Iterator<Item = &T> + 'a {
+    pub fn values<'a>(&'a self) -> impl DoubleEndedIterator<Item = &T> + 'a {
         self.handles
             .iter()
             .map(move |v| unsafe { self.entries.get_unchecked(v.index() as usize) })
@@ -147,7 +147,7 @@ impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
 
     /// An iterator visiting all entries in order. The iterator element type is &mut T.
     #[inline]
-    pub fn values_mut<'a>(&'a mut self) -> impl Iterator<Item = &mut T> + 'a {
+    pub fn values_mut<'a>(&'a mut self) -> impl DoubleEndedIterator<Item = &mut T> + 'a {
         let entries = &mut self.entries;
         self.handles.iter().map(move |v| unsafe {
             let w = entries.get_unchecked_mut(v.index() as usize);

@@ -1,11 +1,14 @@
 use std::fs;
 use std::io::Read;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use super::super::request::{RequestState, Response};
+use sched::prelude::LockLatch;
+
+use super::super::request::Response;
 use super::super::url::Url;
 use super::VFS;
 
+#[derive(Debug, Clone, Copy)]
 pub struct Dir {}
 
 impl Dir {
@@ -22,8 +25,8 @@ impl Dir {
 }
 
 impl VFS for Dir {
-    fn request(&self, url: Url, state: Arc<Mutex<RequestState>>) {
+    fn request(&self, url: &Url, state: Arc<LockLatch<Response>>) {
         let response = self.load_from(url.path());
-        *state.lock().unwrap() = RequestState::Ok(response);
+        state.set(response);
     }
 }

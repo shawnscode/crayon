@@ -24,8 +24,6 @@
 //! ```
 
 #[cfg(not(target_arch = "wasm32"))]
-extern crate crossbeam_deque;
-#[cfg(not(target_arch = "wasm32"))]
 extern crate gl;
 #[cfg(not(target_arch = "wasm32"))]
 extern crate glutin;
@@ -51,6 +49,7 @@ extern crate serde;
 extern crate byteorder;
 extern crate serde_json;
 
+extern crate crossbeam_deque;
 extern crate inlinable_string;
 extern crate smallvec;
 
@@ -64,8 +63,6 @@ pub use log::*;
 
 #[macro_use]
 pub mod errors;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod sched;
 #[macro_use]
 pub mod utils;
 pub mod application;
@@ -75,5 +72,5 @@ pub mod input;
 pub mod math;
 pub mod prelude;
 pub mod res;
-
-pub use application::prelude::sys;
+pub mod sched;
+pub mod window;

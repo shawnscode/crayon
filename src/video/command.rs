@@ -5,7 +5,6 @@ use utils::hash_value;
 use super::assets::prelude::*;
 use super::backends::frame::Command;
 use super::errors::*;
-use super::VideoSystemShared;
 use super::MAX_UNIFORM_VARIABLES;
 
 /// The command buffer of video system.
@@ -80,8 +79,9 @@ impl CommandBuffer {
     /// all the commands in this batch will be executed one by one in order.
     ///
     /// Notes that this method has no effect on the allocated capacity of the underlying storage.
-    pub fn submit(&mut self, video: &VideoSystemShared, surface: SurfaceHandle) -> Result<()> {
-        let mut frame = video.frames.write();
+    pub fn submit(&mut self, surface: SurfaceHandle) -> Result<()> {
+        let doubele_frame = unsafe { super::frames() };
+        let mut frame = doubele_frame.write();
         frame.cmds.push(Command::Bind(surface));
 
         for v in self.cmds.drain(..) {
@@ -146,8 +146,9 @@ impl<T: Ord + Copy> DrawCommandBuffer<T> {
     /// all the commands in this batch will be executed one by one in order.
     ///
     /// Notes that this method has no effect on the allocated capacity of the underlying storage.
-    pub fn submit(&mut self, video: &VideoSystemShared, surface: SurfaceHandle) -> Result<()> {
-        let mut frame = video.frames.write();
+    pub fn submit(&mut self, surface: SurfaceHandle) -> Result<()> {
+        let doubele_frame = unsafe { super::frames() };
+        let mut frame = doubele_frame.write();
         frame.cmds.push(Command::Bind(surface));
 
         self.cmds.as_mut_slice().sort_by_key(|v| v.0);

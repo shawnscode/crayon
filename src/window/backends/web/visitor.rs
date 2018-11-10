@@ -1,8 +1,9 @@
 use wasm_bindgen::JsCast;
 use web_sys::{self, Document, Element, HtmlCanvasElement, Node, Window};
 
-use application::events::Event;
-use application::settings::WindowParams;
+use window::events::Event;
+use window::WindowParams;
+
 use errors::*;
 use math::prelude::Vector2;
 
@@ -50,7 +51,7 @@ impl WebVisitor {
             canvas: canvas,
         };
 
-        let dpr = visitor.hidpi();
+        let dpr = visitor.device_pixel_ratio();
         let dims = Vector2::new(
             (params.size.x as f32 * dpr) as u32,
             (params.size.y as f32 * dpr) as u32,
@@ -73,12 +74,12 @@ impl Visitor for WebVisitor {
     }
 
     #[inline]
-    fn position_in_points(&self) -> Vector2<i32> {
+    fn position(&self) -> Vector2<i32> {
         (0, 0).into()
     }
 
     #[inline]
-    fn dimensions_in_points(&self) -> Vector2<u32> {
+    fn dimensions(&self) -> Vector2<u32> {
         let dpr = self.window.device_pixel_ratio() as f32;
         Vector2::new(
             (self.canvas.width() as f32 / dpr) as u32,
@@ -87,7 +88,7 @@ impl Visitor for WebVisitor {
     }
 
     #[inline]
-    fn hidpi(&self) -> f32 {
+    fn device_pixel_ratio(&self) -> f32 {
         self.window.device_pixel_ratio() as f32
     }
 
@@ -96,7 +97,7 @@ impl Visitor for WebVisitor {
         self.canvas.set_width(dims.x);
         self.canvas.set_height(dims.y);
 
-        let dpr = self.hidpi();
+        let dpr = self.device_pixel_ratio();
         self.canvas
             .unchecked_ref::<Element>()
             .set_attribute(

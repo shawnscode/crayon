@@ -25,9 +25,7 @@ struct Window {
 }
 
 impl Window {
-    pub fn new(engine: &mut Engine) -> Result<Self> {
-        let ctx = engine.context();
-
+    pub fn new() -> Result<Self> {
         let attributes = AttributeLayoutBuilder::new()
             .with(Attribute::Position, 2)
             .finish();
@@ -52,26 +50,26 @@ impl Window {
                 iptr: IndexFormat::encode(&idxes).into(),
             };
 
-            let mesh = ctx.video.create_mesh(params, Some(data))?;
+            let mesh = video::create_mesh(params, Some(data))?;
 
             // Create render texture for post effect.
             let mut params = RenderTextureParams::default();
             params.format = RenderTextureFormat::RGBA8;
             params.dimensions = (568, 320).into();
-            let rendered_texture = ctx.video.create_render_texture(params)?;
+            let rendered_texture = video::create_render_texture(params)?;
 
             // Create the surface state for pass 1.
             let mut params = SurfaceParams::default();
             params.set_attachments(&[rendered_texture], None)?;
             params.set_clear(Color::gray(), None, None);
-            let surface = ctx.video.create_surface(params)?;
+            let surface = video::create_surface(params)?;
 
             // Create shader state.
             let mut params = ShaderParams::default();
             params.attributes = attributes;
             let vs = include_str!("shaders/render_target_p1.vs").to_owned();
             let fs = include_str!("shaders/render_target_p1.fs").to_owned();
-            let shader = ctx.video.create_shader(params, vs, fs)?;
+            let shader = video::create_shader(params, vs, fs)?;
 
             (
                 Pass {
@@ -102,10 +100,10 @@ impl Window {
                 iptr: IndexFormat::encode(&idxes).into(),
             };
 
-            let mesh = ctx.video.create_mesh(params, Some(data))?;
+            let mesh = video::create_mesh(params, Some(data))?;
 
             let params = SurfaceParams::default();
-            let surface = ctx.video.create_surface(params)?;
+            let surface = video::create_surface(params)?;
 
             let uniforms = UniformVariableLayout::build()
                 .with("renderedTexture", UniformVariableType::RenderTexture)
@@ -117,7 +115,7 @@ impl Window {
             params.uniforms = uniforms;
             let vs = include_str!("shaders/render_target_p2.vs").to_owned();
             let fs = include_str!("shaders/render_target_p2.fs").to_owned();
-            let shader = ctx.video.create_shader(params, vs, fs)?;
+            let shader = video::create_shader(params, vs, fs)?;
 
             Pass {
                 surface: surface,
@@ -137,45 +135,46 @@ impl Window {
     }
 }
 
-impl Application for Window {
-    fn on_update(&mut self, ctx: &Context) -> Result<()> {
+impl LifecycleListener for Window {
+    fn on_update(&mut self) -> Result<()> {
         let surface = self.pass.surface;
         let dc = Draw::new(self.pass.shader, self.pass.mesh);
         self.batch.draw(dc);
-        self.batch.submit(&ctx.video, surface)?;
+        self.batch.submit(surface)?;
 
         let surface = self.post_effect.surface;
         let mut dc = Draw::new(self.post_effect.shader, self.post_effect.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
         dc.set_uniform_variable("time", self.time);
         self.batch.draw(dc);
-        self.batch.submit(&ctx.video, surface)?;
+        self.batch.submit(surface)?;
+
         self.time += 0.05;
         Ok(())
     }
 
-    fn on_exit(&mut self, ctx: &Context) -> Result<()> {
-        ctx.video.delete_render_texture(self.texture);
+    fn on_exit(&mut self) -> Result<()> {
+        video::delete_render_texture(self.texture);
 
-        ctx.video.delete_mesh(self.pass.mesh);
-        ctx.video.delete_shader(self.pass.shader);
-        ctx.video.delete_surface(self.pass.surface);
+        video::delete_mesh(self.pass.mesh);
+        video::delete_shader(self.pass.shader);
+        video::delete_surface(self.pass.surface);
 
-        ctx.video.delete_mesh(self.post_effect.mesh);
-        ctx.video.delete_shader(self.post_effect.shader);
-        ctx.video.delete_surface(self.post_effect.surface);
+        video::delete_mesh(self.post_effect.mesh);
+        video::delete_shader(self.post_effect.shader);
+        video::delete_surface(self.post_effect.surface);
         Ok(())
     }
 }
 
 fn run() {
-    let mut params = Settings::default();
+    let mut params = Params::default();
     params.window.title = "CR: RenderTexture".into();
     params.window.size = (568, 320).into();
+    crayon::application::setup(params).unwrap();
 
-    let mut engine = Engine::new_with(&params).unwrap();
-    let window = Window::new(&mut engine).unwrap();
-    engine.run(window).unwrap();
+    let window = Window::new().unwrap();
+    crayon::application::run(window).unwrap();
 }
 
 fn main() {

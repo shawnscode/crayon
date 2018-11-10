@@ -1,19 +1,24 @@
 use glutin;
 
-use application::events::{ApplicationEvent, Event, InputDeviceEvent};
-use application::events::{Key, MouseButton, TouchState};
+use super::super::super::events::{Event, WindowEvent};
+
+use input::events::InputEvent;
+use input::keyboard::Key;
+use input::mouse::MouseButton;
+use input::touchpad::TouchState;
+
 use math::prelude::Vector2;
 
 pub fn from_event(source: glutin::Event, dimensions: Vector2<u32>) -> Option<Event> {
     match source {
         glutin::Event::WindowEvent { event, .. } => from_window_event(&event, dimensions),
 
-        glutin::Event::Awakened => Some(Event::Application(ApplicationEvent::Awakened)),
+        glutin::Event::Awakened => Some(Event::Window(WindowEvent::Awakened)),
 
         glutin::Event::Suspended(v) => if v {
-            Some(Event::Application(ApplicationEvent::Suspended))
+            Some(Event::Window(WindowEvent::Suspended))
         } else {
-            Some(Event::Application(ApplicationEvent::Resumed))
+            Some(Event::Window(WindowEvent::Resumed))
         },
 
         glutin::Event::DeviceEvent { .. } => None,
@@ -22,32 +27,32 @@ pub fn from_event(source: glutin::Event, dimensions: Vector2<u32>) -> Option<Eve
 
 fn from_window_event(source: &glutin::WindowEvent, dimensions: Vector2<u32>) -> Option<Event> {
     match *source {
-        glutin::WindowEvent::CloseRequested => Some(Event::Application(ApplicationEvent::Closed)),
+        glutin::WindowEvent::CloseRequested => Some(Event::Window(WindowEvent::Closed)),
 
         glutin::WindowEvent::Focused(v) => if v {
-            Some(Event::Application(ApplicationEvent::GainFocus))
+            Some(Event::Window(WindowEvent::GainFocus))
         } else {
-            Some(Event::Application(ApplicationEvent::LostFocus))
+            Some(Event::Window(WindowEvent::LostFocus))
         },
 
         glutin::WindowEvent::Resized(glutin::dpi::LogicalSize { width, height }) => Some(
-            Event::Application(ApplicationEvent::Resized(width as u32, height as u32)),
+            Event::Window(WindowEvent::Resized(width as u32, height as u32)),
         ),
 
         glutin::WindowEvent::CursorMoved { position, .. } => {
-            Some(Event::InputDevice(InputDeviceEvent::MouseMoved {
+            Some(Event::InputDevice(InputEvent::MouseMoved {
                 position: (position.x as f32, dimensions.y as f32 - position.y as f32),
             }))
         }
 
         glutin::WindowEvent::MouseWheel { delta, .. } => match delta {
             glutin::MouseScrollDelta::LineDelta(x, y) => {
-                Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
+                Some(Event::InputDevice(InputEvent::MouseWheel {
                     delta: (x as f32, y as f32),
                 }))
             }
             glutin::MouseScrollDelta::PixelDelta(pos) => {
-                Some(Event::InputDevice(InputDeviceEvent::MouseWheel {
+                Some(Event::InputDevice(InputEvent::MouseWheel {
                     delta: (pos.x as f32, pos.y as f32),
                 }))
             }
@@ -57,7 +62,7 @@ fn from_window_event(source: &glutin::WindowEvent, dimensions: Vector2<u32>) -> 
             state: glutin::ElementState::Pressed,
             button,
             ..
-        } => Some(Event::InputDevice(InputDeviceEvent::MousePressed {
+        } => Some(Event::InputDevice(InputEvent::MousePressed {
             button: button.into(),
         })),
 
@@ -65,7 +70,7 @@ fn from_window_event(source: &glutin::WindowEvent, dimensions: Vector2<u32>) -> 
             state: glutin::ElementState::Released,
             button,
             ..
-        } => Some(Event::InputDevice(InputDeviceEvent::MouseReleased {
+        } => Some(Event::InputDevice(InputEvent::MouseReleased {
             button: button.into(),
         })),
 
@@ -77,11 +82,8 @@ fn from_window_event(source: &glutin::WindowEvent, dimensions: Vector2<u32>) -> 
                     ..
                 },
             ..
-        } => from_virtual_key_code(key).and_then(|key| {
-            Some(Event::InputDevice(InputDeviceEvent::KeyboardPressed {
-                key,
-            }))
-        }),
+        } => from_virtual_key_code(key)
+            .and_then(|key| Some(Event::InputDevice(InputEvent::KeyboardPressed { key }))),
 
         glutin::WindowEvent::KeyboardInput {
             input:
@@ -91,19 +93,16 @@ fn from_window_event(source: &glutin::WindowEvent, dimensions: Vector2<u32>) -> 
                     ..
                 },
             ..
-        } => from_virtual_key_code(key).and_then(|key| {
-            Some(Event::InputDevice(InputDeviceEvent::KeyboardReleased {
-                key,
-            }))
-        }),
+        } => from_virtual_key_code(key)
+            .and_then(|key| Some(Event::InputDevice(InputEvent::KeyboardReleased { key }))),
 
         glutin::WindowEvent::ReceivedCharacter(character) => {
-            Some(Event::InputDevice(InputDeviceEvent::ReceivedCharacter {
+            Some(Event::InputDevice(InputEvent::ReceivedCharacter {
                 character,
             }))
         }
 
-        glutin::WindowEvent::Touch(touch) => Some(Event::InputDevice(InputDeviceEvent::Touch {
+        glutin::WindowEvent::Touch(touch) => Some(Event::InputDevice(InputEvent::Touch {
             id: touch.id as u8,
             state: from_touch_state(touch.phase),
             position: (touch.location.x as f32, touch.location.y as f32).into(),

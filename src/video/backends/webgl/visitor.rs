@@ -480,7 +480,6 @@ impl Visitor for WebGLVisitor {
     ) -> Result<()> {
         let vbo = Self::create_buffer(
             &self.ctx,
-            &mut self.state,
             WebGL::ARRAY_BUFFER,
             params.hint,
             params.vertex_buffer_len(),
@@ -489,7 +488,6 @@ impl Visitor for WebGLVisitor {
 
         let ibo = Self::create_buffer(
             &self.ctx,
-            &mut self.state,
             WebGL::ELEMENT_ARRAY_BUFFER,
             params.hint,
             params.index_buffer_len(),
@@ -524,14 +522,7 @@ impl Visitor for WebGLVisitor {
             bail!("Trying to update immutable buffer");
         }
 
-        Self::update_buffer(
-            &self.ctx,
-            &mut self.state,
-            WebGL::ARRAY_BUFFER,
-            &mesh.vbo,
-            offset,
-            data,
-        )
+        Self::update_buffer(&self.ctx, WebGL::ARRAY_BUFFER, &mesh.vbo, offset, data)
     }
 
     unsafe fn update_index_buffer(
@@ -551,7 +542,6 @@ impl Visitor for WebGLVisitor {
 
         Self::update_buffer(
             &self.ctx,
-            &mut self.state,
             WebGL::ELEMENT_ARRAY_BUFFER,
             &mesh.ibo,
             offset,
@@ -1333,7 +1323,6 @@ impl WebGLVisitor {
 impl WebGLVisitor {
     unsafe fn create_buffer(
         ctx: &WebGL,
-        state: &mut WebGLState,
         target: u32,
         hint: MeshHint,
         size: usize,
@@ -1358,7 +1347,6 @@ impl WebGLVisitor {
 
     unsafe fn update_buffer(
         ctx: &WebGL,
-        state: &mut WebGLState,
         target: u32,
         id: &WebGlBuffer,
         offset: usize,

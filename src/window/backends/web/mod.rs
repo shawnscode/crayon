@@ -1,10 +1,9 @@
-pub mod sys;
 mod visitor;
 
 use super::Visitor;
 
-use application::settings::WindowParams;
 use errors::*;
+use window::WindowParams;
 
 pub fn new(params: WindowParams) -> Result<Box<Visitor>> {
     let visitor = visitor::WebVisitor::new(params)?;

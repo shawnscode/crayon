@@ -199,374 +199,219 @@ pub const MAX_UNIFORM_TEXTURE_SLOTS: usize = 8;
 pub mod assets;
 pub mod command;
 pub mod errors;
-pub mod protocal;
+
+mod system;
 
 mod backends;
 
 pub mod prelude {
     pub use super::assets::prelude::*;
     pub use super::command::{CommandBuffer, Draw, DrawCommandBuffer};
-    pub use super::{VideoFrameInfo, VideoSystem, VideoSystemShared};
 }
 
-use std::sync::{Arc, RwLock};
-use std::time::Duration;
+use std::sync::Arc;
 use uuid::Uuid;
 
-use application::window::Window;
-use math::prelude::{Aabb2, Aabb3, Vector2};
-use res::utils::Registry;
-use utils::{DoubleBuf, ObjectPool};
+use math::prelude::Aabb2;
+use utils::DoubleBuf;
 
 use self::assets::prelude::*;
-use self::backends::frame::*;
-use self::backends::Visitor;
+use self::backends::frame::Frame;
 use self::errors::*;
+use self::ins::{ctx, CTX};
+use self::system::VideoSystem;
 
-/// The information of video module during last frame.
-#[derive(Debug, Copy, Clone, Default)]
-pub struct VideoFrameInfo {
-    pub duration: Duration,
-    pub drawcall: u32,
-    pub triangles: u32,
-    pub alive_surfaces: u32,
-    pub alive_shaders: u32,
-    pub alive_meshes: u32,
-    pub alive_textures: u32,
+/// Setup the video system.
+pub(crate) unsafe fn setup() -> ::errors::Result<()> {
+    debug_assert!(CTX.is_null(), "duplicated setup of video system.");
+
+    let ctx = VideoSystem::new()?;
+    CTX = Box::into_raw(Box::new(ctx));
+    Ok(())
 }
 
-/// The centralized management of video sub-system.
-pub struct VideoSystem {
-    visitor: Box<Visitor>,
-    frames: Arc<DoubleBuf<Frame>>,
-    shared: Arc<VideoSystemShared>,
-    last_dimensions: Vector2<u32>,
+/// Setup the video system.
+pub(crate) unsafe fn headless() {
+    debug_assert!(CTX.is_null(), "duplicated setup of video system.");
+
+    let ctx = VideoSystem::headless();
+    CTX = Box::into_raw(Box::new(ctx));
 }
 
-impl VideoSystem {
-    /// Create a new `VideoSystem` with one `Window` context.
-    pub fn new(window: &Window) -> ::errors::Result<Self> {
-        let frames = Arc::new(DoubleBuf::new(
-            Frame::with_capacity(64 * 1024),
-            Frame::with_capacity(64 * 1024),
-        ));
-
-        let shared = VideoSystemShared::new(frames.clone());
-
-        Ok(VideoSystem {
-            last_dimensions: window.dimensions(),
-            visitor: backends::new()?,
-            frames: frames,
-            shared: Arc::new(shared),
-        })
+/// Discard the video system.
+pub(crate) unsafe fn discard() {
+    if CTX.is_null() {
+        return;
     }
 
-    /// Creates a new headless `VideoSystem`.
-    pub fn headless() -> Self {
-        let frames = Arc::new(DoubleBuf::default());
-        let shared = VideoSystemShared::new(frames.clone());
+    drop(Box::from_raw(CTX as *mut VideoSystem));
+    CTX = 0 as *const VideoSystem;
+}
 
-        VideoSystem {
-            last_dimensions: (0, 0).into(),
-            visitor: backends::new_headless(),
-            frames: frames,
-            shared: Arc::new(shared),
-        }
-    }
+pub(crate) unsafe fn frames() -> Arc<DoubleBuf<Frame>> {
+    ctx().frames()
+}
 
-    /// Returns the multi-thread friendly parts of `VideoSystem`.
-    pub fn shared(&self) -> Arc<VideoSystemShared> {
-        self.shared.clone()
-    }
+/// Creates an surface with `SurfaceParams`.
+#[inline]
+pub fn create_surface(params: SurfaceParams) -> Result<SurfaceHandle> {
+    ctx().create_surface(params)
+}
 
-    /// Swap internal commands frame.
+/// Gets the `SurfaceParams` if available.
+#[inline]
+pub fn surface(handle: SurfaceHandle) -> Option<SurfaceParams> {
+    ctx().surface(handle)
+}
+
+/// Deletes surface object.
+#[inline]
+pub fn delete_surface(handle: SurfaceHandle) {
+    ctx().delete_surface(handle)
+}
+
+/// Create a shader with initial shaders and render state. It encapusulates all the
+/// informations we need to configurate graphics pipeline before real drawing.
+#[inline]
+pub fn create_shader(params: ShaderParams, vs: String, fs: String) -> Result<ShaderHandle> {
+    ctx().create_shader(params, vs, fs)
+}
+
+/// Gets the `ShaderParams` if available.
+#[inline]
+pub fn shader(handle: ShaderHandle) -> Option<ShaderParams> {
+    ctx().shader(handle)
+}
+
+/// Delete shader state object.
+#[inline]
+pub fn delete_shader(handle: ShaderHandle) {
+    ctx().delete_shader(handle)
+}
+
+/// Create a new mesh object.
+#[inline]
+pub fn create_mesh<T>(params: MeshParams, data: T) -> ::errors::Result<MeshHandle>
+where
+    T: Into<Option<MeshData>>,
+{
+    ctx().create_mesh(params, data)
+}
+
+/// Creates a mesh object from file asynchronously.
+#[inline]
+pub fn create_mesh_from<T: AsRef<str>>(url: T) -> ::errors::Result<MeshHandle> {
+    ctx().create_mesh_from(url)
+}
+
+/// Creates a mesh object from file asynchronously.
+#[inline]
+pub fn create_mesh_from_uuid(uuid: Uuid) -> ::errors::Result<MeshHandle> {
+    ctx().create_mesh_from_uuid(uuid)
+}
+
+/// Gets the `MeshParams` if available.
+#[inline]
+pub fn mesh(handle: MeshHandle) -> Option<MeshParams> {
+    ctx().mesh(handle)
+}
+
+/// Update a subset of dynamic vertex buffer. Use `offset` specifies the offset
+/// into the buffer object's data store where data replacement will begin, measured
+/// in bytes.
+#[inline]
+pub fn update_vertex_buffer(
+    handle: MeshHandle,
+    offset: usize,
+    data: &[u8],
+) -> ::errors::Result<()> {
+    ctx().update_vertex_buffer(handle, offset, data)
+}
+
+/// Update a subset of dynamic index buffer. Use `offset` specifies the offset
+/// into the buffer object's data store where data replacement will begin, measured
+/// in bytes.
+#[inline]
+pub fn update_index_buffer(handle: MeshHandle, offset: usize, data: &[u8]) -> ::errors::Result<()> {
+    ctx().update_index_buffer(handle, offset, data)
+}
+
+/// Delete mesh object.
+#[inline]
+pub fn delete_mesh(handle: MeshHandle) {
+    ctx().delete_mesh(handle);
+}
+
+/// Create texture object. A texture is an image loaded in video memory,
+/// which can be sampled in shaders.
+#[inline]
+pub fn create_texture<T>(params: TextureParams, data: T) -> ::errors::Result<TextureHandle>
+where
+    T: Into<Option<TextureData>>,
+{
+    ctx().create_texture(params, data)
+}
+
+/// Creates a texture object from file asynchronously.
+#[inline]
+pub fn create_texture_from<T: AsRef<str>>(url: T) -> ::errors::Result<TextureHandle> {
+    ctx().create_texture_from(url)
+}
+
+/// Creates a texture object from file asynchronously.
+#[inline]
+pub fn create_texture_from_uuid(uuid: Uuid) -> ::errors::Result<TextureHandle> {
+    ctx().create_texture_from_uuid(uuid)
+}
+
+/// Update a contiguous subregion of an existing two-dimensional texture object.
+#[inline]
+pub fn update_texture(
+    handle: TextureHandle,
+    area: Aabb2<u32>,
+    data: &[u8],
+) -> ::errors::Result<()> {
+    ctx().update_texture(handle, area, data)
+}
+
+/// Delete the texture object.
+#[inline]
+pub fn delete_texture(handle: TextureHandle) {
+    ctx().delete_texture(handle);
+}
+
+/// Create render texture object, which could be attached with a framebuffer.
+#[inline]
+pub fn create_render_texture(params: RenderTextureParams) -> Result<RenderTextureHandle> {
+    ctx().create_render_texture(params)
+}
+
+/// Gets the `RenderTextureParams` if available.
+#[inline]
+pub fn render_texture(handle: RenderTextureHandle) -> Option<RenderTextureParams> {
+    ctx().render_texture(handle)
+}
+
+/// Delete the render texture object.
+#[inline]
+pub fn delete_render_texture(handle: RenderTextureHandle) {
+    ctx().delete_render_texture(handle)
+}
+
+mod ins {
+    use super::system::VideoSystem;
+
+    pub static mut CTX: *const VideoSystem = 0 as *const VideoSystem;
+
     #[inline]
-    pub(crate) fn swap_frames(&self) {
-        self.frames.swap();
-        self.frames.write().clear();
-    }
+    pub fn ctx() -> &'static VideoSystem {
+        unsafe {
+            debug_assert!(
+                !CTX.is_null(),
+                "video system has not been initialized properly."
+            );
 
-    /// Advance to next frame.
-    ///
-    /// Notes that this method MUST be called at main thread, and will NOT return
-    /// until all commands is finished by GPU.
-    pub(crate) fn advance(&mut self, window: &Window) -> ::errors::Result<VideoFrameInfo> {
-        let ts = crate::sys::instant();
-        let dimensions = window.dimensions();
-
-        // Resize the window, which would recreate the underlying framebuffer.
-        if dimensions != self.last_dimensions {
-            self.last_dimensions = dimensions;
-            window.resize(dimensions);
-        }
-
-        let (dc, tris) = self
-            .frames
-            .write_back_buf()
-            .dispatch(self.visitor.as_mut(), dimensions)?;
-
-        let mut info = VideoFrameInfo::default();
-
-        {
-            let s = &self.shared;
-            info.alive_surfaces = s.surfaces.write().unwrap().len() as u32;
-            info.alive_shaders = s.shaders.write().unwrap().len() as u32;
-            info.alive_meshes = s.meshes.len() as u32;
-            info.alive_textures = s.textures.len() as u32;
-            info.drawcall = dc;
-            info.triangles = tris;
-        }
-
-        info.duration = crate::sys::instant() - ts;
-        Ok(info)
-    }
-}
-
-pub type TextureRegistry = Registry<TextureHandle, self::assets::texture_loader::TextureLoader>;
-pub type MeshRegistry = Registry<MeshHandle, self::assets::mesh_loader::MeshLoader>;
-
-/// The multi-thread friendly parts of `VideoSystem`.
-pub struct VideoSystemShared {
-    pub(crate) frames: Arc<DoubleBuf<Frame>>,
-    pub(crate) surfaces: RwLock<ObjectPool<SurfaceHandle, SurfaceParams>>,
-    pub(crate) shaders: RwLock<ObjectPool<ShaderHandle, ShaderParams>>,
-    pub(crate) meshes: MeshRegistry,
-    pub(crate) textures: TextureRegistry,
-    pub(crate) render_textures: RwLock<ObjectPool<RenderTextureHandle, RenderTextureParams>>,
-}
-
-impl VideoSystemShared {
-    /// Create a new `VideoSystem` with one `Window` context.
-    fn new(frames: Arc<DoubleBuf<Frame>>) -> Self {
-        use self::assets::mesh_loader::MeshLoader;
-        use self::assets::texture_loader::TextureLoader;
-
-        let textures = TextureRegistry::new(TextureLoader::new(frames.clone()));
-        let meshes = MeshRegistry::new(MeshLoader::new(frames.clone()));
-
-        VideoSystemShared {
-            frames: frames,
-
-            surfaces: RwLock::new(ObjectPool::new()),
-            shaders: RwLock::new(ObjectPool::new()),
-            meshes: meshes,
-            textures: textures,
-            render_textures: RwLock::new(ObjectPool::new()),
-        }
-    }
-}
-
-impl VideoSystemShared {
-    /// Creates an surface with `SurfaceParams`.
-    pub fn create_surface(&self, params: SurfaceParams) -> Result<SurfaceHandle> {
-        let handle = self.surfaces.write().unwrap().create(params).into();
-
-        {
-            let cmd = Command::CreateSurface(handle, params);
-            self.frames.write().cmds.push(cmd);
-        }
-
-        Ok(handle)
-    }
-
-    /// Gets the `SurfaceParams` if available.
-    pub fn surface(&self, handle: SurfaceHandle) -> Option<SurfaceParams> {
-        self.surfaces.read().unwrap().get(handle).cloned()
-    }
-
-    /// Deletes surface object.
-    pub fn delete_surface(&self, handle: SurfaceHandle) {
-        if self.surfaces.write().unwrap().free(handle).is_some() {
-            let cmd = Command::DeleteSurface(handle);
-            self.frames.write().cmds.push(cmd);
-        }
-    }
-}
-
-impl VideoSystemShared {
-    /// Create a shader with initial shaders and render state. It encapusulates all the
-    /// informations we need to configurate graphics pipeline before real drawing.
-    pub fn create_shader(
-        &self,
-        params: ShaderParams,
-        vs: String,
-        fs: String,
-    ) -> Result<ShaderHandle> {
-        params.validate(&vs, &fs)?;
-
-        let handle = self.shaders.write().unwrap().create(params.clone()).into();
-
-        {
-            let cmd = Command::CreateShader(handle, params, vs, fs);
-            self.frames.write().cmds.push(cmd);
-        }
-
-        Ok(handle)
-    }
-
-    /// Gets the `ShaderParams` if available.
-    pub fn shader(&self, handle: ShaderHandle) -> Option<ShaderParams> {
-        self.shaders.read().unwrap().get(handle).cloned()
-    }
-
-    /// Delete shader state object.
-    pub fn delete_shader(&self, handle: ShaderHandle) {
-        if self.shaders.write().unwrap().free(handle).is_some() {
-            let cmd = Command::DeleteShader(handle);
-            self.frames.write().cmds.push(cmd);
-        }
-    }
-}
-
-impl VideoSystemShared {
-    /// Create a new mesh object.
-    #[inline]
-    pub fn create_mesh<T>(&self, params: MeshParams, data: T) -> ::errors::Result<MeshHandle>
-    where
-        T: Into<Option<MeshData>>,
-    {
-        let handle = self.meshes.create((params, data.into()))?;
-        Ok(handle)
-    }
-
-    /// Creates a mesh object from file asynchronously.
-    #[inline]
-    pub fn create_mesh_from<T: AsRef<str>>(&self, url: T) -> ::errors::Result<MeshHandle> {
-        let handle = self.meshes.create_from(url)?;
-        Ok(handle)
-    }
-
-    /// Creates a mesh object from file asynchronously.
-    #[inline]
-    pub fn create_mesh_from_uuid(&self, uuid: Uuid) -> ::errors::Result<MeshHandle> {
-        let handle = self.meshes.create_from_uuid(uuid)?;
-        Ok(handle)
-    }
-
-    /// Gets the `MeshParams` if available.
-    #[inline]
-    pub fn mesh_aabb(&self, handle: MeshHandle) -> Option<Aabb3<f32>> {
-        self.meshes.get(handle, |v| v.aabb)
-    }
-
-    /// Update a subset of dynamic vertex buffer. Use `offset` specifies the offset
-    /// into the buffer object's data store where data replacement will begin, measured
-    /// in bytes.
-    pub fn update_vertex_buffer(
-        &self,
-        handle: MeshHandle,
-        offset: usize,
-        data: &[u8],
-    ) -> ::errors::Result<()> {
-        self.meshes
-            .get(handle, |_| {
-                let mut frame = self.frames.write();
-                let ptr = frame.bufs.extend_from_slice(data);
-                let cmd = Command::UpdateVertexBuffer(handle, offset, ptr);
-                frame.cmds.push(cmd);
-            }).ok_or_else(|| format_err!("{:?}", handle))
-    }
-
-    /// Update a subset of dynamic index buffer. Use `offset` specifies the offset
-    /// into the buffer object's data store where data replacement will begin, measured
-    /// in bytes.
-    pub fn update_index_buffer(
-        &self,
-        handle: MeshHandle,
-        offset: usize,
-        data: &[u8],
-    ) -> ::errors::Result<()> {
-        self.meshes
-            .get(handle, |_| {
-                let mut frame = self.frames.write();
-                let ptr = frame.bufs.extend_from_slice(data);
-                let cmd = Command::UpdateIndexBuffer(handle, offset, ptr);
-                frame.cmds.push(cmd);
-            }).ok_or_else(|| format_err!("{:?}", handle))
-    }
-
-    /// Delete mesh object.
-    #[inline]
-    pub fn delete_mesh(&self, handle: MeshHandle) {
-        self.meshes.delete(handle);
-    }
-}
-
-impl VideoSystemShared {
-    /// Create texture object. A texture is an image loaded in video memory,
-    /// which can be sampled in shaders.
-    pub fn create_texture<T>(
-        &self,
-        params: TextureParams,
-        data: T,
-    ) -> ::errors::Result<TextureHandle>
-    where
-        T: Into<Option<TextureData>>,
-    {
-        let handle = self.textures.create((params, data.into()))?;
-        Ok(handle)
-    }
-
-    /// Creates a texture object from file asynchronously.
-    pub fn create_texture_from<T: AsRef<str>>(&self, url: T) -> ::errors::Result<TextureHandle> {
-        let handle = self.textures.create_from(url)?;
-        Ok(handle)
-    }
-
-    /// Creates a texture object from file asynchronously.
-    pub fn create_texture_from_uuid(&self, uuid: Uuid) -> ::errors::Result<TextureHandle> {
-        let handle = self.textures.create_from_uuid(uuid)?;
-        Ok(handle)
-    }
-
-    /// Update a contiguous subregion of an existing two-dimensional texture object.
-    pub fn update_texture(
-        &self,
-        handle: TextureHandle,
-        area: Aabb2<u32>,
-        data: &[u8],
-    ) -> ::errors::Result<()> {
-        self.textures
-            .get(handle, |_| {
-                let mut frame = self.frames.write();
-                let ptr = frame.bufs.extend_from_slice(data);
-                let cmd = Command::UpdateTexture(handle, area, ptr);
-                frame.cmds.push(cmd);
-            }).ok_or_else(|| format_err!("{:?}", handle))
-    }
-
-    /// Delete the texture object.
-    pub fn delete_texture(&self, handle: TextureHandle) {
-        self.textures.delete(handle);
-    }
-}
-
-impl VideoSystemShared {
-    /// Create render texture object, which could be attached with a framebuffer.
-    pub fn create_render_texture(
-        &self,
-        params: RenderTextureParams,
-    ) -> Result<RenderTextureHandle> {
-        let handle = self.render_textures.write().unwrap().create(params).into();
-
-        {
-            let cmd = Command::CreateRenderTexture(handle, params);
-            self.frames.write().cmds.push(cmd);
-        }
-
-        Ok(handle)
-    }
-
-    /// Gets the `RenderTextureParams` if available.
-    pub fn render_texture(&self, handle: RenderTextureHandle) -> Option<RenderTextureParams> {
-        self.render_textures.read().unwrap().get(handle).cloned()
-    }
-
-    /// Delete the render texture object.
-    pub fn delete_render_texture(&self, handle: RenderTextureHandle) {
-        if self.render_textures.write().unwrap().free(handle).is_some() {
-            let cmd = Command::DeleteRenderTexture(handle);
-            self.frames.write().cmds.push(cmd);
+            &*CTX
         }
     }
 }

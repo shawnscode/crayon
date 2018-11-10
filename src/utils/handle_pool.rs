@@ -233,6 +233,23 @@ impl<'a, T: HandleLike> Iterator for Iter<'a, T> {
                 }
             }
         }
+
+        None
+    }
+}
+
+impl<'a, T: HandleLike> DoubleEndedIterator for Iter<'a, T> {
+    fn next_back(&mut self) -> Option<T> {
+        unsafe {
+            for i in (self.start..self.end).rev() {
+                let v = self.versions.get_unchecked(i as usize);
+                if v & 0x1 == 1 {
+                    self.end = i;
+                    return Some(T::new(i, *v));
+                }
+            }
+        }
+
         None
     }
 }

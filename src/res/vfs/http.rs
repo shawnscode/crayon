@@ -1,14 +1,14 @@
 use std::fs;
 use std::io::Read;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use errors::*;
+use sched::prelude::LockLatch;
 
-use super::super::request::{RequestState, Response};
+use super::super::request::Response;
 use super::super::url::Url;
 use super::VFS;
 
+#[derive(Debug, Clone, Copy)]
 pub struct Http {}
 
 impl Http {
@@ -25,8 +25,8 @@ impl Http {
 }
 
 impl VFS for Http {
-    fn request(&self, url: Url, state: Arc<Mutex<RequestState>>) {
+    fn request(&self, url: &Url, state: Arc<LockLatch<Response>>) {
         let response = self.load_from(url.path());
-        *state.lock().unwrap() = RequestState::Ok(response);
+        state.set(response);
     }
 }
