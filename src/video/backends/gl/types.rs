@@ -150,10 +150,8 @@ pub fn texture_format(format: TextureFormat, caps: &Capabilities) -> (GLenum, GL
             TextureFormat::RG32F => (gl::RG, gl::RG, gl::FLOAT),
             TextureFormat::RGB32F => (gl::RGB, gl::RGB, gl::FLOAT),
             TextureFormat::RGBA32F => (gl::RGBA, gl::RGBA, gl::FLOAT),
-            TextureFormat::Etc2RGB4BPP => (gl::COMPRESSED_RGB8_ETC2, gl::RGB, gl::UNSIGNED_BYTE),
-            TextureFormat::Etc2RGBA8BPP => {
-                (gl::COMPRESSED_RGBA8_ETC2_EAC, gl::RGB, gl::UNSIGNED_BYTE)
-            }
+            TextureFormat::Etc2RGB4BPP => (0x9274, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::Etc2RGBA8BPP => (0x9278, gl::RGB, gl::UNSIGNED_BYTE),
             TextureFormat::S3tcDxt1RGB4BPP => (0x83F0, gl::RGB, gl::UNSIGNED_BYTE),
             TextureFormat::S3tcDxt5RGBA8BPP => (0x83F3, gl::RGBA, gl::UNSIGNED_BYTE),
             TextureFormat::PvrtcRGB2BPP => (0x8C01, gl::RGB, gl::UNSIGNED_BYTE),

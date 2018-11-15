@@ -1,6 +1,8 @@
+use std::cell::RefCell;
+
 use gl;
 use gl::types::*;
-use std::cell::RefCell;
+use smallvec::SmallVec;
 
 use errors::*;
 use math::prelude::{Aabb2, Color, Vector2};
@@ -8,33 +10,29 @@ use utils::hash::{FastHashMap, FastHashSet};
 use utils::hash_value::HashValue;
 
 use super::super::super::assets::prelude::*;
-use super::super::super::MAX_UNIFORM_TEXTURE_SLOTS;
 use super::super::utils::DataVec;
 use super::super::{UniformVar, Visitor};
 use super::capabilities::{Capabilities, Version};
 use super::types;
 
 #[derive(Debug, Clone)]
-struct GLSurfaceFBO {
-    id: GLuint,
-    dimensions: Vector2<u32>,
-}
-
-#[derive(Debug, Clone)]
-struct GLSurface {
-    fbo: Option<GLSurfaceFBO>,
+struct GLSurfaceData {
+    handle: SurfaceHandle,
+    id: Option<GLuint>,
+    dimensions: Option<Vector2<u32>>,
     params: SurfaceParams,
 }
 
 #[derive(Debug, Clone)]
-struct GLShader {
+struct GLShaderData {
+    handle: ShaderHandle,
     id: GLuint,
     params: ShaderParams,
     uniforms: RefCell<FastHashMap<HashValue<str>, GLint>>,
     attributes: RefCell<FastHashMap<HashValue<str>, GLint>>,
 }
 
-impl GLShader {
+impl GLShaderData {
     fn hash_uniform_location<T: Into<HashValue<str>>>(&self, name: T) -> Option<GLint> {
         self.uniforms.borrow().get(&name.into()).cloned()
     }
@@ -73,49 +71,55 @@ impl GLShader {
 }
 
 #[derive(Debug, Clone)]
-struct GLMesh {
+struct GLMeshData {
+    handle: MeshHandle,
     vbo: GLuint,
     ibo: GLuint,
     params: MeshParams,
 }
 
-#[derive(Debug, Copy, Clone)]
-struct GLTexture {
+#[derive(Debug, Clone)]
+struct GLTextureData {
+    handle: TextureHandle,
     id: GLuint,
     params: TextureParams,
-    allocated: bool,
+    allocated: RefCell<bool>,
 }
 
 #[derive(Debug, Copy, Clone)]
-struct GLRenderTexture {
+struct GLRenderTextureData {
+    handle: RenderTextureHandle,
     id: GLuint,
     params: RenderTextureParams,
 }
 
-struct GLVisitorMutInternal {
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum Sampler {
+    RenderTexture(RenderTextureHandle),
+    Texture(TextureHandle),
+}
+
+struct GLMutableState {
     render_state: RenderState,
     scissor: SurfaceScissor,
     view: SurfaceViewport,
-    binded_render_buffer: Option<GLuint>,
-    binded_buffers: FastHashMap<GLenum, GLuint>,
-    binded_vao: Option<GLuint>,
+    cleared_surfaces: FastHashSet<SurfaceHandle>,
+    vaos: FastHashMap<(ShaderHandle, MeshHandle), GLuint>,
     binded_surface: Option<SurfaceHandle>,
-    binded_framebuffer: Option<GLuint>,
-    binded_frame_surfaces: FastHashSet<SurfaceHandle>,
-    binded_shader: Option<GLuint>,
+    binded_shader: Option<ShaderHandle>,
+    binded_vao: Option<(ShaderHandle, MeshHandle)>,
     binded_texture_index: usize,
-    binded_textures: [Option<GLuint>; MAX_UNIFORM_TEXTURE_SLOTS],
-    vaos: FastHashMap<(GLuint, GLuint), GLuint>,
+    binded_textures: SmallVec<[Option<Sampler>; 8]>,
 }
 
 pub struct GLVisitor {
-    mutables: RefCell<GLVisitorMutInternal>,
-    surfaces: DataVec<GLSurface>,
-    shaders: DataVec<GLShader>,
-    meshes: DataVec<GLMesh>,
-    textures: DataVec<GLTexture>,
-    render_textures: DataVec<GLRenderTexture>,
+    state: GLMutableState,
     capabilities: Capabilities,
+    surfaces: DataVec<GLSurfaceData>,
+    shaders: DataVec<GLShaderData>,
+    meshes: DataVec<GLMeshData>,
+    textures: DataVec<GLTextureData>,
+    render_textures: DataVec<GLRenderTextureData>,
 }
 
 impl GLVisitor {
@@ -124,27 +128,24 @@ impl GLVisitor {
         info!("GLVisitor {:#?}", capabilities);
         check_capabilities(&capabilities)?;
 
-        let mutables = GLVisitorMutInternal {
+        let state = GLMutableState {
             render_state: RenderState::default(),
             scissor: SurfaceScissor::Disable,
             view: SurfaceViewport {
                 position: Vector2::new(0, 0),
                 size: Vector2::new(0, 0),
             },
-            binded_render_buffer: None,
-            binded_buffers: FastHashMap::default(),
-            binded_vao: None,
-            binded_surface: None,
-            binded_framebuffer: None,
-            binded_frame_surfaces: FastHashSet::default(),
-            binded_shader: None,
-            binded_texture_index: 0,
-            binded_textures: [None; MAX_UNIFORM_TEXTURE_SLOTS],
+            cleared_surfaces: FastHashSet::default(),
             vaos: FastHashMap::default(),
+            binded_surface: None,
+            binded_shader: None,
+            binded_vao: None,
+            binded_texture_index: 0,
+            binded_textures: SmallVec::new(),
         };
 
-        let visitor = GLVisitor {
-            mutables: RefCell::new(mutables),
+        let mut visitor = GLVisitor {
+            state: state,
             surfaces: DataVec::new(),
             shaders: DataVec::new(),
             meshes: DataVec::new(),
@@ -153,19 +154,15 @@ impl GLVisitor {
             capabilities: capabilities,
         };
 
-        visitor.reset_render_state()?;
+        Self::reset_render_state(&mut visitor.state)?;
         Ok(visitor)
     }
 }
 
 impl Visitor for GLVisitor {
     unsafe fn advance(&mut self) -> Result<()> {
-        {
-            let mut mutables = self.mutables.borrow_mut();
-            mutables.binded_frame_surfaces.clear();
-            mutables.binded_surface = None;
-        }
-
+        self.state.cleared_surfaces.clear();
+        self.state.binded_surface = None;
         Ok(())
     }
 
@@ -174,12 +171,20 @@ impl Visitor for GLVisitor {
         handle: SurfaceHandle,
         params: SurfaceParams,
     ) -> Result<()> {
-        let fbo = if params.colors[0].is_some() || params.depth_stencil.is_some() {
+        let mut data = GLSurfaceData {
+            handle: handle,
+            id: None,
+            dimensions: None,
+            params: params,
+        };
+
+        if params.colors[0].is_some() || params.depth_stencil.is_some() {
             let mut id = 0;
             gl::GenFramebuffers(1, &mut id);
             assert!(id != 0);
 
-            self.bind_framebuffer(id, false)?;
+            gl::BindFramebuffer(gl::FRAMEBUFFER, id);
+            self.state.binded_surface = None;
 
             let mut dimensions = None;
             for (i, attachment) in params.colors.iter().enumerate() {
@@ -232,21 +237,41 @@ impl Visitor for GLVisitor {
                 self.update_framebuffer_render_texture(rt.id, rt.params, 0)?;
             }
 
-            Some(GLSurfaceFBO {
-                id: id,
-                dimensions: dimensions.unwrap(),
-            })
-        } else {
-            None
+            let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
+            if status != gl::FRAMEBUFFER_COMPLETE {
+                gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+                self.state.binded_surface = None;
+
+                match status {
+                    gl::FRAMEBUFFER_INCOMPLETE_ATTACHMENT => {
+                        bail!("[GL] Surface is incomplete. Not all framebuffer attachment points \
+                        are framebuffer attachment complete. This means that at least one attachment point with a \
+                        renderbuffer or texture attached has its attached object no longer in existence or has an \
+                        attached image with a width or height of zero, or the color attachment point has a non-color-renderable \
+                        image attached, or the depth attachment point has a non-depth-renderable image attached, or \
+                        the stencil attachment point has a non-stencil-renderable image attached. ");
+                    }
+
+                    gl::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => {
+                        bail!("[GL] Surface is incomplete. No images are attached to the framebuffer.");
+                    }
+
+                    gl::FRAMEBUFFER_UNSUPPORTED => {
+                        bail!("[GL] Surface is incomplete. The combination of internal formats \
+                        of the attached images violates an implementation-dependent set of restrictions. ");
+                    }
+
+                    _ => {
+                        bail!("[GL] Surface is incomplete.");
+                    }
+                }
+            }
+
+            data.id = Some(id);
+            data.dimensions = dimensions;
         };
 
-        self.surfaces.create(
-            handle,
-            GLSurface {
-                fbo: fbo,
-                params: params,
-            },
-        );
+        self.surfaces.create(handle, data);
 
         Ok(())
     }
@@ -257,14 +282,12 @@ impl Visitor for GLVisitor {
             .free(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
-        if let Some(fbo) = surface.fbo {
-            assert!(fbo.id != 0);
+        if self.state.binded_surface == Some(handle) {
+            self.state.binded_surface = None;
+        }
 
-            if self.mutables.borrow().binded_framebuffer == Some(fbo.id) {
-                self.bind_framebuffer(0, false)?;
-            }
-
-            gl::DeleteFramebuffers(1, &fbo.id);
+        if let Some(id) = surface.id {
+            gl::DeleteFramebuffers(1, &id);
             check()?;
         }
 
@@ -278,9 +301,9 @@ impl Visitor for GLVisitor {
         vs: &str,
         fs: &str,
     ) -> Result<()> {
-        let vs = self.compile(gl::VERTEX_SHADER, vs)?;
-        let fs = self.compile(gl::FRAGMENT_SHADER, fs)?;
-        let id = self.link(vs, fs)?;
+        let vs = Self::compile(gl::VERTEX_SHADER, vs)?;
+        let fs = Self::compile(gl::FRAGMENT_SHADER, fs)?;
+        let id = Self::link(&[vs, fs])?;
 
         gl::DetachShader(id, vs);
         gl::DeleteShader(vs);
@@ -288,7 +311,8 @@ impl Visitor for GLVisitor {
         gl::DeleteShader(fs);
         check()?;
 
-        let shader = GLShader {
+        let shader = GLShaderData {
+            handle: handle,
             id: id,
             params: params,
             uniforms: RefCell::new(FastHashMap::default()),
@@ -299,7 +323,7 @@ impl Visitor for GLVisitor {
             let name: &'static str = name.into();
             let location = shader.attribute_location(name)?;
             if location == -1 {
-                self.delete_shader_intern(id)?;
+                gl::DeleteProgram(id);
                 bail!("Attribute({:?}) is undefined in shader sources.", name);
             }
         }
@@ -307,7 +331,7 @@ impl Visitor for GLVisitor {
         for &(ref name, _) in shader.params.uniforms.iter() {
             let location = shader.uniform_location(name)?;
             if location == -1 {
-                self.delete_shader_intern(id)?;
+                gl::DeleteProgram(id);
                 bail!("Uniform({:?}) is undefined in shader sources.", name);
             }
         }
@@ -323,20 +347,21 @@ impl Visitor for GLVisitor {
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
         // Removes deprecated `VertexArrayObject`s.
-        self.mutables
-            .borrow_mut()
-            .vaos
-            .retain(|&(shader_id, _), vao| {
-                if shader_id == shader.id {
-                    gl::DeleteVertexArrays(1, vao as *mut u32);
-                    false
-                } else {
-                    true
-                }
-            });
+        self.state.vaos.retain(|&(h, _), vao| {
+            if h == shader.handle {
+                gl::DeleteVertexArrays(1, vao as *mut u32);
+                false
+            } else {
+                true
+            }
+        });
 
-        check()?;
-        self.delete_shader_intern(shader.id)
+        if self.state.binded_shader == Some(handle) {
+            self.state.binded_shader = None;
+        }
+
+        gl::DeleteProgram(shader.id);
+        check()
     }
 
     unsafe fn create_texture(
@@ -365,8 +390,8 @@ impl Visitor for GLVisitor {
         if let Some(mut data) = data {
             let len = data.bytes.len();
             if len > 0 {
-                self.bind_texture(0, id)?;
-                self.update_texture_params(id, params.wrap, params.filter, len as u32)?;
+                Self::bind_texture(&mut self.state, Some(Sampler::Texture(handle)), 0, id)?;
+                Self::bind_texture_params(params.wrap, params.filter, len as u32)?;
 
                 let mut dims = (
                     params.dimensions.x as GLsizei,
@@ -416,10 +441,11 @@ impl Visitor for GLVisitor {
 
         self.textures.create(
             handle,
-            GLTexture {
+            GLTextureData {
+                handle: handle,
                 id: id,
                 params: params,
-                allocated: allocated,
+                allocated: RefCell::new(allocated),
             },
         );
 
@@ -432,7 +458,7 @@ impl Visitor for GLVisitor {
         area: Aabb2<u32>,
         data: &[u8],
     ) -> Result<()> {
-        let texture = *self
+        let texture = self
             .textures
             .get(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
@@ -455,10 +481,15 @@ impl Visitor for GLVisitor {
         let (internal_format, format, pixel_type) =
             types::texture_format(texture.params.format, &self.capabilities);
 
-        self.bind_texture(0, texture.id)?;
+        Self::bind_texture(
+            &mut self.state,
+            Some(Sampler::Texture(handle)),
+            0,
+            texture.id,
+        )?;
 
-        if !texture.allocated {
-            self.update_texture_params(texture.id, texture.params.wrap, texture.params.filter, 1)?;
+        if !*texture.allocated.borrow() {
+            Self::bind_texture_params(texture.params.wrap, texture.params.filter, 1)?;
 
             gl::TexImage2D(
                 gl::TEXTURE_2D,
@@ -472,7 +503,7 @@ impl Visitor for GLVisitor {
                 ::std::ptr::null(),
             );
 
-            self.textures.get_mut(handle).unwrap().allocated = true;
+            *texture.allocated.borrow_mut() = true;
         }
 
         gl::TexSubImage2D(
@@ -495,7 +526,15 @@ impl Visitor for GLVisitor {
             .textures
             .free(handle)
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
-        self.delete_texture_intern(texture.id)
+
+        for v in self.state.binded_textures.iter_mut() {
+            if *v == Some(Sampler::Texture(handle)) {
+                *v = None;
+            }
+        }
+
+        gl::DeleteTextures(1, &texture.id);
+        check()
     }
 
     unsafe fn create_render_texture(
@@ -508,8 +547,8 @@ impl Visitor for GLVisitor {
             gl::GenTextures(1, &mut id);
             assert!(id != 0);
 
-            self.bind_texture(0, id)?;
-            self.update_texture_params(id, params.wrap, params.filter, 1)?;
+            Self::bind_texture(&mut self.state, Some(Sampler::RenderTexture(handle)), 0, id)?;
+            Self::bind_texture_params(params.wrap, params.filter, 1)?;
 
             let (internal_format, format, pixel_type) = params.format.into();
             gl::TexImage2D(
@@ -529,8 +568,7 @@ impl Visitor for GLVisitor {
             let mut id = 0;
             gl::GenRenderbuffers(1, &mut id);
             assert!(id != 0);
-
-            self.bind_render_buffer(id)?;
+            gl::BindRenderbuffer(gl::RENDERBUFFER, id);
 
             let (internal_format, _, _) = params.format.into();
             gl::RenderbufferStorage(
@@ -546,7 +584,8 @@ impl Visitor for GLVisitor {
 
         self.render_textures.create(
             handle,
-            GLRenderTexture {
+            GLRenderTextureData {
+                handle: handle,
                 id: id,
                 params: params,
             },
@@ -562,16 +601,18 @@ impl Visitor for GLVisitor {
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
         if rt.params.sampler {
-            self.delete_texture_intern(rt.id)
-        } else {
-            let mut mutables = self.mutables.borrow_mut();
-            if mutables.binded_render_buffer == Some(rt.id) {
-                mutables.binded_render_buffer = None;
+            for v in self.state.binded_textures.iter_mut() {
+                if *v == Some(Sampler::RenderTexture(handle)) {
+                    *v = None;
+                }
             }
 
+            gl::DeleteTextures(1, &rt.id);
+        } else {
             gl::DeleteRenderbuffers(1, &rt.id);
-            check()
         }
+
+        check()
     }
 
     unsafe fn create_mesh(
@@ -580,14 +621,14 @@ impl Visitor for GLVisitor {
         params: MeshParams,
         data: Option<MeshData>,
     ) -> Result<()> {
-        let vbo = self.create_buffer_intern(
+        let vbo = self.create_buffer(
             gl::ARRAY_BUFFER,
             params.hint,
             params.vertex_buffer_len(),
             data.as_ref().map(|v| v.vptr.as_ref()),
         )?;
 
-        let ibo = self.create_buffer_intern(
+        let ibo = self.create_buffer(
             gl::ELEMENT_ARRAY_BUFFER,
             params.hint,
             params.index_buffer_len(),
@@ -596,7 +637,8 @@ impl Visitor for GLVisitor {
 
         self.meshes.create(
             handle,
-            GLMesh {
+            GLMeshData {
+                handle: handle,
                 vbo: vbo,
                 ibo: ibo,
                 params: params,
@@ -625,7 +667,7 @@ impl Visitor for GLVisitor {
             mesh.vbo
         };
 
-        self.update_buffer_intern(gl::ARRAY_BUFFER, vbo, offset, data)?;
+        Self::update_buffer(gl::ARRAY_BUFFER, vbo, offset, data)?;
         Ok(())
     }
 
@@ -648,7 +690,7 @@ impl Visitor for GLVisitor {
             mesh.ibo
         };
 
-        self.update_buffer_intern(gl::ELEMENT_ARRAY_BUFFER, ibo, offset, data)?;
+        Self::update_buffer(gl::ELEMENT_ARRAY_BUFFER, ibo, offset, data)?;
         Ok(())
     }
 
@@ -659,8 +701,8 @@ impl Visitor for GLVisitor {
             .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
         // Removes deprecated `VertexArrayObject`s.
-        self.mutables.borrow_mut().vaos.retain(|&(_, h), vao| {
-            if h == mesh.vbo {
+        self.state.vaos.retain(|&(_, h), vao| {
+            if h == mesh.handle {
                 gl::DeleteVertexArrays(1, vao as *mut u32);
                 false
             } else {
@@ -668,30 +710,25 @@ impl Visitor for GLVisitor {
             }
         });
 
-        check()?;
-        self.delete_buffer_intern(gl::ARRAY_BUFFER, mesh.vbo)?;
-        self.delete_buffer_intern(gl::ELEMENT_ARRAY_BUFFER, mesh.ibo)?;
-        Ok(())
+        gl::DeleteBuffers(1, &mesh.vbo);
+        gl::DeleteBuffers(1, &mesh.ibo);
+        check()
     }
 
-    unsafe fn bind(&mut self, id: SurfaceHandle, dimensions: Vector2<u32>) -> Result<()> {
-        if self.mutables.borrow().binded_surface == Some(id) {
+    unsafe fn bind(&mut self, handle: SurfaceHandle, dimensions: Vector2<u32>) -> Result<()> {
+        if self.state.binded_surface == Some(handle) {
             return Ok(());
         }
 
         let surface = self
             .surfaces
-            .get(id)
-            .ok_or_else(|| format_err!("{:?} is invalid.", id))?;
+            .get(handle)
+            .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
 
         // Bind frame buffer.
-        let dimensions = if let Some(ref fbo) = surface.fbo {
-            self.bind_framebuffer(fbo.id, true)?;
-            fbo.dimensions
-        } else {
-            self.bind_framebuffer(0, false)?;
-            dimensions
-        };
+        let id = surface.id.unwrap_or(0);
+        let dimensions = surface.dimensions.unwrap_or(dimensions);
+        gl::BindFramebuffer(gl::FRAMEBUFFER, id);
 
         // Reset the viewport and scissor box.
         let vp = SurfaceViewport {
@@ -699,36 +736,36 @@ impl Visitor for GLVisitor {
             size: dimensions,
         };
 
-        self.set_viewport(vp)?;
-        self.set_scissor(SurfaceScissor::Disable)?;
+        Self::set_viewport(&mut self.state, vp)?;
+        Self::set_scissor(&mut self.state, SurfaceScissor::Disable)?;
 
-        if !self.mutables.borrow().binded_frame_surfaces.contains(&id) {
+        if !self.state.cleared_surfaces.contains(&handle) {
             // Sets depth write enable to make sure that we can clear depth buffer properly.
             if surface.params.clear_depth.is_some() {
-                self.mutables.borrow_mut().binded_shader = None;
-                self.set_depth_test(true, Comparison::Always)?;
+                self.state.binded_shader = None;
+                Self::set_depth_test(&mut self.state, true, Comparison::Always)?;
             }
 
             // Clears frame buffer.
-            self.clear(
+            Self::clear(
                 surface.params.clear_color,
                 surface.params.clear_depth,
                 surface.params.clear_stencil,
             )?;
 
-            self.mutables.borrow_mut().binded_frame_surfaces.insert(id);
+            self.state.cleared_surfaces.insert(handle);
         }
 
-        self.mutables.borrow_mut().binded_surface = Some(id);
+        self.state.binded_surface = Some(handle);
         Ok(())
     }
 
     unsafe fn update_surface_scissor(&mut self, scissor: SurfaceScissor) -> Result<()> {
-        self.set_scissor(scissor)
+        Self::set_scissor(&mut self.state, scissor)
     }
 
     unsafe fn update_surface_viewport(&mut self, vp: SurfaceViewport) -> Result<()> {
-        self.set_viewport(vp)
+        Self::set_viewport(&mut self.state, vp)
     }
 
     unsafe fn draw(
@@ -738,76 +775,79 @@ impl Visitor for GLVisitor {
         mesh_index: MeshIndex,
         uniforms: &[UniformVar],
     ) -> Result<u32> {
-        let mesh = {
-            // Bind program and associated uniforms and textures.
-            let shader = self
-                .shaders
-                .get(shader)
-                .ok_or_else(|| format_err!("{:?} is invalid.", shader))?;
+        // Bind program and associated uniforms and textures.
+        let shader = self
+            .shaders
+            .get(shader)
+            .ok_or_else(|| format_err!("{:?} is invalid.", shader))?;
 
-            self.bind_shader(&shader)?;
-            self.clear_binded_texture()?;
+        Self::bind_shader(&mut self.state, &shader)?;
+        Self::clear_binded_texture(&mut self.state)?;
 
-            let mut index = 0usize;
-            for &(field, variable) in uniforms {
-                if let Some(tp) = shader.params.uniforms.variable_type(field) {
-                    if tp != variable.variable_type() {
-                        let name = shader.params.uniforms.variable_name(field).unwrap();
-                        bail!(
-                            "The uniform {} needs a {:?} instead of {:?}.",
-                            name,
-                            tp,
-                            variable.variable_type(),
-                        );
+        let mut index = 0usize;
+        for &(field, variable) in uniforms {
+            if let Some(tp) = shader.params.uniforms.variable_type(field) {
+                if tp != variable.variable_type() {
+                    let name = shader.params.uniforms.variable_name(field).unwrap();
+                    bail!(
+                        "The uniform {} needs a {:?} instead of {:?}.",
+                        name,
+                        tp,
+                        variable.variable_type(),
+                    );
+                }
+
+                let location = shader.hash_uniform_location(field).unwrap();
+                match variable {
+                    UniformVariable::Texture(handle) => {
+                        let v = UniformVariable::I32(index as i32);
+                        let texture = self.textures.get(handle).map(|v| v.id).unwrap_or(0);
+                        Self::bind_uniform_variable(location, &v)?;
+                        Self::bind_texture(
+                            &mut self.state,
+                            Some(Sampler::Texture(handle)),
+                            0,
+                            texture,
+                        )?;
+                        index += 1;
                     }
+                    UniformVariable::RenderTexture(handle) => {
+                        let v = UniformVariable::I32(index as i32);
+                        Self::bind_uniform_variable(location, &v)?;
 
-                    let location = shader.hash_uniform_location(field).unwrap();
-                    match variable {
-                        UniformVariable::Texture(handle) => {
-                            let v = UniformVariable::I32(index as i32);
-                            let texture = self.textures.get(handle).map(|v| v.id).unwrap_or(0);
-                            self.bind_uniform_variable(location, &v)?;
-                            self.bind_texture(index, texture)?;
-                            index += 1;
-                        }
-                        UniformVariable::RenderTexture(handle) => {
-                            let v = UniformVariable::I32(index as i32);
-                            self.bind_uniform_variable(location, &v)?;
-
-                            if let Some(texture) = self.render_textures.get(handle) {
-                                if !texture.params.sampler {
-                                    bail!("The render buffer does not have a sampler.");
-                                }
-
-                                self.bind_texture(index, texture.id)?;
-                            } else {
-                                self.bind_texture(index, 0)?;
+                        if let Some(texture) = self.render_textures.get(handle) {
+                            if !texture.params.sampler {
+                                bail!("The render buffer does not have a sampler.");
                             }
 
-                            index += 1;
+                            Self::bind_texture(
+                                &mut self.state,
+                                Some(Sampler::RenderTexture(handle)),
+                                0,
+                                texture.id,
+                            )?;
+                        } else {
+                            Self::bind_texture(&mut self.state, None, 0, 0)?;
                         }
-                        _ => {
-                            self.bind_uniform_variable(location, &variable)?;
-                        }
+
+                        index += 1;
                     }
-                } else {
-                    bail!("Undefined uniform field {:?}.", field);
+                    _ => {
+                        Self::bind_uniform_variable(location, &variable)?;
+                    }
                 }
+            } else {
+                bail!("Undefined uniform field {:?}.", field);
             }
+        }
 
-            // Bind vertex buffer and vertex array object.
-            let mesh = self
-                .meshes
-                .get(mesh)
-                .ok_or_else(|| format_err!("{:?} is invalid.", mesh))?;
+        // Bind vertex buffer and vertex array object.
+        let mesh = self
+            .meshes
+            .get(mesh)
+            .ok_or_else(|| format_err!("{:?} is invalid.", mesh))?;
 
-            self.bind_buffer(gl::ARRAY_BUFFER, mesh.vbo)?;
-            self.bind_vao(&shader, &mesh)?;
-            mesh
-        };
-
-        // Bind index buffer object if available.
-        self.bind_buffer(gl::ELEMENT_ARRAY_BUFFER, mesh.ibo)?;
+        Self::bind_mesh(&mut self.state, &shader, &mesh)?;
 
         let (from, len) = match mesh_index {
             MeshIndex::Ptr(from, len) => {
@@ -854,52 +894,8 @@ impl Visitor for GLVisitor {
 }
 
 impl GLVisitor {
-    unsafe fn bind_framebuffer(&self, id: GLuint, check_status: bool) -> Result<()> {
-        if self.mutables.borrow().binded_framebuffer == Some(id) {
-            return Ok(());
-        }
-
-        gl::BindFramebuffer(gl::FRAMEBUFFER, id);
-
-        if check_status {
-            let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
-            if status != gl::FRAMEBUFFER_COMPLETE {
-                gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
-                self.mutables.borrow_mut().binded_framebuffer = Some(0);
-
-                match status {
-                    gl::FRAMEBUFFER_INCOMPLETE_ATTACHMENT => {
-                        bail!("[GL] Surface is incomplete. Not all framebuffer attachment points \
-                        are framebuffer attachment complete. This means that at least one attachment point with a \
-                        renderbuffer or texture attached has its attached object no longer in existence or has an \
-                        attached image with a width or height of zero, or the color attachment point has a non-color-renderable \
-                        image attached, or the depth attachment point has a non-depth-renderable image attached, or \
-                        the stencil attachment point has a non-stencil-renderable image attached. ");
-                    }
-
-                    gl::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => {
-                        bail!("[GL] Surface is incomplete. No images are attached to the framebuffer.");
-                    }
-
-                    gl::FRAMEBUFFER_UNSUPPORTED => {
-                        bail!("[GL] Surface is incomplete. The combination of internal formats \
-                        of the attached images violates an implementation-dependent set of restrictions. ");
-                    }
-
-                    _ => {
-                        bail!("[GL] Surface is incomplete.");
-                    }
-                }
-            }
-        } else {
-            self.mutables.borrow_mut().binded_framebuffer = Some(id);
-        }
-
-        check()
-    }
-
-    unsafe fn bind_shader(&self, shader: &GLShader) -> Result<()> {
-        if self.mutables.borrow().binded_shader == Some(shader.id) {
+    unsafe fn bind_shader(state: &mut GLMutableState, shader: &GLShaderData) -> Result<()> {
+        if state.binded_shader == Some(shader.handle) {
             return Ok(());
         }
 
@@ -907,22 +903,18 @@ impl GLVisitor {
         check()?;
 
         let rs = shader.params.state;
-        self.set_cull_face(rs.cull_face)?;
-        self.set_front_face_order(rs.front_face_order)?;
-        self.set_depth_test(rs.depth_write, rs.depth_test)?;
-        self.set_depth_write_offset(rs.depth_write_offset)?;
-        self.set_color_blend(rs.color_blend)?;
-        self.set_color_write(rs.color_write)?;
+        Self::set_cull_face(state, rs.cull_face)?;
+        Self::set_front_face_order(state, rs.front_face_order)?;
+        Self::set_depth_test(state, rs.depth_write, rs.depth_test)?;
+        Self::set_depth_write_offset(state, rs.depth_write_offset)?;
+        Self::set_color_blend(state, rs.color_blend)?;
+        Self::set_color_write(state, rs.color_write)?;
 
-        self.mutables.borrow_mut().binded_shader = Some(shader.id);
+        state.binded_shader = Some(shader.handle);
         Ok(())
     }
 
-    unsafe fn bind_uniform_variable(
-        &self,
-        location: GLint,
-        variable: &UniformVariable,
-    ) -> Result<()> {
+    unsafe fn bind_uniform_variable(location: GLint, variable: &UniformVariable) -> Result<()> {
         match *variable {
             UniformVariable::Texture(_) => unreachable!(),
             UniformVariable::RenderTexture(_) => unreachable!(),
@@ -948,150 +940,131 @@ impl GLVisitor {
         check()
     }
 
-    unsafe fn bind_buffer(&self, tp: GLuint, id: GLuint) -> Result<()> {
-        assert!(tp == gl::ARRAY_BUFFER || tp == gl::ELEMENT_ARRAY_BUFFER);
-        gl::BindBuffer(tp, id);
-        self.mutables.borrow_mut().binded_buffers.insert(tp, id);
-        check()
-    }
-
-    unsafe fn bind_texture(&self, index: usize, id: GLuint) -> Result<()> {
-        // assert!(id != 0, "failed to bind texture with 0.");
-
-        if index >= MAX_UNIFORM_TEXTURE_SLOTS {
-            bail!("Reaching maximum texture slots.");
-        }
-
-        let mut mutables = self.mutables.borrow_mut();
-        if mutables.binded_texture_index != index {
-            mutables.binded_texture_index = index;
+    unsafe fn bind_texture(
+        state: &mut GLMutableState,
+        sampler: Option<Sampler>,
+        index: usize,
+        id: GLuint,
+    ) -> Result<()> {
+        if state.binded_texture_index != index {
+            state.binded_texture_index = index;
             gl::ActiveTexture(gl::TEXTURE0 + index as GLuint);
         }
 
-        if mutables.binded_textures[index] != Some(id) {
-            mutables.binded_textures[index] = Some(id);
+        if state.binded_textures.len() <= index {
+            state.binded_textures.resize(index + 1, None);
+        }
+
+        if state.binded_textures[index] != sampler {
+            state.binded_textures[index] = sampler;
             gl::BindTexture(gl::TEXTURE_2D, id);
         }
 
         check()
     }
 
-    unsafe fn clear_binded_texture(&self) -> Result<()> {
-        let mut mutables = self.mutables.borrow_mut();
-
-        for (i, v) in mutables.binded_textures.iter_mut().enumerate() {
+    unsafe fn clear_binded_texture(state: &mut GLMutableState) -> Result<()> {
+        for (i, v) in state.binded_textures.iter_mut().enumerate() {
             if v.is_some() {
                 gl::ActiveTexture(gl::TEXTURE0 + i as GLuint);
                 gl::BindTexture(gl::TEXTURE_2D, 0);
 
                 *v = None;
+                state.binded_texture_index = i;
             }
         }
 
-        mutables.binded_texture_index = mutables.binded_textures.len() - 1;
         check()
     }
 
-    unsafe fn bind_render_buffer(&self, rb: GLuint) -> Result<()> {
-        assert!(rb != 0, "failed to bind render buffer with 0.");
+    unsafe fn bind_mesh(
+        state: &mut GLMutableState,
+        shader: &GLShaderData,
+        mesh: &GLMeshData,
+    ) -> Result<()> {
+        assert!(state.binded_shader == Some(shader.handle));
 
-        let mut mutables = self.mutables.borrow_mut();
-        if mutables.binded_render_buffer == Some(rb) {
-            return Ok(());
-        }
-
-        gl::BindRenderbuffer(gl::RENDERBUFFER, rb);
-        mutables.binded_render_buffer = Some(rb);
-        check()
-    }
-
-    unsafe fn bind_vao(&self, shader: &GLShader, mesh: &GLMesh) -> Result<()> {
-        let mut mutables = self.mutables.borrow_mut();
-        assert!(mutables.binded_shader == Some(shader.id));
-        assert!(*mutables.binded_buffers.get(&gl::ARRAY_BUFFER).unwrap() == mesh.vbo);
-
-        if let Some(vao) = mutables.vaos.get(&(shader.id, mesh.vbo)).cloned() {
-            if mutables.binded_vao == Some(vao) {
-                return Ok(());
-            }
-
-            gl::BindVertexArray(vao);
-            mutables.binded_vao = Some(vao);
-            return check();
-        }
-
-        let mut vao = 0;
-        gl::GenVertexArrays(1, &mut vao);
-        gl::BindVertexArray(vao);
-        mutables.binded_vao = Some(vao);
-
-        for (name, size, required) in shader.params.attributes.iter() {
-            if let Some(element) = mesh.params.layout.element(name) {
-                if element.size < size {
-                    bail!(
-                        "Vertex buffer has incompatible attribute `{:?}` [{:?} - {:?}].",
-                        name,
-                        element.size,
-                        size
-                    );
-                }
-
-                let offset = mesh.params.layout.offset(name).unwrap();
-                let stride = mesh.params.layout.stride();
-
-                let location = shader.attribute_location(name.into())?;
-                gl::EnableVertexAttribArray(location as GLuint);
-                gl::VertexAttribPointer(
-                    location as GLuint,
-                    GLsizei::from(element.size),
-                    element.format.into(),
-                    element.normalized as u8,
-                    GLsizei::from(stride),
-                    offset as *const u8 as *const ::std::os::raw::c_void,
-                );
+        let k = (shader.handle, mesh.handle);
+        if state.binded_vao != Some(k) {
+            if let Some(vao) = state.vaos.get(&k).cloned() {
+                gl::BindVertexArray(vao);
+                check()?;
             } else {
-                if required {
-                    bail!(
-                        "Can't find attribute {:?} description in vertex buffer.",
-                        name
-                    );
+                let mut vao = 0;
+                gl::GenVertexArrays(1, &mut vao);
+                gl::BindVertexArray(vao);
+                gl::BindBuffer(gl::ARRAY_BUFFER, mesh.vbo);
+
+                for (name, size, required) in shader.params.attributes.iter() {
+                    if let Some(element) = mesh.params.layout.element(name) {
+                        if element.size < size {
+                            bail!(
+                                "Vertex buffer has incompatible attribute `{:?}` [{:?} - {:?}].",
+                                name,
+                                element.size,
+                                size
+                            );
+                        }
+
+                        let offset = mesh.params.layout.offset(name).unwrap();
+                        let stride = mesh.params.layout.stride();
+
+                        let location = shader.attribute_location(name.into())?;
+                        gl::EnableVertexAttribArray(location as GLuint);
+                        gl::VertexAttribPointer(
+                            location as GLuint,
+                            GLsizei::from(element.size),
+                            element.format.into(),
+                            element.normalized as u8,
+                            GLsizei::from(stride),
+                            offset as *const u8 as *const ::std::os::raw::c_void,
+                        );
+                    } else {
+                        if required {
+                            bail!(
+                                "Can't find attribute {:?} description in vertex buffer.",
+                                name
+                            );
+                        }
+                    }
                 }
+
+                check()?;
+                state.vaos.insert(k, vao);
             }
+
+            state.binded_vao = Some(k);
         }
 
-        check()?;
-
-        mutables.vaos.insert((shader.id, mesh.vbo), vao);
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, mesh.ibo);
         Ok(())
     }
 }
 
 impl GLVisitor {
-    unsafe fn reset_render_state(&self) -> Result<()> {
-        let mut mutables = self.mutables.borrow_mut();
-
+    unsafe fn reset_render_state(state: &mut GLMutableState) -> Result<()> {
         gl::Disable(gl::CULL_FACE);
-        mutables.render_state.cull_face = CullFace::Nothing;
+        state.render_state.cull_face = CullFace::Nothing;
 
         gl::FrontFace(gl::CCW);
-        mutables.render_state.front_face_order = FrontFaceOrder::CounterClockwise;
+        state.render_state.front_face_order = FrontFaceOrder::CounterClockwise;
 
         gl::Disable(gl::DEPTH_TEST);
         gl::DepthMask(gl::FALSE);
-        mutables.render_state.depth_write = false;
+        state.render_state.depth_write = false;
         gl::DepthFunc(gl::ALWAYS);
-        mutables.render_state.depth_test = Comparison::Always;
+        state.render_state.depth_test = Comparison::Always;
         gl::Disable(gl::POLYGON_OFFSET_FILL);
-        mutables.render_state.depth_write_offset = None;
+        state.render_state.depth_write_offset = None;
 
         gl::Disable(gl::BLEND);
-        mutables.render_state.color_blend = None;
+        state.render_state.color_blend = None;
 
         gl::ColorMask(1, 1, 1, 1);
-        mutables.render_state.color_write = (true, true, true, true);
+        state.render_state.color_write = (true, true, true, true);
 
         gl::Disable(gl::SCISSOR_TEST);
-        mutables.scissor = SurfaceScissor::Disable;
+        state.scissor = SurfaceScissor::Disable;
 
         gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
         gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
@@ -1100,10 +1073,10 @@ impl GLVisitor {
     }
 
     /// Specify whether front- or back-facing polygons can be culled.
-    unsafe fn set_cull_face(&self, face: CullFace) -> Result<()> {
-        let state = &mut self.mutables.borrow_mut().render_state;
+    unsafe fn set_cull_face(state: &mut GLMutableState, face: CullFace) -> Result<()> {
+        let rs = &mut state.render_state;
 
-        if state.cull_face != face {
+        if rs.cull_face != face {
             if face != CullFace::Nothing {
                 gl::Enable(gl::CULL_FACE);
                 gl::CullFace(match face {
@@ -1115,7 +1088,7 @@ impl GLVisitor {
                 gl::Disable(gl::CULL_FACE);
             }
 
-            state.cull_face = face;
+            rs.cull_face = face;
             check()?;
         }
 
@@ -1123,16 +1096,19 @@ impl GLVisitor {
     }
 
     /// Define front- and back-facing polygons.
-    unsafe fn set_front_face_order(&self, front: FrontFaceOrder) -> Result<()> {
-        let state = &mut self.mutables.borrow_mut().render_state;
+    unsafe fn set_front_face_order(
+        state: &mut GLMutableState,
+        front: FrontFaceOrder,
+    ) -> Result<()> {
+        let rs = &mut state.render_state;
 
-        if state.front_face_order != front {
+        if rs.front_face_order != front {
             gl::FrontFace(match front {
                 FrontFaceOrder::Clockwise => gl::CW,
                 FrontFaceOrder::CounterClockwise => gl::CCW,
             });
 
-            state.front_face_order = front;
+            rs.front_face_order = front;
             check()?;
         }
 
@@ -1141,13 +1117,17 @@ impl GLVisitor {
 
     /// Enable or disable writing into the depth buffer and specify the value used for depth
     /// buffer comparisons.
-    unsafe fn set_depth_test(&self, write: bool, comparsion: Comparison) -> Result<()> {
-        let state = &mut self.mutables.borrow_mut().render_state;
+    unsafe fn set_depth_test(
+        state: &mut GLMutableState,
+        write: bool,
+        comparsion: Comparison,
+    ) -> Result<()> {
+        let rs = &mut state.render_state;
 
         // Note that even if the depth buffer exists and the depth mask is non-zero,
         // the depth buffer is not updated if the depth test is disabled.
         let enable = comparsion != Comparison::Always || write;
-        let last_enable = state.depth_test != Comparison::Always || state.depth_write;
+        let last_enable = rs.depth_test != Comparison::Always || rs.depth_write;
         if enable != last_enable {
             if enable {
                 gl::Enable(gl::DEPTH_TEST);
@@ -1156,29 +1136,32 @@ impl GLVisitor {
             }
         }
 
-        if state.depth_write != write {
+        if rs.depth_write != write {
             if write {
                 gl::DepthMask(gl::TRUE);
             } else {
                 gl::DepthMask(gl::FALSE);
             }
 
-            state.depth_write = write;
+            rs.depth_write = write;
         }
 
-        if state.depth_test != comparsion {
+        if rs.depth_test != comparsion {
             gl::DepthFunc(comparsion.into());
-            state.depth_test = comparsion;
+            rs.depth_test = comparsion;
         }
 
         check()
     }
 
     /// Set `offset` to address the scale and units used to calculate depth values.
-    unsafe fn set_depth_write_offset(&self, offset: Option<(f32, f32)>) -> Result<()> {
-        let state = &mut self.mutables.borrow_mut().render_state;
+    unsafe fn set_depth_write_offset(
+        state: &mut GLMutableState,
+        offset: Option<(f32, f32)>,
+    ) -> Result<()> {
+        let rs = &mut state.render_state;
 
-        if state.depth_write_offset != offset {
+        if rs.depth_write_offset != offset {
             if let Some(v) = offset {
                 if v.0 != 0.0 || v.1 != 0.0 {
                     gl::Enable(gl::POLYGON_OFFSET_FILL);
@@ -1188,7 +1171,7 @@ impl GLVisitor {
                 }
             }
 
-            state.depth_write_offset = offset;
+            rs.depth_write_offset = offset;
             check()?;
         }
 
@@ -1197,24 +1180,24 @@ impl GLVisitor {
 
     // Specifies how source and destination are combined.
     unsafe fn set_color_blend(
-        &self,
+        state: &mut GLMutableState,
         blend: Option<(Equation, BlendFactor, BlendFactor)>,
     ) -> Result<()> {
-        let state = &mut self.mutables.borrow_mut().render_state;
+        let rs = &mut state.render_state;
 
-        if state.color_blend != blend {
+        if rs.color_blend != blend {
             if let Some((equation, src, dst)) = blend {
-                if state.color_blend == None {
+                if rs.color_blend == None {
                     gl::Enable(gl::BLEND);
                 }
 
                 gl::BlendFunc(src.into(), dst.into());
                 gl::BlendEquation(equation.into());
-            } else if state.color_blend != None {
+            } else if rs.color_blend != None {
                 gl::Disable(gl::BLEND);
             }
 
-            state.color_blend = blend;
+            rs.color_blend = blend;
             check()?;
         }
 
@@ -1222,11 +1205,14 @@ impl GLVisitor {
     }
 
     /// Enable or disable writing color elements into the color buffer.
-    unsafe fn set_color_write(&self, mask: (bool, bool, bool, bool)) -> Result<()> {
-        let state = &mut self.mutables.borrow_mut().render_state;
+    unsafe fn set_color_write(
+        state: &mut GLMutableState,
+        mask: (bool, bool, bool, bool),
+    ) -> Result<()> {
+        let rs = &mut state.render_state;
 
-        if state.color_write != mask {
-            state.color_write = mask;
+        if rs.color_write != mask {
+            rs.color_write = mask;
             gl::ColorMask(mask.0 as u8, mask.1 as u8, mask.2 as u8, mask.3 as u8);
             check()?;
         }
@@ -1235,15 +1221,13 @@ impl GLVisitor {
     }
 
     /// Set the scissor box relative to the top-lef corner of th window, in pixels.
-    unsafe fn set_scissor(&self, scissor: SurfaceScissor) -> Result<()> {
-        let mut mutables = self.mutables.borrow_mut();
-
+    unsafe fn set_scissor(state: &mut GLMutableState, scissor: SurfaceScissor) -> Result<()> {
         match scissor {
-            SurfaceScissor::Disable => if mutables.scissor != SurfaceScissor::Disable {
+            SurfaceScissor::Disable => if state.scissor != SurfaceScissor::Disable {
                 gl::Disable(gl::SCISSOR_TEST);
             },
             SurfaceScissor::Enable { position, size } => {
-                if mutables.scissor == SurfaceScissor::Disable {
+                if state.scissor == SurfaceScissor::Disable {
                     gl::Enable(gl::SCISSOR_TEST);
                 }
 
@@ -1256,15 +1240,13 @@ impl GLVisitor {
             }
         }
 
-        mutables.scissor = scissor;
+        state.scissor = scissor;
         check()
     }
 
     /// Set the viewport relative to the top-lef corner of th window, in pixels.
-    unsafe fn set_viewport(&self, vp: SurfaceViewport) -> Result<()> {
-        let mut mutables = self.mutables.borrow_mut();
-
-        if mutables.view != vp {
+    unsafe fn set_viewport(state: &mut GLMutableState, vp: SurfaceViewport) -> Result<()> {
+        if state.view != vp {
             gl::Viewport(
                 GLint::from(vp.position.x),
                 GLint::from(vp.position.y),
@@ -1272,14 +1254,14 @@ impl GLVisitor {
                 vp.size.y as i32,
             );
 
-            mutables.view = vp;
+            state.view = vp;
             check()?;
         }
 
         Ok(())
     }
 
-    unsafe fn clear<C, D, S>(&self, color: C, depth: D, stencil: S) -> Result<()>
+    unsafe fn clear<C, D, S>(color: C, depth: D, stencil: S) -> Result<()>
     where
         C: Into<Option<Color<f32>>>,
         D: Into<Option<f32>>,
@@ -1321,9 +1303,6 @@ impl GLVisitor {
         params: RenderTextureParams,
         index: usize,
     ) -> Result<()> {
-        let mutables = self.mutables.borrow();
-        assert!(mutables.binded_framebuffer.is_some() && mutables.binded_framebuffer != Some(0));
-
         match params.format {
             RenderTextureFormat::RGB8 | RenderTextureFormat::RGBA4 | RenderTextureFormat::RGBA8 => {
                 let location = gl::COLOR_ATTACHMENT0 + index as u32;
@@ -1373,7 +1352,7 @@ impl GLVisitor {
         check()
     }
 
-    unsafe fn compile(&self, shader: GLenum, src: &str) -> Result<GLuint> {
+    unsafe fn compile(shader: GLenum, src: &str) -> Result<GLuint> {
         let shader = gl::CreateShader(shader);
         // Attempt to compile the shader
         let c_str = ::std::ffi::CString::new(src.as_bytes()).unwrap();
@@ -1403,10 +1382,14 @@ impl GLVisitor {
         }
     }
 
-    unsafe fn link(&self, vs: GLuint, fs: GLuint) -> Result<GLuint> {
+    unsafe fn link<'a, T>(shaders: T) -> Result<GLuint>
+    where
+        T: IntoIterator<Item = &'a GLuint>,
+    {
         let program = gl::CreateProgram();
-        gl::AttachShader(program, vs);
-        gl::AttachShader(program, fs);
+        for shader in shaders {
+            gl::AttachShader(program, *shader)
+        }
 
         gl::LinkProgram(program);
         // Get the link status
@@ -1432,17 +1415,7 @@ impl GLVisitor {
         }
     }
 
-    unsafe fn delete_shader_intern(&mut self, id: GLuint) -> Result<()> {
-        let mut mutables = self.mutables.borrow_mut();
-        if mutables.binded_shader == Some(id) {
-            mutables.binded_shader = None;
-        }
-
-        gl::DeleteProgram(id);
-        check()
-    }
-
-    unsafe fn create_buffer_intern(
+    unsafe fn create_buffer(
         &mut self,
         tp: GLuint,
         hint: MeshHint,
@@ -1453,7 +1426,7 @@ impl GLVisitor {
         gl::GenBuffers(1, &mut id);
         assert!(id != 0);
 
-        self.bind_buffer(tp, id)?;
+        gl::BindBuffer(tp, id);
 
         let value = match data {
             Some(v) if !v.is_empty() => &v[0] as *const u8 as *const ::std::os::raw::c_void,
@@ -1465,14 +1438,8 @@ impl GLVisitor {
         Ok(id)
     }
 
-    unsafe fn update_buffer_intern(
-        &mut self,
-        tp: GLuint,
-        id: GLuint,
-        offset: usize,
-        data: &[u8],
-    ) -> Result<()> {
-        self.bind_buffer(tp, id)?;
+    unsafe fn update_buffer(tp: GLuint, id: GLuint, offset: usize, data: &[u8]) -> Result<()> {
+        gl::BindBuffer(tp, id);
         gl::BufferSubData(
             tp,
             offset as isize,
@@ -1482,23 +1449,11 @@ impl GLVisitor {
         check()
     }
 
-    unsafe fn delete_buffer_intern(&mut self, tp: GLuint, id: GLuint) -> Result<()> {
-        let mut mutables = self.mutables.borrow_mut();
-        if mutables.binded_buffers.get(&tp) == Some(&id) {
-            mutables.binded_buffers.remove(&tp);
-        }
-
-        gl::DeleteBuffers(1, &id);
-        check()
-    }
-
-    unsafe fn update_texture_params(
-        &self,
-        id: GLuint,
+    unsafe fn bind_texture_params(
         wrap: TextureWrap,
         filter: TextureFilter,
         levels: u32,
-    ) -> Result<GLuint> {
+    ) -> Result<()> {
         let wrap: GLenum = wrap.into();
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, wrap as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, wrap as GLint);
@@ -1531,20 +1486,7 @@ impl GLVisitor {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAX_LEVEL, (levels - 1) as GLint);
         }
 
-        Ok(id)
-    }
-
-    unsafe fn delete_texture_intern(&mut self, id: GLuint) -> Result<()> {
-        let mut mutables = self.mutables.borrow_mut();
-
-        for v in mutables.binded_textures.iter_mut() {
-            if *v == Some(id) {
-                *v = None;
-            }
-        }
-
-        gl::DeleteTextures(1, &id);
-        check()
+        Ok(())
     }
 }
 

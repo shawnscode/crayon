@@ -36,20 +36,6 @@ where
         None
     }
 
-    pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
-    where
-        H: Borrow<handle::Handle>,
-    {
-        let index = handle.borrow().index() as usize;
-        if let Some(&v) = self.versions.get(index) {
-            if v == handle.borrow().version() {
-                return self.buf[index].as_mut();
-            }
-        }
-
-        None
-    }
-
     pub fn create<H>(&mut self, handle: H, value: T)
     where
         H: Borrow<handle::Handle>,

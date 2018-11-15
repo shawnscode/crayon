@@ -1,7 +1,6 @@
 use web_sys::WebGl2RenderingContext as WebGL;
 
 use super::super::super::assets::prelude::*;
-use super::capabilities::Capabilities;
 
 impl From<MeshHint> for u32 {
     fn from(hint: MeshHint) -> Self {

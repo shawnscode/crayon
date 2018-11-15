@@ -85,7 +85,7 @@ struct GLTextureData {
     handle: TextureHandle,
     id: WebGlTexture,
     params: TextureParams,
-    allocated: bool,
+    allocated: RefCell<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -94,17 +94,17 @@ enum GLRenderTexture {
     T(WebGlTexture),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum GLRenderTextureHandle {
-    R(RenderTextureHandle),
-    T(TextureHandle),
-}
-
 #[derive(Debug, Clone)]
 struct GLRenderTextureData {
     handle: RenderTextureHandle,
     id: GLRenderTexture,
     params: RenderTextureParams,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum Sampler {
+    RenderTexture(RenderTextureHandle),
+    Texture(TextureHandle),
 }
 
 #[derive(Debug, Clone)]
@@ -120,24 +120,24 @@ struct WebGLState {
     scissor: SurfaceScissor,
     view: SurfaceViewport,
     cleared_surfaces: FastHashSet<SurfaceHandle>,
+    vaos: FastHashMap<(ShaderHandle, MeshHandle), WebGlVertexArrayObject>,
     binded_surface: Option<SurfaceHandle>,
     binded_shader: Option<ShaderHandle>,
-    binded_render_texture: Option<RenderTextureHandle>,
     binded_texture_index: usize,
-    binded_textures: SmallVec<[Option<GLRenderTextureHandle>; 8]>,
-    vaos: FastHashMap<(ShaderHandle, MeshHandle), WebGlVertexArrayObject>,
+    binded_textures: SmallVec<[Option<Sampler>; 8]>,
     binded_vao: Option<(ShaderHandle, MeshHandle)>,
 }
 
 pub struct WebGLVisitor {
     ctx: WebGL,
     state: WebGLState,
+
     capabilities: Capabilities,
     surfaces: DataVec<GLSurfaceData>,
     shaders: DataVec<GLShaderData>,
+    meshes: DataVec<GLMeshData>,
     textures: DataVec<GLTextureData>,
     render_textures: DataVec<GLRenderTextureData>,
-    meshes: DataVec<GLMeshData>,
 }
 
 impl WebGLVisitor {
@@ -167,7 +167,6 @@ impl WebGLVisitor {
             cleared_surfaces: FastHashSet::default(),
             binded_surface: None,
             binded_shader: None,
-            binded_render_texture: None,
             binded_texture_index: 0,
             binded_textures: SmallVec::new(),
             vaos: FastHashMap::default(),
@@ -395,8 +394,8 @@ impl Visitor for WebGLVisitor {
                 Self::bind_texture(
                     &self.ctx,
                     &mut self.state,
+                    Some(Sampler::Texture(handle)),
                     0,
-                    Some(GLRenderTextureHandle::T(handle)),
                     Some(&id),
                 )?;
 
@@ -454,19 +453,99 @@ impl Visitor for WebGLVisitor {
                 handle: handle,
                 id: id,
                 params: params,
-                allocated: allocated,
+                allocated: RefCell::new(allocated),
             },
         );
 
         Ok(())
     }
 
-    unsafe fn update_texture(&mut self, _: TextureHandle, _: Aabb2<u32>, _: &[u8]) -> Result<()> {
-        unimplemented!();
+    unsafe fn update_texture(
+        &mut self,
+        handle: TextureHandle,
+        area: Aabb2<u32>,
+        data: &[u8],
+    ) -> Result<()> {
+        let texture = self
+            .textures
+            .get(handle)
+            .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
+
+        if texture.params.hint == TextureHint::Immutable {
+            bail!("Trying to update immutable texture.");
+        }
+
+        if texture.params.format.compressed() {
+            bail!("Trying to update compressed texture.");
+        }
+
+        if data.len() > area.volume() as usize
+            || area.min.x >= texture.params.dimensions.x
+            || area.min.y >= texture.params.dimensions.y
+        {
+            bail!("Trying to update texture data out of bounds.");
+        }
+
+        let (internal_format, format, pixel_type) = texture.params.format.into();
+
+        Self::bind_texture(
+            &self.ctx,
+            &mut self.state,
+            Some(Sampler::Texture(handle)),
+            0,
+            Some(&texture.id),
+        )?;
+
+        if !*texture.allocated.borrow() {
+            Self::bind_texture_params(&self.ctx, texture.params.wrap, texture.params.filter, 1)?;
+
+            self.ctx
+                .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+                    WebGL::TEXTURE_2D,
+                    0,
+                    internal_format as i32,
+                    texture.params.dimensions.x as i32,
+                    texture.params.dimensions.y as i32,
+                    0,
+                    format,
+                    pixel_type,
+                    None,
+                ).unwrap();
+
+            *texture.allocated.borrow_mut() = true;
+        }
+
+        let mv = ::std::slice::from_raw_parts_mut(data.as_ptr() as *mut u8, data.len());
+        self.ctx
+            .tex_sub_image_2d_with_i32_and_i32_and_u32_and_type_and_opt_u8_array(
+                WebGL::TEXTURE_2D,
+                0,
+                area.min.x as i32,
+                area.min.y as i32,
+                area.dim().x as i32,
+                area.dim().y as i32,
+                format,
+                pixel_type,
+                Some(mv),
+            ).unwrap();
+
+        check(&self.ctx)
     }
 
-    unsafe fn delete_texture(&mut self, _: TextureHandle) -> Result<()> {
-        unimplemented!();
+    unsafe fn delete_texture(&mut self, handle: TextureHandle) -> Result<()> {
+        let texture = self
+            .textures
+            .free(handle)
+            .ok_or_else(|| format_err!("{:?} is invalid.", handle))?;
+
+        for v in self.state.binded_textures.iter_mut() {
+            if *v == Some(Sampler::Texture(handle)) {
+                *v = None;
+            }
+        }
+
+        self.ctx.delete_texture(Some(&texture.id));
+        check(&self.ctx)
     }
 
     unsafe fn create_render_texture(
@@ -474,16 +553,14 @@ impl Visitor for WebGLVisitor {
         handle: RenderTextureHandle,
         params: RenderTextureParams,
     ) -> Result<()> {
-        self.state.binded_render_texture = None;
-
         let id = if params.sampler {
             let id = self.ctx.create_texture().unwrap();
 
             Self::bind_texture(
                 &self.ctx,
                 &mut self.state,
+                Some(Sampler::RenderTexture(handle)),
                 0,
-                Some(GLRenderTextureHandle::R(handle)),
                 Some(&id),
             )?;
             Self::bind_texture_params(&self.ctx, params.wrap, params.filter, 1)?;
@@ -533,10 +610,6 @@ impl Visitor for WebGLVisitor {
     }
 
     unsafe fn delete_render_texture(&mut self, handle: RenderTextureHandle) -> Result<()> {
-        if self.state.binded_render_texture == Some(handle) {
-            self.state.binded_render_texture = None;
-        }
-
         let rt = self
             .render_textures
             .free(handle)
@@ -544,6 +617,12 @@ impl Visitor for WebGLVisitor {
 
         match rt.id {
             GLRenderTexture::T(v) => {
+                for v in self.state.binded_textures.iter_mut() {
+                    if *v == Some(Sampler::RenderTexture(handle)) {
+                        *v = None;
+                    }
+                }
+
                 self.ctx.delete_texture(Some(&v));
             }
             GLRenderTexture::R(v) => {
@@ -650,10 +729,9 @@ impl Visitor for WebGLVisitor {
             });
         }
 
-        check(&self.ctx)?;
-        Self::delete_buffer(&self.ctx, &mesh.vbo)?;
-        Self::delete_buffer(&self.ctx, &mesh.ibo)?;
-        Ok(())
+        self.ctx.delete_buffer(Some(&mesh.vbo));
+        self.ctx.delete_buffer(Some(&mesh.ibo));
+        check(&self.ctx)
     }
 
     unsafe fn bind(&mut self, handle: SurfaceHandle, dimensions: Vector2<u32>) -> Result<()> {
@@ -716,74 +794,72 @@ impl Visitor for WebGLVisitor {
             .ok_or_else(|| format_err!("{:?} is invalid.", shader))?;
 
         Self::bind_shader(&self.ctx, &mut self.state, &shader)?;
-        Self::clear_bind_textures(&self.ctx, &mut self.state)?;
+        Self::clear_binded_textures(&self.ctx, &mut self.state)?;
 
-        {
-            let mut index = 0usize;
-            for &(field, variable) in uniforms {
-                if let Some(tp) = shader.params.uniforms.variable_type(field) {
-                    if tp != variable.variable_type() {
-                        let name = shader.params.uniforms.variable_name(field).unwrap();
-                        bail!(
-                            "The uniform {} needs a {:?} instead of {:?}.",
-                            name,
-                            tp,
-                            variable.variable_type(),
-                        );
-                    }
-
-                    let location = shader.hash_uniform_location(field).unwrap();
-                    match variable {
-                        UniformVariable::Texture(handle) => {
-                            let v = UniformVariable::I32(index as i32);
-                            Self::bind_uniform_variable(&self.ctx, &location, &v)?;
-
-                            if let Some(texture) = self.textures.get(handle) {
-                                Self::bind_texture(
-                                    &self.ctx,
-                                    &mut self.state,
-                                    index,
-                                    Some(GLRenderTextureHandle::T(handle)),
-                                    Some(&texture.id),
-                                )?;
-                            } else {
-                                Self::bind_texture(&self.ctx, &mut self.state, index, None, None)?;
-                            }
-
-                            index += 1;
-                        }
-                        UniformVariable::RenderTexture(handle) => {
-                            let v = UniformVariable::I32(index as i32);
-                            Self::bind_uniform_variable(&self.ctx, &location, &v)?;
-
-                            if let Some(texture) = self.render_textures.get(handle) {
-                                match texture.id {
-                                    GLRenderTexture::T(ref w) => {
-                                        Self::bind_texture(
-                                            &self.ctx,
-                                            &mut self.state,
-                                            index,
-                                            Some(GLRenderTextureHandle::R(handle)),
-                                            Some(w),
-                                        )?;
-                                    }
-                                    _ => {
-                                        bail!("The render buffer does not have a sampler.");
-                                    }
-                                }
-                            } else {
-                                Self::bind_texture(&self.ctx, &mut self.state, index, None, None)?;
-                            }
-
-                            index += 1;
-                        }
-                        _ => {
-                            Self::bind_uniform_variable(&self.ctx, &location, &variable)?;
-                        }
-                    }
-                } else {
-                    bail!("Undefined uniform field {:?}.", field);
+        let mut index = 0usize;
+        for &(field, variable) in uniforms {
+            if let Some(tp) = shader.params.uniforms.variable_type(field) {
+                if tp != variable.variable_type() {
+                    let name = shader.params.uniforms.variable_name(field).unwrap();
+                    bail!(
+                        "The uniform {} needs a {:?} instead of {:?}.",
+                        name,
+                        tp,
+                        variable.variable_type(),
+                    );
                 }
+
+                let location = shader.hash_uniform_location(field).unwrap();
+                match variable {
+                    UniformVariable::Texture(handle) => {
+                        let v = UniformVariable::I32(index as i32);
+                        Self::bind_uniform_variable(&self.ctx, &location, &v)?;
+
+                        if let Some(texture) = self.textures.get(handle) {
+                            Self::bind_texture(
+                                &self.ctx,
+                                &mut self.state,
+                                Some(Sampler::Texture(handle)),
+                                index,
+                                Some(&texture.id),
+                            )?;
+                        } else {
+                            Self::bind_texture(&self.ctx, &mut self.state, None, index, None)?;
+                        }
+
+                        index += 1;
+                    }
+                    UniformVariable::RenderTexture(handle) => {
+                        let v = UniformVariable::I32(index as i32);
+                        Self::bind_uniform_variable(&self.ctx, &location, &v)?;
+
+                        if let Some(texture) = self.render_textures.get(handle) {
+                            match texture.id {
+                                GLRenderTexture::T(ref w) => {
+                                    Self::bind_texture(
+                                        &self.ctx,
+                                        &mut self.state,
+                                        Some(Sampler::RenderTexture(handle)),
+                                        index,
+                                        Some(w),
+                                    )?;
+                                }
+                                _ => {
+                                    bail!("The render buffer does not have a sampler.");
+                                }
+                            }
+                        } else {
+                            Self::bind_texture(&self.ctx, &mut self.state, None, index, None)?;
+                        }
+
+                        index += 1;
+                    }
+                    _ => {
+                        Self::bind_uniform_variable(&self.ctx, &location, &variable)?;
+                    }
+                }
+            } else {
+                bail!("Undefined uniform field {:?}.", field);
             }
         }
 
@@ -793,7 +869,7 @@ impl Visitor for WebGLVisitor {
             .get(mesh)
             .ok_or_else(|| format_err!("{:?} is invalid.", mesh))?;
 
-        Self::bind_shader_mesh_vao(&self.ctx, &mut self.state, &shader, &mesh)?;
+        Self::bind_mesh(&self.ctx, &mut self.state, &shader, &mesh)?;
 
         let (from, len) = match mesh_index {
             MeshIndex::Ptr(from, len) => {
@@ -908,10 +984,10 @@ impl WebGLVisitor {
         }
     }
 
-    unsafe fn link<'a, T: IntoIterator<Item = &'a WebGlShader>>(
-        ctx: &WebGL,
-        shaders: T,
-    ) -> Result<WebGlProgram> {
+    unsafe fn link<'a, T>(ctx: &WebGL, shaders: T) -> Result<WebGlProgram>
+    where
+        T: IntoIterator<Item = &'a WebGlShader>,
+    {
         let program = ctx
             .create_program()
             .ok_or_else(|| String::from("Unable to create shader object"))
@@ -961,7 +1037,7 @@ impl WebGLVisitor {
         Ok(())
     }
 
-    unsafe fn bind_shader_mesh_vao(
+    unsafe fn bind_mesh(
         ctx: &WebGL,
         state: &mut WebGLState,
         shader: &GLShaderData,
@@ -1319,23 +1395,28 @@ impl WebGLVisitor {
     unsafe fn bind_texture(
         ctx: &WebGL,
         state: &mut WebGLState,
+        handle: Option<Sampler>,
         index: usize,
-        handle: Option<GLRenderTextureHandle>,
         id: Option<&WebGlTexture>,
     ) -> Result<()> {
-        ctx.active_texture(WebGL::TEXTURE0 + index as u32);
-        ctx.bind_texture(WebGL::TEXTURE_2D, id);
+        if state.binded_texture_index != index {
+            ctx.active_texture(WebGL::TEXTURE0 + index as u32);
+            state.binded_texture_index = index;
+        }
 
         if state.binded_textures.len() <= index {
             state.binded_textures.resize(index + 1, None);
         }
 
-        state.binded_textures[index] = handle;
-        state.binded_texture_index = index;
+        if state.binded_textures[index] != handle {
+            state.binded_textures[index] = handle;
+            ctx.bind_texture(WebGL::TEXTURE_2D, id);
+        }
+
         check(ctx)
     }
 
-    unsafe fn clear_bind_textures(ctx: &WebGL, state: &mut WebGLState) -> Result<()> {
+    unsafe fn clear_binded_textures(ctx: &WebGL, state: &mut WebGLState) -> Result<()> {
         for (i, v) in state.binded_textures.iter_mut().enumerate() {
             if v.is_some() {
                 ctx.active_texture(WebGL::TEXTURE0 + i as u32);
@@ -1441,11 +1522,6 @@ impl WebGLVisitor {
         let mv = ::std::slice::from_raw_parts_mut(data.as_ptr() as *mut u8, data.len());
         ctx.bind_buffer(target, Some(&id));
         ctx.buffer_sub_data_with_i32_and_u8_array(target, offset as i32, mv);
-        check(&ctx)
-    }
-
-    unsafe fn delete_buffer(ctx: &WebGL, id: &WebGlBuffer) -> Result<()> {
-        ctx.delete_buffer(Some(&id));
         check(&ctx)
     }
 }
