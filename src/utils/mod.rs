@@ -10,12 +10,13 @@ pub mod hash_value;
 pub mod object_pool;
 pub mod time;
 
-pub use self::data_buf::{DataBuffer, DataBufferPtr};
-pub use self::double_buf::DoubleBuf;
-pub use self::handle::{Handle, HandleIndex, HandleLike};
-pub use self::handle_pool::HandlePool;
-pub use self::hash::{FastHashMap, FastHashSet};
-pub use self::hash_value::HashValue;
-pub use self::object_pool::ObjectPool;
-pub use inlinable_string::InlinableString;
-pub use smallvec::SmallVec;
+pub mod prelude {
+    pub use super::data_buf::{DataBuffer, DataBufferPtr};
+    pub use super::double_buf::DoubleBuf;
+    pub use super::handle::{Handle, HandleIndex, HandleLike};
+    pub use super::handle_pool::HandlePool;
+    pub use super::hash::{FastHashMap, FastHashSet};
+    pub use super::hash_value::HashValue;
+    pub use super::object_pool::ObjectPool;
+    pub use super::time::Timestamp;
+}

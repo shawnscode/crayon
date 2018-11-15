@@ -4,7 +4,7 @@ use uuid::Uuid;
 use application::prelude::{LifecycleListener, LifecycleListenerHandle};
 use math::prelude::{Aabb2, Vector2};
 use res::utils::Registry;
-use utils::{DoubleBuf, ObjectPool};
+use utils::prelude::{DoubleBuf, ObjectPool};
 
 use super::assets::mesh_loader::MeshLoader;
 use super::assets::prelude::*;

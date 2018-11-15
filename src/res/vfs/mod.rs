@@ -6,7 +6,7 @@ pub mod http;
 use std::sync::Arc;
 
 use sched::prelude::LockLatch;
-use utils::FastHashMap;
+use utils::hash::FastHashMap;
 
 use super::request::Response;
 use super::url::Url;

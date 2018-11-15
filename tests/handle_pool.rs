@@ -3,7 +3,7 @@ extern crate rand;
 
 use std::cmp::min;
 
-use crayon::utils::*;
+use crayon::utils::prelude::*;
 
 #[test]
 fn handle_set() {

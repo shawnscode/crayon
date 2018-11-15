@@ -1,6 +1,8 @@
 //! Uniqued resource location.
 
-use utils::{FastHashMap, InlinableString};
+use inlinable_string::InlinableString;
+
+use utils::hash::FastHashMap;
 
 const SCHEMA: usize = 0;
 const SCHEMA_END: usize = 1;

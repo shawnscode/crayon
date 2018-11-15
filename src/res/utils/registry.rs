@@ -29,7 +29,7 @@ use std::sync::{Arc, RwLock};
 use uuid::Uuid;
 
 use errors::*;
-use utils::{FastHashMap, HandleLike, ObjectPool};
+use utils::prelude::{FastHashMap, HandleLike, ObjectPool};
 
 pub trait Register: Send + Sync {
     type Handle: Send + Sync;

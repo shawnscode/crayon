@@ -3,11 +3,11 @@
 use std::io::Read;
 
 use bincode;
-use inlinable_string::StringExt;
+use inlinable_string::{InlinableString, StringExt};
 use uuid::Uuid;
 
 use errors::*;
-use utils::{DataBuffer, DataBufferPtr, FastHashMap, HashValue, InlinableString};
+use utils::prelude::{DataBuffer, DataBufferPtr, FastHashMap, HashValue};
 
 pub const NAME: &'static str = "MANIFEST";
 pub const MAGIC: [u8; 8] = [

@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use utils::handle;
+use utils::handle::Handle;
 
 #[derive(Debug)]
 pub struct DataVec<T>
@@ -24,7 +24,7 @@ where
 
     pub fn get<H>(&self, handle: H) -> Option<&T>
     where
-        H: Borrow<handle::Handle>,
+        H: Borrow<Handle>,
     {
         let index = handle.borrow().index() as usize;
         if let Some(&v) = self.versions.get(index) {
@@ -38,7 +38,7 @@ where
 
     pub fn create<H>(&mut self, handle: H, value: T)
     where
-        H: Borrow<handle::Handle>,
+        H: Borrow<Handle>,
     {
         let handle = handle.borrow();
         let index = handle.index() as usize;
@@ -54,7 +54,7 @@ where
 
     pub fn free<H>(&mut self, handle: H) -> Option<T>
     where
-        H: Borrow<handle::Handle>,
+        H: Borrow<Handle>,
     {
         let handle = handle.borrow();
         if self.buf.len() <= handle.index() as usize {

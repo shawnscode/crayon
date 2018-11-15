@@ -1,6 +1,5 @@
 use math::prelude::Aabb2;
-use utils::data_buf;
-use utils::hash_value;
+use utils::prelude::{DataBuffer, HashValue};
 
 use super::assets::prelude::*;
 use super::backends::frame::Command;
@@ -10,7 +9,7 @@ use super::MAX_UNIFORM_VARIABLES;
 /// The command buffer of video system.
 pub struct CommandBuffer {
     cmds: Vec<Command>,
-    bufs: data_buf::DataBuffer,
+    bufs: DataBuffer,
 }
 
 impl CommandBuffer {
@@ -19,7 +18,7 @@ impl CommandBuffer {
     pub fn new() -> Self {
         CommandBuffer {
             cmds: Vec::with_capacity(32),
-            bufs: data_buf::DataBuffer::with_capacity(512),
+            bufs: DataBuffer::with_capacity(512),
         }
     }
 
@@ -121,7 +120,7 @@ impl CommandBuffer {
 /// The draw call buffer of video system, which provides simple sort functionality for convenience.
 pub struct DrawCommandBuffer<T: Ord + Copy> {
     cmds: Vec<(T, Command)>,
-    bufs: data_buf::DataBuffer,
+    bufs: DataBuffer,
 }
 
 impl<T: Ord + Copy> DrawCommandBuffer<T> {
@@ -129,7 +128,7 @@ impl<T: Ord + Copy> DrawCommandBuffer<T> {
     pub fn new() -> Self {
         DrawCommandBuffer {
             cmds: Vec::with_capacity(32),
-            bufs: data_buf::DataBuffer::with_capacity(512),
+            bufs: DataBuffer::with_capacity(512),
         }
     }
 
@@ -173,7 +172,7 @@ impl<T: Ord + Copy> DrawCommandBuffer<T> {
 /// A draw call.
 #[derive(Debug, Copy, Clone)]
 pub struct Draw {
-    pub(crate) uniforms: [(hash_value::HashValue<str>, UniformVariable); MAX_UNIFORM_VARIABLES],
+    pub(crate) uniforms: [(HashValue<str>, UniformVariable); MAX_UNIFORM_VARIABLES],
     pub(crate) uniforms_len: usize,
 
     pub shader: ShaderHandle,
@@ -184,7 +183,7 @@ pub struct Draw {
 impl Draw {
     /// Creates a new and empty draw call.
     pub fn new(shader: ShaderHandle, mesh: MeshHandle) -> Self {
-        let nil = (hash_value::HashValue::zero(), UniformVariable::I32(0));
+        let nil = (HashValue::zero(), UniformVariable::I32(0));
         Draw {
             shader: shader,
             uniforms: [nil; MAX_UNIFORM_VARIABLES],
@@ -197,7 +196,7 @@ impl Draw {
     /// Binds the named field with `UniformVariable`.
     pub fn set_uniform_variable<F, V>(&mut self, field: F, variable: V)
     where
-        F: Into<hash_value::HashValue<str>>,
+        F: Into<HashValue<str>>,
         V: Into<UniformVariable>,
     {
         assert!(self.uniforms_len < MAX_UNIFORM_VARIABLES);

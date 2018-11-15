@@ -213,7 +213,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use math::prelude::Aabb2;
-use utils::DoubleBuf;
+use utils::double_buf::DoubleBuf;
 
 use self::assets::prelude::*;
 use self::backends::frame::Frame;

@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use application::prelude::{LifecycleListener, LifecycleListenerHandle};
 use errors::*;
 use math::prelude::Vector2;
-use utils::ObjectPool;
+use utils::object_pool::ObjectPool;
 
 use super::backends::{self, Visitor};
 use super::events::Event;

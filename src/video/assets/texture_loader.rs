@@ -3,7 +3,7 @@ use std::io::Cursor;
 use std::sync::Arc;
 
 use errors::*;
-use utils::DoubleBuf;
+use utils::double_buf::DoubleBuf;
 
 use super::super::backends::frame::{Command, Frame};
 use super::texture::*;

@@ -9,9 +9,9 @@ use super::assets::prelude::*;
 
 use errors::*;
 use math::prelude::{Aabb2, Vector2};
-use utils::hash_value;
+use utils::hash_value::HashValue;
 
-pub type UniformVar = (hash_value::HashValue<str>, UniformVariable);
+pub type UniformVar = (HashValue<str>, UniformVariable);
 
 pub trait Visitor {
     unsafe fn create_surface(&mut self, handle: SurfaceHandle, params: SurfaceParams)

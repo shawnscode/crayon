@@ -1,6 +1,6 @@
 extern crate crayon;
 
-use crayon::utils::*;
+use crayon::utils::prelude::*;
 
 #[test]
 fn basic() {

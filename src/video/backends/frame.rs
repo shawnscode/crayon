@@ -1,12 +1,12 @@
 use errors::*;
 use math::prelude::{Aabb2, Vector2};
-use utils::{data_buf, hash_value};
+use utils::prelude::{DataBuffer, DataBufferPtr, HashValue};
 
 use super::super::assets::prelude::*;
 use super::Visitor;
 
-type VarsPtr = data_buf::DataBufferPtr<[(hash_value::HashValue<str>, UniformVariable)]>;
-type BytesPtr = data_buf::DataBufferPtr<[u8]>;
+type VarsPtr = DataBufferPtr<[(HashValue<str>, UniformVariable)]>;
+type BytesPtr = DataBufferPtr<[u8]>;
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -37,7 +37,7 @@ pub enum Command {
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Frame {
     pub cmds: Vec<Command>,
-    pub bufs: data_buf::DataBuffer,
+    pub bufs: DataBuffer,
 }
 
 unsafe impl Send for Frame {}
@@ -48,7 +48,7 @@ impl Frame {
     pub fn with_capacity(capacity: usize) -> Self {
         Frame {
             cmds: Vec::with_capacity(16),
-            bufs: data_buf::DataBuffer::with_capacity(capacity),
+            bufs: DataBuffer::with_capacity(capacity),
         }
     }
 

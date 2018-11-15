@@ -4,8 +4,7 @@ use std::collections::hash_map::Values;
 use std::str::FromStr;
 
 use math::prelude::{Matrix2, Matrix3, Matrix4, Vector2, Vector3, Vector4};
-use utils::hash::FastHashMap;
-use utils::HashValue;
+use utils::prelude::{FastHashMap, HashValue};
 use video::assets::mesh::VertexLayout;
 use video::assets::texture::{RenderTextureHandle, TextureHandle};
 use video::errors::{Error, Result};

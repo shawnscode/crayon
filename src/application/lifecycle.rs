@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use utils::ObjectPool;
+use utils::object_pool::ObjectPool;
 
 impl_handle!(LifecycleListenerHandle);
 
