@@ -1,6 +1,7 @@
 use web_sys::WebGl2RenderingContext as WebGL;
 
 use super::super::super::assets::prelude::*;
+use super::capabilities::Capabilities;
 
 impl From<MeshHint> for u32 {
     fn from(hint: MeshHint) -> Self {
@@ -95,6 +96,48 @@ impl From<TextureWrap> for u32 {
             TextureWrap::Clamp => WebGL::CLAMP_TO_EDGE,
             // WebGL does NOT support MIRROR_CLAMP_TO_EDGE
             TextureWrap::MirrorClamp => WebGL::CLAMP_TO_EDGE,
+        }
+    }
+}
+
+impl From<TextureFormat> for (u32, u32, u32) {
+    fn from(format: TextureFormat) -> Self {
+        // FIXME
+        // WebGL::COMPRESSED_RGB_S3TC_DXT1_EXT = 0x83F0
+        // WebGL::COMPRESSED_RGBA_S3TC_DXT5_EXT = 0x83F3
+        // WebGL::COMPRESSED_RGB_PVRTC_2BPPV1_IMG = 0x8C01
+        // WebGL::COMPRESSED_RGB_PVRTC_4BPPV1_IMG = 0x8C00
+        // WebGL::COMPRESSED_RGBA_PVRTC_2BPPV1_IMG = 0x8C03
+        // WebGL::COMPRESSED_RGBA_PVRTC_4BPPV1_IMG = 0x8C02
+        // WebGL::COMPRESSED_RGB8_ETC2 = 0x9274
+        // WebGL::COMPRESSED_RGBA8_ETC2_EAC = 0x9278
+        match format {
+            TextureFormat::R8 => (WebGL::RED, WebGL::RED, WebGL::UNSIGNED_BYTE),
+            TextureFormat::RG8 => (WebGL::RG, WebGL::RG, WebGL::UNSIGNED_BYTE),
+            TextureFormat::RGB8 => (WebGL::RGB, WebGL::RGB, WebGL::UNSIGNED_BYTE),
+            TextureFormat::RGBA8 => (WebGL::RGBA, WebGL::RGBA, WebGL::UNSIGNED_BYTE),
+            TextureFormat::RGB565 => (WebGL::RGB, WebGL::RGB, WebGL::UNSIGNED_SHORT_5_6_5),
+            TextureFormat::RGBA4 => (WebGL::RGBA, WebGL::RGBA, WebGL::UNSIGNED_SHORT_4_4_4_4),
+            TextureFormat::RGBA5551 => (WebGL::RGBA, WebGL::RGBA, WebGL::UNSIGNED_SHORT_5_5_5_1),
+            TextureFormat::RGBA1010102 => {
+                (WebGL::RGBA, WebGL::RGBA, WebGL::UNSIGNED_INT_2_10_10_10_REV)
+            }
+            TextureFormat::R16F => (WebGL::RED, WebGL::RED, WebGL::HALF_FLOAT),
+            TextureFormat::RG16F => (WebGL::RG, WebGL::RG, WebGL::HALF_FLOAT),
+            TextureFormat::RGB16F => (WebGL::RGB, WebGL::RGB, WebGL::HALF_FLOAT),
+            TextureFormat::RGBA16F => (WebGL::RGBA, WebGL::RGBA, WebGL::HALF_FLOAT),
+            TextureFormat::R32F => (WebGL::RED, WebGL::RED, WebGL::FLOAT),
+            TextureFormat::RG32F => (WebGL::RG, WebGL::RG, WebGL::FLOAT),
+            TextureFormat::RGB32F => (WebGL::RGB, WebGL::RGB, WebGL::FLOAT),
+            TextureFormat::RGBA32F => (WebGL::RGBA, WebGL::RGBA, WebGL::FLOAT),
+            TextureFormat::Etc2RGB4BPP => (0x9274, WebGL::RGB, WebGL::UNSIGNED_BYTE),
+            TextureFormat::Etc2RGBA8BPP => (0x9278, WebGL::RGB, WebGL::UNSIGNED_BYTE),
+            TextureFormat::S3tcDxt1RGB4BPP => (0x83F0, WebGL::RGB, WebGL::UNSIGNED_BYTE),
+            TextureFormat::S3tcDxt5RGBA8BPP => (0x83F3, WebGL::RGBA, WebGL::UNSIGNED_BYTE),
+            TextureFormat::PvrtcRGB2BPP => (0x8C01, WebGL::RGB, WebGL::UNSIGNED_BYTE),
+            TextureFormat::PvrtcRGB4BPP => (0x8C00, WebGL::RGB, WebGL::UNSIGNED_BYTE),
+            TextureFormat::PvrtcRGBA2BPP => (0x8C03, WebGL::RGB, WebGL::UNSIGNED_BYTE),
+            TextureFormat::PvrtcRGBA4BPP => (0x8C02, WebGL::RGB, WebGL::UNSIGNED_BYTE),
         }
     }
 }

@@ -90,17 +90,17 @@ impl LifecycleListener for Window {
 }
 
 fn run() {
+    #[cfg(not(target_arch = "wasm32"))]
     let res = format!("file://{}/examples/resources/", env!("CARGO_MANIFEST_DIR"));
+    #[cfg(target_arch = "wasm32")]
+    let res = format!("http://localhost:8080/examples/resources/");
 
     let mut params = Params::default();
     params.window.title = "CR: Texture".into();
     params.window.size = (464, 434).into();
     params.res.shortcuts.add("res:", res).unwrap();
     params.res.dirs.push("res:".into());
-    crayon::application::setup(params).unwrap();
-
-    let window = Window::new().unwrap();
-    crayon::application::run(window).unwrap();
+    crayon::application::setup(params, || Window::new()).unwrap();
 }
 
 fn main() {

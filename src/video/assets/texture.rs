@@ -248,4 +248,18 @@ impl TextureFormat {
             TextureFormat::RGBA32F => 16 * square,
         }
     }
+
+    pub fn compressed(&self) -> bool {
+        match *self {
+            TextureFormat::Etc2RGB4BPP
+            | TextureFormat::Etc2RGBA8BPP
+            | TextureFormat::PvrtcRGB2BPP
+            | TextureFormat::PvrtcRGB4BPP
+            | TextureFormat::PvrtcRGBA2BPP
+            | TextureFormat::PvrtcRGBA4BPP
+            | TextureFormat::S3tcDxt1RGB4BPP
+            | TextureFormat::S3tcDxt5RGBA8BPP => true,
+            _ => false,
+        }
+    }
 }

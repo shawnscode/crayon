@@ -17,6 +17,7 @@ use video::assets::prelude::*;
 
 use super::super::utils::DataVec;
 use super::super::{UniformVar, Visitor};
+use super::capabilities::Capabilities;
 
 #[derive(Debug, Clone)]
 struct GLSurfaceData {
@@ -131,6 +132,7 @@ struct WebGLState {
 pub struct WebGLVisitor {
     ctx: WebGL,
     state: WebGLState,
+    capabilities: Capabilities,
     surfaces: DataVec<GLSurfaceData>,
     shaders: DataVec<GLShaderData>,
     textures: DataVec<GLTextureData>,
@@ -175,6 +177,7 @@ impl WebGLVisitor {
         Self::reset_render_state(&ctx, &mut state)?;
 
         Ok(WebGLVisitor {
+            capabilities: Capabilities::new(&ctx)?,
             ctx: ctx,
             state: state,
             surfaces: DataVec::new(),
@@ -372,11 +375,90 @@ impl Visitor for WebGLVisitor {
 
     unsafe fn create_texture(
         &mut self,
-        _: TextureHandle,
-        _: TextureParams,
-        _: Option<TextureData>,
+        handle: TextureHandle,
+        params: TextureParams,
+        data: Option<TextureData>,
     ) -> Result<()> {
-        unimplemented!();
+        if !self.capabilities.support_texture_format(params.format) {
+            bail!(
+                "The GL Context does not support the texture format {:?}.",
+                params.format
+            );
+        }
+
+        let id = self.ctx.create_texture().unwrap();
+        let mut allocated = false;
+
+        if let Some(mut data) = data {
+            let len = data.bytes.len();
+            if len > 0 {
+                Self::bind_texture(
+                    &self.ctx,
+                    &mut self.state,
+                    0,
+                    Some(GLRenderTextureHandle::T(handle)),
+                    Some(&id),
+                )?;
+
+                Self::bind_texture_params(&self.ctx, params.wrap, params.filter, len as u32)?;
+
+                let (internal_format, format, pixel_type) = params.format.into();
+                let mut dims = (params.dimensions.x as i32, params.dimensions.y as i32);
+
+                if params.format.compressed() {
+                    for (i, v) in data.bytes.drain(..).enumerate() {
+                        let mv = ::std::slice::from_raw_parts_mut(v.as_ptr() as *mut u8, v.len());
+                        self.ctx.compressed_tex_image_2d_with_u8_array(
+                            WebGL::TEXTURE_2D,
+                            i as i32,
+                            internal_format,
+                            dims.0,
+                            dims.1,
+                            0,
+                            mv,
+                        );
+
+                        dims.0 = (dims.0 / 2).max(1);
+                        dims.1 = (dims.1 / 2).max(1);
+                    }
+                } else {
+                    for (i, v) in data.bytes.drain(..).enumerate() {
+                        let mv = ::std::slice::from_raw_parts_mut(v.as_ptr() as *mut u8, v.len());
+                        self.ctx
+                            .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+                                WebGL::TEXTURE_2D,
+                                i as i32,
+                                internal_format as i32,
+                                dims.0,
+                                dims.1,
+                                0,
+                                format,
+                                pixel_type,
+                                Some(mv),
+                            ).unwrap();
+
+                        dims.0 = (dims.0 / 2).max(1);
+                        dims.1 = (dims.1 / 2).max(1);
+                    }
+                }
+
+                allocated = true;
+            }
+        }
+
+        check(&self.ctx)?;
+
+        self.textures.create(
+            handle,
+            GLTextureData {
+                handle: handle,
+                id: id,
+                params: params,
+                allocated: allocated,
+            },
+        );
+
+        Ok(())
     }
 
     unsafe fn update_texture(&mut self, _: TextureHandle, _: Aabb2<u32>, _: &[u8]) -> Result<()> {
@@ -653,22 +735,26 @@ impl Visitor for WebGLVisitor {
                     let location = shader.hash_uniform_location(field).unwrap();
                     match variable {
                         UniformVariable::Texture(handle) => {
-                            // let v = UniformVariable::I32(index as i32);
-                            // let texture = self.textures.get(handle).map(|v| v.id).unwrap_or(0);
-                            // self.bind_uniform_variable(location, &v)?;
-                            // self.bind_texture(index, texture)?;
-                            // index += 1;
-                            unimplemented!()
+                            let v = UniformVariable::I32(index as i32);
+                            Self::bind_uniform_variable(&self.ctx, &location, &v)?;
+
+                            if let Some(texture) = self.textures.get(handle) {
+                                Self::bind_texture(
+                                    &self.ctx,
+                                    &mut self.state,
+                                    index,
+                                    Some(GLRenderTextureHandle::T(handle)),
+                                    Some(&texture.id),
+                                )?;
+                            } else {
+                                Self::bind_texture(&self.ctx, &mut self.state, index, None, None)?;
+                            }
+
+                            index += 1;
                         }
                         UniformVariable::RenderTexture(handle) => {
                             let v = UniformVariable::I32(index as i32);
                             Self::bind_uniform_variable(&self.ctx, &location, &v)?;
-
-                            self.state.binded_texture_index = index;
-                            if let Some(w) = self.state.binded_textures.get_mut(index) {
-                                *w = None;
-                            }
-                            self.ctx.active_texture(WebGL::TEXTURE0 + index as u32);
 
                             if let Some(texture) = self.render_textures.get(handle) {
                                 match texture.id {

@@ -139,31 +139,33 @@ impl Params {
         {
             if self.max_fps > 0 {
                 self.max_fps = 0;
-                warn!("The max FPS could be not controlled in web environment.");
+                warn!("The max FPS could not be controlled in web environment.");
             }
         }
     }
 }
 
 /// Setup the core system.
-pub fn setup(mut params: Params) -> Result<()> {
+pub fn setup<T, T2>(mut params: Params, closure: T) -> Result<()>
+where
+    T: FnOnce() -> Result<T2> + 'static,
+    T2: LifecycleListener + Send + 'static,
+{
     unsafe {
         debug_assert!(LIFECYCLE_CTX.is_null(), "duplicated setup of crayon.");
 
         sys::init();
         params.validate();
 
+        let dirs = params.res.dirs.clone();
+
         LIFECYCLE_CTX = Box::into_raw(Box::new(LifecycleSystem::new()));
         TIME_CTX = Box::into_raw(Box::new(TimeSystem::new(&params)));
         CTX = Box::into_raw(Box::new(EngineSystem::new(params)?));
 
-        Ok(())
+        let latch = crate::res::load_manifests(dirs)?;
+        ctx().run(latch, closure)
     }
-}
-
-#[inline]
-pub fn run<T: LifecycleListener + Send + 'static>(application: T) -> Result<()> {
-    ctx().run(application)
 }
 
 /// Discard the core system.
@@ -217,7 +219,7 @@ pub fn set_min_fps(fps: u32) {
 pub fn set_max_fps(mut fps: u32) {
     #[cfg(target_arch = "wasm32")]
     {
-        warn!("The max FPS could be not controlled in web environment.");
+        warn!("The max FPS could not be controlled in web environment.");
         fps = 0;
     }
 

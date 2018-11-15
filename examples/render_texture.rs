@@ -171,10 +171,7 @@ fn run() {
     let mut params = Params::default();
     params.window.title = "CR: RenderTexture".into();
     params.window.size = (568, 320).into();
-    crayon::application::setup(params).unwrap();
-
-    let window = Window::new().unwrap();
-    crayon::application::run(window).unwrap();
+    crayon::application::setup(params, || Window::new()).unwrap();
 }
 
 fn main() {

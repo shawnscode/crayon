@@ -9,14 +9,32 @@ pub trait Latch {
     fn set(&self);
 }
 
+impl<T: Latch> Latch for std::sync::Arc<T> {
+    fn set(&self) {
+        Latch::set(self.as_ref());
+    }
+}
+
 pub trait LatchProbe {
     /// Test if the latch is set.
     fn is_set(&self) -> bool;
 }
 
-pub trait LatchWaitProbe: LatchProbe {
+impl<T: LatchProbe> LatchProbe for std::sync::Arc<T> {
+    fn is_set(&self) -> bool {
+        LatchProbe::is_set(self.as_ref())
+    }
+}
+
+pub(crate) trait LatchWaitProbe: LatchProbe {
     /// Blocks thread until the latch is set.
     fn wait(&self);
+}
+
+impl<T: LatchWaitProbe> LatchWaitProbe for std::sync::Arc<T> {
+    fn wait(&self) {
+        LatchWaitProbe::wait(self.as_ref());
+    }
 }
 
 /// Spin latches are the simplest, most efficient kind, but they do not support
@@ -74,12 +92,9 @@ impl<T> LockLatch<T> {
 
     #[inline]
     pub fn take(&self) -> T {
+        assert!(self.is_set());
+
         let mut lock = self.m.lock().unwrap();
-
-        while lock.is_none() {
-            lock = self.v.wait(lock).unwrap();
-        }
-
         ::std::mem::replace(&mut *lock, None).unwrap()
     }
 }
@@ -147,59 +162,5 @@ impl LatchProbe for CountLatch {
     fn is_set(&self) -> bool {
         // Need to acquire any memory reads before latch was set:
         self.counter.load(Ordering::SeqCst) == 0
-    }
-}
-
-/// A Count Latch starts as false and eventually becomes true. You can block until
-/// it becomes true.
-pub struct LockCountLatch {
-    counter: AtomicUsize,
-    m: Mutex<()>,
-    v: Condvar,
-}
-
-impl LockCountLatch {
-    #[inline]
-    pub fn new() -> LockCountLatch {
-        LockCountLatch {
-            counter: AtomicUsize::new(1),
-            m: Mutex::new(()),
-            v: Condvar::new(),
-        }
-    }
-
-    #[inline]
-    pub fn increment(&self) {
-        debug_assert!(!self.is_set());
-        self.counter.fetch_add(1, Ordering::Relaxed);
-    }
-}
-
-impl Latch for LockCountLatch {
-    /// Set the latch to true, releasing all threads who are waiting.
-    #[inline]
-    fn set(&self) {
-        self.counter.fetch_sub(1, Ordering::SeqCst);
-
-        if self.is_set() {
-            self.v.notify_all();
-        }
-    }
-}
-
-impl LatchProbe for LockCountLatch {
-    #[inline]
-    fn is_set(&self) -> bool {
-        // Need to acquire any memory reads before latch was set:
-        self.counter.load(Ordering::SeqCst) == 0
-    }
-}
-
-impl LatchWaitProbe for LockCountLatch {
-    fn wait(&self) {
-        let mut guard = self.m.lock().unwrap();
-        while !self.is_set() {
-            guard = self.v.wait(guard).unwrap();
-        }
     }
 }

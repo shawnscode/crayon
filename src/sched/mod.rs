@@ -7,13 +7,11 @@ mod scheduler;
 mod unwind;
 
 pub mod prelude {
-    pub use super::latch::{CountLatch, LockCountLatch, LockLatch, SpinLatch};
-    pub use super::latch::{Latch, LatchProbe, LatchWaitProbe};
+    pub use super::latch::{CountLatch, Latch, LatchProbe, LockLatch, SpinLatch};
     pub use super::system::PanicHandler;
 }
 
 use self::ins::{ctx, CTX};
-use self::latch::LatchWaitProbe;
 use self::scope::Scope;
 use self::system::{PanicHandler, SchedulerSystem};
 
@@ -44,15 +42,15 @@ pub fn valid() -> bool {
     unsafe { !CTX.is_null() }
 }
 
-/// Blocks current thread until latch is set. Try to keep busy by popping and stealing jobs
-/// as necessary.
-#[inline]
-pub fn wait_until<T>(latch: &T)
-where
-    T: LatchWaitProbe,
-{
-    ctx().wait_until(latch);
-}
+// /// Blocks current thread until latch is set. Try to keep busy by popping and stealing jobs
+// /// as necessary.
+// #[inline]
+// pub fn wait_until<T>(latch: &T)
+// where
+//     T: LatchWaitProbe,
+// {
+//     ctx().wait_until(latch);
+// }
 
 /// Spawn an asynchronous job in the global `Scheduler.`
 pub fn spawn<F>(func: F)

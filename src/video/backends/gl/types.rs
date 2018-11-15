@@ -102,6 +102,8 @@ pub fn texture_format(format: TextureFormat, caps: &Capabilities) -> (GLenum, GL
     // gl::COMPRESSED_RGB_PVRTC_4BPPV1_IMG = 0x8C00
     // gl::COMPRESSED_RGBA_PVRTC_2BPPV1_IMG = 0x8C03
     // gl::COMPRESSED_RGBA_PVRTC_4BPPV1_IMG = 0x8C02
+    // gl::COMPRESSED_RGB8_ETC2 = 0x9274
+    // gl::COMPRESSED_RGBA8_ETC2_EAC = 0x9278
 
     if sized {
         match format {
@@ -121,10 +123,8 @@ pub fn texture_format(format: TextureFormat, caps: &Capabilities) -> (GLenum, GL
             TextureFormat::RG32F => (gl::RG32F, gl::RG, gl::FLOAT),
             TextureFormat::RGB32F => (gl::RGB32F, gl::RGB, gl::FLOAT),
             TextureFormat::RGBA32F => (gl::RGBA32F, gl::RGBA, gl::FLOAT),
-            TextureFormat::Etc2RGB4BPP => (gl::COMPRESSED_RGB8_ETC2, gl::RGB, gl::UNSIGNED_BYTE),
-            TextureFormat::Etc2RGBA8BPP => {
-                (gl::COMPRESSED_RGBA8_ETC2_EAC, gl::RGB, gl::UNSIGNED_BYTE)
-            }
+            TextureFormat::Etc2RGB4BPP => (0x9274, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::Etc2RGBA8BPP => (0x9278, gl::RGB, gl::UNSIGNED_BYTE),
             TextureFormat::S3tcDxt1RGB4BPP => (0x83F0, gl::RGB, gl::UNSIGNED_BYTE),
             TextureFormat::S3tcDxt5RGBA8BPP => (0x83F3, gl::RGBA, gl::UNSIGNED_BYTE),
             TextureFormat::PvrtcRGB2BPP => (0x8C01, gl::RGB, gl::UNSIGNED_BYTE),
@@ -180,20 +180,6 @@ impl TextureFormat {
                 capabilities.has_compression(TextureCompression::S3TC)
             }
             _ => true,
-        }
-    }
-
-    pub fn is_compression(&self) -> bool {
-        match *self {
-            TextureFormat::Etc2RGB4BPP
-            | TextureFormat::Etc2RGBA8BPP
-            | TextureFormat::PvrtcRGB2BPP
-            | TextureFormat::PvrtcRGB4BPP
-            | TextureFormat::PvrtcRGBA2BPP
-            | TextureFormat::PvrtcRGBA4BPP
-            | TextureFormat::S3tcDxt1RGB4BPP
-            | TextureFormat::S3tcDxt5RGBA8BPP => true,
-            _ => false,
         }
     }
 }

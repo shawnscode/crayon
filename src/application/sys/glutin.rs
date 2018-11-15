@@ -11,10 +11,11 @@ pub fn timestamp() -> Timestamp {
 
 pub(crate) fn init() {}
 
-pub(crate) fn run_forever<T>(mut func: T) -> Result<(), failure::Error>
+pub(crate) fn run_forever<F, F2>(mut advance: F, mut finished: F2) -> Result<(), failure::Error>
 where
-    T: 'static + FnMut() -> Result<bool, failure::Error>,
+    F: FnMut() -> Result<bool, failure::Error> + 'static,
+    F2: FnMut() -> Result<(), failure::Error> + 'static,
 {
-    while func()? {}
-    Ok(())
+    while advance()? {}
+    finished()
 }

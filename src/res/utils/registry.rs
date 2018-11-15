@@ -114,8 +114,8 @@ impl<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> Registr
 
         let payload = self.payload.clone();
         let register = self.register.clone();
-        let cb = move |rsp: &crate::res::request::Response| match *rsp {
-            Ok(ref bytes) => {
+        let cb = move |rsp: crate::res::request::Response| match rsp {
+            Ok(bytes) => {
                 let itermediate = register.load(handle, &bytes);
                 let mut payload = payload.write().unwrap();
                 let disposed = payload.items.get(handle).unwrap().rc <= 0;
@@ -149,7 +149,7 @@ impl<H: HandleLike + 'static, R: Register<Handle = H> + Clone + 'static> Registr
                     }
                 }
             }
-            Err(ref err) => {
+            Err(err) => {
                 warn!("{:?}", err);
                 let mut payload = payload.write().unwrap();
                 if let Some(entry) = payload.items.get_mut(handle) {

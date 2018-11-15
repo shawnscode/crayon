@@ -162,19 +162,19 @@ impl Scheduler {
         }
     }
 
-    pub fn wait_until<T>(&self, latch: &T)
-    where
-        T: LatchWaitProbe,
-    {
-        unsafe {
-            let worker_thread = WorkerThread::current();
-            if worker_thread.is_null() {
-                latch.wait();
-            } else {
-                (*worker_thread).wait_until(latch);
-            }
-        }
-    }
+    // pub fn wait_until<T>(&self, latch: &T)
+    // where
+    //     T: LatchWaitProbe,
+    // {
+    //     unsafe {
+    //         let worker_thread = WorkerThread::current();
+    //         if worker_thread.is_null() {
+    //             latch.wait();
+    //         } else {
+    //             (*worker_thread).wait_until(latch);
+    //         }
+    //     }
+    // }
 
     #[inline]
     pub fn terminate_dec(&self) {

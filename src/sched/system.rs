@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use super::job::HeapJob;
-use super::latch::LatchWaitProbe;
 use super::scheduler::Scheduler;
 use super::scope::Scope;
 use super::unwind;
@@ -38,19 +37,19 @@ impl SchedulerSystem {
         SchedulerSystem { scheduler: None }
     }
 
-    /// Blocks current thread until latch is set. Try to keep busy by popping and stealing jobs
-    /// as necessary.
-    #[inline]
-    pub fn wait_until<T>(&self, latch: &T)
-    where
-        T: LatchWaitProbe,
-    {
-        if let Some(ref scheduler) = self.scheduler {
-            scheduler.wait_until(latch);
-        } else {
-            latch.wait();
-        }
-    }
+    // /// Blocks current thread until latch is set. Try to keep busy by popping and stealing jobs
+    // /// as necessary.
+    // #[inline]
+    // pub fn wait_until<T>(&self, latch: &T)
+    // where
+    //     T: LatchWaitProbe,
+    // {
+    //     if let Some(ref scheduler) = self.scheduler {
+    //         scheduler.wait_until(latch);
+    //     } else {
+    //         latch.wait();
+    //     }
+    // }
 
     /// Spawn an asynchronous job in the global `Scheduler.`
     pub fn spawn<F>(&self, func: F)

@@ -45,6 +45,10 @@ features = [
     'WebGlVertexArrayObject',
     'Window',
     'Performance',
+    'XmlHttpRequest',
+    'XmlHttpRequestResponseType',
+    'Response',
+    'EventTarget'
 ]
 
 [dependencies]

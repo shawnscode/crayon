@@ -22,21 +22,24 @@ pub(crate) fn init() {
     log::set_max_level(log::LevelFilter::Info);
 }
 
-pub(crate) fn run_forever<T>(mut func: T) -> Result<(), failure::Error>
+pub(crate) fn run_forever<F, F2>(mut advance: F, mut finished: F2) -> Result<(), failure::Error>
 where
-    T: 'static + FnMut() -> Result<bool, failure::Error>,
+    F: FnMut() -> Result<bool, failure::Error> + 'static,
+    F2: FnMut() -> Result<(), failure::Error> + 'static,
 {
     let closure: Rc<RefCell<Option<Closure<FnMut(f64)>>>> = Rc::new(RefCell::new(None));
     let clone = closure.clone();
 
     *closure.borrow_mut() = Some(Closure::wrap(Box::new(move |_: f64| {
-        if func().unwrap() {
+        if advance().unwrap() {
             if let Some(inner) = clone.borrow().as_ref() {
                 web_sys::window()
                     .expect("should have a window in this context")
                     .request_animation_frame(inner.as_ref().unchecked_ref())
                     .unwrap();
             }
+        } else {
+            finished().unwrap();
         }
     })));
 

@@ -359,7 +359,7 @@ impl Visitor for GLVisitor {
 
         let (internal_format, format, pixel_type) =
             types::texture_format(params.format, &self.capabilities);
-        let is_compression = params.format.is_compression();
+        let compressed = params.format.compressed();
         let mut allocated = false;
 
         if let Some(mut data) = data {
@@ -373,7 +373,7 @@ impl Visitor for GLVisitor {
                     params.dimensions.y as GLsizei,
                 );
 
-                if is_compression {
+                if compressed {
                     for (i, v) in data.bytes.drain(..).enumerate() {
                         gl::CompressedTexImage2D(
                             gl::TEXTURE_2D,
@@ -441,7 +441,7 @@ impl Visitor for GLVisitor {
             bail!("Trying to update immutable texture.");
         }
 
-        if texture.params.format.is_compression() {
+        if texture.params.format.compressed() {
             bail!("Trying to update compressed texture.");
         }
 

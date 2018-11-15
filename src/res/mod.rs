@@ -55,7 +55,12 @@ pub mod prelude {
 
 mod system;
 
+use std::sync::Arc;
+
+use failure::ResultExt;
 use uuid::Uuid;
+
+use sched::prelude::{CountLatch, Latch};
 
 use self::ins::{ctx, CTX};
 use self::request::{Request, Response};
@@ -96,6 +101,30 @@ pub(crate) unsafe fn setup(params: ResourceParams) -> Result<(), failure::Error>
     Ok(())
 }
 
+/// Attach manifests to this registry.
+pub(crate) fn load_manifests(dirs: Vec<String>) -> Result<Arc<CountLatch>, failure::Error> {
+    let latch = Arc::new(CountLatch::new());
+
+    for v in dirs {
+        let clone = latch.clone();
+        clone.increment();
+
+        let prefix = v.clone();
+        ctx().load_manifest_with_callback(v, move |rsp| {
+            let bytes = rsp
+                .with_context(|_| format!("Failed to load manifest from {}", prefix))
+                .unwrap();
+
+            let mut cursor = std::io::Cursor::new(bytes);
+            ctx().attach(&prefix, &mut cursor).unwrap();
+            clone.set();
+        })?;
+    }
+
+    latch.set();
+    Ok(latch)
+}
+
 /// Discard the resource system.
 pub(crate) unsafe fn discard() {
     if CTX.is_null() {
@@ -134,7 +163,7 @@ pub fn exists(uuid: Uuid) -> bool {
 #[inline]
 pub fn load_with_callback<T>(uuid: Uuid, func: T) -> Result<(), failure::Error>
 where
-    T: Fn(&Response) + 'static,
+    T: FnOnce(Response) + 'static,
 {
     ctx().load_with_callback(uuid, func)
 }
@@ -144,7 +173,7 @@ where
 pub fn load_from_with_callback<T1, T2>(filename: T1, func: T2) -> Result<(), failure::Error>
 where
     T1: AsRef<str>,
-    T2: Fn(&Response) + 'static,
+    T2: FnOnce(Response) + 'static,
 {
     ctx().load_from_with_callback(filename, func)
 }

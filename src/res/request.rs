@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use sched::prelude::{LatchProbe, LatchWaitProbe, LockLatch};
+use sched::prelude::{LatchProbe, LockLatch};
 
 pub type Response = Result<Box<[u8]>, failure::Error>;
 
@@ -35,20 +35,6 @@ impl Request {
         Request::Ok(Err(err.into()))
     }
 
-    /// Blocks the current thread until the request has been resolved.
-    #[inline]
-    pub fn wait(&mut self) {
-        let rsp = match *self {
-            Request::NotReady(ref state) => {
-                state.wait();
-                state.take()
-            }
-            _ => return,
-        };
-
-        *self = Request::Ok(rsp);
-    }
-
     /// Attempt to resolve the request to a final state, and returns true if the
     /// loading result is ready for user.
     #[inline]
@@ -78,29 +64,57 @@ impl Request {
     }
 }
 
+impl Into<Option<Response>> for Request {
+    fn into(self) -> Option<Response> {
+        match self {
+            Request::Ok(rsp) => Some(rsp),
+            _ => None,
+        }
+    }
+}
+
 pub struct RequestQueue {
     // FIXME: Use FnOnce instead of Box<Fn> when its stable.
-    tasks: Vec<(Request, Box<Fn(&Response)>)>,
+    tasks: Vec<(Request, Box<FnMut(Response)>)>,
+    idxes: Vec<usize>,
 }
 
 impl RequestQueue {
     pub fn new() -> Self {
-        RequestQueue { tasks: Vec::new() }
+        RequestQueue {
+            tasks: Vec::new(),
+            idxes: Vec::new(),
+        }
     }
 
-    pub fn add<T: Fn(&Response) + 'static>(&mut self, request: Request, func: T) {
-        self.tasks.push((request, Box::new(func)));
+    pub fn add<T: FnOnce(Response) + 'static>(&mut self, request: Request, func: T) {
+        let mut v = Some(func);
+        let wrapper = move |rsp| {
+            let mut w = None;
+            std::mem::swap(&mut v, &mut w);
+
+            if let Some(func) = w {
+                func(rsp);
+            }
+        };
+
+        self.tasks.push((request, Box::new(wrapper)));
     }
 
     pub fn advance(&mut self) {
+        self.idxes.clear();
+
         // FIXME: Use drain_filter instead of retain and `for` iteration.
-        for &mut (ref mut request, ref func) in &mut self.tasks {
+        for (i, &mut (ref mut request, _)) in self.tasks.iter_mut().rev().enumerate() {
             if request.poll() {
-                func(request.response().unwrap());
+                self.idxes.push(i)
             }
         }
 
-        self.tasks
-            .retain(|&(ref request, _)| request.response().is_some());
+        for i in self.idxes.drain(..) {
+            let (request, mut func) = self.tasks.remove(i);
+            let v: Option<Response> = request.into();
+            func(v.unwrap());
+        }
     }
 }

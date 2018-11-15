@@ -9,7 +9,7 @@ use uuid::Uuid;
 use errors::*;
 use utils::{DataBuffer, DataBufferPtr, FastHashMap, HashValue, InlinableString};
 
-pub const NAME: &'static str = ".MANIFEST";
+pub const NAME: &'static str = "MANIFEST";
 pub const MAGIC: [u8; 8] = [
     'M' as u8, 'N' as u8, 'F' as u8, 'T' as u8, ' ' as u8, 0, 0, 1,
 ];

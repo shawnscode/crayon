@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use sched::prelude::LatchProbe;
 use window::prelude::{Event, EventListener, EventListenerHandle, WindowEvent};
 
 use super::lifecycle::LifecycleListener;
@@ -30,17 +31,6 @@ impl EventListener for Arc<EngineState> {
     }
 }
 
-impl EngineState {
-    fn advance(&self) -> Result<bool> {
-        super::foreach(|v| v.on_pre_update())?;
-        super::foreach(|v| v.on_update())?;
-        super::foreach(|v| v.on_render())?;
-        super::foreach_rev(|v| v.on_post_update())?;
-
-        Ok(*self.alive.lock().unwrap() && !self.headless)
-    }
-}
-
 impl Drop for EngineSystem {
     fn drop(&mut self) {
         crate::window::detach(self.events);
@@ -57,62 +47,80 @@ impl Drop for EngineSystem {
 
 impl EngineSystem {
     /// Setup engine with specified settings.
-    pub fn new(params: Params) -> Result<Self> {
-        unsafe {
-            #[cfg(not(target_arch = "wasm32"))]
-            crate::sched::setup(4, None, None);
-            #[cfg(target_arch = "wasm32")]
-            crate::sched::setup(0, None, None);
+    pub unsafe fn new(params: Params) -> Result<Self> {
+        #[cfg(not(target_arch = "wasm32"))]
+        crate::sched::setup(4, None, None);
+        #[cfg(target_arch = "wasm32")]
+        crate::sched::setup(0, None, None);
 
-            if !params.headless {
-                crate::window::setup(params.window)?;
-                crate::video::setup()?;
-            } else {
-                crate::window::headless();
-                crate::video::headless();
-            }
-
-            crate::input::setup(params.input);
-            crate::res::setup(params.res)?;
-
-            let state = Arc::new(EngineState {
-                headless: params.headless,
-                alive: Mutex::new(true),
-            });
-
-            let sys = EngineSystem {
-                events: crate::window::attach(state.clone()),
-                state: state,
-            };
-
-            Ok(sys)
+        if !params.headless {
+            crate::window::setup(params.window)?;
+            crate::video::setup()?;
+        } else {
+            crate::window::headless();
+            crate::video::headless();
         }
+
+        crate::input::setup(params.input);
+        crate::res::setup(params.res)?;
+
+        let state = Arc::new(EngineState {
+            headless: params.headless,
+            alive: Mutex::new(true),
+        });
+
+        let sys = EngineSystem {
+            events: crate::window::attach(state.clone()),
+            state: state,
+        };
+
+        Ok(sys)
     }
 
     pub fn shutdown(&self) {
         *self.state.alive.lock().unwrap() = false;
     }
 
-    pub fn run<T>(&self, application: T) -> Result<()>
+    pub fn run<L, T, T2>(&self, latch: L, closure: T) -> Result<()>
     where
-        T: LifecycleListener + Send + 'static,
+        L: LatchProbe + 'static,
+        T: FnOnce() -> Result<T2> + 'static,
+        T2: LifecycleListener + Send + 'static,
     {
-        let application = crate::application::attach(application);
         let state = self.state.clone();
+        let mut closure = Some(closure);
 
-        super::sys::run_forever(move || {
-            let rsp = state.advance();
+        super::sys::run_forever(
+            move || {
+                super::foreach(|v| v.on_pre_update())?;
+                super::foreach_rev(|v| v.on_post_update())?;
+                Ok(!latch.is_set())
+            },
+            move || {
+                let mut v = None;
+                std::mem::swap(&mut closure, &mut v);
 
-            match rsp {
-                Ok(true) => {}
-                _ => {
-                    crate::application::detach(application);
-                    unsafe { super::late_discard() };
-                }
-            };
+                let application = crate::application::attach(v.unwrap()()?);
+                let state = state.clone();
 
-            rsp
-        })?;
+                super::sys::run_forever(
+                    move || {
+                        super::foreach(|v| v.on_pre_update())?;
+                        super::foreach(|v| v.on_update())?;
+                        super::foreach(|v| v.on_render())?;
+                        super::foreach_rev(|v| v.on_post_update())?;
+                        Ok(*state.alive.lock().unwrap() && !state.headless)
+                    },
+                    move || {
+                        crate::application::detach(application);
+                        unsafe { super::late_discard() };
+                        Ok(())
+                    },
+                )?;
+
+                Ok(())
+            },
+        )?;
 
         Ok(())
     }
