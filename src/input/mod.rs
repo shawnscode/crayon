@@ -173,6 +173,7 @@ pub mod mouse;
 pub mod touchpad;
 
 pub mod prelude {
+    pub use super::events::InputEvent;
     pub use super::keyboard::{Key, KeyboardParams};
     pub use super::mouse::{MouseButton, MouseParams};
     pub use super::touchpad::{GesturePan, GestureTap, TouchPadParams};

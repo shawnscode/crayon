@@ -4,7 +4,7 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
-use utils::prelude::Timestamp;
+use utils::time::Timestamp;
 
 pub fn timestamp() -> Timestamp {
     let ms = web_sys::window()

@@ -8,7 +8,7 @@ use super::touchpad::TouchState;
 #[derive(Debug, Clone, Copy)]
 pub enum InputEvent {
     /// The cursor has moved on the window.
-    /// The parameter are the (x, y) coords in pixels relative to the top-left
+    /// The parameter are the (x, y) coords in pixels relative to the bottom-left
     /// corner of th window.
     MouseMoved { position: (f32, f32) },
     /// Pressed event on mouse has been received.
