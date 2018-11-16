@@ -17,7 +17,6 @@ pub struct EngineSystem {
 }
 
 struct EngineState {
-    headless: bool,
     alive: Mutex<bool>,
 }
 
@@ -53,19 +52,35 @@ impl EngineSystem {
         #[cfg(target_arch = "wasm32")]
         crate::sched::setup(0, None, None);
 
-        if !params.headless {
-            crate::window::setup(params.window)?;
-            crate::video::setup()?;
-        } else {
-            crate::window::headless();
-            crate::video::headless();
-        }
-
+        crate::window::setup(params.window)?;
+        crate::video::setup()?;
         crate::input::setup(params.input);
         crate::res::setup(params.res)?;
 
         let state = Arc::new(EngineState {
-            headless: params.headless,
+            alive: Mutex::new(true),
+        });
+
+        let sys = EngineSystem {
+            events: crate::window::attach(state.clone()),
+            state: state,
+        };
+
+        Ok(sys)
+    }
+
+    pub unsafe fn headless(params: Params) -> Result<Self> {
+        #[cfg(not(target_arch = "wasm32"))]
+        crate::sched::setup(4, None, None);
+        #[cfg(target_arch = "wasm32")]
+        crate::sched::setup(0, None, None);
+
+        crate::window::headless();
+        crate::video::headless();
+        crate::input::setup(params.input);
+        crate::res::setup(params.res)?;
+
+        let state = Arc::new(EngineState {
             alive: Mutex::new(true),
         });
 
@@ -79,6 +94,14 @@ impl EngineSystem {
 
     pub fn shutdown(&self) {
         *self.state.alive.lock().unwrap() = false;
+    }
+
+    pub fn run_headless(&self) -> Result<()> {
+        super::foreach(|v| v.on_pre_update())?;
+        super::foreach(|v| v.on_update())?;
+        super::foreach(|v| v.on_render())?;
+        super::foreach_rev(|v| v.on_post_update())?;
+        Ok(())
     }
 
     pub fn run<L, T, T2>(&self, latch: L, closure: T) -> Result<()>
@@ -109,7 +132,7 @@ impl EngineSystem {
                         super::foreach(|v| v.on_update())?;
                         super::foreach(|v| v.on_render())?;
                         super::foreach_rev(|v| v.on_post_update())?;
-                        Ok(*state.alive.lock().unwrap() && !state.headless)
+                        Ok(*state.alive.lock().unwrap())
                     },
                     move || {
                         crate::application::detach(application);

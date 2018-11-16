@@ -5,28 +5,28 @@
 //! To check whether the current platform provides keyboard input, call:
 //!
 //! ```rust
-//! use crayon::input::prelude::*;
-//! let input = InputSystem::new(InputParams::default()).shared();
+//! use crayon::prelude::*;
+//! application::headless().unwrap();
 //!
 //! // Returns true if a keyboard is attached
-//! input.has_keyboard_attached();
+//! input::has_keyboard_attached();
 //! ```
 //!
 //! Nothing bad will happen if you call the keyboard functions even if `has_keyboard_
 //! attached` returns false. To check the current state of specific keys:
 //!
 //! ```rust
-//! use crayon::input::prelude::*;
-//! let input = InputSystem::new(InputParams::default()).shared();
+//! use crayon::prelude::*;
+//! application::headless().unwrap();
 //!
 //! // Checks if a key is currently held down.
-//! input.is_key_down(Key::A);
+//! input::is_key_down(Key::A);
 //!
 //! // Checks if a key has been pressed down during the last frame.
-//! input.is_key_press(Key::A);
+//! input::is_key_press(Key::A);
 //!
 //! // Checks if a key has been released during the last frame.
-//! input.is_key_repeat(Key::A);
+//! input::is_key_repeat(Key::A);
 //! ```
 //!
 //! A list of all key codes can be found in the `Key` enumeration. Notes
@@ -37,11 +37,11 @@
 //! entered text in last frame, you can call:
 //!
 //! ```rust
-//! use crayon::input::prelude::*;
-//! let input = InputSystem::new(InputParams::default()).shared();
+//! use crayon::prelude::*;
+//! application::headless().unwrap();
 //!
 //! // Gets captured text during the last frame.
-//! input.text();
+//! input::text();
 //! ```
 //!
 //! # Mouse Inputs
@@ -52,41 +52,41 @@
 //! To check the state of the mouse buttons, use the following functions:
 //!
 //! ```rust
-//! use crayon::input::prelude::*;
-//! let input = InputSystem::new(InputParams::default()).shared();
+//! use crayon::prelude::*;
+//! application::headless().unwrap();
 //!
 //! // Checks if a mouse button is held down.
-//! input.is_mouse_down(MouseButton::Left);
+//! input::is_mouse_down(MouseButton::Left);
 //!
 //! // Checks if a mouse button has been pressed during last frame.
-//! input.is_mouse_press(MouseButton::Left);
+//! input::is_mouse_press(MouseButton::Left);
 //!
 //! // Checks if a mouse button has been released during last frame.
-//! input.is_mouse_release(MouseButton::Left);
+//! input::is_mouse_release(MouseButton::Left);
 //! ```
 //!
 //! A list of all mouse buttons can be found in the `Key` enumeration. To get
 //! the current mouse position and the last frame's mouse movement in pixels:
 //!
-//! ```rust,ignore
-//! use crayon::input::prelude::*;
-//! let input = InputSystem::new(InputParams::default()).shared();
+//! ```rust
+//! use crayon::prelude::*;
+//! application::headless().unwrap();
 //!
 //! // Gets the mouse position relative to the top-left hand corner of the window.
-//! input.mouse_position();
+//! input::mouse_position();
 //!
 //! // Gets mouse movement in pixels since last frame.
-//! input.mouse_movement();
+//! input::mouse_movement();
 //! ```
 //!
 //! To get mouse wheel information:
 //!
 //! ```rust
-//! use crayon::input::prelude::*;
-//! let input = InputSystem::new(InputParams::default()).shared();
+//! use crayon::prelude::*;
+//! application::headless().unwrap();
 //!
 //! // Gets the scroll movement of mouse in pixels, usually provided by mouse wheel.
-//! input.mouse_scroll();
+//! input::mouse_scroll();
 //! ```
 //!
 //! Mouse positions and movement are reported in pixel coordinates which makes it
@@ -97,14 +97,14 @@
 //! We also recognize some simple input patterns, like:
 //!
 //! ```rust
-//! use crayon::input::prelude::*;
-//! let input = InputSystem::new(InputParams::default()).shared();
+//! use crayon::prelude::*;
+//! application::headless().unwrap();
 //!
 //! // Checks if a mouse button has been clicked during last frame.
-//! input.mouse_position();
+//! input::mouse_position();
 //!
 //! // Checks if a mouse button has been double clicked during last frame.
-//! input.is_mouse_double_click(MouseButton::Left);
+//! input::is_mouse_double_click(MouseButton::Left);
 //! ```
 //!
 //! Notes we also have APIs with `_in_points` suffix to works in logical points.
@@ -117,39 +117,39 @@
 //! ordered by the first touch time.
 //!
 //! ```rust
-//! use crayon::input::prelude::*;
-//! let input = InputSystem::new(InputParams::default()).shared();
+//! use crayon::prelude::*;
+//! application::headless().unwrap();
 //!
 //! // Checks if the `n`th finger is touched during last frame.
-//! input.is_finger_touched(0);
+//! input::is_finger_touched(0);
 //!
 //! // Gets the position of the `n`th touched finger.
-//! input.finger_position(0);
+//! input::finger_position(0);
 //! ```
 //!
 //! The touch support also addresses a few platform-agnostic gesture recognizers
 //! based on low-level touch inputs.
 //!
 //! ```rust
-//! use crayon::input::prelude::*;
-//! let input = InputSystem::new(InputParams::default()).shared();
+//! use crayon::prelude::*;
+//! application::headless().unwrap();
 //!
 //! // Gets the tap gesture.
-//! match input.finger_tap() {
+//! match input::finger_tap() {
 //!     // A tap geture is detected during last frame.
 //!     GestureTap::Action { position } => { },
 //!     GestureTap::None => { },
 //! }
 //!
 //! // Gets the double tap gesture.
-//! match input.finger_double_tap() {
+//! match input::finger_double_tap() {
 //!     // A double tap geture is detected during last frame.
 //!     GestureTap::Action { position } => { },
 //!     GestureTap::None => { },
 //! }
 //!
 //! // Gets the panning gesture.
-//! match input.finger_pan() {
+//! match input::finger_pan() {
 //!     GesturePan::Start { start_position } => { },
 //!     GesturePan::Move { start_position, position, movement } => { },
 //!     GesturePan::End { start_position, position } => { },

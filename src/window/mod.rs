@@ -1,3 +1,4 @@
+//! Represents an OpenGL context and the window or environment around it.
 pub mod events;
 
 pub mod prelude {

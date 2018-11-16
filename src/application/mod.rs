@@ -88,8 +88,6 @@ use window::WindowParams;
 /// context information.
 #[derive(Debug, Clone)]
 pub struct Params {
-    /// Is this a headless running?
-    pub headless: bool,
     /// Set minimum frames per second. If fps goes lower than this, time will
     /// appear to slow. This is useful for some subsystems required strict minimum
     /// time step per frame, such like Collision checks.
@@ -117,7 +115,6 @@ impl Default for Params {
             max_fps: 30,
             max_inactive_fps: 0,
             time_smooth_step: 0,
-            headless: false,
             window: WindowParams::default(),
             input: InputParams::default(),
             res: ResourceParams::default(),
@@ -126,13 +123,6 @@ impl Default for Params {
 }
 
 impl Params {
-    /// Create a headless `Params`.
-    pub fn headless() -> Self {
-        let mut params = Params::default();
-        params.headless = true;
-        params
-    }
-
     #[allow(unused_mut)]
     pub fn validate(&mut self) {
         #[cfg(target_arch = "wasm32")]
@@ -158,13 +148,26 @@ where
         params.validate();
 
         let dirs = params.res.dirs.clone();
-
         LIFECYCLE_CTX = Box::into_raw(Box::new(LifecycleSystem::new()));
         TIME_CTX = Box::into_raw(Box::new(TimeSystem::new(&params)));
         CTX = Box::into_raw(Box::new(EngineSystem::new(params)?));
-
         let latch = crate::res::load_manifests(dirs)?;
         ctx().run(latch, closure)
+    }
+}
+
+pub fn headless() -> Result<()> {
+    unsafe {
+        debug_assert!(LIFECYCLE_CTX.is_null(), "duplicated setup of crayon.");
+
+        let params = Params::default();
+
+        sys::init();
+        LIFECYCLE_CTX = Box::into_raw(Box::new(LifecycleSystem::new()));
+        TIME_CTX = Box::into_raw(Box::new(TimeSystem::new(&params)));
+        CTX = Box::into_raw(Box::new(EngineSystem::headless(params)?));
+
+        ctx().run_headless()
     }
 }
 

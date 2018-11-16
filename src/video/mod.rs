@@ -84,9 +84,8 @@
 //! it. Likes clearing, offscreen-rendering, MSAA resolve etc..
 //!
 //! ```rust
-//! use crayon::video::prelude::*;
-//! use crayon::math::prelude::*;
-//! let video = VideoSystem::headless().shared();
+//! use crayon::prelude::*;
+//! application::headless().unwrap();
 //!
 //! // Creates a `SurfaceParams` object.
 //! let mut params = SurfaceParams::default();
@@ -100,9 +99,9 @@
 //! params.set_clear(Color::white(), 1.0, None);
 //!
 //! // Creates an surface with `SurfaceParams`.
-//! let surface = video.create_surface(params).unwrap();
+//! let surface = video::create_surface(params).unwrap();
 //! // Deletes the surface object.
-//! video.delete_surface(surface);
+//! video::delete_surface(surface);
 //! ```
 //!
 //! ### Shader Object
@@ -112,8 +111,8 @@
 //! and get rid of redundant state changes.
 //!
 //! ```rust
-//! use crayon::video::prelude::*;
-//! let video = VideoSystem::headless().shared();
+//! use crayon::prelude::*;
+//! application::headless().unwrap();
 //!
 //! // Declares the uniform variable layouts.
 //! let mut uniforms = UniformVariableLayout::build()
@@ -137,10 +136,10 @@
 //!
 //! // Create a shader with initial shaders and render state. It encapusulates all the
 //! // informations we need to configurate graphics pipeline before real drawing.
-//! let shader = video.create_shader(params, vs, fs).unwrap();
+//! let shader = video::create_shader(params, vs, fs).unwrap();
 //!
 //! // Deletes shader object.
-//! video.delete_shader(shader);
+//! video::delete_shader(shader);
 //! ```
 //!
 //! ### Texture Object
@@ -149,16 +148,16 @@
 //! access from a Shader.
 //!
 //! ```rust
-//! use crayon::video::prelude::*;
-//! let video = VideoSystem::headless().shared();
+//! use crayon::prelude::*;
+//! application::headless().unwrap();
 //!
 //! let mut params = TextureParams::default();
 //!
 //! // Create a texture object with optional data. You can fill it later with `update_texture`.
-//! let texture = video.create_texture(params, None).unwrap();
+//! let texture = video::create_texture(params, None).unwrap();
 //!
 //! // Deletes the texture object.
-//! video.delete_texture(texture);
+//! video::delete_texture(texture);
 //! ```
 //!
 //! #### Compressed Texture Format
@@ -169,16 +168,16 @@
 //! ### Mesh Object
 //!
 //! ```rust
-//! use crayon::video::prelude::*;
-//! let video = VideoSystem::headless().shared();
+//! use crayon::prelude::*;
+//! application::headless().unwrap();
 //!
 //! let mut params = MeshParams::default();
 //!
 //! // Create a mesh object with optional data. You can fill it later with `update_mesh`.
-//! let mesh = video.create_mesh(params, None).unwrap();
+//! let mesh = video::create_mesh(params, None).unwrap();
 //!
 //! // Deletes the mesh object.
-//! video.delete_mesh(mesh);
+//! video::delete_mesh(mesh);
 //! ```
 //!
 //! # Commands
