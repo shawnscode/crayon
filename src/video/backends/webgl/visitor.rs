@@ -794,7 +794,6 @@ impl Visitor for WebGLVisitor {
             .ok_or_else(|| format_err!("{:?} is invalid.", shader))?;
 
         Self::bind_shader(&self.ctx, &mut self.state, &shader)?;
-        Self::clear_binded_textures(&self.ctx, &mut self.state)?;
 
         let mut index = 0usize;
         for &(field, variable) in uniforms {
@@ -1114,15 +1113,15 @@ impl WebGLVisitor {
             UniformVariable::Vector3f(v) => ctx.uniform3f(Some(&location), v[0], v[1], v[2]),
             UniformVariable::Vector4f(v) => ctx.uniform4f(Some(&location), v[0], v[1], v[2], v[3]),
             UniformVariable::Matrix2f(v, transpose) => {
-                let mv = ::std::slice::from_raw_parts_mut(v.as_ptr() as *mut f32, v.len());
+                let mv = ::std::slice::from_raw_parts_mut(v.as_ptr() as *mut f32, 4);
                 ctx.uniform_matrix2fv_with_f32_array(Some(&location), transpose, mv)
             }
             UniformVariable::Matrix3f(v, transpose) => {
-                let mv = ::std::slice::from_raw_parts_mut(v.as_ptr() as *mut f32, v.len());
+                let mv = ::std::slice::from_raw_parts_mut(v.as_ptr() as *mut f32, 9);
                 ctx.uniform_matrix3fv_with_f32_array(Some(&location), transpose, mv)
             }
             UniformVariable::Matrix4f(v, transpose) => {
-                let mv = ::std::slice::from_raw_parts_mut(v.as_ptr() as *mut f32, v.len());
+                let mv = ::std::slice::from_raw_parts_mut(v.as_ptr() as *mut f32, 16);
                 ctx.uniform_matrix4fv_with_f32_array(Some(&location), transpose, mv)
             }
         }
@@ -1395,7 +1394,7 @@ impl WebGLVisitor {
     unsafe fn bind_texture(
         ctx: &WebGL,
         state: &mut WebGLState,
-        handle: Option<Sampler>,
+        sampler: Option<Sampler>,
         index: usize,
         id: Option<&WebGlTexture>,
     ) -> Result<()> {
@@ -1408,23 +1407,9 @@ impl WebGLVisitor {
             state.binded_textures.resize(index + 1, None);
         }
 
-        if state.binded_textures[index] != handle {
-            state.binded_textures[index] = handle;
+        if state.binded_textures[index] != sampler {
+            state.binded_textures[index] = sampler;
             ctx.bind_texture(WebGL::TEXTURE_2D, id);
-        }
-
-        check(ctx)
-    }
-
-    unsafe fn clear_binded_textures(ctx: &WebGL, state: &mut WebGLState) -> Result<()> {
-        for (i, v) in state.binded_textures.iter_mut().enumerate() {
-            if v.is_some() {
-                ctx.active_texture(WebGL::TEXTURE0 + i as u32);
-                ctx.bind_texture(WebGL::TEXTURE_2D, None);
-
-                *v = None;
-                state.binded_texture_index = i;
-            }
         }
 
         check(ctx)

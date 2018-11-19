@@ -3,6 +3,7 @@ use std::io::Cursor;
 use std::sync::Arc;
 
 use errors::*;
+use res::utils::prelude::ResourceLoader;
 use utils::double_buf::DoubleBuf;
 
 use super::super::backends::frame::{Command, Frame};
@@ -23,10 +24,10 @@ impl MeshLoader {
     }
 }
 
-impl crate::res::utils::Register for MeshLoader {
+impl ResourceLoader for MeshLoader {
     type Handle = MeshHandle;
     type Intermediate = (MeshParams, Option<MeshData>);
-    type Value = MeshParams;
+    type Resource = MeshParams;
 
     fn load(&self, handle: Self::Handle, bytes: &[u8]) -> Result<Self::Intermediate> {
         if &bytes[0..8] != &MAGIC[..] {
@@ -45,16 +46,14 @@ impl crate::res::utils::Register for MeshLoader {
         Ok((params, Some(data)))
     }
 
-    fn attach(&self, handle: Self::Handle, item: Self::Intermediate) -> Result<Self::Value> {
+    fn create(&self, handle: Self::Handle, item: Self::Intermediate) -> Result<Self::Resource> {
         item.0.validate(item.1.as_ref())?;
-
         let cmd = Command::CreateMesh(handle, item.0.clone(), item.1);
         self.frames.write().cmds.push(cmd);
-
         Ok(item.0)
     }
 
-    fn detach(&self, handle: Self::Handle, _: Self::Value) {
+    fn delete(&self, handle: Self::Handle, _: Self::Resource) {
         let cmd = Command::DeleteMesh(handle);
         self.frames.write().cmds.push(cmd);
     }

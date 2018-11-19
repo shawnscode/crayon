@@ -55,6 +55,9 @@ features = [
     'UiEvent'
 ]
 
+# [workspace]
+# members = [ "modules/world" ]
+
 [dependencies]
 failure = "0.1.2"
 log = "0.4.5"
@@ -73,6 +76,7 @@ crossbeam-deque = "0.5.1"
 
 [dev-dependencies]
 rand = "0.5.5"
+env_logger = "0.6.0"
 
 [profile.release]
 lto = true

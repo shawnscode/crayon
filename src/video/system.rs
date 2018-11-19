@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use application::prelude::{LifecycleListener, LifecycleListenerHandle};
 use math::prelude::{Aabb2, Vector2};
-use res::utils::Registry;
+use res::utils::prelude::{ResourcePool, ResourceState};
 use utils::prelude::{DoubleBuf, ObjectPool};
 
 use super::assets::mesh_loader::MeshLoader;
@@ -19,15 +19,12 @@ pub struct VideoSystem {
     state: Arc<VideoState>,
 }
 
-type TextureRegistry = Registry<TextureHandle, TextureLoader>;
-type MeshRegistry = Registry<MeshHandle, MeshLoader>;
-
 struct VideoState {
     frames: Arc<DoubleBuf<Frame>>,
     surfaces: RwLock<ObjectPool<SurfaceHandle, SurfaceParams>>,
     shaders: RwLock<ObjectPool<ShaderHandle, ShaderParams>>,
-    meshes: MeshRegistry,
-    textures: TextureRegistry,
+    meshes: RwLock<ResourcePool<MeshHandle, MeshLoader>>,
+    textures: RwLock<ResourcePool<TextureHandle, TextureLoader>>,
     render_textures: RwLock<ObjectPool<RenderTextureHandle, RenderTextureParams>>,
 }
 
@@ -38,16 +35,13 @@ impl VideoState {
             Frame::with_capacity(64 * 1024),
         ));
 
-        let textures = TextureRegistry::new(TextureLoader::new(frames.clone()));
-        let meshes = MeshRegistry::new(MeshLoader::new(frames.clone()));
-
         VideoState {
-            frames: frames,
             surfaces: RwLock::new(ObjectPool::new()),
             shaders: RwLock::new(ObjectPool::new()),
-            meshes: meshes,
-            textures: textures,
+            meshes: RwLock::new(ResourcePool::new(MeshLoader::new(frames.clone()))),
+            textures: RwLock::new(ResourcePool::new(TextureLoader::new(frames.clone()))),
             render_textures: RwLock::new(ObjectPool::new()),
+            frames: frames,
         }
     }
 }
@@ -63,6 +57,8 @@ impl LifecycleListener for Lifecycle {
         // Swap internal commands frame.
         self.state.frames.swap();
         self.state.frames.write().clear();
+        self.state.meshes.write().unwrap().advance()?;
+        self.state.textures.write().unwrap().advance()?;
         Ok(())
     }
 
@@ -144,6 +140,16 @@ impl VideoSystem {
         self.state.surfaces.read().unwrap().get(handle).cloned()
     }
 
+    /// Get the resource state of specified surface.
+    #[inline]
+    pub fn surface_state(&self, handle: SurfaceHandle) -> ResourceState {
+        if self.state.surfaces.read().unwrap().contains(handle) {
+            ResourceState::Ok
+        } else {
+            ResourceState::NotReady
+        }
+    }
+
     /// Deletes surface object.
     pub fn delete_surface(&self, handle: SurfaceHandle) {
         if self.state.surfaces.write().unwrap().free(handle).is_some() {
@@ -175,11 +181,23 @@ impl VideoSystem {
     }
 
     /// Gets the `ShaderParams` if available.
+    #[inline]
     pub fn shader(&self, handle: ShaderHandle) -> Option<ShaderParams> {
         self.state.shaders.read().unwrap().get(handle).cloned()
     }
 
+    /// Get the resource state of specified shader.
+    #[inline]
+    pub fn shader_state(&self, handle: ShaderHandle) -> ResourceState {
+        if self.state.shaders.read().unwrap().contains(handle) {
+            ResourceState::Ok
+        } else {
+            ResourceState::NotReady
+        }
+    }
+
     /// Delete shader state object.
+    #[inline]
     pub fn delete_shader(&self, handle: ShaderHandle) {
         if self.state.shaders.write().unwrap().free(handle).is_some() {
             let cmd = Command::DeleteShader(handle);
@@ -195,28 +213,34 @@ impl VideoSystem {
     where
         T: Into<Option<MeshData>>,
     {
-        let handle = self.state.meshes.create((params, data.into()))?;
-        Ok(handle)
+        let mut meshes = self.state.meshes.write().unwrap();
+        meshes.create((params, data.into()))
     }
 
     /// Creates a mesh object from file asynchronously.
     #[inline]
     pub fn create_mesh_from<T: AsRef<str>>(&self, url: T) -> ::errors::Result<MeshHandle> {
-        let handle = self.state.meshes.create_from(url)?;
-        Ok(handle)
+        let mut meshes = self.state.meshes.write().unwrap();
+        meshes.create_from(url)
     }
 
     /// Creates a mesh object from file asynchronously.
     #[inline]
     pub fn create_mesh_from_uuid(&self, uuid: Uuid) -> ::errors::Result<MeshHandle> {
-        let handle = self.state.meshes.create_from_uuid(uuid)?;
-        Ok(handle)
+        let mut meshes = self.state.meshes.write().unwrap();
+        meshes.create_from_uuid(uuid)
     }
 
     /// Gets the `MeshParams` if available.
     #[inline]
     pub fn mesh(&self, handle: MeshHandle) -> Option<MeshParams> {
-        self.state.meshes.get(handle, |v| v.clone())
+        self.state.meshes.read().unwrap().resource(handle).cloned()
+    }
+
+    /// Get the resource state of specified mesh.
+    #[inline]
+    pub fn mesh_state(&self, handle: MeshHandle) -> ResourceState {
+        self.state.meshes.read().unwrap().state(handle)
     }
 
     /// Update a subset of dynamic vertex buffer. Use `offset` specifies the offset
@@ -228,14 +252,16 @@ impl VideoSystem {
         offset: usize,
         data: &[u8],
     ) -> ::errors::Result<()> {
-        self.state
-            .meshes
-            .get(handle, |_| {
-                let mut frame = self.state.frames.write();
-                let ptr = frame.bufs.extend_from_slice(data);
-                let cmd = Command::UpdateVertexBuffer(handle, offset, ptr);
-                frame.cmds.push(cmd);
-            }).ok_or_else(|| format_err!("{:?}", handle))
+        let meshes = self.state.meshes.read().unwrap();
+        if meshes.contains(handle) {
+            let mut frame = self.state.frames.write();
+            let ptr = frame.bufs.extend_from_slice(data);
+            let cmd = Command::UpdateVertexBuffer(handle, offset, ptr);
+            frame.cmds.push(cmd);
+            Ok(())
+        } else {
+            bail!("{:?} is invalid.", handle);
+        }
     }
 
     /// Update a subset of dynamic index buffer. Use `offset` specifies the offset
@@ -247,20 +273,22 @@ impl VideoSystem {
         offset: usize,
         data: &[u8],
     ) -> ::errors::Result<()> {
-        self.state
-            .meshes
-            .get(handle, |_| {
-                let mut frame = self.state.frames.write();
-                let ptr = frame.bufs.extend_from_slice(data);
-                let cmd = Command::UpdateIndexBuffer(handle, offset, ptr);
-                frame.cmds.push(cmd);
-            }).ok_or_else(|| format_err!("{:?}", handle))
+        let meshes = self.state.meshes.read().unwrap();
+        if meshes.contains(handle) {
+            let mut frame = self.state.frames.write();
+            let ptr = frame.bufs.extend_from_slice(data);
+            let cmd = Command::UpdateIndexBuffer(handle, offset, ptr);
+            frame.cmds.push(cmd);
+            Ok(())
+        } else {
+            bail!("{:?} is invalid.", handle);
+        }
     }
 
     /// Delete mesh object.
     #[inline]
     pub fn delete_mesh(&self, handle: MeshHandle) {
-        self.state.meshes.delete(handle);
+        self.state.meshes.write().unwrap().delete(handle);
     }
 }
 
@@ -275,20 +303,26 @@ impl VideoSystem {
     where
         T: Into<Option<TextureData>>,
     {
-        let handle = self.state.textures.create((params, data.into()))?;
-        Ok(handle)
+        let mut textures = self.state.textures.write().unwrap();
+        textures.create((params, data.into()))
     }
 
     /// Creates a texture object from file asynchronously.
     pub fn create_texture_from<T: AsRef<str>>(&self, url: T) -> ::errors::Result<TextureHandle> {
-        let handle = self.state.textures.create_from(url)?;
-        Ok(handle)
+        let mut textures = self.state.textures.write().unwrap();
+        textures.create_from(url)
     }
 
     /// Creates a texture object from file asynchronously.
     pub fn create_texture_from_uuid(&self, uuid: Uuid) -> ::errors::Result<TextureHandle> {
-        let handle = self.state.textures.create_from_uuid(uuid)?;
-        Ok(handle)
+        let mut textures = self.state.textures.write().unwrap();
+        textures.create_from_uuid(uuid)
+    }
+
+    /// Get the resource state of specified texture.
+    #[inline]
+    pub fn texture_state(&self, handle: TextureHandle) -> ResourceState {
+        self.state.textures.read().unwrap().state(handle)
     }
 
     /// Update a contiguous subregion of an existing two-dimensional texture object.
@@ -298,19 +332,21 @@ impl VideoSystem {
         area: Aabb2<u32>,
         data: &[u8],
     ) -> ::errors::Result<()> {
-        self.state
-            .textures
-            .get(handle, |_| {
-                let mut frame = self.state.frames.write();
-                let ptr = frame.bufs.extend_from_slice(data);
-                let cmd = Command::UpdateTexture(handle, area, ptr);
-                frame.cmds.push(cmd);
-            }).ok_or_else(|| format_err!("{:?}", handle))
+        let textures = self.state.textures.read().unwrap();
+        if textures.contains(handle) {
+            let mut frame = self.state.frames.write();
+            let ptr = frame.bufs.extend_from_slice(data);
+            let cmd = Command::UpdateTexture(handle, area, ptr);
+            frame.cmds.push(cmd);
+            Ok(())
+        } else {
+            bail!("{:?} is invalid.", handle);
+        }
     }
 
     /// Delete the texture object.
     pub fn delete_texture(&self, handle: TextureHandle) {
-        self.state.textures.delete(handle);
+        self.state.textures.write().unwrap().delete(handle);
     }
 }
 
@@ -338,6 +374,16 @@ impl VideoSystem {
             .unwrap()
             .get(handle)
             .cloned()
+    }
+
+    /// Get the resource state of specified render texture.
+    #[inline]
+    pub fn render_texture_state(&self, handle: RenderTextureHandle) -> ResourceState {
+        if self.state.render_textures.read().unwrap().contains(handle) {
+            ResourceState::Ok
+        } else {
+            ResourceState::NotReady
+        }
     }
 
     /// Delete the render texture object.

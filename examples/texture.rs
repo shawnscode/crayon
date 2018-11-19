@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate crayon;
+extern crate env_logger;
 
 use crayon::errors::*;
 use crayon::prelude::*;
@@ -104,6 +105,8 @@ fn run() {
 }
 
 fn main() {
+    env_logger::init();
+
     #[cfg(not(target_arch = "wasm32"))]
     run();
 }

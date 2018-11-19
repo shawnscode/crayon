@@ -64,11 +64,10 @@ impl LifecycleSystem {
 
         {
             let lifecycles = self.lifecycles.lock().unwrap();
-            last_frame_lifecycles.clear();
             last_frame_lifecycles.extend(lifecycles.values().cloned());
         }
 
-        for v in last_frame_lifecycles.iter() {
+        for v in last_frame_lifecycles.drain(..) {
             func(&mut *v.lock().unwrap())?;
         }
 
@@ -84,11 +83,10 @@ impl LifecycleSystem {
 
         {
             let lifecycles = self.lifecycles.lock().unwrap();
-            last_frame_lifecycles.clear();
             last_frame_lifecycles.extend(lifecycles.values().rev().cloned());
         }
 
-        for v in last_frame_lifecycles.iter() {
+        for v in last_frame_lifecycles.drain(..) {
             func(&mut *v.lock().unwrap())?;
         }
 

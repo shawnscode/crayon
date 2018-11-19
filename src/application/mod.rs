@@ -35,44 +35,12 @@ mod time;
 
 pub mod prelude {
     pub use super::lifecycle::{LifecycleListener, LifecycleListenerHandle};
-    pub use super::Application;
     pub use super::Params;
 }
 
 use errors::*;
 
 use self::lifecycle::{LifecycleListener, LifecycleListenerHandle};
-use window::events::WindowEvent;
-
-/// `Application` is a user-friendly facade to build application, which consists of
-/// several event functions that get executed in a pre-determined order.
-pub trait Application {
-    /// `Application::on_update` is called every frame. Its the main workhorse
-    /// function for frame updates.
-    fn on_update(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    /// `Application::on_render` is called before we starts rendering the scene.
-    fn on_render(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    /// `Application::on_post_update` is called after camera has rendered the scene.
-    fn on_post_update(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    /// `Application::on_update` is called when receiving application event.
-    fn on_receive_event(&mut self, _: WindowEvent) -> Result<()> {
-        Ok(())
-    }
-
-    /// `Application::on_exit` is called when exiting.
-    fn on_exit(&mut self) -> Result<()> {
-        Ok(())
-    }
-}
 
 use self::engine::EngineSystem;
 use self::inside::{ctx, lifecycle_ctx, time_ctx, CTX, LIFECYCLE_CTX, TIME_CTX};
@@ -184,7 +152,7 @@ pub(crate) unsafe fn late_discard() {
     drop(Box::from_raw(TIME_CTX as *mut TimeSystem));
     TIME_CTX = 0 as *const TimeSystem;
 
-    drop(Box::from_raw(CTX as *mut LifecycleSystem));
+    drop(Box::from_raw(LIFECYCLE_CTX as *mut LifecycleSystem));
     LIFECYCLE_CTX = 0 as *const LifecycleSystem;
 }
 

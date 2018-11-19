@@ -35,10 +35,10 @@ impl Drop for EngineSystem {
         crate::window::detach(self.events);
 
         unsafe {
+            crate::res::discard();
             crate::input::discard();
             crate::video::discard();
             crate::window::discard();
-            crate::res::discard();
             crate::sched::discard();
         }
     }

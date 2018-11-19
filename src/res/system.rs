@@ -25,7 +25,7 @@ struct Lifecycle {
 }
 
 impl LifecycleListener for Lifecycle {
-    fn on_pre_update(&mut self) -> Result<(), failure::Error> {
+    fn on_post_update(&mut self) -> Result<(), failure::Error> {
         self.requests.lock().unwrap().advance();
         Ok(())
     }

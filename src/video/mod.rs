@@ -212,6 +212,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use math::prelude::Aabb2;
+use res::utils::prelude::ResourceState;
 use utils::double_buf::DoubleBuf;
 
 use self::assets::prelude::*;
@@ -263,6 +264,12 @@ pub fn surface(handle: SurfaceHandle) -> Option<SurfaceParams> {
     ctx().surface(handle)
 }
 
+/// Get the resource state of specified surface.
+#[inline]
+pub fn surface_state(handle: SurfaceHandle) -> ResourceState {
+    ctx().surface_state(handle)
+}
+
 /// Deletes surface object.
 #[inline]
 pub fn delete_surface(handle: SurfaceHandle) {
@@ -280,6 +287,12 @@ pub fn create_shader(params: ShaderParams, vs: String, fs: String) -> Result<Sha
 #[inline]
 pub fn shader(handle: ShaderHandle) -> Option<ShaderParams> {
     ctx().shader(handle)
+}
+
+/// Get the resource state of specified shader.
+#[inline]
+pub fn shader_state(handle: ShaderHandle) -> ResourceState {
+    ctx().shader_state(handle)
 }
 
 /// Delete shader state object.
@@ -313,6 +326,12 @@ pub fn create_mesh_from_uuid(uuid: Uuid) -> ::errors::Result<MeshHandle> {
 #[inline]
 pub fn mesh(handle: MeshHandle) -> Option<MeshParams> {
     ctx().mesh(handle)
+}
+
+/// Get the resource state of specified mesh.
+#[inline]
+pub fn mesh_state(handle: MeshHandle) -> ResourceState {
+    ctx().mesh_state(handle)
 }
 
 /// Update a subset of dynamic vertex buffer. Use `offset` specifies the offset
@@ -363,6 +382,12 @@ pub fn create_texture_from_uuid(uuid: Uuid) -> ::errors::Result<TextureHandle> {
     ctx().create_texture_from_uuid(uuid)
 }
 
+/// Get the resource state of specified texture.
+#[inline]
+pub fn texture_state(handle: TextureHandle) -> ResourceState {
+    ctx().texture_state(handle)
+}
+
 /// Update a contiguous subregion of an existing two-dimensional texture object.
 #[inline]
 pub fn update_texture(
@@ -389,6 +414,12 @@ pub fn create_render_texture(params: RenderTextureParams) -> Result<RenderTextur
 #[inline]
 pub fn render_texture(handle: RenderTextureHandle) -> Option<RenderTextureParams> {
     ctx().render_texture(handle)
+}
+
+/// Get the resource state of specified render texture.
+#[inline]
+pub fn render_texture_state(handle: RenderTextureHandle) -> ResourceState {
+    ctx().render_texture_state(handle)
 }
 
 /// Delete the render texture object.

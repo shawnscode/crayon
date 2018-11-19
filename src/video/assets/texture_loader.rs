@@ -3,6 +3,7 @@ use std::io::Cursor;
 use std::sync::Arc;
 
 use errors::*;
+use res::utils::prelude::ResourceLoader;
 use utils::double_buf::DoubleBuf;
 
 use super::super::backends::frame::{Command, Frame};
@@ -23,10 +24,10 @@ impl TextureLoader {
     }
 }
 
-impl crate::res::utils::Register for TextureLoader {
+impl ResourceLoader for TextureLoader {
     type Handle = TextureHandle;
     type Intermediate = (TextureParams, Option<TextureData>);
-    type Value = TextureParams;
+    type Resource = TextureParams;
 
     fn load(&self, handle: Self::Handle, bytes: &[u8]) -> Result<Self::Intermediate> {
         if &bytes[0..8] != &MAGIC[..] {
@@ -45,7 +46,9 @@ impl crate::res::utils::Register for TextureLoader {
         Ok((params, Some(data)))
     }
 
-    fn attach(&self, handle: Self::Handle, item: Self::Intermediate) -> Result<Self::Value> {
+    fn create(&self, handle: Self::Handle, item: Self::Intermediate) -> Result<Self::Resource> {
+        info!("[TextureLoader] creates {:?}.", handle);
+
         item.0.validate(item.1.as_ref())?;
 
         let cmd = Command::CreateTexture(handle, item.0, item.1);
@@ -54,7 +57,9 @@ impl crate::res::utils::Register for TextureLoader {
         Ok(item.0)
     }
 
-    fn detach(&self, handle: Self::Handle, _: Self::Value) {
+    fn delete(&self, handle: Self::Handle, _: Self::Resource) {
+        info!("[TextureLoader] deletes {:?}.", handle);
+
         let cmd = Command::DeleteTexture(handle);
         self.frames.write().cmds.push(cmd);
     }

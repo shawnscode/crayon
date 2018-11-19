@@ -782,7 +782,6 @@ impl Visitor for GLVisitor {
             .ok_or_else(|| format_err!("{:?} is invalid.", shader))?;
 
         Self::bind_shader(&mut self.state, &shader)?;
-        Self::clear_binded_texture(&mut self.state)?;
 
         let mut index = 0usize;
         for &(field, variable) in uniforms {
@@ -801,14 +800,19 @@ impl Visitor for GLVisitor {
                 match variable {
                     UniformVariable::Texture(handle) => {
                         let v = UniformVariable::I32(index as i32);
-                        let texture = self.textures.get(handle).map(|v| v.id).unwrap_or(0);
                         Self::bind_uniform_variable(location, &v)?;
-                        Self::bind_texture(
-                            &mut self.state,
-                            Some(Sampler::Texture(handle)),
-                            0,
-                            texture,
-                        )?;
+
+                        if let Some(texture) = self.textures.get(handle) {
+                            Self::bind_texture(
+                                &mut self.state,
+                                Some(Sampler::Texture(handle)),
+                                index,
+                                texture.id,
+                            )?;
+                        } else {
+                            Self::bind_texture(&mut self.state, None, index, 0)?;
+                        }
+
                         index += 1;
                     }
                     UniformVariable::RenderTexture(handle) => {
@@ -823,11 +827,11 @@ impl Visitor for GLVisitor {
                             Self::bind_texture(
                                 &mut self.state,
                                 Some(Sampler::RenderTexture(handle)),
-                                0,
+                                index,
                                 texture.id,
                             )?;
                         } else {
-                            Self::bind_texture(&mut self.state, None, 0, 0)?;
+                            Self::bind_texture(&mut self.state, None, index, 0)?;
                         }
 
                         index += 1;
@@ -888,6 +892,10 @@ impl Visitor for GLVisitor {
     }
 
     unsafe fn flush(&mut self) -> Result<()> {
+        if self.state.cleared_surfaces.len() == 0 {
+            Self::clear(Color::black(), None, None)?;
+        }
+
         gl::Finish();
         check()
     }
@@ -958,20 +966,6 @@ impl GLVisitor {
         if state.binded_textures[index] != sampler {
             state.binded_textures[index] = sampler;
             gl::BindTexture(gl::TEXTURE_2D, id);
-        }
-
-        check()
-    }
-
-    unsafe fn clear_binded_texture(state: &mut GLMutableState) -> Result<()> {
-        for (i, v) in state.binded_textures.iter_mut().enumerate() {
-            if v.is_some() {
-                gl::ActiveTexture(gl::TEXTURE0 + i as GLuint);
-                gl::BindTexture(gl::TEXTURE_2D, 0);
-
-                *v = None;
-                state.binded_texture_index = i;
-            }
         }
 
         check()

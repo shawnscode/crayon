@@ -101,7 +101,7 @@ impl EventListener for Arc<InputState> {
 }
 
 impl LifecycleListener for Arc<InputState> {
-    fn on_pre_update(&mut self) -> Result<(), failure::Error> {
+    fn on_post_update(&mut self) -> Result<(), failure::Error> {
         self.mouse.write().unwrap().advance();
         self.keyboard.write().unwrap().advance();
         self.touchpad.write().unwrap().advance();
@@ -121,7 +121,7 @@ impl InputSystem {
         debug_assert!(crate::application::valid(), "");
 
         let state = Arc::new(InputState {
-            touch_emulation: false,
+            touch_emulation: setup.touch_emulation,
             touch_emulation_button: RwLock::new(None),
             mouse: RwLock::new(Mouse::new(setup.mouse)),
             keyboard: RwLock::new(Keyboard::new(setup.keyboard)),
