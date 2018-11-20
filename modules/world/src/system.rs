@@ -69,6 +69,13 @@ impl WorldSystem {
         Ok(handle)
     }
 
+    /// Creates a prefab object.
+    #[inline]
+    pub fn create_prefab(&self, prefab: Prefab) -> Result<PrefabHandle, Error> {
+        let handle = self.prefabs.write().unwrap().create(prefab)?;
+        Ok(handle)
+    }
+
     /// Return the prefab obejct if exists.
     #[inline]
     pub fn prefab(&self, handle: PrefabHandle) -> Option<Arc<Prefab>> {

@@ -15,8 +15,8 @@ use Entity;
 /// and decorations, essentially designing and building your game in pieces.
 pub struct Scene<R: Renderer> {
     entities: HandlePool<Entity>,
+    tags: Tags,
 
-    pub tags: Tags,
     pub nodes: SceneGraph,
     pub renderables: Renderable,
     pub renderer: R,
@@ -33,11 +33,38 @@ impl<R: Renderer> Scene<R> {
         }
     }
 
+    /// Get the length of entitis in this Scene.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.entities.len()
+    }
+
+    /// Checks if specified `Entity` was created by this scene, and has not been
+    /// deleted yet.
+    #[inline]
+    pub fn contains(&self, ent: Entity) -> bool {
+        self.entities.contains(ent)
+    }
+
     /// Create a new Entity.
-    pub fn create(&mut self) -> Entity {
-        let actor = self.entities.create().into();
-        self.nodes.add(actor);
-        actor
+    #[inline]
+    pub fn create<T: AsRef<str>>(&mut self, name: T) -> Entity {
+        let e = self.entities.create().into();
+        self.nodes.add(e);
+        self.tags.add(e, name.as_ref());
+        e
+    }
+
+    /// Get the name of this Entity.
+    #[inline]
+    pub fn name(&self, ent: Entity) -> Option<&str> {
+        self.tags.name(ent)
+    }
+
+    /// Set the name of this Entity.
+    #[inline]
+    pub fn set_name<T: AsRef<str>>(&mut self, ent: Entity, name: T) {
+        self.tags.add(ent, name.as_ref());
     }
 
     /// Removes a Entity and all of its descendants from this world.
@@ -156,9 +183,7 @@ impl<R: Renderer> Scene<R> {
 
             while let Some((parent, idx)) = nodes.pop() {
                 let n = &prefab.nodes[idx];
-                let e = self.create();
-
-                self.tags.add(e, &n.name);
+                let e = self.create(&n.name);
                 self.nodes.set_local_transform(e, n.local_transform);
 
                 if let Some(parent) = parent {

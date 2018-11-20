@@ -1,284 +1,231 @@
-// extern crate crayon;
-// extern crate crayon_3d;
-// extern crate rand;
+extern crate crayon;
+extern crate crayon_world;
+extern crate rand;
 
-// use crayon::prelude::*;
-// use crayon::utils::handle_pool::HandlePool;
-// use crayon::*;
-// use crayon_world::prelude::*;
+use crayon::prelude::*;
+use crayon::*;
+use crayon_world::prelude::*;
+use crayon_world::renderable::headless::HeadlessRenderer;
 
-// struct Testbed {
-//     world: HandlePool<Entity>,
-//     scene: SceneGraph,
-// }
+#[test]
+pub fn hierachy() {
+    let mut scene = Scene::new(HeadlessRenderer::new());
+    let e1 = scene.create("e1");
+    let e2 = scene.create("e2");
+    let e3 = scene.create("e3");
+    let e4 = scene.create("e4");
 
-// impl Testbed {
-//     fn new() -> Testbed {
-//         Testbed {
-//             world: HandlePool::new(),
-//             scene: SceneGraph::new(),
-//         }
-//     }
+    scene.set_parent(e4, e3, false).unwrap();
+    scene.set_parent(e3, e1, false).unwrap();
+    scene.set_parent(e2, e1, false).unwrap();
+    // e1 <- (e2, e3 <- (e4))
 
-//     fn create(&mut self) -> Entity {
-//         let ent = self.world.create().into();
-//         self.scene.add(ent);
-//         ent
-//     }
+    assert!(scene.is_ancestor(e2, e1));
+    assert!(scene.is_ancestor(e3, e1));
+    assert!(scene.is_ancestor(e4, e1));
+    assert!(scene.is_ancestor(e4, e3));
 
-//     fn remove(&mut self, ent: Entity) {
-//         if let Some(entities) = self.scene.remove(ent) {
-//             for v in entities {
-//                 self.world.free(v);
-//             }
-//         }
-//     }
-// }
+    assert!(!scene.is_ancestor(e1, e1));
+    assert!(!scene.is_ancestor(e1, e2));
+    assert!(!scene.is_ancestor(e1, e3));
+    assert!(!scene.is_ancestor(e1, e4));
+    assert!(!scene.is_ancestor(e2, e4));
 
-// impl ::std::ops::Deref for Testbed {
-//     type Target = SceneGraph;
+    assert!(scene.is_root(e1));
+    assert!(!scene.is_root(e2));
+    assert!(!scene.is_root(e3));
+    assert!(!scene.is_root(e4));
 
-//     fn deref(&self) -> &Self::Target {
-//         &self.scene
-//     }
-// }
+    assert!(!scene.is_leaf(e1));
+    assert!(scene.is_leaf(e2));
+    assert!(!scene.is_leaf(e3));
+    assert!(scene.is_leaf(e4));
 
-// impl ::std::ops::DerefMut for Testbed {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut self.scene
-//     }
-// }
+    let point = [1.0, 0.0, 0.0];
+    scene.set_position(e3, point);
+    assert_ulps_eq!(scene.position(e4).unwrap(), point.into());
 
-// #[test]
-// pub fn hierachy() {
-//     let mut testbed = Testbed::new();
-//     let e1 = testbed.create();
-//     let e2 = testbed.create();
-//     let e3 = testbed.create();
-//     let e4 = testbed.create();
+    let point = [1.0, 0.0, 2.0];
+    scene.set_position(e1, point);
+    assert_ulps_eq!(scene.position(e4).unwrap(), [2.0, 0.0, 2.0].into());
 
-//     testbed.set_parent(e4, e3, false).unwrap();
-//     testbed.set_parent(e3, e1, false).unwrap();
-//     testbed.set_parent(e2, e1, false).unwrap();
-//     // e1 <- (e2, e3 <- (e4))
+    assert_ulps_eq!(scene.local_position(e4).unwrap(), [0.0, 0.0, 0.0].into());
+    scene.set_parent(e4, Some(e2), false).unwrap();
+    assert_ulps_eq!(scene.position(e4).unwrap(), [1.0, 0.0, 2.0].into());
+    assert_ulps_eq!(scene.local_position(e4).unwrap(), [0.0, 0.0, 0.0].into());
 
-//     assert!(testbed.is_ancestor(e2, e1));
-//     assert!(testbed.is_ancestor(e3, e1));
-//     assert!(testbed.is_ancestor(e4, e1));
-//     assert!(testbed.is_ancestor(e4, e3));
+    scene.set_local_position(e2, [1.0, 0.0, 0.0]);
+    let euler = Euler::new(Deg(0.0), Deg(90.0), Deg(0.0));
+    scene.set_rotation(e1, euler);
+    assert_ulps_eq!(scene.position(e2).unwrap(), [1.0, 0.0, 1.0].into());
+}
 
-//     assert!(!testbed.is_ancestor(e1, e1));
-//     assert!(!testbed.is_ancestor(e1, e2));
-//     assert!(!testbed.is_ancestor(e1, e3));
-//     assert!(!testbed.is_ancestor(e1, e4));
-//     assert!(!testbed.is_ancestor(e2, e4));
+#[test]
+fn remove() {
+    let mut scene = Scene::new(HeadlessRenderer::new());
+    let e1 = scene.create("e1");
+    let e2 = scene.create("e2");
+    let e3 = scene.create("e3");
+    let e4 = scene.create("e4");
+    let e5 = scene.create("e5");
+    let e6 = scene.create("e6");
 
-//     assert!(testbed.is_root(e1));
-//     assert!(!testbed.is_root(e2));
-//     assert!(!testbed.is_root(e3));
-//     assert!(!testbed.is_root(e4));
+    scene.set_parent(e2, e1, false).unwrap();
+    scene.set_parent(e3, e1, false).unwrap();
+    scene.set_parent(e4, e3, false).unwrap();
+    scene.set_parent(e5, e3, false).unwrap();
+    scene.set_parent(e6, e5, false).unwrap();
+    // e1 <- (e2, e3 <- (e4, e5 <- e6))
 
-//     assert!(!testbed.is_leaf(e1));
-//     assert!(testbed.is_leaf(e2));
-//     assert!(!testbed.is_leaf(e3));
-//     assert!(testbed.is_leaf(e4));
+    assert!(scene.len() == 6);
 
-//     let point = [1.0, 0.0, 0.0];
-//     testbed.set_position(e3, point);
-//     assert_ulps_eq!(testbed.position(e4).unwrap(), point.into());
+    scene.delete(e3);
+    assert!(scene.contains(e1));
+    assert!(scene.contains(e2));
+    assert!(!scene.contains(e3));
+    assert!(!scene.contains(e4));
+    assert!(!scene.contains(e5));
+    assert!(!scene.contains(e6));
+    assert!(scene.len() == 2);
+}
 
-//     let point = [1.0, 0.0, 2.0];
-//     testbed.set_position(e1, point);
-//     assert_ulps_eq!(testbed.position(e4).unwrap(), [2.0, 0.0, 2.0].into());
+#[test]
+fn transform() {
+    let mut scene = Scene::new(HeadlessRenderer::new());
+    let e1 = scene.create("e1");
 
-//     assert_ulps_eq!(testbed.local_position(e4).unwrap(), [0.0, 0.0, 0.0].into());
-//     testbed.set_parent(e4, Some(e2), false).unwrap();
-//     assert_ulps_eq!(testbed.position(e4).unwrap(), [1.0, 0.0, 2.0].into());
-//     assert_ulps_eq!(testbed.local_position(e4).unwrap(), [0.0, 0.0, 0.0].into());
+    scene.set_scale(e1, 2.0);
+    scene.set_position(e1, [1.0, 0.0, 2.0]);
 
-//     testbed.set_local_position(e2, [1.0, 0.0, 0.0]);
-//     let euler = Euler::new(Deg(0.0), Deg(90.0), Deg(0.0));
-//     testbed.set_rotation(e1, euler);
-//     assert_ulps_eq!(testbed.position(e2).unwrap(), [1.0, 0.0, 1.0].into());
-// }
+    let euler = Euler::new(Deg(0.0), Deg(0.0), Deg(90.0));
+    let rotation = Quaternion::from(euler);
+    scene.set_rotation(e1, rotation);
 
-// #[test]
-// fn remove() {
-//     let mut testbed = Testbed::new();
-//     let e1 = testbed.create();
-//     let e2 = testbed.create();
-//     let e3 = testbed.create();
-//     let e4 = testbed.create();
-//     let e5 = testbed.create();
-//     let e6 = testbed.create();
+    let v = [1.0, 0.0, 0.0];
+    let transform = scene.transform(e1).unwrap();
+    assert_ulps_eq!(transform.transform_direction(v), [0.0, 1.0, 0.0].into());
+    assert_ulps_eq!(transform.transform_vector(v), [0.0, 2.0, 0.0].into());
+    assert_ulps_eq!(transform.transform_point(v), [1.0, 2.0, 2.0].into());
+}
 
-//     testbed.set_parent(e2, e1, false).unwrap();
-//     testbed.set_parent(e3, e1, false).unwrap();
-//     testbed.set_parent(e4, e3, false).unwrap();
-//     testbed.set_parent(e5, e3, false).unwrap();
-//     testbed.set_parent(e6, e5, false).unwrap();
-//     // e1 <- (e2, e3 <- (e4, e5 <- e6))
+#[test]
+fn keep_world_pose() {
+    // Hierachy changes might have affects on node's transform.
+    let mut scene = Scene::new(HeadlessRenderer::new());
+    let e1 = scene.create("e1");
+    let e2 = scene.create("e2");
+    let e3 = scene.create("e3");
 
-//     assert!(testbed.world.len() == 6);
+    scene.set_position(e1, [0.0, 1.0, 0.0]);
+    assert_ulps_eq!(scene.position(e1).unwrap(), [0.0, 1.0, 0.0].into());
+    assert_ulps_eq!(scene.local_position(e1).unwrap(), [0.0, 1.0, 0.0].into());
 
-//     testbed.remove(e3);
-//     assert!(testbed.world.contains(e1));
-//     assert!(testbed.world.contains(e2));
-//     assert!(!testbed.world.contains(e3));
-//     assert!(!testbed.world.contains(e4));
-//     assert!(!testbed.world.contains(e5));
-//     assert!(!testbed.world.contains(e6));
-//     assert!(testbed.world.len() == 2);
-// }
+    scene.set_position(e2, [1.0, 0.0, 0.0]);
+    scene.set_position(e3, [0.0, 0.0, 1.0]);
 
-// #[test]
-// fn transform() {
-//     let mut testbed = Testbed::new();
-//     let e1 = testbed.create();
+    scene.set_parent(e2, e1, false).unwrap();
+    assert_ulps_eq!(scene.local_position(e2).unwrap(), [1.0, 0.0, 0.0].into());
+    assert_ulps_eq!(scene.position(e2).unwrap(), [1.0, 1.0, 0.0].into());
 
-//     testbed.set_scale(e1, 2.0);
-//     testbed.set_position(e1, [1.0, 0.0, 2.0]);
+    scene.remove_from_parent(e2, true).unwrap();
+    assert_ulps_eq!(scene.position(e2).unwrap(), [1.0, 1.0, 0.0].into());
 
-//     let euler = Euler::new(Deg(0.0), Deg(0.0), Deg(90.0));
-//     let rotation = Quaternion::from(euler);
-//     testbed.set_rotation(e1, rotation);
+    scene.set_parent(e3, e1, true).unwrap();
+    assert_ulps_eq!(scene.local_position(e3).unwrap(), [0.0, -1.0, 1.0].into());
+    assert_ulps_eq!(scene.position(e3).unwrap(), [0.0, 0.0, 1.0].into());
 
-//     let v = [1.0, 0.0, 0.0];
-//     let transform = testbed.transform(e1).unwrap();
-//     assert_ulps_eq!(transform.transform_direction(v), [0.0, 1.0, 0.0].into());
-//     assert_ulps_eq!(transform.transform_vector(v), [0.0, 2.0, 0.0].into());
-//     assert_ulps_eq!(transform.transform_point(v), [1.0, 2.0, 2.0].into());
-// }
+    scene.remove_from_parent(e3, false).unwrap();
+    assert_ulps_eq!(scene.position(e3).unwrap(), [0.0, -1.0, 1.0].into());
+}
 
-// #[test]
-// fn keep_world_pose() {
-//     // Hierachy changes might have affects on node's transform.
-//     let mut testbed = Testbed::new();
-//     let e1 = testbed.create();
-//     let e2 = testbed.create();
-//     let e3 = testbed.create();
+#[test]
+fn look_at() {
+    let mut scene = Scene::new(HeadlessRenderer::new());
+    let e1 = scene.create("e1");
+    let euler = Euler::new(Deg(0.0), Deg(0.0), Deg(0.0));
+    assert_ulps_eq!(scene.rotation(e1).unwrap(), euler.into());
 
-//     testbed.set_position(e1, [0.0, 1.0, 0.0]);
-//     assert_ulps_eq!(testbed.position(e1).unwrap(), [0.0, 1.0, 0.0].into());
-//     assert_ulps_eq!(testbed.local_position(e1).unwrap(), [0.0, 1.0, 0.0].into());
+    scene.set_position(e1, [0.0, 0.0, -5.0]);
+    scene.look_at(e1, [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
+    let euler = Euler::new(Deg(0.0), Deg(0.0), Deg(0.0));
+    assert_ulps_eq!(scene.rotation(e1).unwrap(), euler.into());
 
-//     testbed.set_position(e2, [1.0, 0.0, 0.0]);
-//     testbed.set_position(e3, [0.0, 0.0, 1.0]);
+    scene.set_position(e1, [0.0, 0.0, 5.0]);
+    scene.look_at(e1, [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
+    let euler = Euler::new(Deg(0.0), Deg(180.0), Deg(0.0));
+    assert_ulps_eq!(scene.rotation(e1).unwrap(), euler.into());
 
-//     testbed.set_parent(e2, e1, false).unwrap();
-//     assert_ulps_eq!(testbed.local_position(e2).unwrap(), [1.0, 0.0, 0.0].into());
-//     assert_ulps_eq!(testbed.position(e2).unwrap(), [1.0, 1.0, 0.0].into());
+    scene.set_position(e1, [1.0, 0.0, 1.0]);
+    scene.look_at(e1, [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
+    let euler = Euler::new(Deg(0.0), Deg(225.0), Deg(0.0));
+    assert_ulps_eq!(scene.rotation(e1).unwrap(), euler.into());
+}
 
-//     testbed.remove_from_parent(e2, true).unwrap();
-//     assert_ulps_eq!(testbed.position(e2).unwrap(), [1.0, 1.0, 0.0].into());
+#[test]
+fn iteration() {
+    let mut scene = Scene::new(HeadlessRenderer::new());
+    let e1 = scene.create("e1");
+    let e2 = scene.create("e2");
+    let e3 = scene.create("e3");
+    let e4 = scene.create("e4");
+    let e5 = scene.create("e5");
+    let e6 = scene.create("e6");
 
-//     testbed.set_parent(e3, e1, true).unwrap();
-//     assert_ulps_eq!(testbed.local_position(e3).unwrap(), [0.0, -1.0, 1.0].into());
-//     assert_ulps_eq!(testbed.position(e3).unwrap(), [0.0, 0.0, 1.0].into());
+    // e1 <- (e2, e3 <- e4 <- (e5, e6))
 
-//     testbed.remove_from_parent(e3, false).unwrap();
-//     assert_ulps_eq!(testbed.position(e3).unwrap(), [0.0, -1.0, 1.0].into());
-// }
+    scene.set_parent(e4, e3, false).unwrap();
+    scene.set_parent(e3, e1, false).unwrap();
+    scene.set_parent(e2, e1, false).unwrap();
+    scene.set_parent(e6, e4, false).unwrap();
+    scene.set_parent(e5, e4, false).unwrap();
 
-// #[test]
-// fn look_at() {
-//     let mut testbed = Testbed::new();
-//     let e1 = testbed.create();
-//     let euler = Euler::new(Deg(0.0), Deg(0.0), Deg(0.0));
-//     assert_ulps_eq!(testbed.rotation(e1).unwrap(), euler.into());
+    assert_eq!(
+        scene.descendants(e1).collect::<Vec<_>>(),
+        [e2, e3, e4, e5, e6]
+    );
 
-//     testbed.set_position(e1, [0.0, 0.0, -5.0]);
-//     testbed.look_at(e1, [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
-//     let euler = Euler::new(Deg(0.0), Deg(0.0), Deg(0.0));
-//     assert_ulps_eq!(testbed.rotation(e1).unwrap(), euler.into());
+    assert_eq!(scene.children(e1).collect::<Vec<_>>(), [e2, e3]);
+    assert_eq!(scene.ancestors(e1).collect::<Vec<_>>(), []);
+    assert_eq!(scene.ancestors(e2).collect::<Vec<_>>(), [e1]);
+    assert_eq!(scene.ancestors(e4).collect::<Vec<_>>(), [e3, e1]);
+    assert_eq!(scene.ancestors(e6).collect::<Vec<_>>(), [e4, e3, e1]);
+}
 
-//     testbed.set_position(e1, [0.0, 0.0, 5.0]);
-//     testbed.look_at(e1, [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
-//     let euler = Euler::new(Deg(0.0), Deg(180.0), Deg(0.0));
-//     assert_ulps_eq!(testbed.rotation(e1).unwrap(), euler.into());
+#[test]
+fn random_iteration() {
+    let mut scene = Scene::new(HeadlessRenderer::new());
 
-//     testbed.set_position(e1, [1.0, 0.0, 1.0]);
-//     testbed.look_at(e1, [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
-//     let euler = Euler::new(Deg(0.0), Deg(225.0), Deg(0.0));
-//     assert_ulps_eq!(testbed.rotation(e1).unwrap(), euler.into());
-// }
+    let mut nodes = vec![];
+    for _ in 0..255 {
+        nodes.push(scene.create(""));
+    }
 
-// #[test]
-// #[should_panic]
-// pub fn duplicated_add() {
-//     let mut world: HandlePool<Entity> = HandlePool::new();
-//     let mut scene = SceneGraph::new();
+    let mut constructed = vec![];
+    constructed.push(nodes.pop().unwrap());
 
-//     let e1 = world.create().into();
-//     scene.add(e1);
-//     scene.add(e1);
-// }
+    let mut count = 0;
+    for i in 0..254 {
+        let idx = rand::random::<usize>() % nodes.len();
+        let pidx = rand::random::<usize>() % constructed.len();
 
-// #[test]
-// fn iteration() {
-//     let mut testbed = Testbed::new();
-//     let e1 = testbed.create();
-//     let e2 = testbed.create();
-//     let e3 = testbed.create();
-//     let e4 = testbed.create();
-//     let e5 = testbed.create();
-//     let e6 = testbed.create();
+        if pidx == 0 {
+            count += 1;
+        }
 
-//     // e1 <- (e2, e3 <- e4 <- (e5, e6))
+        scene
+            .set_parent(nodes[idx], constructed[pidx], false)
+            .unwrap();
 
-//     testbed.set_parent(e4, e3, false).unwrap();
-//     testbed.set_parent(e3, e1, false).unwrap();
-//     testbed.set_parent(e2, e1, false).unwrap();
-//     testbed.set_parent(e6, e4, false).unwrap();
-//     testbed.set_parent(e5, e4, false).unwrap();
+        let len = scene.descendants(constructed[0]).count();
+        assert_eq!(len, i + 1);
 
-//     assert_eq!(
-//         testbed.descendants(e1).collect::<Vec<_>>(),
-//         [e2, e3, e4, e5, e6]
-//     );
+        constructed.push(nodes[idx]);
+        nodes.remove(idx);
+    }
 
-//     assert_eq!(testbed.children(e1).collect::<Vec<_>>(), [e2, e3]);
-//     assert_eq!(testbed.ancestors(e1).collect::<Vec<_>>(), []);
-//     assert_eq!(testbed.ancestors(e2).collect::<Vec<_>>(), [e1]);
-//     assert_eq!(testbed.ancestors(e4).collect::<Vec<_>>(), [e3, e1]);
-//     assert_eq!(testbed.ancestors(e6).collect::<Vec<_>>(), [e4, e3, e1]);
-// }
+    let len = scene.children(constructed[0]).count();
+    assert_eq!(len, count);
 
-// #[test]
-// fn random_iteration() {
-//     let mut testbed = Testbed::new();
-
-//     let mut nodes = vec![];
-//     for _ in 0..255 {
-//         nodes.push(testbed.create());
-//     }
-
-//     let mut constructed = vec![];
-//     constructed.push(nodes.pop().unwrap());
-
-//     let mut count = 0;
-//     for i in 0..254 {
-//         let idx = rand::random::<usize>() % nodes.len();
-//         let pidx = rand::random::<usize>() % constructed.len();
-
-//         if pidx == 0 {
-//             count += 1;
-//         }
-
-//         testbed
-//             .set_parent(nodes[idx], constructed[pidx], false)
-//             .unwrap();
-
-//         let len = testbed.descendants(constructed[0]).count();
-//         assert_eq!(len, i + 1);
-
-//         constructed.push(nodes[idx]);
-//         nodes.remove(idx);
-//     }
-
-//     let len = testbed.children(constructed[0]).count();
-//     assert_eq!(len, count);
-
-//     let len = testbed.descendants(constructed[0]).count();
-//     assert_eq!(len, 254);
-// }
+    let len = scene.descendants(constructed[0]).count();
+    assert_eq!(len, 254);
+}

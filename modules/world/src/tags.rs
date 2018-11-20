@@ -15,8 +15,8 @@ impl Tags {
     }
 
     #[inline]
-    pub fn add<T: AsRef<str>>(&mut self, ent: Entity, name: T) {
-        self.names.add(ent, name.as_ref().into());
+    pub fn add<T: Into<InlinableString>>(&mut self, ent: Entity, name: T) {
+        self.names.add(ent, name.into());
     }
 
     #[inline]

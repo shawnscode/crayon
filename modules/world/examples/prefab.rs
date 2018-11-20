@@ -77,12 +77,12 @@ impl Window {
         scene.add_mtl(tall_box, mtl);
 
         //
-        let lit = scene.create();
+        let lit = scene.create("Lit");
         scene.add_lit(lit, Lit::default());
         scene.set_rotation(lit, Euler::new(Deg(45.0), Deg(0.0), Deg(0.0)));
 
         //
-        let camera = scene.create();
+        let camera = scene.create("Main Camera");
         scene.add_camera(camera, Camera::ortho(3.2, 2.4, 0.1, 5.0));
         scene.set_position(camera, [0.0, 1.0, -1.0]);
         scene.look_at(camera, [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);

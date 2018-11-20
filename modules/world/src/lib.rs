@@ -37,9 +37,21 @@ pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
 impl_handle!(Entity);
 
-/// Create a prefab object from file asynchronously. A prefab asset acts as a template from
-/// which you can create new entity instances in the world. It stores a entity and its children
-/// complete with components and properties internally.
+/// Creates a prefab object.
+///
+/// A prefab asset acts as a template from which you can create new entity instances
+/// in the world. It stores a entity and its children complete with components and
+/// properties internally.
+#[inline]
+pub fn create_prefab(prefab: Prefab) -> Result<PrefabHandle> {
+    ctx().create_prefab(prefab)
+}
+
+/// Create a prefab object from file asynchronously.
+///
+/// A prefab asset acts as a template from which you can create new entity instances
+/// in the world. It stores a entity and its children complete with components and
+/// properties internally.
 #[inline]
 pub fn create_prefab_from<T: AsRef<str>>(url: T) -> Result<PrefabHandle> {
     ctx().create_prefab_from(url)

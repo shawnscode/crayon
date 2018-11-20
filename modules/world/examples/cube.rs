@@ -16,7 +16,7 @@ impl Window {
         let mut scene = Scene::new(SimpleRenderer::new()?);
 
         //
-        let cube = scene.create();
+        let cube = scene.create("Cube");
         let mesh = crayon_world::default().cube;
         let mut mtl = SimpleMaterial::default();
         mtl.diffuse_texture = Some(video::create_texture_from("res:crate.bmp")?);
@@ -24,11 +24,11 @@ impl Window {
         scene.add_mtl(cube, mtl);
 
         //
-        let lit = scene.create();
+        let lit = scene.create("Lit");
         scene.add_lit(lit, Lit::default());
 
         //
-        let camera = scene.create();
+        let camera = scene.create("Main Camera");
         let params = Camera::ortho(3.2, 2.4, 0.1, 5.0);
         let center = [0.0, 0.0, 0.0];
         scene.add_camera(camera, params);

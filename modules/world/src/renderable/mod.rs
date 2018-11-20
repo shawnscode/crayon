@@ -3,6 +3,8 @@ mod lit;
 mod mesh_renderer;
 mod simple;
 
+pub mod headless;
+
 pub mod prelude {
     pub use super::camera::Camera;
     pub use super::lit::{Lit, LitSource};
