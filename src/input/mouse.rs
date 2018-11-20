@@ -1,10 +1,8 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use math;
-use math::MetricSpace;
+use math::prelude::{MetricSpace, Vector2};
 use utils::hash::{FastHashMap, FastHashSet};
-
-pub use application::events::MouseButton;
+use utils::time::Timestamp;
 
 /// The setup parameters of mouse device.
 ///
@@ -30,13 +28,22 @@ impl Default for MouseParams {
     }
 }
 
+/// Describes a button of a mouse controller.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum MouseButton {
+    Left,
+    Right,
+    Middle,
+    Other(u8),
+}
+
 pub struct Mouse {
     downs: FastHashSet<MouseButton>,
     presses: FastHashSet<MouseButton>,
     releases: FastHashSet<MouseButton>,
-    last_position: math::Vector2<f32>,
-    position: math::Vector2<f32>,
-    scrol: math::Vector2<f32>,
+    last_position: Vector2<f32>,
+    position: Vector2<f32>,
+    scrol: Vector2<f32>,
     click_detectors: FastHashMap<MouseButton, ClickDetector>,
     params: MouseParams,
 }
@@ -47,9 +54,9 @@ impl Mouse {
             downs: FastHashSet::default(),
             presses: FastHashSet::default(),
             releases: FastHashSet::default(),
-            last_position: math::Vector2::new(0.0, 0.0),
-            position: math::Vector2::new(0.0, 0.0),
-            scrol: math::Vector2::new(0.0, 0.0),
+            last_position: Vector2::new(0.0, 0.0),
+            position: Vector2::new(0.0, 0.0),
+            scrol: Vector2::new(0.0, 0.0),
             click_detectors: FastHashMap::default(),
             params: params,
         }
@@ -60,9 +67,9 @@ impl Mouse {
         self.downs.clear();
         self.presses.clear();
         self.releases.clear();
-        self.last_position = math::Vector2::new(0.0, 0.0);
-        self.position = math::Vector2::new(0.0, 0.0);
-        self.scrol = math::Vector2::new(0.0, 0.0);
+        self.last_position = Vector2::new(0.0, 0.0);
+        self.position = Vector2::new(0.0, 0.0);
+        self.scrol = Vector2::new(0.0, 0.0);
 
         for v in self.click_detectors.values_mut() {
             v.reset();
@@ -73,7 +80,7 @@ impl Mouse {
     pub fn advance(&mut self) {
         self.presses.clear();
         self.releases.clear();
-        self.scrol = math::Vector2::new(0.0, 0.0);
+        self.scrol = Vector2::new(0.0, 0.0);
         self.last_position = self.position;
 
         for v in self.click_detectors.values_mut() {
@@ -157,27 +164,27 @@ impl Mouse {
     }
 
     #[inline]
-    pub fn position(&self) -> math::Vector2<f32> {
+    pub fn position(&self) -> Vector2<f32> {
         self.position
     }
 
     #[inline]
-    pub fn movement(&self) -> math::Vector2<f32> {
+    pub fn movement(&self) -> Vector2<f32> {
         self.position - self.last_position
     }
 
     #[inline]
-    pub fn scroll(&self) -> math::Vector2<f32> {
+    pub fn scroll(&self) -> Vector2<f32> {
         self.scrol
     }
 }
 
 struct ClickDetector {
-    last_press_time: Instant,
-    last_press_position: math::Vector2<f32>,
+    last_press_time: Timestamp,
+    last_press_position: Vector2<f32>,
 
-    last_click_time: Instant,
-    last_click_position: math::Vector2<f32>,
+    last_click_time: Timestamp,
+    last_click_position: Vector2<f32>,
 
     clicks: u32,
     frame_clicks: u32,
@@ -188,11 +195,11 @@ struct ClickDetector {
 impl ClickDetector {
     pub fn new(params: MouseParams) -> Self {
         ClickDetector {
-            last_press_time: Instant::now(),
-            last_press_position: math::Vector2::new(0.0, 0.0),
+            last_press_time: Timestamp::now(),
+            last_press_position: Vector2::new(0.0, 0.0),
 
-            last_click_time: Instant::now(),
-            last_click_position: math::Vector2::new(0.0, 0.0),
+            last_click_time: Timestamp::now(),
+            last_click_position: Vector2::new(0.0, 0.0),
 
             clicks: 0,
             frame_clicks: 0,
@@ -210,9 +217,9 @@ impl ClickDetector {
         self.frame_clicks = 0;
     }
 
-    pub fn on_pressed(&mut self, position: math::Vector2<f32>) {
+    pub fn on_pressed(&mut self, position: Vector2<f32>) {
         // Store press down as start of a new potential click.
-        let now = Instant::now();
+        let now = Timestamp::now();
 
         // If multi-click, checks if within max distance and press timeout of
         // last click, if not, start a new multi-click sequence.
@@ -230,8 +237,8 @@ impl ClickDetector {
         self.last_press_position = position;
     }
 
-    pub fn on_released(&mut self, position: math::Vector2<f32>) {
-        let now = Instant::now();
+    pub fn on_released(&mut self, position: Vector2<f32>) {
+        let now = Timestamp::now();
 
         if (now - self.last_press_time) < self.params.press_timeout
             && (position.distance(self.last_press_position)) < self.params.max_press_distance

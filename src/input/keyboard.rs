@@ -1,8 +1,7 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use utils::hash::{FastHashMap, FastHashSet};
-
-pub use application::events::Key;
+use utils::time::Timestamp;
 
 /// The setup parameters of keyboard device.
 #[derive(Debug, Clone, Copy)]
@@ -25,9 +24,169 @@ impl Default for KeyboardParams {
     }
 }
 
+/// Symbolic name for a keyboard key.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+pub enum Key {
+    /// The '1' key over the letters.
+    Key1,
+    /// The '2' key over the letters.
+    Key2,
+    /// The '3' key over the letters.
+    Key3,
+    /// The '4' key over the letters.
+    Key4,
+    /// The '5' key over the letters.
+    Key5,
+    /// The '6' key over the letters.
+    Key6,
+    /// The '7' key over the letters.
+    Key7,
+    /// The '8' key over the letters.
+    Key8,
+    /// The '9' key over the letters.
+    Key9,
+    /// The '0' key over the 'O' and 'P' keys.
+    Key0,
+
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    U,
+    V,
+    W,
+    X,
+    Y,
+    Z,
+
+    /// The Escape key, next to F1.
+    Escape,
+
+    F1,
+    F2,
+    F3,
+    F4,
+    F5,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
+    F13,
+    F14,
+    F15,
+
+    /// Print Screen/SysRq.
+    Snapshot,
+    /// Scroll Lock.
+    Scroll,
+    /// Pause/Break key, next to Scroll lock.
+    Pause,
+
+    /// `Insert`, next to Backspace.
+    Insert,
+    Home,
+    Delete,
+    End,
+    PageDown,
+    PageUp,
+
+    Left,
+    Up,
+    Right,
+    Down,
+
+    /// The Backspace key, right over Enter.
+    // TODO: rename
+    Back,
+    /// The Enter key.
+    Return,
+    /// The space bar.
+    Space,
+
+    /// The "Compose" key on Linux.
+    Compose,
+
+    Caret,
+
+    Numlock,
+    Numpad0,
+    Numpad1,
+    Numpad2,
+    Numpad3,
+    Numpad4,
+    Numpad5,
+    Numpad6,
+    Numpad7,
+    Numpad8,
+    Numpad9,
+
+    Add,
+    Backslash,
+    Calculator,
+    Capital,
+    Colon,
+    Comma,
+    Convert,
+    Decimal,
+    Divide,
+    Equals,
+    LAlt,
+    LBracket,
+    LControl,
+    LShift,
+    LWin,
+    Minus,
+    Multiply,
+    Mute,
+    NavigateForward,  // also called "Prior"
+    NavigateBackward, // also called "Next"
+    NumpadComma,
+    NumpadEnter,
+    NumpadEquals,
+    Period,
+    PlayPause,
+    Power,
+    PrevTrack,
+    RAlt,
+    RBracket,
+    RControl,
+    RShift,
+    RWin,
+    Semicolon,
+    Slash,
+    Sleep,
+    Stop,
+    Subtract,
+    Tab,
+    Underline,
+    Unlabeled,
+    VolumeDown,
+    VolumeUp,
+    Wake,
+}
+
 enum KeyDownState {
-    Start(Instant),
-    Press(Instant),
+    Start(Timestamp),
+    Press(Timestamp),
 }
 
 pub struct Keyboard {
@@ -36,7 +195,7 @@ pub struct Keyboard {
     releases: FastHashSet<Key>,
     chars: Vec<char>,
     setup: KeyboardParams,
-    now: Instant,
+    now: Timestamp,
 }
 
 impl Keyboard {
@@ -47,7 +206,7 @@ impl Keyboard {
             releases: FastHashSet::default(),
             chars: Vec::with_capacity(setup.max_chars),
             setup: setup,
-            now: Instant::now(),
+            now: Timestamp::now(),
         }
     }
 
@@ -79,7 +238,7 @@ impl Keyboard {
             }
         }
 
-        self.now = Instant::now();
+        self.now = Timestamp::now();
     }
 
     #[inline]

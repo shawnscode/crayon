@@ -1,138 +1,44 @@
-pub mod directory;
-pub use self::directory::Directory;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod dir;
+#[cfg(target_arch = "wasm32")]
+pub mod http;
 
-pub mod manifest;
-pub use self::manifest::Manifest;
-
-use std::io::Cursor;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::SystemTime;
 
-use uuid::Uuid;
+use sched::prelude::LockLatch;
+use utils::hash::FastHashMap;
 
-use errors::*;
-use utils::{FastHashMap, HashValue};
+use super::request::Response;
+use super::url::Url;
 
-pub trait VFS: Send + Sync + 'static {
-    /// Opens a readable file at location.
-    fn read_to_end(&self, location: &Path, buf: &mut Vec<u8>) -> Result<usize>;
-
-    /// Checks whether or not it is a directory.
-    fn is_dir(&self, location: &Path) -> bool;
-
-    /// Checks if the file exists.
-    fn exists(&self, location: &Path) -> bool;
-
-    /// Returns true if the file has been modified since `ts`.
-    fn modified_since(&self, location: &Path, ts: SystemTime) -> bool;
+pub trait VFS: std::fmt::Debug + Send + Sync + 'static {
+    fn request(&self, url: &Url, state: Arc<LockLatch<Response>>);
 }
 
-pub struct VFSInstance {
-    vfs: Box<dyn VFS>,
-    manifest: Manifest,
+#[derive(Debug, Clone)]
+pub struct SchemaResolver {
+    schemas: FastHashMap<String, Arc<VFS>>,
 }
 
-impl VFSInstance {
-    pub fn new<T: VFS>(vfs: T) -> Result<Self> {
-        let mut buf = Vec::new();
-        vfs.read_to_end(manifest::NAME.as_ref(), &mut buf)?;
-
-        let instance = VFSInstance {
-            vfs: Box::new(vfs),
-            manifest: manifest::Manifest::load_from(&mut Cursor::new(&buf))?,
-        };
-
-        Ok(instance)
-    }
-
-    #[inline]
-    pub fn redirect<T>(&self, filename: T) -> Option<Uuid>
-    where
-        T: AsRef<str>,
-    {
-        self.manifest.redirect(filename)
-    }
-
-    #[inline]
-    pub fn locate(&self, uuid: Uuid) -> Option<PathBuf> {
-        self.manifest.locate(uuid)
-    }
-
-    #[inline]
-    pub fn contains(&self, uuid: Uuid) -> bool {
-        self.manifest.contains(uuid)
-    }
-}
-
-impl VFS for VFSInstance {
-    #[inline]
-    fn read_to_end(&self, location: &Path, buf: &mut Vec<u8>) -> Result<usize> {
-        self.vfs.read_to_end(location, buf)
-    }
-
-    #[inline]
-    fn is_dir(&self, location: &Path) -> bool {
-        self.vfs.is_dir(location)
-    }
-
-    #[inline]
-    fn exists(&self, location: &Path) -> bool {
-        self.vfs.exists(location)
-    }
-
-    #[inline]
-    fn modified_since(&self, location: &Path, ts: SystemTime) -> bool {
-        self.vfs.modified_since(location, ts)
-    }
-}
-
-pub struct VFSDriver {
-    mounts: FastHashMap<HashValue<str>, Arc<VFSInstance>>,
-}
-
-impl VFSDriver {
-    /// Create a new file-system driver.
+impl SchemaResolver {
     pub fn new() -> Self {
-        VFSDriver {
-            mounts: FastHashMap::default(),
+        SchemaResolver {
+            schemas: FastHashMap::default(),
         }
     }
 
-    /// Mount a file-system drive with identifier.
-    pub fn mount<T, F>(&mut self, name: T, vfs: F) -> Result<()>
-    where
-        T: Into<HashValue<str>>,
-        F: VFS + 'static,
-    {
-        let hash = name.into();
-        if self.mounts.get(&hash).is_some() {
-            bail!(
-                "Virtual file system with identifier {:?} has been mounted already.",
-                hash
-            );
-        }
-
-        self.mounts.insert(hash, Arc::new(VFSInstance::new(vfs)?));
-        Ok(())
+    #[inline]
+    pub fn add<T1: Into<String>, T2: VFS + 'static>(&mut self, schema: T1, vfs: T2) {
+        self.schemas.insert(schema.into(), Arc::new(vfs));
     }
 
-    /// Gets vfs instance which contains resource with `uuid`.
-    pub fn vfs_from_uuid(&self, uuid: Uuid) -> Option<Arc<VFSInstance>> {
-        for v in self.mounts.values() {
-            if v.contains(uuid) {
-                return Some(v.clone());
-            }
-        }
+    #[inline]
+    pub fn locate<T1: AsRef<str>>(&self, schema: T1) -> Result<Arc<VFS>, failure::Error> {
+        let schema = schema.as_ref();
+        let vfs = self.schemas.get(schema).ok_or_else(|| {
+            format_err!("The schema of url {} has not been supported yet!", schema)
+        })?;
 
-        None
-    }
-
-    /// Gets vfs with specified identifier `fs`.
-    pub fn vfs<T>(&self, fs: T) -> Option<Arc<VFSInstance>>
-    where
-        T: Into<HashValue<str>>,
-    {
-        self.mounts.get(&fs.into()).map(|vfs| vfs.clone())
+        Ok(vfs.clone())
     }
 }

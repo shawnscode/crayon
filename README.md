@@ -9,38 +9,18 @@ Crayon is a small, portable and extensible game framework, which loosely inspire
 
 Some goals include:
 
-- Extensible through external code modules;
-- Run on macOS, Linux, Windows, iOS, Android from the same source;
-- Built from the ground up to focus on multi-thread friendly with a work-stealing job scheduler;
-- Stateless, layered, multithread render system with OpenGL(ES) 3.0 backends;
+- Intuitive lifetime free interfaces and extensible through external code modules;
+- Run on PCs, Mobiles and Web browsers from the same source;
+- Stateless, layered, multithread render system with OpenGL(ES) 3.0 or WebGL 2.0 backend;
 - Simplified assets workflow and asynchronous data loading from various filesystem;
 - Unified interfaces for handling input devices across platforms;
+- Built from the ground up to focus on multi-thread friendly with a work-stealing job scheduler;
 - etc.
 
 This project adheres to [Semantic Versioning](http://semver.org/), all notable changes will be documented in this [file](./CHANGELOG.md).
 
-### Built-in Modules
-
-1. [Audio](./modules/audio): The audio module based on [cpal](https://github.com/tomaka/cpal).
-2. [ImGui](./modules/imgui): The immediate mode GUI module based on [imgui-rs](https://github.com/Gekkio/imgui-rs).
-3. [3D](./modules/3d): The 3d module which still works in progress. It should provides basic supports for building a simple 3d simulation world.
-
-### Assets Workflow
-
-The asset workflow comes with the version 0.5.0. During the development, the assets could be stored in formats which could producing and editing by authoring tools directly, and it will be compiled into some kind of effecient format for runtime (which is dependent on platform and hardware devices usually).
-
-Currently, we are supporting assets with:
-
-1. Transmission files like `.glTF`, `.blend`, `.fbx`, etc.. through [assimp](https://github.com/assimp/assimp).
-    * Notes that not only `Mesh`, but also the nodes will be imported as `Prefab` for scene creation.
-2. Texture files like `.psd`, `.png`, `.jpeg`, `.bmp`, etc.. through [PvrTexTool](https://community.imgtec.com/developers/powervr/tools/pvrtextool/) and [crunch](https://github.com/BKcore/crunch-osx).
-    * Notes that texture files could be compressed into `PVRTC`, `ETC2` or `S3TC` formats based on platform.
-3. Audio files like `.mp3`, `.wav`, `.ogg`, `.flac` through [RustAudio](https://github.com/RustAudio).
-4. Universal shader files through [SPIRV](https://www.khronos.org/registry/spir-v/) are also in planning, and should be ready in next few releases.
-
-The assets manipulation codes are placed under [crayon-tools](https://github.com/shawnscode/crayon-tools), checks out the repository for further details.
-
 ### Quick Example
+
 For the sake of brevity, you can als run a simple and quick example with commands:
 
 ``` sh
@@ -49,3 +29,14 @@ cargo run --bin render_texture
 ```
 
 You can also check out [examples](./examples) folder for screenshots.
+
+### Assets Workflow
+
+The asset workflow comes with the version 0.5.0. During the development, the assets could be stored in formats which could producing and editing by authoring tools directly, and it will be compiled into some kind of effecient format for runtime (which is dependent on platform and hardware devices usually).
+
+The assets manipulation codes are placed under [crayon-tools](https://github.com/shawnscode/crayon-tools), checks out the repository for further details.
+
+### Platform-Specific
+
+The WebAssembly supports is based on [wasm-bindgen](https://github.com/rustwasm/wasm-bindgen) and [web-sys](https://github.com/rustwasm/wasm-bindgen/tree/master/crates/web-sys), you could find detailed build instruction in the [documents](https://rustwasm.github.io/wasm-bindgen/). And there is a simple wasm template under [tools](./tools/wasm-template) folder might helps.
+

@@ -23,11 +23,19 @@
 //! cargo run --example modules_3d_prefab
 //! ```
 
-extern crate crossbeam_deque;
-#[macro_use]
-extern crate cgmath;
+#[cfg(not(target_arch = "wasm32"))]
 extern crate gl;
+#[cfg(not(target_arch = "wasm32"))]
 extern crate glutin;
+
+#[cfg(target_arch = "wasm32")]
+extern crate console_error_panic_hook;
+#[cfg(target_arch = "wasm32")]
+extern crate js_sys;
+#[cfg(target_arch = "wasm32")]
+pub extern crate wasm_bindgen;
+#[cfg(target_arch = "wasm32")]
+extern crate web_sys;
 
 #[macro_use]
 extern crate failure;
@@ -35,7 +43,16 @@ extern crate failure;
 extern crate log;
 
 #[macro_use]
+extern crate cgmath;
+#[macro_use]
 extern crate serde;
+extern crate byteorder;
+extern crate serde_json;
+
+extern crate crossbeam_deque;
+extern crate inlinable_string;
+extern crate smallvec;
+
 pub extern crate bincode;
 pub extern crate uuid;
 
@@ -43,13 +60,6 @@ pub extern crate uuid;
 pub use cgmath::*;
 #[doc(hidden)]
 pub use log::*;
-
-// FIXME: unresolved serde proc-macro re-export. https://github.com/serde-rs/serde/issues/1147
-// #[doc(hidden)]
-// pub use serde::*;
-// FIXME: unresolved failure proc-macro re-export.
-// #[doc(hidden)]
-// pub use failure::*;
 
 #[macro_use]
 pub mod errors;
@@ -63,3 +73,24 @@ pub mod math;
 pub mod prelude;
 pub mod res;
 pub mod sched;
+pub mod window;
+
+#[macro_export]
+macro_rules! main {
+    ($codes: block) => {
+        #[cfg(target_arch = "wasm32")]
+        extern crate wasm_bindgen;
+        #[cfg(target_arch = "wasm32")]
+        use wasm_bindgen::prelude::wasm_bindgen;
+        #[cfg(target_arch = "wasm32")]
+        #[wasm_bindgen]
+        pub fn run() {
+            $codes
+        }
+
+        fn main() {
+            #[cfg(not(target_arch = "wasm32"))]
+            $codes
+        }
+    };
+}

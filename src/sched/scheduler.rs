@@ -7,8 +7,8 @@ use crossbeam_deque as deque;
 
 use super::job::{JobRef, StackJob};
 use super::latch::{CountLatch, Latch, LatchProbe, LatchWaitProbe, LockLatch};
+use super::system::PanicHandler;
 use super::unwind::AbortIfPanic;
-use super::PanicHandler;
 
 pub struct Scheduler {
     terminator: CountLatch,
@@ -93,7 +93,6 @@ impl Scheduler {
     //             injector.push(job);
     //         }
     //     }
-
     //     self.watcher.notify_all();
     // }
 
@@ -163,19 +162,19 @@ impl Scheduler {
         }
     }
 
-    pub fn wait_until<T>(&self, latch: &T)
-    where
-        T: LatchWaitProbe,
-    {
-        unsafe {
-            let worker_thread = WorkerThread::current();
-            if worker_thread.is_null() {
-                latch.wait();
-            } else {
-                (*worker_thread).hot_wait_until(latch);
-            }
-        }
-    }
+    // pub fn wait_until<T>(&self, latch: &T)
+    // where
+    //     T: LatchWaitProbe,
+    // {
+    //     unsafe {
+    //         let worker_thread = WorkerThread::current();
+    //         if worker_thread.is_null() {
+    //             latch.wait();
+    //         } else {
+    //             (*worker_thread).wait_until(latch);
+    //         }
+    //     }
+    // }
 
     #[inline]
     pub fn terminate_dec(&self) {
@@ -227,9 +226,10 @@ struct Watcher(Mutex<()>, Condvar);
 
 impl Watcher {
     #[inline]
-    fn wait(&self) {
-        let guard = self.0.lock().unwrap();
-        let _ = self.1.wait(guard).unwrap();
+    fn wait_timeout(&self, ms: u64) {
+        let duration = ::std::time::Duration::from_millis(ms);
+        let v = self.0.lock().unwrap();
+        let _ = self.1.wait_timeout(v, duration);
     }
 
     #[inline]
@@ -285,27 +285,9 @@ impl WorkerThread {
         self.worker.push(job);
     }
 
-    pub unsafe fn hot_wait_until<L: LatchProbe>(&self, latch: &L) {
-        let abort_guard = AbortIfPanic {};
-
-        while !latch.is_set() {
-            if let Some(job) = self
-                .steal_local()
-                .or_else(|| self.steal())
-                .or_else(|| self.scheduler.inject_stealer.steal())
-            {
-                job.execute();
-                self.scheduler.watcher.notify_all();
-            } else {
-                thread::yield_now();
-            }
-        }
-
-        mem::forget(abort_guard);
-    }
-
     pub unsafe fn wait_until<L: LatchProbe>(&self, latch: &L) {
         let abort_guard = AbortIfPanic {};
+        let mut ms = 1;
 
         while !latch.is_set() {
             if let Some(job) = self
@@ -315,8 +297,10 @@ impl WorkerThread {
             {
                 job.execute();
                 self.scheduler.watcher.notify_all();
+                ms = 1;
             } else {
-                self.scheduler.watcher.wait();
+                self.scheduler.watcher.wait_timeout(ms);
+                ms = (ms * 2).min(48);
             }
         }
 

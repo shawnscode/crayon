@@ -1,12 +1,12 @@
 use super::handle::HandleLike;
-use super::handle_pool::{HandlePool, Iter};
+use super::handle_pool::HandlePool;
 
 /// A named object collections. Every time u create or free a handle, a
 /// attached instance `T` will be created/ freed.
 #[derive(Default)]
 pub struct ObjectPool<H: HandleLike, T: Sized> {
     handles: HandlePool<H>,
-    entries: Vec<Option<T>>,
+    entries: Vec<T>,
 }
 
 impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
@@ -27,13 +27,14 @@ impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
     }
 
     /// Creates a `T` and named it with `Handle`.
-    pub fn create(&mut self, value: T) -> H {
+    pub fn create(&mut self, mut value: T) -> H {
         let handle = self.handles.create();
 
         if handle.index() >= self.entries.len() as u32 {
-            self.entries.push(Some(value));
+            self.entries.push(value);
         } else {
-            self.entries[handle.index() as usize] = Some(value);
+            ::std::mem::swap(&mut value, &mut self.entries[handle.index() as usize]);
+            ::std::mem::forget(value);
         }
 
         handle
@@ -42,8 +43,8 @@ impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
     /// Returns mutable reference to internal value with name `Handle`.
     #[inline]
     pub fn get_mut(&mut self, handle: H) -> Option<&mut T> {
-        if self.handles.is_alive(handle) {
-            self.entries[handle.index() as usize].as_mut()
+        if self.handles.contains(handle) {
+            unsafe { Some(self.entries.get_unchecked_mut(handle.index() as usize)) }
         } else {
             None
         }
@@ -52,8 +53,8 @@ impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
     /// Returns immutable reference to internal value with name `Handle`.
     #[inline]
     pub fn get(&self, handle: H) -> Option<&T> {
-        if self.handles.is_alive(handle) {
-            self.entries[handle.index() as usize].as_ref()
+        if self.handles.contains(handle) {
+            unsafe { Some(self.entries.get_unchecked(handle.index() as usize)) }
         } else {
             None
         }
@@ -62,33 +63,42 @@ impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
     /// Returns true if this `Handle` was created by `ObjectPool`, and has not been
     /// freed yet.
     #[inline]
-    pub fn is_alive(&self, handle: H) -> bool {
-        self.handles.is_alive(handle)
+    pub fn contains(&self, handle: H) -> bool {
+        self.handles.contains(handle)
     }
 
     /// Recycles the value with name `Handle`.
     #[inline]
     pub fn free(&mut self, handle: H) -> Option<T> {
         if self.handles.free(handle) {
-            let mut v = None;
-            ::std::mem::swap(&mut v, &mut self.entries[handle.index() as usize]);
-            v
+            unsafe {
+                let mut v = ::std::mem::uninitialized();
+                ::std::mem::swap(&mut v, &mut self.entries[handle.index() as usize]);
+                Some(v)
+            }
         } else {
             None
         }
     }
 
-    /// Remove all objects matching with `predicate` from pool incrementally.
-    pub fn free_if<P>(&mut self, predicate: P) -> FreeIter<H, T, P>
+    /// Retains only the elements specified by the predicate.
+    ///
+    /// In other words, remove all objects such that f(k, &mut v) returns false.
+    pub fn retain<P>(&mut self, mut predicate: P)
     where
-        P: FnMut(&T) -> bool,
+        P: FnMut(H, &mut T) -> bool,
     {
-        FreeIter {
-            index: 0,
-            entries: &mut self.entries[..],
-            handles: &mut self.handles,
-            predicate: predicate,
-        }
+        let entries = &mut self.entries;
+        self.handles.retain(|handle| unsafe {
+            let mut v = entries.get_unchecked_mut(handle.index() as usize);
+            if predicate(handle, v) {
+                true
+            } else {
+                let mut w = ::std::mem::uninitialized();
+                ::std::mem::swap(&mut v, &mut w);
+                false
+            }
+        });
     }
 
     /// Returns the total number of alive handle in this `ObjectPool`.
@@ -103,68 +113,57 @@ impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
         self.len() == 0
     }
 
-    /// Returns an iterator over the `ObjectPool`.
+    /// an iterator visiting all key-value pairs in order. the iterator element type is (h, &t).
     #[inline]
-    pub fn iter(&self) -> Iter<H> {
+    pub fn iter<'a>(&'a self) -> impl DoubleEndedIterator<Item = (H, &T)> + 'a {
+        self.handles
+            .iter()
+            .map(move |v| unsafe { (v, self.entries.get_unchecked(v.index() as usize)) })
+    }
+
+    /// an iterator visiting all key-value pairs in order. the iterator element type is (h, &mut t).
+    #[inline]
+    pub fn iter_mut<'a>(&'a mut self) -> impl DoubleEndedIterator<Item = (H, &'a mut T)> {
+        let entries = &mut self.entries;
+        self.handles.iter().map(move |v| unsafe {
+            let w = entries.get_unchecked_mut(v.index() as usize);
+            (v, &mut *(w as *mut T))
+        })
+    }
+
+    /// An iterator visiting all keys in order. The iterator element type is H.
+    #[inline]
+    pub fn keys<'a>(&'a self) -> impl DoubleEndedIterator<Item = H> + 'a {
         self.handles.iter()
     }
-}
 
-pub struct FreeIter<'a, H: 'a + HandleLike, T: 'a, P>
-where
-    P: FnMut(&T) -> bool,
-{
-    index: usize,
-    entries: &'a mut [Option<T>],
-    handles: &'a mut HandlePool<H>,
-    predicate: P,
-}
+    /// An iterator visiting all entries in order. The iterator element type is &T.
+    #[inline]
+    pub fn values<'a>(&'a self) -> impl DoubleEndedIterator<Item = &T> + 'a {
+        self.handles
+            .iter()
+            .map(move |v| unsafe { self.entries.get_unchecked(v.index() as usize) })
+    }
 
-impl<'a, H: 'a + HandleLike, T: 'a, P> Iterator for FreeIter<'a, H, T, P>
-where
-    P: FnMut(&T) -> bool,
-{
-    type Item = H;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        unsafe {
-            for i in self.index..self.entries.len() {
-                let v = self.entries.get_unchecked_mut(i);
-
-                let free = if let Some(ref payload) = *v {
-                    (self.predicate)(payload)
-                } else {
-                    false
-                };
-
-                if free {
-                    let handle = self.handles.free_at(i).unwrap();
-                    *v = None;
-                    return Some(handle);
-                }
-            }
-
-            None
-        }
+    /// An iterator visiting all entries in order. The iterator element type is &mut T.
+    #[inline]
+    pub fn values_mut<'a>(&'a mut self) -> impl DoubleEndedIterator<Item = &mut T> + 'a {
+        let entries = &mut self.entries;
+        self.handles.iter().map(move |v| unsafe {
+            let w = entries.get_unchecked_mut(v.index() as usize);
+            &mut *(w as *mut T)
+        })
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::super::Handle;
-    use super::*;
+impl<H: HandleLike, T: Sized> Drop for ObjectPool<H, T> {
+    fn drop(&mut self) {
+        unsafe {
+            for v in &self.handles {
+                ::std::ptr::drop_in_place(&mut self.entries[v.index() as usize]);
+            }
 
-    #[test]
-    fn basic() {
-        let mut set = ObjectPool::<Handle, i32>::new();
-
-        let e1 = set.create(3);
-        assert_eq!(set.get(e1), Some(&3));
-        assert_eq!(set.len(), 1);
-        assert_eq!(set.free(e1), Some(3));
-        assert_eq!(set.len(), 0);
-        assert_eq!(set.get(e1), None);
-        assert_eq!(set.free(e1), None);
-        assert_eq!(set.len(), 0);
+            self.entries.set_len(0);
+        }
     }
 }

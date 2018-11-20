@@ -2,16 +2,16 @@
 //! submitting draw-calls using low-level OpenGL video APIs.
 
 pub mod frame;
-pub mod gl;
 pub mod headless;
+mod utils;
 
 use super::assets::prelude::*;
 
 use errors::*;
-use math;
-use utils::hash_value;
+use math::prelude::{Aabb2, Vector2};
+use utils::hash_value::HashValue;
 
-pub type UniformVar = (hash_value::HashValue<str>, UniformVariable);
+pub type UniformVar = (HashValue<str>, UniformVariable);
 
 pub trait Visitor {
     unsafe fn create_surface(&mut self, handle: SurfaceHandle, params: SurfaceParams)
@@ -39,7 +39,7 @@ pub trait Visitor {
     unsafe fn update_texture(
         &mut self,
         handle: TextureHandle,
-        area: math::Aabb2<u32>,
+        area: Aabb2<u32>,
         bytes: &[u8],
     ) -> Result<()>;
 
@@ -76,8 +76,7 @@ pub trait Visitor {
 
     unsafe fn delete_mesh(&mut self, handle: MeshHandle) -> Result<()>;
 
-    unsafe fn bind(&mut self, surface: SurfaceHandle, dimensions: math::Vector2<u32>)
-        -> Result<()>;
+    unsafe fn bind(&mut self, surface: SurfaceHandle, dimensions: Vector2<u32>) -> Result<()>;
 
     unsafe fn draw(
         &mut self,
@@ -97,4 +96,26 @@ pub trait Visitor {
 
     /// Advance one frame, it will be called every frames.
     unsafe fn advance(&mut self) -> Result<()>;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod gl;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn new() -> Result<Box<Visitor>> {
+    let visitor = unsafe { self::gl::visitor::GLVisitor::new()? };
+    Ok(Box::new(visitor))
+}
+
+#[cfg(target_arch = "wasm32")]
+pub mod webgl;
+
+#[cfg(target_arch = "wasm32")]
+pub fn new() -> Result<Box<Visitor>> {
+    let visitor = unsafe { webgl::visitor::WebGLVisitor::new()? };
+    Ok(Box::new(visitor))
+}
+
+pub fn new_headless() -> Box<Visitor> {
+    Box::new(self::headless::HeadlessVisitor::new())
 }

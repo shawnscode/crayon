@@ -1,6 +1,6 @@
 [package]
 name = "crayon"
-version = "0.6.0"
+version = "0.7.0"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 description = "A small, portable and extensible game framework."
 repository = "https://github.com/shawnscode/crayon"
@@ -16,21 +16,67 @@ travis-ci = { repository = "shawnscode/crayon", branch = "master" }
 appveyor = { repository = "shawnscode/crayon", branch = "master", service = "github" }
 codecov = { repository = "shawnscode/crayon", branch = "master", service = "github" }
 
-[workspace]
-members = [ "examples", "modules/imgui", "modules/3d", "modules/audio" ]
-
-[dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 gl = "0.10.0"
 glutin = "0.18.0"
-crossbeam-deque = "0.5.1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2.28"
+js-sys = "0.3.5"
+console_error_panic_hook = "0.1.5"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
+version = "0.3.5"
+features = [
+    'Node',
+    'Document',
+    'Element',
+    'DomRect',
+    'HtmlCanvasElement',
+    "HtmlElement",
+    'WebGlBuffer',
+    'WebGl2RenderingContext',
+    'WebGlProgram',
+    'WebGlShader',
+    'WebGlUniformLocation',
+    'WebGlRenderbuffer',
+    'WebGlTexture',
+    'WebGlBuffer',
+    'WebGlFramebuffer',
+    'WebGlVertexArrayObject',
+    'Window',
+    'Performance',
+    'XmlHttpRequest',
+    'XmlHttpRequestResponseType',
+    'Response',
+    'EventTarget',
+    'MouseEvent',
+    'KeyboardEvent',
+    'UiEvent'
+]
+
+[workspace]
+members = [ "modules/world" ]
+
+[dependencies]
 failure = "0.1.2"
 log = "0.4.5"
 
 serde = { version = "1.0.79", features = ["serde_derive"] }
-bincode = "1.0.1"
+serde_json = { version = "1.0.32" }
 
+bincode = "1.0.1"
+byteorder = "1.2.6"
+
+inlinable_string = { version = "0.1.10", features = ["serde"] }
+smallvec = { version = "0.6.5", features = ["serde"] }
 uuid = { version = "0.7.1", features = ["serde"] }
 cgmath = { version = "0.16.1", features = ["serde"] }
+crossbeam-deque = "0.5.1"
 
 [dev-dependencies]
 rand = "0.5.5"
+env_logger = "0.6.0"
+
+[profile.release]
+lto = true

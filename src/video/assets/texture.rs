@@ -1,6 +1,6 @@
 //! Immutable or dynamic 2D texture. A texture is a container of one or more images. It
 //! can be the source of a texture access from a Shader.
-use math;
+use math::prelude::Vector2;
 use video::errors::{Error, Result};
 
 impl_handle!(TextureHandle);
@@ -17,7 +17,7 @@ pub struct TextureParams {
     /// Sets the format of data.
     pub format: TextureFormat,
     /// Sets the dimensions of texture.
-    pub dimensions: math::Vector2<u32>,
+    pub dimensions: Vector2<u32>,
 }
 
 impl Default for TextureParams {
@@ -27,7 +27,7 @@ impl Default for TextureParams {
             wrap: TextureWrap::Clamp,
             filter: TextureFilter::Linear,
             hint: TextureHint::Immutable,
-            dimensions: math::Vector2::new(0, 0),
+            dimensions: Vector2::new(0, 0),
         }
     }
 }
@@ -62,7 +62,7 @@ pub struct RenderTextureParams {
     pub format: RenderTextureFormat,
     pub wrap: TextureWrap,
     pub filter: TextureFilter,
-    pub dimensions: math::Vector2<u32>,
+    pub dimensions: Vector2<u32>,
     pub sampler: bool,
 }
 
@@ -72,7 +72,7 @@ impl Default for RenderTextureParams {
             format: RenderTextureFormat::RGB8,
             wrap: TextureWrap::Clamp,
             filter: TextureFilter::Linear,
-            dimensions: math::Vector2::new(0, 0),
+            dimensions: Vector2::new(0, 0),
             sampler: true,
         }
     }
@@ -146,6 +146,18 @@ impl RenderTextureFormat {
             || *self == RenderTextureFormat::RGBA4
             || *self == RenderTextureFormat::RGBA8
     }
+
+    /// Returns the size in bytes of texture with `dimensions`.
+    pub fn size(&self, dimensions: Vector2<u32>) -> u32 {
+        let square = dimensions.x * dimensions.y;
+        match *self {
+            RenderTextureFormat::RGBA4 | RenderTextureFormat::Depth16 => 2 * square,
+            RenderTextureFormat::RGB8 | RenderTextureFormat::Depth24 => 3 * square,
+            RenderTextureFormat::RGBA8
+            | RenderTextureFormat::Depth32
+            | RenderTextureFormat::Depth24Stencil8 => 4 * square,
+        }
+    }
 }
 
 /// List of all the possible formats of input data when uploading to texture.
@@ -210,8 +222,8 @@ impl TextureFormat {
         }
     }
 
-    /// Returns the size in bytes of a pixel of this type.
-    pub fn size(&self, dimensions: math::Vector2<u32>) -> u32 {
+    /// Returns the size in bytes of texture with `dimensions`.
+    pub fn size(&self, dimensions: Vector2<u32>) -> u32 {
         let square = dimensions.x * dimensions.y;
         match *self {
             TextureFormat::PvrtcRGB2BPP | TextureFormat::PvrtcRGBA2BPP => square / 4,
@@ -234,6 +246,20 @@ impl TextureFormat {
             TextureFormat::RGBA16F | TextureFormat::RG32F => 8 * square,
             TextureFormat::RGB32F => 12 * square,
             TextureFormat::RGBA32F => 16 * square,
+        }
+    }
+
+    pub fn compressed(&self) -> bool {
+        match *self {
+            TextureFormat::Etc2RGB4BPP
+            | TextureFormat::Etc2RGBA8BPP
+            | TextureFormat::PvrtcRGB2BPP
+            | TextureFormat::PvrtcRGB4BPP
+            | TextureFormat::PvrtcRGBA2BPP
+            | TextureFormat::PvrtcRGBA4BPP
+            | TextureFormat::S3tcDxt1RGB4BPP
+            | TextureFormat::S3tcDxt5RGBA8BPP => true,
+            _ => false,
         }
     }
 }

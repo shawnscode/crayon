@@ -1,14 +1,12 @@
-use std::sync::{Mutex, MutexGuard, RwLock};
-
 use errors::*;
-use math;
-use utils::{data_buf, hash_value};
+use math::prelude::{Aabb2, Vector2};
+use utils::prelude::{DataBuffer, DataBufferPtr, HashValue};
 
 use super::super::assets::prelude::*;
 use super::Visitor;
 
-type VarsPtr = data_buf::DataBufferPtr<[(hash_value::HashValue<str>, UniformVariable)]>;
-type BytesPtr = data_buf::DataBufferPtr<[u8]>;
+type VarsPtr = DataBufferPtr<[(HashValue<str>, UniformVariable)]>;
+type BytesPtr = DataBufferPtr<[u8]>;
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -24,7 +22,7 @@ pub enum Command {
     DeleteShader(ShaderHandle),
 
     CreateTexture(TextureHandle, TextureParams, Option<TextureData>),
-    UpdateTexture(TextureHandle, math::Aabb2<u32>, BytesPtr),
+    UpdateTexture(TextureHandle, Aabb2<u32>, BytesPtr),
     DeleteTexture(TextureHandle),
 
     CreateRenderTexture(RenderTextureHandle, RenderTextureParams),
@@ -36,10 +34,10 @@ pub enum Command {
     DeleteMesh(MeshHandle),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct Frame {
     pub cmds: Vec<Command>,
-    pub bufs: data_buf::DataBuffer,
+    pub bufs: DataBuffer,
 }
 
 unsafe impl Send for Frame {}
@@ -50,15 +48,21 @@ impl Frame {
     pub fn with_capacity(capacity: usize) -> Self {
         Frame {
             cmds: Vec::with_capacity(16),
-            bufs: data_buf::DataBuffer::with_capacity(capacity),
+            bufs: DataBuffer::with_capacity(capacity),
         }
+    }
+
+    #[inline]
+    pub fn clear(&mut self) {
+        self.cmds.clear();
+        self.bufs.clear();
     }
 
     /// Dispatch frame tasks and draw calls to the backend context.
     pub fn dispatch(
         &mut self,
         visitor: &mut Visitor,
-        dimensions: math::Vector2<u32>,
+        dimensions: Vector2<u32>,
     ) -> Result<(u32, u32)> {
         unsafe {
             visitor.advance()?;
@@ -142,43 +146,8 @@ impl Frame {
             }
 
             visitor.flush()?;
-            self.bufs.clear();
+            self.cmds.clear();
             Ok((dc, tris))
         }
-    }
-}
-
-pub(crate) struct DoubleFrame {
-    idx: RwLock<usize>,
-    frames: [Mutex<Frame>; 2],
-}
-
-impl DoubleFrame {
-    pub fn with_capacity(capacity: usize) -> Self {
-        DoubleFrame {
-            idx: RwLock::new(0),
-            frames: [
-                Mutex::new(Frame::with_capacity(capacity)),
-                Mutex::new(Frame::with_capacity(capacity)),
-            ],
-        }
-    }
-
-    #[inline]
-    pub fn front(&self) -> MutexGuard<Frame> {
-        self.frames[*self.idx.read().unwrap()].lock().unwrap()
-    }
-
-    #[inline]
-    pub fn back(&self) -> MutexGuard<Frame> {
-        self.frames[(*self.idx.read().unwrap() + 1) % 2]
-            .lock()
-            .unwrap()
-    }
-
-    #[inline]
-    pub fn swap_frames(&self) {
-        let mut idx = self.idx.write().unwrap();
-        *idx = (*idx + 1) % 2;
     }
 }

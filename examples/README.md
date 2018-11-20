@@ -4,29 +4,17 @@ Pre-compiled assets are placed under `resources` folder for convenience, so you 
 
 ## Core
 
-1. Texture: ```cargo run --bin texture```
-2. RenderTexture: ```cargo run --bin render_texture```
-3. Input: ```cargo run --bin input```
+1. Texture: ```cargo run --example texture```
+2. RenderTexture: ```cargo run --example render_texture```
 
 ![RenderTexture](./screenshots/render_texture.png)
 
-## 3D
+## World
 
-1. Cube: ```cargo run --bin cube```
-2. Prefab: ```cargo run --bin prefab```
-3. Saturn ```cargo run --bin saturn```
+The examples of world module is placed under [here](../modules/world).
+
+1. Cube: ```cargo run --example cube```
+2. Prefab: ```cargo run --example prefab```
 
 ![Cube](./screenshots/cube.png)
 ![Prefab](./screenshots/prefab.png)
-![Saturn](./screenshots/saturn.png)
-
-## ImGui
-
-1. ImGui windows: ```cargo run --bin imgui```
-
-![ImGui](./screenshots/imgui.png)
-
-## Audio
-
-1. Audio: ```cargo run --bin audio```
-2. Audio3D: ```cargo run --bin audio_3d```

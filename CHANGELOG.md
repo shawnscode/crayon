@@ -9,6 +9,14 @@ The format is based on [Keep a Changelog][kc], and this project adheres to
 
 ## [Unreleased]
 
+### Added
+* Impls `Hash`, `Debug`, `PartialEq` and `Eq` for `HandleLike`.
+* Adds `retain` method for `HandlePool`.
+* Adds `iter/iter_mut/values/values_mut` methods for `ObjectPool`.
+
+### Changed
+* `Application` does not require `Sync` anymore.
+
 ## [0.6.0] - 2018-09-18
 
 ### Added

@@ -1,10 +1,9 @@
-pub use math;
-pub use math::prelude::{Angle, EuclideanSpace, InnerSpace, Matrix, One, SquareMatrix, Zero};
-
-pub use application;
-pub use application::{events, time};
-pub use application::{Application, Context, Engine, FrameInfo, Settings};
-
+pub use application::prelude::*;
 pub use input::prelude::*;
+pub use math::prelude::*;
 pub use res::prelude::*;
+pub use sched::prelude::*;
 pub use video::prelude::*;
+pub use window::prelude::*;
+
+pub use {application, input, main, math, res, sched, video, window};

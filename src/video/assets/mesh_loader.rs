@@ -3,9 +3,10 @@ use std::io::Cursor;
 use std::sync::Arc;
 
 use errors::*;
+use res::utils::prelude::ResourceLoader;
+use utils::double_buf::DoubleBuf;
 
-use super::super::backends::frame::Command;
-use super::super::DoubleFrame;
+use super::super::backends::frame::{Command, Frame};
 use super::mesh::*;
 
 pub const MAGIC: [u8; 8] = [
@@ -14,19 +15,19 @@ pub const MAGIC: [u8; 8] = [
 
 #[derive(Clone)]
 pub struct MeshLoader {
-    frames: Arc<DoubleFrame>,
+    frames: Arc<DoubleBuf<Frame>>,
 }
 
 impl MeshLoader {
-    pub(crate) fn new(frames: Arc<DoubleFrame>) -> Self {
+    pub(crate) fn new(frames: Arc<DoubleBuf<Frame>>) -> Self {
         MeshLoader { frames: frames }
     }
 }
 
-impl ::res::registry::Register for MeshLoader {
+impl ResourceLoader for MeshLoader {
     type Handle = MeshHandle;
     type Intermediate = (MeshParams, Option<MeshData>);
-    type Value = MeshParams;
+    type Resource = MeshParams;
 
     fn load(&self, handle: Self::Handle, bytes: &[u8]) -> Result<Self::Intermediate> {
         if &bytes[0..8] != &MAGIC[..] {
@@ -38,25 +39,24 @@ impl ::res::registry::Register for MeshLoader {
         let data = bincode::deserialize_from(&mut file)?;
 
         info!(
-            "[MeshLoader] loads {:?}. (Verts: {}, Indxes: {})",
+            "[MeshLoader] load {:?}. (Verts: {}, Indxes: {})",
             handle, params.num_verts, params.num_idxes
         );
 
         Ok((params, Some(data)))
     }
 
-    fn attach(&self, handle: Self::Handle, item: Self::Intermediate) -> Result<Self::Value> {
+    fn create(&self, handle: Self::Handle, item: Self::Intermediate) -> Result<Self::Resource> {
+        info!("[MeshLoader] create {:?}.", handle);
         item.0.validate(item.1.as_ref())?;
-
-        let mut frame = self.frames.front();
-        let task = Command::CreateMesh(handle, item.0.clone(), item.1);
-        frame.cmds.push(task);
-
+        let cmd = Command::CreateMesh(handle, item.0.clone(), item.1);
+        self.frames.write().cmds.push(cmd);
         Ok(item.0)
     }
 
-    fn detach(&self, handle: Self::Handle, _: Self::Value) {
+    fn delete(&self, handle: Self::Handle, _: Self::Resource) {
+        info!("[MeshLoader] delete {:?}.", handle);
         let cmd = Command::DeleteMesh(handle);
-        self.frames.front().cmds.push(cmd);
+        self.frames.write().cmds.push(cmd);
     }
 }

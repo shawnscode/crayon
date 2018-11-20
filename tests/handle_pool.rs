@@ -3,7 +3,7 @@ extern crate rand;
 
 use std::cmp::min;
 
-use crayon::utils::*;
+use crayon::utils::prelude::*;
 
 #[test]
 fn handle_set() {
@@ -13,25 +13,39 @@ fn handle_set() {
     // Spawn entities.
     let e1 = set.create();
     assert!(e1.is_valid());
-    assert!(set.is_alive(e1));
+    assert!(set.contains(e1));
     assert_eq!(set.len(), 1);
 
     let mut e2 = e1;
-    assert!(set.is_alive(e2));
+    assert!(set.contains(e2));
     assert_eq!(set.len(), 1);
 
     // Invalidate entities.
     e2.invalidate();
     assert!(!e2.is_valid());
-    assert!(!set.is_alive(e2));
-    assert!(set.is_alive(e1));
+    assert!(!set.contains(e2));
+    assert!(set.contains(e1));
 
     // Free entities.
     let e2 = e1;
     set.free(e2);
-    assert!(!set.is_alive(e2));
-    assert!(!set.is_alive(e1));
+    assert!(!set.contains(e2));
+    assert!(!set.contains(e1));
     assert_eq!(set.len(), 0);
+}
+
+#[test]
+fn retain() {
+    let mut set: HandlePool<Handle> = HandlePool::new();
+    for _ in 0..10 {
+        set.create();
+    }
+
+    set.retain(|e| e.index() % 2 == 0);
+
+    for v in &set {
+        assert!(v.index() % 2 == 0);
+    }
 }
 
 #[test]

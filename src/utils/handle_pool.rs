@@ -70,19 +70,16 @@ impl<T: HandleLike> HandlePool<T> {
 
     /// Returns true if this `Handle` was created by `HandlePool`, and has not been
     /// freed yet.
-    pub fn is_alive(&self, handle: T) -> bool {
+    pub fn contains(&self, handle: T) -> bool {
         let index = handle.index() as usize;
-        self.is_alive_at(index) && (self.versions[index] == handle.version())
-    }
-
-    #[inline]
-    fn is_alive_at(&self, index: usize) -> bool {
-        (index < self.versions.len()) && ((self.versions[index] & 0x1) == 1)
+        (index < self.versions.len())
+            && ((self.versions[index] & 0x1) == 1)
+            && (self.versions[index] == handle.version())
     }
 
     /// Recycles the `Handle` index, and mark its version as dead.
     pub fn free(&mut self, handle: T) -> bool {
-        if !self.is_alive(handle) {
+        if !self.contains(handle) {
             false
         } else {
             self.versions[handle.index() as usize] += 1;
@@ -91,14 +88,23 @@ impl<T: HandleLike> HandlePool<T> {
         }
     }
 
-    /// Recycles the `Handle` index, and mark its version as dead.
-    pub fn free_at(&mut self, index: usize) -> Option<T> {
-        if !self.is_alive_at(index) {
-            None
-        } else {
-            self.versions[index] += 1;
-            self.frees.push(InverseHandleIndex(index as HandleIndex));
-            Some(T::new(index as HandleIndex, self.versions[index] - 1))
+    /// Retains only the elements specified by the predicate.
+    ///
+    /// In other words, remove all elements e such that predicate(&T) returns false.
+    pub fn retain<P>(&mut self, mut predicate: P)
+    where
+        P: FnMut(T) -> bool,
+    {
+        unsafe {
+            for i in 0..self.versions.len() {
+                let v = *self.versions.get_unchecked(i);
+                if v & 0x1 == 1 {
+                    if !predicate(T::new(i as u32, v)) {
+                        self.versions[i] += 1;
+                        self.frees.push(InverseHandleIndex(i as u32));
+                    }
+                }
+            }
         }
     }
 
@@ -121,7 +127,7 @@ impl<T: HandleLike> HandlePool<T> {
         self.len() == 0
     }
 
-    /// Returns an iterator over the `HandlePool`.
+    /// An iterator visiting all the handles.
     #[inline]
     pub fn iter(&self) -> Iter<T> {
         Iter::new(self)
@@ -227,6 +233,23 @@ impl<'a, T: HandleLike> Iterator for Iter<'a, T> {
                 }
             }
         }
+
+        None
+    }
+}
+
+impl<'a, T: HandleLike> DoubleEndedIterator for Iter<'a, T> {
+    fn next_back(&mut self) -> Option<T> {
+        unsafe {
+            for i in (self.start..self.end).rev() {
+                let v = self.versions.get_unchecked(i as usize);
+                if v & 0x1 == 1 {
+                    self.end = i;
+                    return Some(T::new(i, *v));
+                }
+            }
+        }
+
         None
     }
 }

@@ -3,9 +3,8 @@
 use std::collections::hash_map::Values;
 use std::str::FromStr;
 
-use math;
-use utils::hash::FastHashMap;
-use utils::HashValue;
+use math::prelude::{Matrix2, Matrix3, Matrix4, Vector2, Vector3, Vector4};
+use utils::prelude::{FastHashMap, HashValue};
 use video::assets::mesh::VertexLayout;
 use video::assets::texture::{RenderTextureHandle, TextureHandle};
 use video::errors::{Error, Result};
@@ -370,7 +369,7 @@ impl Into<UniformVariable> for f32 {
     }
 }
 
-impl Into<UniformVariable> for math::Matrix2<f32> {
+impl Into<UniformVariable> for Matrix2<f32> {
     fn into(self) -> UniformVariable {
         UniformVariable::Matrix2f(*self.as_ref(), false)
     }
@@ -382,7 +381,7 @@ impl Into<UniformVariable> for [[f32; 2]; 2] {
     }
 }
 
-impl Into<UniformVariable> for math::Matrix3<f32> {
+impl Into<UniformVariable> for Matrix3<f32> {
     fn into(self) -> UniformVariable {
         UniformVariable::Matrix3f(*self.as_ref(), false)
     }
@@ -394,7 +393,7 @@ impl Into<UniformVariable> for [[f32; 3]; 3] {
     }
 }
 
-impl Into<UniformVariable> for math::Matrix4<f32> {
+impl Into<UniformVariable> for Matrix4<f32> {
     fn into(self) -> UniformVariable {
         UniformVariable::Matrix4f(*self.as_ref(), false)
     }
@@ -406,7 +405,7 @@ impl Into<UniformVariable> for [[f32; 4]; 4] {
     }
 }
 
-impl Into<UniformVariable> for math::Vector2<f32> {
+impl Into<UniformVariable> for Vector2<f32> {
     fn into(self) -> UniformVariable {
         UniformVariable::Vector2f(*self.as_ref())
     }
@@ -418,7 +417,7 @@ impl Into<UniformVariable> for [f32; 2] {
     }
 }
 
-impl Into<UniformVariable> for math::Vector3<f32> {
+impl Into<UniformVariable> for Vector3<f32> {
     fn into(self) -> UniformVariable {
         UniformVariable::Vector3f(*self.as_ref())
     }
@@ -430,7 +429,7 @@ impl Into<UniformVariable> for [f32; 3] {
     }
 }
 
-impl Into<UniformVariable> for math::Vector4<f32> {
+impl Into<UniformVariable> for Vector4<f32> {
     fn into(self) -> UniformVariable {
         UniformVariable::Vector4f(*self.as_ref())
     }

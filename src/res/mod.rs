@@ -26,30 +26,6 @@
 //! files. These .meta files are generated when _crayon-cli_ first imports an asset, and are stored
 //! in the same directory as the asset.
 //!
-//! ## Location
-//!
-//! User could locates a `resource` with `Location`. A `Location` consists of two parts, a virtual
-//! filesystem prefix and a readable identifier of resource.
-//!
-//! For example, let's say a game has all its textures in a special asset subdirectory called
-//! `resources/textures`. The game would define an virtual filesystem called `res:` pointing to that
-//! directory, and texture location would be defined like this:
-//!
-//! ```sh
-//! "res:textures/crate.png"
-//! ```
-//!
-//! Before those textures are actually loaded, the `res:` prefix is replaced with an absolute directory
-//! location, and the readable path is replaced with the actual local path (which are usually the hex
-//! representation of UUID).
-//!
-//! ```sh
-//! "res:textures/crate.png" => "/Applications/My Game/resources/textures/2943B9386A274730A50702A904F384D5"
-//! ```
-//!
-//! This makes it easier to load data from other places than the local hard disc, like web servers,
-//! communicating with HTTP REST services or implementing more exotic ways to load data.
-//!
 //! # Virtual Filesystem (VFS)
 //!
 //! The `ResourceSystem` allows load data asynchronously from web servers, the local host
@@ -65,184 +41,170 @@
 //! from general UUID or readable identifier. The `Manifest` file is generated after the build
 //! process of `crayon-cli`.
 //!
-//! # Registry
-//!
-//! The `Registry` is a standardized resource manager that defines a set of interface for creation,
-//! destruction, sharing and lifetime management. It is used in all the built-in crayon modules.
-//!
-//! ## Handle
-//!
-//! We are using a unique `Handle` object to represent a resource object safely. This approach
-//! has several advantages, since it helps for saving state externally. E.G.:
-//!
-//! 1. It allows for the resource to be destroyed without leaving dangling pointers.
-//! 2. Its perfectly safe to store and share the `Handle` even the underlying resource is
-//! loading on the background thread.
-//!
-//! In some systems, actual resource objects are private and opaque, application will usually
-//! not have direct access to a resource object in form of reference.
-//!
-//! ## Ownership & Lifetime
-//!
-//! For the sake of simplicity, the refenerce-counting technique is used for providing shared ownership
-//! of a resource.
-//!
-//! Everytime you create a resource at runtime, the `Registry` will increases the reference count of
-//! the resource by 1. And when you are done with the resource, its the user's responsibility to
-//! drop the ownership of the resource. And when the last ownership to a given resource is dropped,
-//! the corresponding resource is also destroyed.
-//!
 
-pub mod location;
-use self::location::Location;
-
-pub mod promise;
-use self::promise::Promise;
-
-pub mod registry;
+pub mod manifest;
+pub mod request;
+pub mod shortcut;
+pub mod url;
+pub mod utils;
 pub mod vfs;
 
 pub mod prelude {
-    pub use super::location::Location;
-    pub use super::promise::Promise;
-    pub use super::vfs::Directory;
-    pub use super::{ResourceSystem, ResourceSystemShared};
+    pub use super::utils::prelude::ResourceState;
+    pub use super::ResourceParams;
 }
 
-use std::sync::{Arc, RwLock};
+mod system;
+
+use std::sync::Arc;
+
+use failure::ResultExt;
 use uuid::Uuid;
 
-use self::vfs::{VFSDriver, VFS};
+use sched::prelude::{CountLatch, Latch};
 
-use errors::*;
-use sched::ScheduleSystemShared;
-use utils::FastHashMap;
+use self::ins::{ctx, CTX};
+use self::request::{Request, Response};
+use self::shortcut::ShortcutResolver;
+use self::system::ResourceSystem;
+use self::vfs::SchemaResolver;
 
-/// The `ResourceSystem` Takes care of loading data asynchronously through pluggable filesystems.
-pub struct ResourceSystem {
-    driver: Arc<RwLock<VFSDriver>>,
-    shared: Arc<ResourceSystemShared>,
+#[derive(Debug, Clone)]
+pub struct ResourceParams {
+    pub shortcuts: ShortcutResolver,
+    pub schemas: SchemaResolver,
+    pub dirs: Vec<String>,
 }
 
-impl ResourceSystem {
-    /// Creates a new `ResourceSystem`.
-    pub fn new(sched: Arc<ScheduleSystemShared>) -> Result<Self> {
-        let driver = Arc::new(RwLock::new(VFSDriver::new()));
-
-        let shared = Arc::new(ResourceSystemShared {
-            driver: driver.clone(),
-            sched: sched,
-            bufs: Arc::new(RwLock::new(Vec::new())),
-            promises: Arc::new(RwLock::new(FastHashMap::default())),
-        });
-
-        Ok(ResourceSystem {
-            driver: driver,
-            shared: shared,
-        })
-    }
-
-    /// Mount a file-system drive with identifier.
-    pub fn mount<T, F>(&mut self, name: T, vfs: F) -> Result<()>
-    where
-        T: AsRef<str>,
-        F: VFS + 'static,
-    {
-        let name = name.as_ref();
-        info!("Mounts virtual file system {}.", name);
-        self.driver.write().unwrap().mount(name, vfs)
-    }
-
-    /// Returns the multi-thread friendly parts of `ResourceSystem`.
-    pub fn shared(&self) -> Arc<ResourceSystemShared> {
-        self.shared.clone()
-    }
-}
-
-pub trait Loader: Send + Sync + 'static {
-    fn load(&self, file: &[u8]) -> Result<()>;
-}
-
-pub struct ResourceSystemShared {
-    driver: Arc<RwLock<VFSDriver>>,
-    sched: Arc<ScheduleSystemShared>,
-
-    bufs: Arc<RwLock<Vec<Vec<u8>>>>,
-    promises: Arc<RwLock<FastHashMap<Uuid, Arc<Promise>>>>,
-}
-
-impl ResourceSystemShared {
-    /// Redirects a readabke location into universe-uniqued identifier (Uuid).
-    pub fn redirect(&self, location: Location) -> Option<Uuid> {
-        self.driver
-            .read()
-            .unwrap()
-            .vfs(location.vfs())
-            .and_then(|vfs| vfs.redirect(location.filename()))
-    }
-
-    /// Loads a resource at readable location asynchronously.
-    pub fn load_from<T: Loader>(&self, loader: T, location: Location) -> Result<Arc<Promise>> {
-        let uuid = self.redirect(location).ok_or_else(|| {
-            format_err!(
-                "Undefined virtual filesystem with identifier {}.",
-                location.vfs()
-            )
-        })?;
-
-        self.load_from_uuid(loader, uuid)
-    }
-
-    /// Loads a resource with uuid asynchronously.
-    pub fn load_from_uuid<T: Loader>(&self, loader: T, uuid: Uuid) -> Result<Arc<Promise>> {
-        let vfs = self
-            .driver
-            .read()
-            .unwrap()
-            .vfs_from_uuid(uuid)
-            .ok_or_else(|| format_err!("Undefined uuid with {}", uuid))?;
-
-        let latch = {
-            let mut promises = self.promises.write().unwrap();
-            if promises.contains_key(&uuid) {
-                bail!("Circular reference of resource {} found!", uuid);
-            }
-
-            let latch = Arc::new(Promise::new());
-            promises.insert(uuid, latch.clone());
-            latch
+impl Default for ResourceParams {
+    fn default() -> Self {
+        let mut params = ResourceParams {
+            shortcuts: ShortcutResolver::new(),
+            schemas: SchemaResolver::new(),
+            dirs: Vec::new(),
         };
 
-        let tx = latch.clone();
-        let bufs = self.bufs.clone();
-        let promises = self.promises.clone();
+        #[cfg(not(target_arch = "wasm32"))]
+        params.schemas.add("file", self::vfs::dir::Dir::new());
+        #[cfg(target_arch = "wasm32")]
+        params.schemas.add("http", self::vfs::http::Http::new());
 
-        self.sched.spawn(move || {
-            let mut bytes = bufs.write().unwrap().pop().unwrap_or(Vec::new());
-            let uri = vfs.locate(uuid).unwrap();
+        params
+    }
+}
 
-            if let Err(err) = vfs.read_to_end(&uri, &mut bytes) {
-                tx.set(Err(err));
-            } else {
-                tx.set(loader.load(&bytes));
-            }
+/// Setup the resource system.
+pub(crate) unsafe fn setup(params: ResourceParams) -> Result<(), failure::Error> {
+    debug_assert!(CTX.is_null(), "duplicated setup of resource system.");
 
-            promises.write().unwrap().remove(&uuid);
-            bytes.clear();
-            bufs.write().unwrap().push(bytes);
-        });
+    let ctx = ResourceSystem::new(params)?;
+    CTX = Box::into_raw(Box::new(ctx));
+    Ok(())
+}
 
-        Ok(latch)
+/// Attach manifests to this registry.
+pub(crate) fn load_manifests(dirs: Vec<String>) -> Result<Arc<CountLatch>, failure::Error> {
+    let latch = Arc::new(CountLatch::new());
+
+    for v in dirs {
+        let clone = latch.clone();
+        clone.increment();
+
+        let prefix = v.clone();
+        ctx().load_manifest_with_callback(v, move |rsp| {
+            let bytes = rsp
+                .with_context(|_| format!("Failed to load manifest from {}", prefix))
+                .unwrap();
+
+            let mut cursor = std::io::Cursor::new(bytes);
+            ctx().attach(&prefix, &mut cursor).unwrap();
+            clone.set();
+        })?;
     }
 
-    /// Blocks current thread until the loading process of resource `uuid` finished.
-    pub fn wait_until(&self, uuid: Uuid) -> Result<()> {
-        let promise = self.promises.read().unwrap().get(&uuid).cloned();
-        if let Some(promise) = promise {
-            self.sched.wait_until(promise.as_ref());
-            promise.take()
-        } else {
-            Ok(())
+    latch.set();
+    Ok(latch)
+}
+
+/// Discard the resource system.
+pub(crate) unsafe fn discard() {
+    if CTX.is_null() {
+        return;
+    }
+
+    drop(Box::from_raw(CTX as *mut ResourceSystem));
+    CTX = 0 as *const ResourceSystem;
+}
+
+/// Checks if the resource system is enabled.
+#[inline]
+pub fn valid() -> bool {
+    unsafe { !CTX.is_null() }
+}
+
+/// Resolve shortcuts in the provided string recursively and return None if not exists.
+#[inline]
+pub fn resolve<T: AsRef<str>>(url: T) -> Option<String> {
+    ctx().resolve(url)
+}
+
+/// Return the UUID of resource located at provided path, and return None if not exists.
+#[inline]
+pub fn find<T: AsRef<str>>(filename: T) -> Option<Uuid> {
+    ctx().find(filename)
+}
+
+/// Checks if the resource exists in this registry.
+#[inline]
+pub fn exists(uuid: Uuid) -> bool {
+    ctx().exists(uuid)
+}
+
+/// Loads file asynchronously with response callback.
+#[inline]
+pub fn load_with_callback<T>(uuid: Uuid, func: T) -> Result<(), failure::Error>
+where
+    T: FnOnce(Response) + Send + 'static,
+{
+    ctx().load_with_callback(uuid, func)
+}
+
+/// Loads file asynchronously with response callback.
+#[inline]
+pub fn load_from_with_callback<T1, T2>(filename: T1, func: T2) -> Result<(), failure::Error>
+where
+    T1: AsRef<str>,
+    T2: FnOnce(Response) + Send + 'static,
+{
+    ctx().load_from_with_callback(filename, func)
+}
+
+/// Loads file asynchronously. This method will returns a `Request` object immediatedly,
+/// its user's responsibility to store the object and frequently check it for completion.
+pub fn load(uuid: Uuid) -> Result<Request, failure::Error> {
+    ctx().load(uuid)
+}
+
+/// Loads file asynchronously. This method will returns a `Request` object immediatedly,
+/// its user's responsibility to store the object and frequently check it for completion.
+pub fn load_from<T: AsRef<str>>(filename: T) -> Result<Request, failure::Error> {
+    ctx().load_from(filename)
+}
+
+mod ins {
+    use super::system::ResourceSystem;
+
+    pub static mut CTX: *const ResourceSystem = 0 as *const ResourceSystem;
+
+    #[inline]
+    pub fn ctx() -> &'static ResourceSystem {
+        unsafe {
+            debug_assert!(
+                !CTX.is_null(),
+                "resource system has not been initialized properly."
+            );
+
+            &*CTX
         }
     }
 }

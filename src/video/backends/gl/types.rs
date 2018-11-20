@@ -1,89 +1,8 @@
 use gl;
 use gl::types::*;
-use std::borrow::Borrow;
 
 use super::super::super::assets::prelude::*;
 use super::capabilities::{Capabilities, TextureCompression, Version};
-use utils::handle;
-
-#[derive(Debug)]
-pub struct DataVec<T>
-where
-    T: Sized + Clone,
-{
-    pub buf: Vec<Option<T>>,
-    pub versions: Vec<u32>,
-}
-
-impl<T> DataVec<T>
-where
-    T: Sized + Clone,
-{
-    pub fn new() -> Self {
-        DataVec {
-            buf: Vec::new(),
-            versions: Vec::new(),
-        }
-    }
-
-    pub fn get<H>(&self, handle: H) -> Option<&T>
-    where
-        H: Borrow<handle::Handle>,
-    {
-        let index = handle.borrow().index() as usize;
-        if let Some(&v) = self.versions.get(index) {
-            if v == handle.borrow().version() {
-                return self.buf[index].as_ref();
-            }
-        }
-
-        None
-    }
-
-    pub fn get_mut<H>(&mut self, handle: H) -> Option<&mut T>
-    where
-        H: Borrow<handle::Handle>,
-    {
-        let index = handle.borrow().index() as usize;
-        if let Some(&v) = self.versions.get(index) {
-            if v == handle.borrow().version() {
-                return self.buf[index].as_mut();
-            }
-        }
-
-        None
-    }
-
-    pub fn create<H>(&mut self, handle: H, value: T)
-    where
-        H: Borrow<handle::Handle>,
-    {
-        let handle = handle.borrow();
-        let index = handle.index() as usize;
-
-        if self.buf.len() <= index {
-            self.buf.resize(index + 1, None);
-            self.versions.resize(index + 1, 1);
-        }
-
-        self.buf[index] = Some(value);
-        self.versions[index] = handle.version();
-    }
-
-    pub fn free<H>(&mut self, handle: H) -> Option<T>
-    where
-        H: Borrow<handle::Handle>,
-    {
-        let handle = handle.borrow();
-        if self.buf.len() <= handle.index() as usize {
-            None
-        } else {
-            let mut value = None;
-            ::std::mem::swap(&mut value, &mut self.buf[handle.index() as usize]);
-            value
-        }
-    }
-}
 
 impl From<MeshHint> for GLenum {
     fn from(hint: MeshHint) -> Self {
@@ -183,6 +102,8 @@ pub fn texture_format(format: TextureFormat, caps: &Capabilities) -> (GLenum, GL
     // gl::COMPRESSED_RGB_PVRTC_4BPPV1_IMG = 0x8C00
     // gl::COMPRESSED_RGBA_PVRTC_2BPPV1_IMG = 0x8C03
     // gl::COMPRESSED_RGBA_PVRTC_4BPPV1_IMG = 0x8C02
+    // gl::COMPRESSED_RGB8_ETC2 = 0x9274
+    // gl::COMPRESSED_RGBA8_ETC2_EAC = 0x9278
 
     if sized {
         match format {
@@ -202,10 +123,8 @@ pub fn texture_format(format: TextureFormat, caps: &Capabilities) -> (GLenum, GL
             TextureFormat::RG32F => (gl::RG32F, gl::RG, gl::FLOAT),
             TextureFormat::RGB32F => (gl::RGB32F, gl::RGB, gl::FLOAT),
             TextureFormat::RGBA32F => (gl::RGBA32F, gl::RGBA, gl::FLOAT),
-            TextureFormat::Etc2RGB4BPP => (gl::COMPRESSED_RGB8_ETC2, gl::RGB, gl::UNSIGNED_BYTE),
-            TextureFormat::Etc2RGBA8BPP => {
-                (gl::COMPRESSED_RGBA8_ETC2_EAC, gl::RGB, gl::UNSIGNED_BYTE)
-            }
+            TextureFormat::Etc2RGB4BPP => (0x9274, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::Etc2RGBA8BPP => (0x9278, gl::RGB, gl::UNSIGNED_BYTE),
             TextureFormat::S3tcDxt1RGB4BPP => (0x83F0, gl::RGB, gl::UNSIGNED_BYTE),
             TextureFormat::S3tcDxt5RGBA8BPP => (0x83F3, gl::RGBA, gl::UNSIGNED_BYTE),
             TextureFormat::PvrtcRGB2BPP => (0x8C01, gl::RGB, gl::UNSIGNED_BYTE),
@@ -231,10 +150,8 @@ pub fn texture_format(format: TextureFormat, caps: &Capabilities) -> (GLenum, GL
             TextureFormat::RG32F => (gl::RG, gl::RG, gl::FLOAT),
             TextureFormat::RGB32F => (gl::RGB, gl::RGB, gl::FLOAT),
             TextureFormat::RGBA32F => (gl::RGBA, gl::RGBA, gl::FLOAT),
-            TextureFormat::Etc2RGB4BPP => (gl::COMPRESSED_RGB8_ETC2, gl::RGB, gl::UNSIGNED_BYTE),
-            TextureFormat::Etc2RGBA8BPP => {
-                (gl::COMPRESSED_RGBA8_ETC2_EAC, gl::RGB, gl::UNSIGNED_BYTE)
-            }
+            TextureFormat::Etc2RGB4BPP => (0x9274, gl::RGB, gl::UNSIGNED_BYTE),
+            TextureFormat::Etc2RGBA8BPP => (0x9278, gl::RGB, gl::UNSIGNED_BYTE),
             TextureFormat::S3tcDxt1RGB4BPP => (0x83F0, gl::RGB, gl::UNSIGNED_BYTE),
             TextureFormat::S3tcDxt5RGBA8BPP => (0x83F3, gl::RGBA, gl::UNSIGNED_BYTE),
             TextureFormat::PvrtcRGB2BPP => (0x8C01, gl::RGB, gl::UNSIGNED_BYTE),
@@ -261,20 +178,6 @@ impl TextureFormat {
                 capabilities.has_compression(TextureCompression::S3TC)
             }
             _ => true,
-        }
-    }
-
-    pub fn is_compression(&self) -> bool {
-        match *self {
-            TextureFormat::Etc2RGB4BPP
-            | TextureFormat::Etc2RGBA8BPP
-            | TextureFormat::PvrtcRGB2BPP
-            | TextureFormat::PvrtcRGB4BPP
-            | TextureFormat::PvrtcRGBA2BPP
-            | TextureFormat::PvrtcRGBA4BPP
-            | TextureFormat::S3tcDxt1RGB4BPP
-            | TextureFormat::S3tcDxt5RGBA8BPP => true,
-            _ => false,
         }
     }
 }

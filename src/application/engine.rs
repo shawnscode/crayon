@@ -1,219 +1,150 @@
-use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
 
-use super::*;
-use input;
-use res;
-use sched;
-use video;
+use sched::prelude::LatchProbe;
+use window::prelude::{Event, EventListener, EventListenerHandle, WindowEvent};
+
+use super::lifecycle::LifecycleListener;
+use super::Params;
 
 type Result<T> = ::std::result::Result<T, ::failure::Error>;
-
-#[derive(Default, Copy, Clone)]
-struct ContextData {
-    shutdown: bool,
-}
-
-/// The context of sub-systems that could be accessed from multi-thread environments safely.
-#[derive(Clone)]
-pub struct Context {
-    pub res: Arc<res::ResourceSystemShared>,
-    pub input: Arc<input::InputSystemShared>,
-    pub time: Arc<time::TimeSystemShared>,
-    pub video: Arc<video::VideoSystemShared>,
-    pub window: Arc<window::WindowShared>,
-    pub sched: Arc<sched::ScheduleSystemShared>,
-
-    data: Arc<RwLock<ContextData>>,
-}
-
-impl Context {
-    /// Shutdown the whole application at the end of this frame.
-    pub fn shutdown(&self) {
-        self.data.write().unwrap().shutdown = true;
-    }
-
-    /// Returns true if we are going to shutdown the application at the end of this frame.
-    pub fn is_shutdown(&self) -> bool {
-        self.data.read().unwrap().shutdown
-    }
-}
 
 /// `Engine` is the root object of the game application. It binds various sub-systems in
 /// a central place and takes take of trivial tasks like the execution order or life-time
 /// management.
-pub struct Engine {
-    pub window: window::Window,
-    pub input: input::InputSystem,
-    pub video: video::VideoSystem,
-    pub res: res::ResourceSystem,
-    pub time: time::TimeSystem,
-    pub sched: sched::ScheduleSystem,
-
-    context: Context,
-    headless: bool,
+pub struct EngineSystem {
+    events: EventListenerHandle,
+    state: Arc<EngineState>,
 }
 
-impl Engine {
-    /// Constructs a new, empty engine.
-    pub fn new() -> Result<Self> {
-        Engine::new_with(&Settings::default())
-    }
+struct EngineState {
+    alive: Mutex<bool>,
+}
 
+impl EventListener for Arc<EngineState> {
+    fn on(&mut self, v: &Event) -> Result<()> {
+        if let &Event::Window(WindowEvent::Closed) = v {
+            *self.alive.lock().unwrap() = false;
+        }
+
+        Ok(())
+    }
+}
+
+impl Drop for EngineSystem {
+    fn drop(&mut self) {
+        crate::window::detach(self.events);
+
+        unsafe {
+            crate::res::discard();
+            crate::input::discard();
+            crate::video::discard();
+            crate::window::discard();
+            crate::sched::discard();
+        }
+    }
+}
+
+impl EngineSystem {
     /// Setup engine with specified settings.
-    pub fn new_with(settings: &Settings) -> Result<Self> {
-        let sched = sched::ScheduleSystem::new(6, None, None);
-        let sched_shared = sched.shared();
+    pub unsafe fn new(params: Params) -> Result<Self> {
+        #[cfg(not(target_arch = "wasm32"))]
+        crate::sched::setup(4, None, None);
+        #[cfg(target_arch = "wasm32")]
+        crate::sched::setup(0, None, None);
 
-        let input = input::InputSystem::new(settings.input);
-        let input_shared = input.shared();
+        crate::window::setup(params.window)?;
+        crate::video::setup()?;
+        crate::input::setup(params.input);
+        crate::res::setup(params.res)?;
 
-        let window = if settings.headless {
-            window::Window::headless()
-        } else {
-            window::Window::new(settings.window.clone())?
+        let state = Arc::new(EngineState {
+            alive: Mutex::new(true),
+        });
+
+        let sys = EngineSystem {
+            events: crate::window::attach(state.clone()),
+            state: state,
         };
 
-        let res = res::ResourceSystem::new(sched_shared.clone())?;
-        let res_shared = res.shared();
-
-        let video = if settings.headless {
-            video::VideoSystem::headless(res_shared.clone())
-        } else {
-            video::VideoSystem::new(&window, res_shared.clone())?
-        };
-
-        let video_shared = video.shared();
-
-        let time = time::TimeSystem::new(settings.engine);
-        let time_shared = time.shared();
-
-        let context = Context {
-            res: res_shared,
-            input: input_shared,
-            time: time_shared,
-            video: video_shared,
-            window: window.shared(),
-            sched: sched_shared,
-            data: Arc::new(RwLock::new(ContextData::default())),
-        };
-
-        Ok(Engine {
-            input: input,
-            window: window,
-            video: video,
-            res: res,
-            time: time,
-            sched: sched,
-
-            context: context,
-            headless: settings.headless,
-        })
+        Ok(sys)
     }
 
-    pub fn context(&self) -> &Context {
-        &self.context
+    pub unsafe fn headless(params: Params) -> Result<Self> {
+        #[cfg(not(target_arch = "wasm32"))]
+        crate::sched::setup(4, None, None);
+        #[cfg(target_arch = "wasm32")]
+        crate::sched::setup(0, None, None);
+
+        crate::window::headless();
+        crate::video::headless();
+        crate::input::setup(params.input);
+        crate::res::setup(params.res)?;
+
+        let state = Arc::new(EngineState {
+            alive: Mutex::new(true),
+        });
+
+        let sys = EngineSystem {
+            events: crate::window::attach(state.clone()),
+            state: state,
+        };
+
+        Ok(sys)
     }
 
-    /// Run the main loop of `Engine`, this will block the working
-    /// thread until we finished.
-    pub fn run<T>(mut self, application: T) -> Result<Self>
+    pub fn shutdown(&self) {
+        *self.state.alive.lock().unwrap() = false;
+    }
+
+    pub fn run_headless(&self) -> Result<()> {
+        super::foreach(|v| v.on_pre_update())?;
+        super::foreach(|v| v.on_update())?;
+        super::foreach(|v| v.on_render())?;
+        super::foreach_rev(|v| v.on_post_update())?;
+        Ok(())
+    }
+
+    pub fn run<L, T, T2>(&self, latch: L, closure: T) -> Result<()>
     where
-        T: Application + Send + Sync + 'static,
+        L: LatchProbe + 'static,
+        T: FnOnce() -> Result<T2> + 'static,
+        T2: LifecycleListener + Send + 'static,
     {
-        let application = Arc::new(RwLock::new(application));
+        let state = self.state.clone();
+        let mut closure = Some(closure);
 
-        let dir = ::std::env::current_dir()?;
-        info!("CWD: {:?}.", dir);
+        super::sys::run_forever(
+            move || {
+                super::foreach(|v| v.on_pre_update())?;
+                super::foreach_rev(|v| v.on_post_update())?;
+                Ok(!latch.is_set())
+            },
+            move || {
+                let mut v = None;
+                std::mem::swap(&mut closure, &mut v);
 
-        let latch = Arc::new(sched::latch::LockLatch::new());
-        Self::execute_frame(&self.context, latch.clone(), application.clone());
+                let application = crate::application::attach(v.unwrap()()?);
+                let state = state.clone();
 
-        let mut alive = true;
-        while alive {
-            self.input.advance(self.window.hidpi());
+                super::sys::run_forever(
+                    move || {
+                        super::foreach(|v| v.on_pre_update())?;
+                        super::foreach(|v| v.on_update())?;
+                        super::foreach(|v| v.on_render())?;
+                        super::foreach_rev(|v| v.on_post_update())?;
+                        Ok(*state.alive.lock().unwrap())
+                    },
+                    move || {
+                        crate::application::detach(application);
+                        unsafe { super::late_discard() };
+                        Ok(())
+                    },
+                )?;
 
-            // Poll any possible events first.
-            for v in self.window.advance() {
-                match *v {
-                    events::Event::Application(value) => {
-                        {
-                            let mut application = application.write().unwrap();
-                            application.on_receive_event(&self.context, value)?;
-                        }
+                Ok(())
+            },
+        )?;
 
-                        if let events::ApplicationEvent::Closed = value {
-                            alive = false;
-                        }
-                    }
-
-                    events::Event::InputDevice(value) => self.input.update_with(value),
-                }
-            }
-
-            alive = alive && !self.context.is_shutdown();
-            if !alive {
-                break;
-            }
-
-            self.time.advance();
-            self.video.swap_frames();
-
-            let (video_info, duration) = {
-                let duration = latch.wait_and_take()?;
-
-                // Perform update and render submitting for frame [x], and drawing
-                // frame [x-1] at the same time.
-                Self::execute_frame(&self.context, latch.clone(), application.clone());
-                // This will block the main-thread until all the video commands is finished by GPU.
-                let video_info = self.video.advance(&self.window)?;
-                (video_info, duration)
-            };
-
-            self.window.swap_buffers()?;
-
-            {
-                let info = FrameInfo {
-                    video: video_info,
-                    duration: duration,
-                    fps: self.time.shared().get_fps(),
-                };
-
-                let mut application = application.write().unwrap();
-                application.on_post_update(&self.context, &info)?;
-            }
-
-            alive = alive && !self.context.is_shutdown() && !self.headless;
-        }
-
-        {
-            let mut application = application.write().unwrap();
-            application.on_exit(&self.context)?;
-        }
-
-        self.sched.terminate();
-        self.sched.wait_until_terminated();
-        Ok(self)
-    }
-
-    fn execute_frame<T>(
-        ctx: &Context,
-        latch: Arc<sched::latch::LockLatch<Result<Duration>>>,
-        app: Arc<RwLock<T>>,
-    ) where
-        T: Application + Send + Sync + 'static,
-    {
-        let run = |ctx, app: Arc<RwLock<T>>| {
-            let ts = Instant::now();
-
-            let mut application = app.write().unwrap();
-            application.on_update(&ctx)?;
-            application.on_render(&ctx)?;
-
-            Ok(Instant::now() - ts)
-        };
-
-        let ctx_clone = ctx.clone();
-        ctx.sched.spawn(move || latch.set(run(ctx_clone, app)));
+        Ok(())
     }
 }

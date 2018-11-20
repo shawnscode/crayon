@@ -1,6 +1,7 @@
 //! Immutable or dynamic vertex and index data.
 
-use math;
+use math::prelude::Aabb3;
+use smallvec::SmallVec;
 use video::assets::shader::Attribute;
 use video::errors::{Error, Result};
 use video::MAX_VERTEX_ATTRIBUTES;
@@ -23,9 +24,9 @@ pub struct MeshParams {
     /// The number of indices in this mesh.
     pub num_idxes: usize,
     /// The start indices of sub-meshes.
-    pub sub_mesh_offsets: Vec<usize>,
+    pub sub_mesh_offsets: SmallVec<[usize; 8]>,
     /// Trivial bounding box of vertices.
-    pub aabb: math::Aabb3<f32>,
+    pub aabb: Aabb3<f32>,
 }
 
 /// Continuous data of vertices and its indices.
@@ -46,8 +47,8 @@ impl Default for MeshParams {
             primitive: MeshPrimitive::Triangles,
             num_verts: 0,
             num_idxes: 0,
-            aabb: math::Aabb3::zero(),
-            sub_mesh_offsets: Vec::new(),
+            aabb: Aabb3::zero(),
+            sub_mesh_offsets: SmallVec::new(),
         }
     }
 }
