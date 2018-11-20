@@ -167,25 +167,9 @@ impl LifecycleListener for Window {
     }
 }
 
-fn run() {
+main!({
     let mut params = Params::default();
     params.window.title = "CR: RenderTexture".into();
     params.window.size = (568, 320).into();
     crayon::application::setup(params, || Window::new()).unwrap();
-}
-
-fn main() {
-    #[cfg(not(target_arch = "wasm32"))]
-    run();
-}
-
-#[cfg(target_arch = "wasm32")]
-extern crate wasm_bindgen;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::wasm_bindgen;
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub fn wasm_main() {
-    run();
-}
+});

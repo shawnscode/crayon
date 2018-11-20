@@ -33,7 +33,7 @@ extern crate console_error_panic_hook;
 #[cfg(target_arch = "wasm32")]
 extern crate js_sys;
 #[cfg(target_arch = "wasm32")]
-extern crate wasm_bindgen;
+pub extern crate wasm_bindgen;
 #[cfg(target_arch = "wasm32")]
 extern crate web_sys;
 
@@ -74,3 +74,23 @@ pub mod prelude;
 pub mod res;
 pub mod sched;
 pub mod window;
+
+#[macro_export]
+macro_rules! main {
+    ($codes: block) => {
+        #[cfg(target_arch = "wasm32")]
+        extern crate wasm_bindgen;
+        #[cfg(target_arch = "wasm32")]
+        use wasm_bindgen::prelude::wasm_bindgen;
+        #[cfg(target_arch = "wasm32")]
+        #[wasm_bindgen]
+        pub fn run() {
+            $codes
+        }
+
+        fn main() {
+            #[cfg(not(target_arch = "wasm32"))]
+            $codes
+        }
+    };
+}

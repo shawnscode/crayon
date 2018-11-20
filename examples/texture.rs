@@ -90,7 +90,7 @@ impl LifecycleListener for Window {
     }
 }
 
-fn run() {
+main!({
     #[cfg(not(target_arch = "wasm32"))]
     let res = format!("file://{}/examples/resources/", env!("CARGO_MANIFEST_DIR"));
     #[cfg(target_arch = "wasm32")]
@@ -102,22 +102,4 @@ fn run() {
     params.res.shortcuts.add("res:", res).unwrap();
     params.res.dirs.push("res:".into());
     crayon::application::setup(params, || Window::new()).unwrap();
-}
-
-fn main() {
-    env_logger::init();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    run();
-}
-
-#[cfg(target_arch = "wasm32")]
-extern crate wasm_bindgen;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::wasm_bindgen;
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub fn wasm_main() {
-    run();
-}
+});

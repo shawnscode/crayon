@@ -1,5 +1,5 @@
 import('./dist/native')
     .then(wasm => {
-        wasm.wasm_main();
+        wasm.run();
     })
     .catch(console.error);
