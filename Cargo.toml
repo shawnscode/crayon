@@ -55,8 +55,8 @@ features = [
     'UiEvent'
 ]
 
-# [workspace]
-# members = [ "modules/world" ]
+[workspace]
+members = [ "modules/world" ]
 
 [dependencies]
 failure = "0.1.2"

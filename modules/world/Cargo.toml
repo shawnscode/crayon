@@ -1,0 +1,23 @@
+[package]
+name = "crayon-world"
+version = "0.1.0"
+authors = ["Jingkai Mao <oammix@gmail.com>"]
+description = "Just another 3d module."
+repository = "https://github.com/shawnscode/crayon"
+license = "Apache-2.0"
+keywords = ["crayon", "game-dev", "scene", "3d"]
+categories = ["multimedia", "game-engines"]
+
+[dependencies]
+crayon = { path = "../../", version = "0.7.0" }
+serde = { version = "1.0.79", features = ["serde_derive"] }
+failure = "0.1.2"
+inlinable_string = { version = "0.1.10", features = ["serde"] }
+
+[dev-dependencies]
+rand = "0.5.5"
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen = "0.2.28"
+
+[features]
+physics = []
