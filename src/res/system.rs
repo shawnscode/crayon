@@ -1,5 +1,5 @@
 use std::io::Read;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 use uuid::Uuid;
 
@@ -16,17 +16,17 @@ pub struct ResourceSystem {
     shortcut: ShortcutResolver,
     schemas: SchemaResolver,
     manifest: RwLock<ManfiestResolver>,
-    requests: Arc<Mutex<RequestQueue>>,
+    requests: Arc<RequestQueue>,
     lifecycle: LifecycleListenerHandle,
 }
 
 struct Lifecycle {
-    requests: Arc<Mutex<RequestQueue>>,
+    requests: Arc<RequestQueue>,
 }
 
 impl LifecycleListener for Lifecycle {
     fn on_post_update(&mut self) -> Result<(), failure::Error> {
-        self.requests.lock().unwrap().advance();
+        self.requests.advance();
         Ok(())
     }
 }
@@ -41,7 +41,7 @@ impl ResourceSystem {
     pub fn new(params: ResourceParams) -> Result<Self, failure::Error> {
         debug_assert!(crate::application::valid(), "");
 
-        let requests = Arc::new(Mutex::new(RequestQueue::new()));
+        let requests = Arc::new(RequestQueue::new());
         let sys = ResourceSystem {
             shortcut: params.shortcuts,
             schemas: params.schemas,
@@ -92,10 +92,10 @@ impl ResourceSystem {
     #[inline]
     pub fn load_with_callback<T>(&self, uuid: Uuid, func: T) -> Result<(), failure::Error>
     where
-        T: FnOnce(Response) + 'static,
+        T: FnOnce(Response) + Send + 'static,
     {
         let req = self.load(uuid)?;
-        self.requests.lock().unwrap().add(req, func);
+        self.requests.add(req, func);
         Ok(())
     }
 
@@ -107,7 +107,7 @@ impl ResourceSystem {
     ) -> Result<(), failure::Error>
     where
         T1: AsRef<str>,
-        T2: FnOnce(Response) + 'static,
+        T2: FnOnce(Response) + Send + 'static,
     {
         let filename = format!("{}{}", filename.as_ref(), super::manifest::NAME);
         let url = self
@@ -118,7 +118,7 @@ impl ResourceSystem {
 
         let state = Request::latch();
         let req = Request::new(state.clone());
-        self.requests.lock().unwrap().add(req, func);
+        self.requests.add(req, func);
 
         let vfs = self.schemas.locate(url.schema())?;
         crate::sched::spawn(move || vfs.request(&url, state));
@@ -135,11 +135,11 @@ impl ResourceSystem {
     ) -> Result<(), failure::Error>
     where
         T1: AsRef<str>,
-        T2: FnOnce(Response) + 'static,
+        T2: FnOnce(Response) + Send + 'static,
     {
         let filename = filename.as_ref();
         let req = self.load_from(filename)?;
-        self.requests.lock().unwrap().add(req, func);
+        self.requests.add(req, func);
         Ok(())
     }
 

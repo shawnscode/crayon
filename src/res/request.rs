@@ -1,6 +1,6 @@
 //! A asynchronous loading request.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use sched::prelude::{LatchProbe, LockLatch};
 
@@ -75,19 +75,21 @@ impl Into<Option<Response>> for Request {
 
 pub struct RequestQueue {
     // FIXME: Use FnOnce instead of Box<Fn> when its stable.
-    tasks: Vec<(Request, Box<FnMut(Response)>)>,
-    idxes: Vec<usize>,
+    last_frame_tasks: Mutex<Vec<(Request, Box<dyn FnMut(Response) + Send>)>>,
+    tasks: Mutex<Vec<(Request, Box<dyn FnMut(Response) + Send>)>>,
+    idxes: Mutex<Vec<usize>>,
 }
 
 impl RequestQueue {
     pub fn new() -> Self {
         RequestQueue {
-            tasks: Vec::new(),
-            idxes: Vec::new(),
+            last_frame_tasks: Mutex::new(Vec::new()),
+            tasks: Mutex::new(Vec::new()),
+            idxes: Mutex::new(Vec::new()),
         }
     }
 
-    pub fn add<T: FnOnce(Response) + 'static>(&mut self, request: Request, func: T) {
+    pub fn add<T: FnOnce(Response) + Send + 'static>(&self, request: Request, func: T) {
         let mut v = Some(func);
         let wrapper = move |rsp| {
             let mut w = None;
@@ -98,23 +100,34 @@ impl RequestQueue {
             }
         };
 
-        self.tasks.push((request, Box::new(wrapper)));
+        self.last_frame_tasks
+            .lock()
+            .unwrap()
+            .push((request, Box::new(wrapper)));
     }
 
-    pub fn advance(&mut self) {
-        self.idxes.clear();
+    pub fn advance(&self) {
+        let mut idxes = self.idxes.lock().unwrap();
+        idxes.clear();
+
+        let mut tasks = self.tasks.lock().unwrap();
+
+        {
+            let mut last_frame_tasks = self.last_frame_tasks.lock().unwrap();
+            tasks.extend(last_frame_tasks.drain(..));
+        }
 
         // FIXME: Use drain_filter instead of retain and `for` iteration.
-        for (i, &mut (ref mut request, _)) in self.tasks.iter_mut().rev().enumerate() {
+        for (i, &mut (ref mut request, _)) in tasks.iter_mut().enumerate().rev() {
             if request.poll() {
-                self.idxes.push(i)
+                idxes.push(i)
             }
         }
 
-        for i in self.idxes.drain(..) {
-            let (request, mut func) = self.tasks.remove(i);
+        for i in idxes.drain(..) {
+            let (request, mut func) = tasks.remove(i);
             let v: Option<Response> = request.into();
-            func(v.unwrap());
+            crate::sched::spawn(move || func(v.unwrap()));
         }
     }
 }

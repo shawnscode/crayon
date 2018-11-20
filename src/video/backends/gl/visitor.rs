@@ -845,50 +845,49 @@ impl Visitor for GLVisitor {
             }
         }
 
-        // Bind vertex buffer and vertex array object.
-        let mesh = self
-            .meshes
-            .get(mesh)
-            .ok_or_else(|| format_err!("{:?} is invalid.", mesh))?;
+        if let Some(mesh) = self.meshes.get(mesh) {
+            // Bind vertex buffer and vertex array object.
+            Self::bind_mesh(&mut self.state, &shader, &mesh)?;
 
-        Self::bind_mesh(&mut self.state, &shader, &mesh)?;
+            let (from, len) = match mesh_index {
+                MeshIndex::Ptr(from, len) => {
+                    if (from + len) > mesh.params.num_idxes {
+                        bail!("MeshIndex is out of bounds");
+                    }
 
-        let (from, len) = match mesh_index {
-            MeshIndex::Ptr(from, len) => {
-                if (from + len) > mesh.params.num_idxes {
-                    bail!("MeshIndex is out of bounds");
+                    ((from * mesh.params.index_format.stride()), len)
                 }
+                MeshIndex::SubMesh(index) => {
+                    let num = mesh.params.sub_mesh_offsets.len();
+                    let from = mesh
+                        .params
+                        .sub_mesh_offsets
+                        .get(index)
+                        .ok_or_else(|| format_err!("MeshIndex is out of bounds"))?;
 
-                ((from * mesh.params.index_format.stride()), len)
-            }
-            MeshIndex::SubMesh(index) => {
-                let num = mesh.params.sub_mesh_offsets.len();
-                let from = mesh
-                    .params
-                    .sub_mesh_offsets
-                    .get(index)
-                    .ok_or_else(|| format_err!("MeshIndex is out of bounds"))?;
+                    let to = if index == (num - 1) {
+                        mesh.params.num_idxes
+                    } else {
+                        mesh.params.sub_mesh_offsets[index + 1]
+                    };
 
-                let to = if index == (num - 1) {
-                    mesh.params.num_idxes
-                } else {
-                    mesh.params.sub_mesh_offsets[index + 1]
-                };
+                    ((from * mesh.params.index_format.stride()), (to - from))
+                }
+                MeshIndex::All => (0, mesh.params.num_idxes),
+            };
 
-                ((from * mesh.params.index_format.stride()), (to - from))
-            }
-            MeshIndex::All => (0, mesh.params.num_idxes),
-        };
+            gl::DrawElements(
+                mesh.params.primitive.into(),
+                len as i32,
+                mesh.params.index_format.into(),
+                from as *const u32 as *const ::std::os::raw::c_void,
+            );
 
-        gl::DrawElements(
-            mesh.params.primitive.into(),
-            len as i32,
-            mesh.params.index_format.into(),
-            from as *const u32 as *const ::std::os::raw::c_void,
-        );
-
-        check()?;
-        Ok(mesh.params.primitive.assemble(len as u32))
+            check()?;
+            Ok(mesh.params.primitive.assemble(len as u32))
+        } else {
+            Ok(0)
+        }
     }
 
     unsafe fn flush(&mut self) -> Result<()> {

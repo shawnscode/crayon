@@ -50,6 +50,7 @@ pub mod utils;
 pub mod vfs;
 
 pub mod prelude {
+    pub use super::utils::prelude::ResourceState;
     pub use super::ResourceParams;
 }
 
@@ -163,7 +164,7 @@ pub fn exists(uuid: Uuid) -> bool {
 #[inline]
 pub fn load_with_callback<T>(uuid: Uuid, func: T) -> Result<(), failure::Error>
 where
-    T: FnOnce(Response) + 'static,
+    T: FnOnce(Response) + Send + 'static,
 {
     ctx().load_with_callback(uuid, func)
 }
@@ -173,7 +174,7 @@ where
 pub fn load_from_with_callback<T1, T2>(filename: T1, func: T2) -> Result<(), failure::Error>
 where
     T1: AsRef<str>,
-    T2: FnOnce(Response) + 'static,
+    T2: FnOnce(Response) + Send + 'static,
 {
     ctx().load_from_with_callback(filename, func)
 }

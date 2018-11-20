@@ -39,7 +39,7 @@ impl ResourceLoader for TextureLoader {
         let data = bincode::deserialize_from(&mut file)?;
 
         info!(
-            "[TextureLoader] loads {:?} ({}x{} - {:?}).",
+            "[TextureLoader] load {:?} ({}x{} - {:?}).",
             handle, params.dimensions.x, params.dimensions.y, params.format
         );
 
@@ -47,7 +47,7 @@ impl ResourceLoader for TextureLoader {
     }
 
     fn create(&self, handle: Self::Handle, item: Self::Intermediate) -> Result<Self::Resource> {
-        info!("[TextureLoader] creates {:?}.", handle);
+        info!("[TextureLoader] create {:?}.", handle);
 
         item.0.validate(item.1.as_ref())?;
 
@@ -58,7 +58,7 @@ impl ResourceLoader for TextureLoader {
     }
 
     fn delete(&self, handle: Self::Handle, _: Self::Resource) {
-        info!("[TextureLoader] deletes {:?}.", handle);
+        info!("[TextureLoader] delete {:?}.", handle);
 
         let cmd = Command::DeleteTexture(handle);
         self.frames.write().cmds.push(cmd);

@@ -39,7 +39,7 @@ impl ResourceLoader for MeshLoader {
         let data = bincode::deserialize_from(&mut file)?;
 
         info!(
-            "[MeshLoader] loads {:?}. (Verts: {}, Indxes: {})",
+            "[MeshLoader] load {:?}. (Verts: {}, Indxes: {})",
             handle, params.num_verts, params.num_idxes
         );
 
@@ -47,6 +47,7 @@ impl ResourceLoader for MeshLoader {
     }
 
     fn create(&self, handle: Self::Handle, item: Self::Intermediate) -> Result<Self::Resource> {
+        info!("[MeshLoader] create {:?}.", handle);
         item.0.validate(item.1.as_ref())?;
         let cmd = Command::CreateMesh(handle, item.0.clone(), item.1);
         self.frames.write().cmds.push(cmd);
@@ -54,6 +55,7 @@ impl ResourceLoader for MeshLoader {
     }
 
     fn delete(&self, handle: Self::Handle, _: Self::Resource) {
+        info!("[MeshLoader] delete {:?}.", handle);
         let cmd = Command::DeleteMesh(handle);
         self.frames.write().cmds.push(cmd);
     }
