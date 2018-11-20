@@ -56,7 +56,7 @@ features = [
 ]
 
 [workspace]
-members = [ "modules/world" ]
+members = [ "modules/world", "modules/audio" ]
 
 [dependencies]
 failure = "0.1.2"

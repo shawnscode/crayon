@@ -4,53 +4,29 @@ extern crate crayon_world;
 use crayon::prelude::*;
 use crayon_world::prelude::*;
 
-trait GameState: Send {
-    fn on_update(&mut self) -> crayon::errors::Result<Option<Box<dyn GameState>>>;
-}
-
-struct GameStateMachine {
-    active: Box<dyn GameState>,
-}
-
-impl GameStateMachine {
-    fn new() -> crayon::errors::Result<Self> {
-        crayon_world::setup()?;
-
-        Ok(GameStateMachine {
-            active: Box::new(WindowResources::new()?),
-        })
-    }
-}
-
-impl LifecycleListener for GameStateMachine {
-    fn on_update(&mut self) -> crayon::errors::Result<()> {
-        if let Some(state) = self.active.on_update()? {
-            self.active = state;
-        }
-
-        Ok(())
-    }
-}
-
 struct WindowResources {
     cornell_box: PrefabHandle,
 }
 
+impl LatchProbe for WindowResources {
+    fn is_set(&self) -> bool {
+        crayon_world::prefab_state(self.cornell_box) != ResourceState::NotReady
+    }
+}
+
 impl WindowResources {
-    fn new() -> crayon::errors::Result<Self> {
+    pub fn new() -> crayon::errors::Result<Self> {
+        crayon_world::setup()?;
         Ok(WindowResources {
             cornell_box: crayon_world::create_prefab_from("res:cornell_box.obj")?,
         })
     }
 }
 
-impl GameState for WindowResources {
-    fn on_update(&mut self) -> crayon::errors::Result<Option<Box<dyn GameState>>> {
-        if crayon_world::prefab_state(self.cornell_box) != ResourceState::NotReady {
-            Ok(Some(Box::new(Window::new(self)?)))
-        } else {
-            Ok(None)
-        }
+impl Drop for WindowResources {
+    fn drop(&mut self) {
+        crayon_world::delete_prefab(self.cornell_box);
+        crayon_world::discard();
     }
 }
 
@@ -94,8 +70,8 @@ impl Window {
     }
 }
 
-impl GameState for Window {
-    fn on_update(&mut self) -> crayon::errors::Result<Option<Box<dyn GameState>>> {
+impl LifecycleListener for Window {
+    fn on_update(&mut self) -> crayon::errors::Result<()> {
         self.scene.draw();
 
         if let GesturePan::Move { movement, .. } = input::finger_pan() {
@@ -103,7 +79,7 @@ impl GameState for Window {
             self.scene.rotate(self.room, rotation);
         }
 
-        Ok(None)
+        Ok(())
     }
 }
 
@@ -124,5 +100,8 @@ main!({
     params.res.dirs.push("res:".into());
     params.input.touch_emulation = true;
 
-    crayon::application::setup(params, || GameStateMachine::new()).unwrap();
+    crayon::application::setup(params, || {
+        let resources = WindowResources::new()?;
+        Ok(Launcher::new(resources, |r| Window::new(r)))
+    }).unwrap();
 });
