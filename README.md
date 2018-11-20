@@ -9,7 +9,7 @@ Crayon is a small, portable and extensible game framework, which loosely inspire
 
 Some goals include:
 
-- Intuitive c style (lifetime free) interfaces and extensible through external code modules;
+- Intuitive lifetime free interfaces and extensible through external code modules;
 - Run on PCs, Mobiles and Web browsers from the same source;
 - Stateless, layered, multithread render system with OpenGL(ES) 3.0 or WebGL 2.0 backend;
 - Simplified assets workflow and asynchronous data loading from various filesystem;
@@ -18,12 +18,6 @@ Some goals include:
 - etc.
 
 This project adheres to [Semantic Versioning](http://semver.org/), all notable changes will be documented in this [file](./CHANGELOG.md).
-
-### Assets Workflow
-
-The asset workflow comes with the version 0.5.0. During the development, the assets could be stored in formats which could producing and editing by authoring tools directly, and it will be compiled into some kind of effecient format for runtime (which is dependent on platform and hardware devices usually).
-
-The assets manipulation codes are placed under [crayon-tools](https://github.com/shawnscode/crayon-tools), checks out the repository for further details.
 
 ### Quick Example
 
@@ -34,5 +28,15 @@ git clone git@github.com:shawnscode/crayon.git && cd crayon/examples
 cargo run --bin render_texture
 ```
 
+You can also check out [examples](./examples) folder for screenshots.
+
+### Assets Workflow
+
+The asset workflow comes with the version 0.5.0. During the development, the assets could be stored in formats which could producing and editing by authoring tools directly, and it will be compiled into some kind of effecient format for runtime (which is dependent on platform and hardware devices usually).
+
+The assets manipulation codes are placed under [crayon-tools](https://github.com/shawnscode/crayon-tools), checks out the repository for further details.
+
 ### Platform-Specific
+
+The WebAssembly supports is based on [wasm-bindgen](https://github.com/rustwasm/wasm-bindgen) and [web-sys](https://github.com/rustwasm/wasm-bindgen/tree/master/crates/web-sys), you could find detailed build instruction in the [documents](https://rustwasm.github.io/wasm-bindgen/). And there is a simple wasm template under [tools](./tools/wasm-template) folder might helps.
 
