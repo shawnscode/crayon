@@ -40,3 +40,6 @@ The assets manipulation codes are placed under [crayon-tools](https://github.com
 
 The WebAssembly supports is based on [wasm-bindgen](https://github.com/rustwasm/wasm-bindgen) and [web-sys](https://github.com/rustwasm/wasm-bindgen/tree/master/crates/web-sys), you could find detailed build instruction in the [documents](https://rustwasm.github.io/wasm-bindgen/). And there is a simple wasm template under [tools](./tools/wasm-template) folder might helps.
 
+### Screenshots
+
+![ModelViewer](./examples/screenshots/model_viewer.png)
