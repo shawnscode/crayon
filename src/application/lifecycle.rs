@@ -52,7 +52,12 @@ impl LifecycleSystem {
 
     #[inline]
     pub fn detach(&self, handle: LifecycleListenerHandle) {
-        self.lifecycles.lock().unwrap().free(handle);
+        // Makes sure that the lock has been freed before the drop of
+        // LifecycleListener, since it might cause dead lock.
+        let _ = {
+            let v = self.lifecycles.lock().unwrap().free(handle);
+            v
+        };
     }
 
     #[inline]
