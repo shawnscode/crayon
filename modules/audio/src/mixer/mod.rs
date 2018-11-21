@@ -1,8 +1,10 @@
 #[cfg(not(target_arch = "wasm32"))]
 mod cpal;
-mod sampler;
 #[cfg(target_arch = "wasm32")]
 mod webaudio;
+
+mod headless;
+mod sampler;
 
 use std::sync::{Arc, RwLock};
 
@@ -29,6 +31,19 @@ impl Mixer {
 
         #[cfg(target_arch = "wasm32")]
         webaudio::run(tx.clone())?;
+
+        Ok(Mixer {
+            sources: RwLock::new(HandlePool::new()),
+            tx: tx,
+            clips: clips,
+        })
+    }
+
+    pub fn headless(
+        clips: Arc<RwLock<ResourcePool<AudioClipHandle, AudioClipLoader>>>,
+    ) -> Result<Self> {
+        let tx = Arc::new(RwLock::new(Vec::new()));
+        headless::run(tx.clone())?;
 
         Ok(Mixer {
             sources: RwLock::new(HandlePool::new()),

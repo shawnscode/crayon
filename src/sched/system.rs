@@ -9,15 +9,6 @@ pub struct SchedulerSystem {
     scheduler: Option<Arc<Scheduler>>,
 }
 
-impl Drop for SchedulerSystem {
-    fn drop(&mut self) {
-        if let Some(ref scheduler) = self.scheduler {
-            scheduler.terminate_dec();
-            scheduler.wait_until_terminated();
-        }
-    }
-}
-
 /// The type for a panic handling closure. Note that this same closure
 /// may be invoked multiple times in parallel.
 pub type PanicHandler = Fn(Box<::std::any::Any + Send>) + Send + Sync;
@@ -35,6 +26,13 @@ impl SchedulerSystem {
 
     pub fn headless() -> Self {
         SchedulerSystem { scheduler: None }
+    }
+
+    pub fn terminate(&self) {
+        if let Some(ref scheduler) = self.scheduler {
+            scheduler.terminate_dec();
+            scheduler.wait_until_terminated();
+        }
     }
 
     // /// Blocks current thread until latch is set. Try to keep busy by popping and stealing jobs

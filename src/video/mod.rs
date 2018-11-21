@@ -85,7 +85,7 @@
 //!
 //! ```rust
 //! use crayon::prelude::*;
-//! application::headless().unwrap();
+//! application::oneshot().unwrap();
 //!
 //! // Creates a `SurfaceParams` object.
 //! let mut params = SurfaceParams::default();
@@ -112,7 +112,7 @@
 //!
 //! ```rust
 //! use crayon::prelude::*;
-//! application::headless().unwrap();
+//! application::oneshot().unwrap();
 //!
 //! // Declares the uniform variable layouts.
 //! let mut uniforms = UniformVariableLayout::build()
@@ -149,7 +149,7 @@
 //!
 //! ```rust
 //! use crayon::prelude::*;
-//! application::headless().unwrap();
+//! application::oneshot().unwrap();
 //!
 //! let mut params = TextureParams::default();
 //!
@@ -169,7 +169,7 @@
 //!
 //! ```rust
 //! use crayon::prelude::*;
-//! application::headless().unwrap();
+//! application::oneshot().unwrap();
 //!
 //! let mut params = MeshParams::default();
 //!

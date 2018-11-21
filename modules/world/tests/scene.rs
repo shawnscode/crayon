@@ -34,7 +34,7 @@ fn find() {
 #[test]
 fn instantiate() {
     use crayon_world::assets::prefab::PrefabNode;
-    crayon::application::headless().unwrap();
+    crayon::application::oneshot().unwrap();
     crayon_world::setup().unwrap();
 
     let mut prefab = Prefab {

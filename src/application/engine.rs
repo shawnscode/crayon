@@ -14,6 +14,7 @@ type Result<T> = ::std::result::Result<T, ::failure::Error>;
 pub struct EngineSystem {
     events: EventListenerHandle,
     state: Arc<EngineState>,
+    headless: bool,
 }
 
 struct EngineState {
@@ -64,12 +65,13 @@ impl EngineSystem {
         let sys = EngineSystem {
             events: crate::window::attach(state.clone()),
             state: state,
+            headless: false,
         };
 
         Ok(sys)
     }
 
-    pub unsafe fn headless(params: Params) -> Result<Self> {
+    pub unsafe fn new_headless(params: Params) -> Result<Self> {
         #[cfg(not(target_arch = "wasm32"))]
         crate::sched::setup(4, None, None);
         #[cfg(target_arch = "wasm32")]
@@ -81,22 +83,29 @@ impl EngineSystem {
         crate::res::setup(params.res)?;
 
         let state = Arc::new(EngineState {
-            alive: Mutex::new(true),
+            alive: Mutex::new(false),
         });
 
         let sys = EngineSystem {
             events: crate::window::attach(state.clone()),
             state: state,
+            headless: true,
         };
 
         Ok(sys)
     }
 
+    #[inline]
     pub fn shutdown(&self) {
         *self.state.alive.lock().unwrap() = false;
     }
 
-    pub fn run_headless(&self) -> Result<()> {
+    #[inline]
+    pub fn headless(&self) -> bool {
+        self.headless
+    }
+
+    pub fn run_oneshot(&self) -> Result<()> {
         super::foreach(|v| v.on_pre_update())?;
         super::foreach(|v| v.on_update())?;
         super::foreach(|v| v.on_render())?;
@@ -135,6 +144,7 @@ impl EngineSystem {
                         Ok(*state.alive.lock().unwrap())
                     },
                     move || {
+                        unsafe { crate::sched::terminate() };
                         crate::application::detach(application);
                         unsafe { super::late_discard() };
                         Ok(())

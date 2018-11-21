@@ -6,7 +6,7 @@
 //!
 //! ```rust
 //! use crayon::prelude::*;
-//! application::headless().unwrap();
+//! application::oneshot().unwrap();
 //!
 //! // Returns true if a keyboard is attached
 //! input::has_keyboard_attached();
@@ -17,7 +17,7 @@
 //!
 //! ```rust
 //! use crayon::prelude::*;
-//! application::headless().unwrap();
+//! application::oneshot().unwrap();
 //!
 //! // Checks if a key is currently held down.
 //! input::is_key_down(Key::A);
@@ -38,7 +38,7 @@
 //!
 //! ```rust
 //! use crayon::prelude::*;
-//! application::headless().unwrap();
+//! application::oneshot().unwrap();
 //!
 //! // Gets captured text during the last frame.
 //! input::text();
@@ -53,7 +53,7 @@
 //!
 //! ```rust
 //! use crayon::prelude::*;
-//! application::headless().unwrap();
+//! application::oneshot().unwrap();
 //!
 //! // Checks if a mouse button is held down.
 //! input::is_mouse_down(MouseButton::Left);
@@ -70,7 +70,7 @@
 //!
 //! ```rust
 //! use crayon::prelude::*;
-//! application::headless().unwrap();
+//! application::oneshot().unwrap();
 //!
 //! // Gets the mouse position relative to the top-left hand corner of the window.
 //! input::mouse_position();
@@ -83,7 +83,7 @@
 //!
 //! ```rust
 //! use crayon::prelude::*;
-//! application::headless().unwrap();
+//! application::oneshot().unwrap();
 //!
 //! // Gets the scroll movement of mouse in pixels, usually provided by mouse wheel.
 //! input::mouse_scroll();
@@ -98,7 +98,7 @@
 //!
 //! ```rust
 //! use crayon::prelude::*;
-//! application::headless().unwrap();
+//! application::oneshot().unwrap();
 //!
 //! // Checks if a mouse button has been clicked during last frame.
 //! input::mouse_position();
@@ -118,7 +118,7 @@
 //!
 //! ```rust
 //! use crayon::prelude::*;
-//! application::headless().unwrap();
+//! application::oneshot().unwrap();
 //!
 //! // Checks if the `n`th finger is touched during last frame.
 //! input::is_finger_touched(0);
@@ -132,7 +132,7 @@
 //!
 //! ```rust
 //! use crayon::prelude::*;
-//! application::headless().unwrap();
+//! application::oneshot().unwrap();
 //!
 //! // Gets the tap gesture.
 //! match input::finger_tap() {

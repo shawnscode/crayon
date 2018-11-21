@@ -16,7 +16,11 @@ use self::scope::Scope;
 use self::system::{PanicHandler, SchedulerSystem};
 
 /// Setup the sched system.
-pub unsafe fn setup(num: u32, stack_size: Option<usize>, panic_handler: Option<Box<PanicHandler>>) {
+pub(crate) unsafe fn setup(
+    num: u32,
+    stack_size: Option<usize>,
+    panic_handler: Option<Box<PanicHandler>>,
+) {
     debug_assert!(CTX.is_null(), "duplicated setup of sched system.");
 
     CTX = Box::into_raw(Box::new(if num > 0 {
@@ -27,13 +31,17 @@ pub unsafe fn setup(num: u32, stack_size: Option<usize>, panic_handler: Option<B
 }
 
 /// Discard the sched system.
-pub unsafe fn discard() {
+pub(crate) unsafe fn discard() {
     if CTX.is_null() {
         return;
     }
 
     drop(Box::from_raw(CTX as *mut SchedulerSystem));
     CTX = 0 as *const SchedulerSystem;
+}
+
+pub(crate) unsafe fn terminate() {
+    ctx().terminate();
 }
 
 /// Checks if the sched system is enabled.

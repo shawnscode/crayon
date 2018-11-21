@@ -13,6 +13,8 @@ use super::Command;
 const CHANNELS: u8 = 2;
 
 pub fn run(rx: Arc<RwLock<Vec<Command>>>) -> Result<()> {
+    info!("Create web audio mixer.",);
+
     let ctx = AudioContext::new().unwrap();
 
     let closure = Rc::new(RefCell::new(None));
