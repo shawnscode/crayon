@@ -73,19 +73,20 @@ impl Window {
     }
 }
 
+impl Drop for Window {
+    fn drop(&mut self) {
+        video::delete_mesh(self.mesh);
+        video::delete_shader(self.shader);
+        video::delete_surface(self.surface);
+    }
+}
+
 impl LifecycleListener for Window {
     fn on_update(&mut self) -> Result<()> {
         let mut dc = Draw::new(self.shader, self.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
         self.vcmds.draw(dc);
         self.vcmds.submit(self.surface)?;
-        Ok(())
-    }
-
-    fn on_exit(&mut self) -> Result<()> {
-        video::delete_mesh(self.mesh);
-        video::delete_shader(self.shader);
-        video::delete_surface(self.surface);
         Ok(())
     }
 }

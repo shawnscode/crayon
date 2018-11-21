@@ -9,14 +9,13 @@
 //! The most intuitive and simple setup function could be something like:
 //!
 //! ```rust,ignore
-//! use crayon::application::prelude::*;
+//! use crayon::prelude::*;
 //!
 //! struct Window {}
-//! impl Application for Window {}
+//! impl LifecycleListener for Window {}
 //!
 //! fn main() {
-//!     let window = Window {};
-//!     Engine::new().unwrap().run(window).unwrap();
+//!     application::setup(Params::default(), || Ok(Window {}));
 //! }
 //! ```
 //!
@@ -120,13 +119,20 @@ where
         let dirs = params.res.dirs.clone();
         LIFECYCLE_CTX = Box::into_raw(Box::new(LifecycleSystem::new()));
         TIME_CTX = Box::into_raw(Box::new(TimeSystem::new(&params)));
-        CTX = Box::into_raw(Box::new(EngineSystem::new(params)?));
+
+        if std::env::args().any(|v| v == "headless") {
+            CTX = Box::into_raw(Box::new(EngineSystem::new_headless(params)?));
+        } else {
+            CTX = Box::into_raw(Box::new(EngineSystem::new(params)?));
+        };
+
         let latch = crate::res::load_manifests(dirs)?;
         ctx().run(latch, closure)
     }
 }
 
-pub fn headless() -> Result<()> {
+#[doc(hidden)]
+pub fn oneshot() -> Result<()> {
     unsafe {
         debug_assert!(LIFECYCLE_CTX.is_null(), "duplicated setup of crayon.");
 
@@ -135,9 +141,9 @@ pub fn headless() -> Result<()> {
         sys::init();
         LIFECYCLE_CTX = Box::into_raw(Box::new(LifecycleSystem::new()));
         TIME_CTX = Box::into_raw(Box::new(TimeSystem::new(&params)));
-        CTX = Box::into_raw(Box::new(EngineSystem::headless(params)?));
+        CTX = Box::into_raw(Box::new(EngineSystem::new_headless(params)?));
 
-        ctx().run_headless()
+        ctx().run_oneshot()
     }
 }
 
@@ -162,6 +168,12 @@ pub(crate) unsafe fn late_discard() {
 #[inline]
 pub fn valid() -> bool {
     unsafe { !LIFECYCLE_CTX.is_null() }
+}
+
+/// Checks if the engine is running in headless mode.
+#[inline]
+pub fn headless() -> bool {
+    ctx().headless()
 }
 
 #[inline]

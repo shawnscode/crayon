@@ -37,7 +37,12 @@ impl Drop for AudioSystem {
 impl AudioSystem {
     pub fn new() -> Result<Self> {
         let clips = Arc::new(RwLock::new(ResourcePool::new(AudioClipLoader::new())));
-        let mixer = Mixer::new(clips.clone())?;
+        let mixer = if crayon::application::headless() {
+            Mixer::headless(clips.clone())?
+        } else {
+            Mixer::new(clips.clone())?
+        };
+
         let state = AudioState {
             clips: clips.clone(),
         };

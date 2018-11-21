@@ -54,11 +54,11 @@ script:
     - cargo test --all --verbose
     - cargo build --all --verbose --no-default-features
     - cargo test --all --verbose --no-default-features
+    - cargo build --examples --all
     - |
       for file in examples/*.rs; do
           if [[ -f $file ]]; then
               filename=$(basename $file);
-              filename=${filename#*_};
               filename=${filename%.*};
               RUST_BACKTRACE=1 target/debug/examples/${filename} headless;
           fi
@@ -67,7 +67,6 @@ script:
       for file in modules/world/examples/*.rs; do
           if [[ -f $file ]]; then
               filename=$(basename $file);
-              filename=${filename#*_};
               filename=${filename%.*};
               RUST_BACKTRACE=1 target/debug/examples/${filename} headless;
           fi
@@ -76,7 +75,6 @@ script:
       for file in modules/audio/examples/*.rs; do
           if [[ -f $file ]]; then
               filename=$(basename $file);
-              filename=${filename#*_};
               filename=${filename%.*};
               RUST_BACKTRACE=1 target/debug/examples/${filename} headless;
           fi
@@ -96,8 +94,8 @@ after_success: |
     cd ../.. &&
     rm -rf kcov-master &&
     for file in target/debug/*-*[^\.d]; do mkdir -p "target/cov/tests_$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/tests_$(basename $file)" "$file"; done &&
-    for file in examples/*.rs; do if [[ -f $file ]]; then filename=$(basename $file); filename=${filename#*_}; filename=${filename%.*}; mkdir -p "target/cov/examples_$filename"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/examples_$filename" "target/debug/examples/${filename}" "headless"; fi done &&
-    for file in modules/world/examples/*.rs; do if [[ -f $file ]]; then filename=$(basename $file); filename=${filename#*_}; filename=${filename%.*}; mkdir -p "target/cov/examples_$filename"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/examples_$filename" "target/debug/examples/${filename}" "headless"; fi done &&
-    for file in modules/audio/examples/*.rs; do if [[ -f $file ]]; then filename=$(basename $file); filename=${filename#*_}; filename=${filename%.*}; mkdir -p "target/cov/examples_$filename"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/examples_$filename" "target/debug/examples/${filename}" "headless"; fi done &&
+    for file in examples/*.rs; do if [[ -f $file ]]; then filename=$(basename $file); filename=${filename%.*}; mkdir -p "target/cov/examples_$filename"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/examples_$filename" "target/debug/examples/${filename}" "headless"; fi done &&
+    for file in modules/world/examples/*.rs; do if [[ -f $file ]]; then filename=$(basename $file); filename=${filename%.*}; mkdir -p "target/cov/examples_$filename"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/examples_$filename" "target/debug/examples/${filename}" "headless"; fi done &&
+    for file in modules/audio/examples/*.rs; do if [[ -f $file ]]; then filename=$(basename $file); filename=${filename%.*}; mkdir -p "target/cov/examples_$filename"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/examples_$filename" "target/debug/examples/${filename}" "headless"; fi done &&
     bash <(curl -s https://codecov.io/bash);
   fi
