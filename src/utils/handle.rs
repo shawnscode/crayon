@@ -196,7 +196,7 @@ mod test {
 
     #[test]
     fn container() {
-        use utils::hash::FastHashSet;
+        use crate::utils::hash::FastHashSet;
 
         let h1 = Handle::new(1, 1);
         let h2 = Handle::new(1, 2);

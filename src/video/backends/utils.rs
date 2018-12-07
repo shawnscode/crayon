@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use utils::handle::Handle;
+use crate::utils::handle::Handle;
 
 #[derive(Debug)]
 pub struct DataVec<T>

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use utils::hash::{FastHashMap, FastHashSet};
-use utils::time::Timestamp;
+use crate::utils::hash::{FastHashMap, FastHashSet};
+use crate::utils::time::Timestamp;
 
 /// The setup parameters of keyboard device.
 #[derive(Debug, Clone, Copy)]

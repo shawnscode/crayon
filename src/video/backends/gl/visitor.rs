@@ -4,10 +4,10 @@ use gl;
 use gl::types::*;
 use smallvec::SmallVec;
 
-use errors::*;
-use math::prelude::{Aabb2, Color, Vector2};
-use utils::hash::{FastHashMap, FastHashSet};
-use utils::hash_value::HashValue;
+use crate::errors::*;
+use crate::math::prelude::{Aabb2, Color, Vector2};
+use crate::utils::hash::{FastHashMap, FastHashSet};
+use crate::utils::hash_value::HashValue;
 
 use super::super::super::assets::prelude::*;
 use super::super::utils::DataVec;

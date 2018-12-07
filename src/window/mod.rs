@@ -13,8 +13,8 @@ mod system;
 use self::ins::{ctx, CTX};
 use self::system::{EventListener, EventListenerHandle, WindowSystem};
 
-use errors::*;
-use math::prelude::Vector2;
+use crate::errors::*;
+use crate::math::prelude::Vector2;
 
 #[derive(Debug, Clone)]
 pub struct WindowParams {
@@ -41,7 +41,7 @@ impl Default for WindowParams {
 }
 
 /// Setup the window system.
-pub(crate) unsafe fn setup(params: WindowParams) -> ::errors::Result<()> {
+pub(crate) unsafe fn setup(params: WindowParams) -> Result<()> {
     debug_assert!(CTX.is_null(), "duplicated setup of window system.");
 
     let ctx = WindowSystem::new(params)?;

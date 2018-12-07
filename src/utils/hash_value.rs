@@ -80,7 +80,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use utils::hash::FastHashSet;
+    use crate::utils::hash::FastHashSet;
 
     #[test]
     fn hash_str() {

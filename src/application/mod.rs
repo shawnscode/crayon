@@ -39,7 +39,7 @@ pub mod prelude {
     pub use super::Params;
 }
 
-use errors::*;
+use crate::errors::*;
 
 use self::lifecycle::{LifecycleListener, LifecycleListenerHandle};
 
@@ -48,9 +48,9 @@ use self::inside::{ctx, lifecycle_ctx, time_ctx, CTX, LIFECYCLE_CTX, TIME_CTX};
 use self::lifecycle::LifecycleSystem;
 use self::time::TimeSystem;
 
-use input::InputParams;
-use res::ResourceParams;
-use window::WindowParams;
+use crate::input::InputParams;
+use crate::res::ResourceParams;
+use crate::window::WindowParams;
 
 /// A structure containing configuration data for the game engine, which are
 /// used to specify hardware setup stuff to create the window and other

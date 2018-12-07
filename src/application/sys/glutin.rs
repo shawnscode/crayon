@@ -1,4 +1,4 @@
-use utils::time::Timestamp;
+use crate::utils::time::Timestamp;
 
 pub fn timestamp() -> Timestamp {
     let duration = std::time::SystemTime::now()

@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 
-use application::prelude::{LifecycleListener, LifecycleListenerHandle};
-use window::prelude::{Event, EventListener, EventListenerHandle};
+use crate::application::prelude::{LifecycleListener, LifecycleListenerHandle};
+use crate::window::prelude::{Event, EventListener, EventListenerHandle};
 
 use super::events::InputEvent;
 use super::keyboard::{Key, Keyboard};
@@ -9,7 +9,7 @@ use super::mouse::{Mouse, MouseButton};
 use super::touchpad::{GesturePan, GestureTap, TouchPad, TouchState};
 use super::InputParams;
 
-use math::prelude::Vector2;
+use crate::math::prelude::Vector2;
 
 /// The `InputSystem` struct are used to manage all the events and corresponding
 /// internal states.

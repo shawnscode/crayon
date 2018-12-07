@@ -4,7 +4,7 @@ use std::cmp;
 use std::ffi;
 use std::mem;
 
-use errors::*;
+use crate::errors::*;
 
 /// Describes the OpenGL context profile.
 #[derive(Debug, Copy, Clone)]

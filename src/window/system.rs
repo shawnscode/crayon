@@ -1,9 +1,9 @@
 use std::sync::{Arc, Mutex, RwLock};
 
-use application::prelude::{LifecycleListener, LifecycleListenerHandle};
-use errors::*;
-use math::prelude::Vector2;
-use utils::object_pool::ObjectPool;
+use crate::application::prelude::{LifecycleListener, LifecycleListenerHandle};
+use crate::errors::*;
+use crate::math::prelude::Vector2;
+use crate::utils::object_pool::ObjectPool;
 
 use super::backends::{self, Visitor};
 use super::events::Event;

@@ -1,7 +1,7 @@
 //! Immutable or dynamic 2D texture. A texture is a container of one or more images. It
 //! can be the source of a texture access from a Shader.
-use math::prelude::Vector2;
-use video::errors::{Error, Result};
+use crate::math::prelude::Vector2;
+use crate::video::errors::{Error, Result};
 
 impl_handle!(TextureHandle);
 

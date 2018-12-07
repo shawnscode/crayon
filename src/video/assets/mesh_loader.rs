@@ -2,9 +2,9 @@ use bincode;
 use std::io::Cursor;
 use std::sync::Arc;
 
-use errors::*;
-use res::utils::prelude::ResourceLoader;
-use utils::double_buf::DoubleBuf;
+use crate::res::utils::prelude::ResourceLoader;
+use crate::utils::double_buf::DoubleBuf;
+use crate::errors::*;
 
 use super::super::backends::frame::{Command, Frame};
 use super::mesh::*;

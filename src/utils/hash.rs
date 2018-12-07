@@ -64,7 +64,7 @@ mod hasher {
     const SEED: usize = SEED64 as usize;
 
     trait HashWord {
-        fn hash_word(&mut self, Self);
+        fn hash_word(&mut self, word: Self);
     }
 
     macro_rules! impl_hash_word {
@@ -88,7 +88,11 @@ mod hasher {
             assert!($size <= $src.len());
             let mut data: $ty = 0;
             unsafe {
-                ::std::ptr::copy_nonoverlapping($src.as_ptr(), &mut data as *mut $ty as *mut u8, $size);
+                ::std::ptr::copy_nonoverlapping(
+                    $src.as_ptr(),
+                    &mut data as *mut $ty as *mut u8,
+                    $size,
+                );
             }
             data.$which()
         }};

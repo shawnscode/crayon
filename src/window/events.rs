@@ -1,4 +1,4 @@
-use input::events::InputEvent;
+use crate::input::events::InputEvent;
 
 /// The status of application.
 #[derive(Debug, Clone, Copy)]

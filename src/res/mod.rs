@@ -61,7 +61,7 @@ use std::sync::Arc;
 use failure::ResultExt;
 use uuid::Uuid;
 
-use sched::prelude::{CountLatch, Latch};
+use crate::sched::prelude::{CountLatch, Latch};
 
 use self::ins::{ctx, CTX};
 use self::request::{Request, Response};

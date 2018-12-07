@@ -3,12 +3,12 @@
 use std::collections::hash_map::Values;
 use std::str::FromStr;
 
-use math::prelude::{Matrix2, Matrix3, Matrix4, Vector2, Vector3, Vector4};
-use utils::prelude::{FastHashMap, HashValue};
-use video::assets::mesh::VertexLayout;
-use video::assets::texture::{RenderTextureHandle, TextureHandle};
-use video::errors::{Error, Result};
-use video::{MAX_UNIFORM_VARIABLES, MAX_VERTEX_ATTRIBUTES};
+use crate::math::prelude::{Matrix2, Matrix3, Matrix4, Vector2, Vector3, Vector4};
+use crate::utils::prelude::{FastHashMap, HashValue};
+use crate::video::assets::mesh::VertexLayout;
+use crate::video::assets::texture::{RenderTextureHandle, TextureHandle};
+use crate::video::errors::{Error, Result};
+use crate::video::{MAX_UNIFORM_VARIABLES, MAX_VERTEX_ATTRIBUTES};
 
 impl_handle!(ShaderHandle);
 

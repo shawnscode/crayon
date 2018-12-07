@@ -1,11 +1,11 @@
 //! Named bucket of draw calls with the wrapping of rendering operations to a render
 //! target, clearing, MSAA resolving and so on.
 
-use math::prelude::{Color, Vector2};
+use crate::math::prelude::{Color, Vector2};
 
-use video::assets::texture::RenderTextureHandle;
-use video::errors::{Error, Result};
-use video::MAX_FRAMEBUFFER_ATTACHMENTS;
+use crate::video::assets::texture::RenderTextureHandle;
+use crate::video::errors::{Error, Result};
+use crate::video::MAX_FRAMEBUFFER_ATTACHMENTS;
 
 /// The setup data of `Surface` which wraps common rendering operations to a render-target.
 /// Likes clearing, MSAA resolves, etc.. The `RenderTarget` is the window framebuffer as

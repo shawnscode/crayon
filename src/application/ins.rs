@@ -6,7 +6,7 @@ use std::thread;
 use std::time::Duration;
 
 use byteorder::{LittleEndian, WriteBytesExt};
-use errors::*;
+use crate::errors::*;
 
 pub const PORT: u32 = 9338;
 

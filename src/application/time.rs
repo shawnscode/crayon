@@ -5,8 +5,8 @@ use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use application::{LifecycleListener, LifecycleListenerHandle};
-use utils::time::Timestamp;
+use crate::application::{LifecycleListener, LifecycleListenerHandle};
+use crate::utils::time::Timestamp;
 
 use super::Params;
 

@@ -1,10 +1,10 @@
 //! Immutable or dynamic vertex and index data.
 
-use math::prelude::Aabb3;
+use crate::video::assets::shader::Attribute;
+use crate::video::errors::{Error, Result};
+use crate::video::MAX_VERTEX_ATTRIBUTES;
+use crate::math::prelude::Aabb3;
 use smallvec::SmallVec;
-use video::assets::shader::Attribute;
-use video::errors::{Error, Result};
-use video::MAX_VERTEX_ATTRIBUTES;
 
 impl_handle!(MeshHandle);
 

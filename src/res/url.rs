@@ -2,7 +2,7 @@
 
 use inlinable_string::InlinableString;
 
-use utils::hash::FastHashMap;
+use crate::utils::hash::FastHashMap;
 
 const SCHEMA: usize = 0;
 const SCHEMA_END: usize = 1;

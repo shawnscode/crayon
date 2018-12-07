@@ -1,5 +1,5 @@
-use math::prelude::Aabb2;
-use utils::prelude::{DataBuffer, HashValue};
+use crate::math::prelude::Aabb2;
+use crate::utils::prelude::{DataBuffer, HashValue};
 
 use super::assets::prelude::*;
 use super::backends::frame::Command;

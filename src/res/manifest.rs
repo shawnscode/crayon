@@ -6,8 +6,8 @@ use bincode;
 use inlinable_string::{InlinableString, StringExt};
 use uuid::Uuid;
 
-use errors::*;
-use utils::prelude::{DataBuffer, DataBufferPtr, FastHashMap, HashValue};
+use crate::errors::*;
+use crate::utils::prelude::{DataBuffer, DataBufferPtr, FastHashMap, HashValue};
 
 pub const NAME: &'static str = "MANIFEST";
 pub const MAGIC: [u8; 8] = [

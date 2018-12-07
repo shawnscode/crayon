@@ -1,6 +1,6 @@
 use web_sys::WebGl2RenderingContext as WebGL;
 
-use video::assets::texture::TextureFormat;
+use crate::video::assets::texture::TextureFormat;
 
 /// Represents the capabilities of the context.
 ///

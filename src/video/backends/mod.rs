@@ -7,9 +7,9 @@ mod utils;
 
 use super::assets::prelude::*;
 
-use errors::*;
-use math::prelude::{Aabb2, Vector2};
-use utils::hash_value::HashValue;
+use crate::errors::*;
+use crate::math::prelude::{Aabb2, Vector2};
+use crate::utils::hash_value::HashValue;
 
 pub type UniformVar = (HashValue<str>, UniformVariable);
 

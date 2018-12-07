@@ -185,7 +185,7 @@ mod system;
 /// Maximum touches that would be tracked at sametime.
 pub const MAX_TOUCHES: usize = 4;
 
-use math::prelude::Vector2;
+use crate::math::prelude::Vector2;
 
 use self::ins::{ctx, CTX};
 use self::keyboard::{Key, KeyboardParams};

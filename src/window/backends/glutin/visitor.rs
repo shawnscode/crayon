@@ -2,8 +2,8 @@ use gl;
 use glutin;
 use glutin::GlContext;
 
-use errors::*;
-use math::prelude::Vector2;
+use crate::math::prelude::Vector2;
+use crate::errors::*;
 
 use super::super::super::events::Event;
 use super::super::super::WindowParams;

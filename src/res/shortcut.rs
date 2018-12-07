@@ -1,7 +1,7 @@
 //! Central registry for shortcut definitions. Shortcuts are path aliases that
 //! could be resolved into full path.
 
-use utils::hash::FastHashMap;
+use crate::utils::hash::FastHashMap;
 
 /// Central registry for shortcut definitions. Shortcuts are path aliases that
 /// could be resolved into full path.

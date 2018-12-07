@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use sched::prelude::{LatchProbe, LockLatch};
+use crate::sched::prelude::{LatchProbe, LockLatch};
 
 pub type Response = Result<Box<[u8]>, failure::Error>;
 

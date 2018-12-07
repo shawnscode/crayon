@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
-use sched::prelude::LatchProbe;
-use window::prelude::{Event, EventListener, EventListenerHandle, WindowEvent};
+use crate::sched::prelude::LatchProbe;
+use crate::window::prelude::{Event, EventListener, EventListenerHandle, WindowEvent};
 
 use super::lifecycle::LifecycleListener;
 use super::Params;

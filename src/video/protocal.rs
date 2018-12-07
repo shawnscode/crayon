@@ -1,8 +1,8 @@
 use serde_json;
 use uuid::Uuid;
 
-use application::ins::Inspectable;
-use video::prelude::VideoSystemShared;
+use crate::application::ins::Inspectable;
+use crate::video::prelude::VideoSystemShared;
 
 #[derive(Copy, Clone, Debug, Serialize)]
 pub struct VideoInspectResourceField {

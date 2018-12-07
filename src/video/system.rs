@@ -1,10 +1,11 @@
 use std::sync::{Arc, RwLock};
 use uuid::Uuid;
 
-use application::prelude::{LifecycleListener, LifecycleListenerHandle};
-use math::prelude::{Aabb2, Vector2};
-use res::utils::prelude::{ResourcePool, ResourceState};
-use utils::prelude::{DoubleBuf, ObjectPool};
+use crate::application::prelude::{LifecycleListener, LifecycleListenerHandle};
+use crate::math::prelude::{Aabb2, Vector2};
+use crate::prelude::CrResult;
+use crate::res::utils::prelude::{ResourcePool, ResourceState};
+use crate::utils::prelude::{DoubleBuf, ObjectPool};
 
 use super::assets::mesh_loader::MeshLoader;
 use super::assets::prelude::*;
@@ -53,7 +54,7 @@ struct Lifecycle {
 }
 
 impl LifecycleListener for Lifecycle {
-    fn on_pre_update(&mut self) -> crate::errors::Result<()> {
+    fn on_pre_update(&mut self) -> CrResult<()> {
         // Swap internal commands frame.
         self.state.frames.swap();
         self.state.frames.write().clear();
@@ -62,7 +63,7 @@ impl LifecycleListener for Lifecycle {
         Ok(())
     }
 
-    fn on_post_update(&mut self) -> crate::errors::Result<()> {
+    fn on_post_update(&mut self) -> CrResult<()> {
         let dimensions = dimensions_pixels();
 
         // Resize the window, which would recreate the underlying framebuffer.
@@ -88,7 +89,7 @@ impl Drop for VideoSystem {
 
 impl VideoSystem {
     /// Create a new `VideoSystem`.
-    pub fn new() -> ::errors::Result<Self> {
+    pub fn new() -> CrResult<Self> {
         let state = Arc::new(VideoState::new());
         let visitor = backends::new()?;
 
@@ -209,7 +210,7 @@ impl VideoSystem {
 impl VideoSystem {
     /// Create a new mesh object.
     #[inline]
-    pub fn create_mesh<T>(&self, params: MeshParams, data: T) -> ::errors::Result<MeshHandle>
+    pub fn create_mesh<T>(&self, params: MeshParams, data: T) -> CrResult<MeshHandle>
     where
         T: Into<Option<MeshData>>,
     {
@@ -219,14 +220,14 @@ impl VideoSystem {
 
     /// Creates a mesh object from file asynchronously.
     #[inline]
-    pub fn create_mesh_from<T: AsRef<str>>(&self, url: T) -> ::errors::Result<MeshHandle> {
+    pub fn create_mesh_from<T: AsRef<str>>(&self, url: T) -> CrResult<MeshHandle> {
         let mut meshes = self.state.meshes.write().unwrap();
         meshes.create_from(url)
     }
 
     /// Creates a mesh object from file asynchronously.
     #[inline]
-    pub fn create_mesh_from_uuid(&self, uuid: Uuid) -> ::errors::Result<MeshHandle> {
+    pub fn create_mesh_from_uuid(&self, uuid: Uuid) -> CrResult<MeshHandle> {
         let mut meshes = self.state.meshes.write().unwrap();
         meshes.create_from_uuid(uuid)
     }
@@ -251,7 +252,7 @@ impl VideoSystem {
         handle: MeshHandle,
         offset: usize,
         data: &[u8],
-    ) -> ::errors::Result<()> {
+    ) -> CrResult<()> {
         let meshes = self.state.meshes.read().unwrap();
         if meshes.contains(handle) {
             let mut frame = self.state.frames.write();
@@ -272,7 +273,7 @@ impl VideoSystem {
         handle: MeshHandle,
         offset: usize,
         data: &[u8],
-    ) -> ::errors::Result<()> {
+    ) -> CrResult<()> {
         let meshes = self.state.meshes.read().unwrap();
         if meshes.contains(handle) {
             let mut frame = self.state.frames.write();
@@ -295,11 +296,7 @@ impl VideoSystem {
 impl VideoSystem {
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
-    pub fn create_texture<T>(
-        &self,
-        params: TextureParams,
-        data: T,
-    ) -> ::errors::Result<TextureHandle>
+    pub fn create_texture<T>(&self, params: TextureParams, data: T) -> CrResult<TextureHandle>
     where
         T: Into<Option<TextureData>>,
     {
@@ -308,13 +305,13 @@ impl VideoSystem {
     }
 
     /// Creates a texture object from file asynchronously.
-    pub fn create_texture_from<T: AsRef<str>>(&self, url: T) -> ::errors::Result<TextureHandle> {
+    pub fn create_texture_from<T: AsRef<str>>(&self, url: T) -> CrResult<TextureHandle> {
         let mut textures = self.state.textures.write().unwrap();
         textures.create_from(url)
     }
 
     /// Creates a texture object from file asynchronously.
-    pub fn create_texture_from_uuid(&self, uuid: Uuid) -> ::errors::Result<TextureHandle> {
+    pub fn create_texture_from_uuid(&self, uuid: Uuid) -> CrResult<TextureHandle> {
         let mut textures = self.state.textures.write().unwrap();
         textures.create_from_uuid(uuid)
     }
@@ -331,7 +328,7 @@ impl VideoSystem {
         handle: TextureHandle,
         area: Aabb2<u32>,
         data: &[u8],
-    ) -> ::errors::Result<()> {
+    ) -> CrResult<()> {
         let textures = self.state.textures.read().unwrap();
         if textures.contains(handle) {
             let mut frame = self.state.frames.write();

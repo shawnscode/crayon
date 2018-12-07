@@ -1,8 +1,8 @@
 use std::cmp::Ordering;
 use std::time::Duration;
 
-use math::prelude::{MetricSpace, Vector2};
-use utils::time::Timestamp;
+use crate::math::prelude::{MetricSpace, Vector2};
+use crate::utils::time::Timestamp;
 
 use super::MAX_TOUCHES;
 

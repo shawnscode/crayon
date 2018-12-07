@@ -29,7 +29,7 @@ use failure::Error;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
-use utils::prelude::{FastHashMap, HandleLike, ObjectPool};
+use crate::utils::prelude::{FastHashMap, HandleLike, ObjectPool};
 
 use super::state::ResourceState;
 

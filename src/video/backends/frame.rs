@@ -1,6 +1,6 @@
-use errors::*;
-use math::prelude::{Aabb2, Vector2};
-use utils::prelude::{DataBuffer, DataBufferPtr, HashValue};
+use crate::math::prelude::{Aabb2, Vector2};
+use crate::utils::prelude::{DataBuffer, DataBufferPtr, HashValue};
+use crate::errors::*;
 
 use super::super::assets::prelude::*;
 use super::Visitor;

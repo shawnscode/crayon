@@ -126,7 +126,7 @@ pub enum PlaneRelation {
 /// Generic 3D bound.
 pub trait PlaneBound<S: BaseFloat>: fmt::Debug {
     /// Classify the spatial relation with a plane.
-    fn relate(&self, Plane<S>) -> PlaneRelation;
+    fn relate(&self, plane: Plane<S>) -> PlaneRelation;
 }
 
 impl<S: BaseFloat> PlaneBound<S> for Point3<S> {

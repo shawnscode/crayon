@@ -2,7 +2,7 @@ use std::fs;
 use std::io::Read;
 use std::sync::Arc;
 
-use sched::prelude::LockLatch;
+use crate::sched::prelude::LockLatch;
 
 use super::super::request::Response;
 use super::super::url::Url;
