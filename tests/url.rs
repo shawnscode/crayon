@@ -33,7 +33,10 @@ fn basic() {
     assert_eq!(url.path(), "/en-US/index.html");
     assert_eq!(url.fragment(), None);
     assert_eq!(url.queries(), None);
+}
 
+#[test]
+fn basic_2() {
     let url = Url::new("https://shawn:123456@www.rust-lang.org:8080/en-US/index.html").unwrap();
     assert_eq!(url.schema(), "https");
     assert_eq!(url.username(), Some("shawn"));

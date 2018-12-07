@@ -67,7 +67,7 @@ where
             items: ObjectPool::new(),
             registry: FastHashMap::default(),
             requests: FastHashMap::default(),
-            loader: loader,
+            loader,
         }
     }
 
@@ -190,8 +190,9 @@ where
             .get_mut(handle)
             .map(|e| {
                 e.rc -= 1;
-                e.rc <= 0
-            }).unwrap_or(false);
+                e.rc == 0
+            })
+            .unwrap_or(false);
 
         if disposed {
             let e = self.items.free(handle).unwrap();
@@ -219,7 +220,8 @@ where
                 } else {
                     ResourceState::NotReady
                 }
-            }).unwrap_or(ResourceState::NotReady)
+            })
+            .unwrap_or(ResourceState::NotReady)
     }
 
     /// Checks if the handle is still avaiable in this pool.
@@ -244,7 +246,7 @@ where
     fn alloc(&mut self, uuid: Option<Uuid>) -> H {
         let entry = Item {
             rc: 1,
-            uuid: uuid,
+            uuid,
             resource: None,
             error: None,
         };

@@ -54,6 +54,7 @@ impl LifecycleSystem {
     pub fn detach(&self, handle: LifecycleListenerHandle) {
         // Makes sure that the lock has been freed before the drop of
         // LifecycleListener, since it might cause dead lock.
+        #[allow(clippy::let_and_return)]
         let _ = {
             let v = self.lifecycles.lock().unwrap().free(handle);
             v

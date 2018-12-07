@@ -29,7 +29,7 @@ struct InputState {
 
 impl EventListener for Arc<InputState> {
     fn on(&mut self, v: &Event) -> Result<(), failure::Error> {
-        if let &Event::InputDevice(v) = v {
+        if let Event::InputDevice(v) = *v {
             match v {
                 InputEvent::MouseMoved { position } => {
                     if self.touch_emulation_button.read().unwrap().is_some() {

@@ -115,10 +115,7 @@ impl Url {
             }
         }
 
-        Ok(Url {
-            url: url,
-            components: components,
-        })
+        Ok(Url { url, components })
     }
 
     /// Get the queries of this URL if exists.
@@ -144,11 +141,9 @@ impl Url {
                             let v = self.url.get_unchecked((eq_index + 1)..end);
                             queries.insert(k.into(), Some(v.into()));
                         }
-                    } else {
-                        if end > lhs {
-                            let k = self.url.get_unchecked(lhs..end);
-                            queries.insert(k.into(), None);
-                        }
+                    } else if end > lhs {
+                        let k = self.url.get_unchecked(lhs..end);
+                        queries.insert(k.into(), None);
                     }
 
                     lhs = end + 1;

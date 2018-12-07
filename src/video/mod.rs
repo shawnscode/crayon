@@ -246,7 +246,7 @@ pub(crate) unsafe fn discard() {
     }
 
     drop(Box::from_raw(CTX as *mut VideoSystem));
-    CTX = 0 as *const VideoSystem;
+    CTX = std::ptr::null();
 }
 
 pub(crate) unsafe fn frames() -> Arc<DoubleBuf<Frame>> {
@@ -424,7 +424,7 @@ pub fn delete_render_texture(handle: RenderTextureHandle) {
 mod ins {
     use super::system::VideoSystem;
 
-    pub static mut CTX: *const VideoSystem = 0 as *const VideoSystem;
+    pub static mut CTX: *const VideoSystem = std::ptr::null();
 
     #[inline]
     pub fn ctx() -> &'static VideoSystem {

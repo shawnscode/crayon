@@ -1,6 +1,6 @@
+use crate::errors::*;
 use crate::math::prelude::{Aabb2, Vector2};
 use crate::utils::prelude::{DataBuffer, DataBufferPtr, HashValue};
-use crate::errors::*;
 
 use super::super::assets::prelude::*;
 use super::Visitor;
@@ -15,20 +15,20 @@ pub enum Command {
     UpdateScissor(SurfaceScissor),
     UpdateViewport(SurfaceViewport),
 
-    CreateSurface(SurfaceHandle, SurfaceParams),
+    CreateSurface(Box<(SurfaceHandle, SurfaceParams)>),
     DeleteSurface(SurfaceHandle),
 
-    CreateShader(ShaderHandle, ShaderParams, String, String),
+    CreateShader(Box<(ShaderHandle, ShaderParams, String, String)>),
     DeleteShader(ShaderHandle),
 
-    CreateTexture(TextureHandle, TextureParams, Option<TextureData>),
+    CreateTexture(Box<(TextureHandle, TextureParams, Option<TextureData>)>),
     UpdateTexture(TextureHandle, Aabb2<u32>, BytesPtr),
     DeleteTexture(TextureHandle),
 
-    CreateRenderTexture(RenderTextureHandle, RenderTextureParams),
+    CreateRenderTexture(Box<(RenderTextureHandle, RenderTextureParams)>),
     DeleteRenderTexture(RenderTextureHandle),
 
-    CreateMesh(MeshHandle, MeshParams, Option<MeshData>),
+    CreateMesh(Box<(MeshHandle, MeshParams, Option<MeshData>)>),
     UpdateVertexBuffer(MeshHandle, usize, BytesPtr),
     UpdateIndexBuffer(MeshHandle, usize, BytesPtr),
     DeleteMesh(MeshHandle),
@@ -88,24 +88,24 @@ impl Frame {
                         visitor.update_surface_viewport(view)?;
                     }
 
-                    Command::CreateSurface(handle, params) => {
-                        visitor.create_surface(handle, params)?;
+                    Command::CreateSurface(v) => {
+                        visitor.create_surface(v.0, v.1)?;
                     }
 
                     Command::DeleteSurface(handle) => {
                         visitor.delete_surface(handle)?;
                     }
 
-                    Command::CreateShader(handle, params, vs, fs) => {
-                        visitor.create_shader(handle, params, &vs, &fs)?;
+                    Command::CreateShader(v) => {
+                        visitor.create_shader(v.0, v.1, &v.2, &v.3)?;
                     }
 
                     Command::DeleteShader(handle) => {
                         visitor.delete_shader(handle)?;
                     }
 
-                    Command::CreateTexture(handle, params, data) => {
-                        visitor.create_texture(handle, params, data)?;
+                    Command::CreateTexture(v) => {
+                        visitor.create_texture(v.0, v.1, v.2)?;
                     }
 
                     Command::UpdateTexture(handle, area, ptr) => {
@@ -117,16 +117,16 @@ impl Frame {
                         visitor.delete_texture(handle)?;
                     }
 
-                    Command::CreateRenderTexture(handle, params) => {
-                        visitor.create_render_texture(handle, params)?;
+                    Command::CreateRenderTexture(v) => {
+                        visitor.create_render_texture(v.0, v.1)?;
                     }
 
                     Command::DeleteRenderTexture(handle) => {
                         visitor.delete_render_texture(handle)?;
                     }
 
-                    Command::CreateMesh(handle, params, data) => {
-                        visitor.create_mesh(handle, params, data)?;
+                    Command::CreateMesh(v) => {
+                        visitor.create_mesh(v.0, v.1, v.2)?;
                     }
 
                     Command::UpdateVertexBuffer(handle, offset, ptr) => {

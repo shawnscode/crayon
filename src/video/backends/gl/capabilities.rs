@@ -173,7 +173,7 @@ extensions! {
     "GL_OES_compressed_ETC2_RGBA8_texture" => gl_oes_compressed_etc2_rgba8_texture,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum TextureCompression {
     ETC2,
     PVRTC,
@@ -245,13 +245,13 @@ impl Capabilities {
         };
 
         Ok(Capabilities {
-            version: version,
-            extensions: extensions,
+            version,
+            extensions,
             vendor: Capabilities::parse_str(gl::VENDOR)?,
             renderer: Capabilities::parse_str(gl::RENDERER)?,
             profile: Capabilities::parse_profile(version),
-            debug: debug,
-            forward_compatible: forward_compatible,
+            debug,
+            forward_compatible,
             max_viewport_dims: Capabilities::parse_viewport_dims(),
             max_combined_texture_image_units: Capabilities::parse_texture_image_units(),
             max_indexed_uniform_buffer: Capabilities::parse_uniform_buffers(version, &extensions),

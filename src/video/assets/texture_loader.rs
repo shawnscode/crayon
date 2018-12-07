@@ -9,9 +9,7 @@ use crate::utils::double_buf::DoubleBuf;
 use super::super::backends::frame::{Command, Frame};
 use super::texture::*;
 
-pub const MAGIC: [u8; 8] = [
-    'V' as u8, 'T' as u8, 'E' as u8, 'X' as u8, ' ' as u8, 0, 0, 1,
-];
+pub const MAGIC: [u8; 8] = [b'V', b'T', b'E', b'X', b' ', 0, 0, 1];
 
 #[derive(Clone)]
 pub struct TextureLoader {
@@ -20,7 +18,7 @@ pub struct TextureLoader {
 
 impl TextureLoader {
     pub(crate) fn new(frames: Arc<DoubleBuf<Frame>>) -> Self {
-        TextureLoader { frames: frames }
+        TextureLoader { frames }
     }
 }
 
@@ -30,7 +28,7 @@ impl ResourceLoader for TextureLoader {
     type Resource = TextureParams;
 
     fn load(&self, handle: Self::Handle, bytes: &[u8]) -> Result<Self::Intermediate> {
-        if &bytes[0..8] != &MAGIC[..] {
+        if bytes[0..8] != MAGIC[..] {
             bail!("[TextureLoader] MAGIC number not match.");
         }
 
@@ -51,7 +49,7 @@ impl ResourceLoader for TextureLoader {
 
         item.0.validate(item.1.as_ref())?;
 
-        let cmd = Command::CreateTexture(handle, item.0, item.1);
+        let cmd = Command::CreateTexture(Box::new((handle, item.0, item.1)));
         self.frames.write().cmds.push(cmd);
 
         Ok(item.0)

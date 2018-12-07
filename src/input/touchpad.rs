@@ -93,9 +93,9 @@ impl TouchPad {
 
     pub fn on_touch(&mut self, id: u8, state: TouchState, position: Vector2<f32>) {
         let touch = TouchEvent {
-            id: id,
-            state: state,
-            position: position,
+            id,
+            state,
+            position,
         };
 
         self.record.update_touch(touch);
@@ -171,8 +171,8 @@ impl GestureTapDetector {
             last_tap_time: Timestamp::now(),
             count: 0,
 
-            required: required,
-            params: params,
+            required,
+            params,
         }
     }
 
@@ -316,12 +316,11 @@ struct GesturePanDetector {
 impl GesturePanDetector {
     pub fn new(params: TouchPadParams) -> Self {
         GesturePanDetector {
+            params,
             position: Vector2::new(0.0, 0.0),
             start_position: Vector2::new(0.0, 0.0),
             pan: false,
             record: TouchesRecord::default(),
-
-            params: params,
         }
     }
 
@@ -357,7 +356,7 @@ impl GesturePanDetector {
                     GesturePan::Move {
                         start_position: self.start_position,
                         position: self.position,
-                        movement: movement,
+                        movement,
                     }
                 } else if self.start_position.distance(self.position)
                     >= self.params.min_pan_distance

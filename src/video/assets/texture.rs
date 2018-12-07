@@ -36,7 +36,7 @@ impl TextureParams {
     pub fn validate(&self, data: Option<&TextureData>) -> Result<()> {
         if let Some(buf) = data {
             let len = self.format.size(self.dimensions);
-            if buf.bytes.len() > 0 && buf.bytes[0].len() > len as usize {
+            if !buf.bytes.is_empty() && buf.bytes[0].len() > len as usize {
                 return Err(Error::OutOfBounds);
             }
         }
@@ -141,16 +141,16 @@ pub enum RenderTextureFormat {
 }
 
 impl RenderTextureFormat {
-    pub fn is_color(&self) -> bool {
-        *self == RenderTextureFormat::RGB8
-            || *self == RenderTextureFormat::RGBA4
-            || *self == RenderTextureFormat::RGBA8
+    pub fn is_color(self) -> bool {
+        self == RenderTextureFormat::RGB8
+            || self == RenderTextureFormat::RGBA4
+            || self == RenderTextureFormat::RGBA8
     }
 
     /// Returns the size in bytes of texture with `dimensions`.
-    pub fn size(&self, dimensions: Vector2<u32>) -> u32 {
+    pub fn size(self, dimensions: Vector2<u32>) -> u32 {
         let square = dimensions.x * dimensions.y;
-        match *self {
+        match self {
             RenderTextureFormat::RGBA4 | RenderTextureFormat::Depth16 => 2 * square,
             RenderTextureFormat::RGB8 | RenderTextureFormat::Depth24 => 3 * square,
             RenderTextureFormat::RGBA8
@@ -197,8 +197,8 @@ pub enum TextureFormat {
 
 impl TextureFormat {
     /// Returns the number of components of this client format.
-    pub fn components(&self) -> u8 {
-        match *self {
+    pub fn components(self) -> u8 {
+        match self {
             TextureFormat::R32F | TextureFormat::R16F | TextureFormat::R8 => 1,
             TextureFormat::RG8 | TextureFormat::RG16F | TextureFormat::RG32F => 2,
             TextureFormat::RGB565
@@ -223,9 +223,9 @@ impl TextureFormat {
     }
 
     /// Returns the size in bytes of texture with `dimensions`.
-    pub fn size(&self, dimensions: Vector2<u32>) -> u32 {
+    pub fn size(self, dimensions: Vector2<u32>) -> u32 {
         let square = dimensions.x * dimensions.y;
-        match *self {
+        match self {
             TextureFormat::PvrtcRGB2BPP | TextureFormat::PvrtcRGBA2BPP => square / 4,
             TextureFormat::PvrtcRGB4BPP | TextureFormat::PvrtcRGBA4BPP => square / 2,
             TextureFormat::Etc2RGB4BPP | TextureFormat::S3tcDxt1RGB4BPP => square / 2,
@@ -249,8 +249,8 @@ impl TextureFormat {
         }
     }
 
-    pub fn compressed(&self) -> bool {
-        match *self {
+    pub fn compressed(self) -> bool {
+        match self {
             TextureFormat::Etc2RGB4BPP
             | TextureFormat::Etc2RGBA8BPP
             | TextureFormat::PvrtcRGB2BPP

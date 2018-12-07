@@ -2,8 +2,8 @@ use gl;
 use glutin;
 use glutin::GlContext;
 
-use crate::math::prelude::Vector2;
 use crate::errors::*;
+use crate::math::prelude::Vector2;
 
 use super::super::super::events::Event;
 use super::super::super::WindowParams;
@@ -16,13 +16,14 @@ pub struct GlutinVisitor {
 }
 
 impl GlutinVisitor {
-    pub fn new(params: WindowParams) -> Result<Self> {
+    pub fn from(params: WindowParams) -> Result<Self> {
         let builder = glutin::WindowBuilder::new()
             .with_title(params.title)
             .with_dimensions(glutin::dpi::LogicalSize::new(
-                params.size.x as f64,
-                params.size.y as f64,
-            )).with_multitouch();
+                f64::from(params.size.x),
+                f64::from(params.size.y),
+            ))
+            .with_multitouch();
 
         let context = glutin::ContextBuilder::new()
             .with_multisampling(params.multisample as u16)
@@ -33,8 +34,8 @@ impl GlutinVisitor {
         let events_loop = glutin::EventsLoop::new();
         let window = glutin::GlWindow::new(builder, context, &events_loop).unwrap();
         let mut visitor = GlutinVisitor {
-            window: window,
-            events_loop: events_loop,
+            window,
+            events_loop,
         };
 
         let size = visitor.dimensions();
@@ -83,7 +84,7 @@ impl Visitor for GlutinVisitor {
 
     #[inline]
     fn resize(&self, dimensions: Vector2<u32>) {
-        let size = glutin::dpi::PhysicalSize::new(dimensions.x as f64, dimensions.y as f64);
+        let size = glutin::dpi::PhysicalSize::new(f64::from(dimensions.x), f64::from(dimensions.y));
         self.window.resize(size)
     }
 

@@ -44,7 +44,7 @@ impl Default for WindowParams {
 pub(crate) unsafe fn setup(params: WindowParams) -> Result<()> {
     debug_assert!(CTX.is_null(), "duplicated setup of window system.");
 
-    let ctx = WindowSystem::new(params)?;
+    let ctx = WindowSystem::from(params)?;
     CTX = Box::into_raw(Box::new(ctx));
     Ok(())
 }
@@ -69,7 +69,7 @@ pub(crate) unsafe fn discard() {
     }
 
     drop(Box::from_raw(CTX as *mut WindowSystem));
-    CTX = 0 as *const WindowSystem;
+    CTX = std::ptr::null();
 }
 
 /// Adds a event listener.
@@ -146,7 +146,7 @@ pub fn device_pixel_ratio() -> f32 {
 mod ins {
     use super::system::WindowSystem;
 
-    pub static mut CTX: *const WindowSystem = 0 as *const WindowSystem;
+    pub static mut CTX: *const WindowSystem = std::ptr::null();
 
     #[inline]
     pub fn ctx() -> &'static WindowSystem {

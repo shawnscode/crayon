@@ -117,7 +117,7 @@ impl TimeSystem {
         };
 
         TimeSystem {
-            shared: shared,
+            shared,
             lis: crate::application::attach(state),
         }
     }
@@ -157,7 +157,7 @@ impl TimeSystem {
         if ts.subsec_nanos() == 0 {
             0
         } else {
-            (1000000000.0 / f64::from(ts.subsec_nanos())) as u32
+            (1_000_000_000.0 / f64::from(ts.subsec_nanos())) as u32
         }
     }
 

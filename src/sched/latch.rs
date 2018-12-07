@@ -40,6 +40,7 @@ impl<T: LatchWaitProbe> LatchWaitProbe for std::sync::Arc<T> {
 /// Spin latches are the simplest, most efficient kind, but they do not support
 /// a `wait()` operation. They just have a boolean flag that becomes true when
 /// `set()` is called.
+#[derive(Default)]
 pub struct SpinLatch {
     b: AtomicBool,
 }
@@ -74,13 +75,19 @@ pub struct LockLatch<T> {
     v: Condvar,
 }
 
-impl<T> LockLatch<T> {
-    #[inline]
-    pub fn new() -> LockLatch<T> {
+impl<T> Default for LockLatch<T> {
+    fn default() -> Self {
         LockLatch {
             m: Mutex::new(None),
             v: Condvar::new(),
         }
+    }
+}
+
+impl<T> LockLatch<T> {
+    #[inline]
+    pub fn new() -> LockLatch<T> {
+        Default::default()
     }
 
     #[inline]
@@ -129,7 +136,7 @@ impl<T> LatchWaitProbe for LockLatch<T> {
 /// other latches, calling `set()` does not necessarily make the latch be
 /// considered `set()`; instead, it just decrements the counter. The latch is
 /// only "set" (in the sense that`is_set()` returns true) once the counter reaches zero.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CountLatch {
     counter: AtomicUsize,
 }

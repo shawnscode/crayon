@@ -22,7 +22,7 @@ pub struct Scope<'s> {
 impl<'s> Scope<'s> {
     pub fn new(scheduler: Option<Arc<Scheduler>>) -> Self {
         Scope {
-            scheduler: scheduler,
+            scheduler,
             latch: CountLatch::new(),
             marker: PhantomData::default(),
             panic: AtomicPtr::new(ptr::null_mut()),
@@ -43,7 +43,8 @@ impl<'s> Scope<'s> {
 
                 let job = Box::new(HeapJob::new(move || {
                     let _v = self.execute(func);
-                })).as_job_ref();
+                }))
+                .transmute();
 
                 // Since `Scope` implements `Sync`, we can't be sure that we're still in a thread
                 // of this pool, so we can't just push to the local worker thread.

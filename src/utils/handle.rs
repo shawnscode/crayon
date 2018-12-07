@@ -23,10 +23,7 @@ impl Handle {
     /// Constructs a new `Handle`.
     #[inline]
     pub fn new(index: HandleIndex, version: HandleIndex) -> Self {
-        Handle {
-            index: index,
-            version: version,
-        }
+        Handle { index, version }
     }
 
     /// Constructs a nil/uninitialized `Handle`.
@@ -40,7 +37,7 @@ impl Handle {
 
     /// Returns true if this `Handle` has been initialized.
     #[inline]
-    pub fn is_valid(&self) -> bool {
+    pub fn is_valid(self) -> bool {
         self.index > 0 || self.version > 0
     }
 
@@ -53,13 +50,13 @@ impl Handle {
 
     /// Returns index value.
     #[inline]
-    pub fn index(&self) -> HandleIndex {
+    pub fn index(self) -> HandleIndex {
         self.index
     }
 
     /// Returns version value.
     #[inline]
-    pub fn version(&self) -> HandleIndex {
+    pub fn version(self) -> HandleIndex {
         self.version
     }
 }
@@ -99,10 +96,7 @@ pub trait HandleLike: Debug + Copy + Hash + PartialEq + Eq + Send + Sync {
 impl HandleLike for Handle {
     #[inline]
     fn new(index: HandleIndex, version: HandleIndex) -> Self {
-        Handle {
-            index: index,
-            version: version,
-        }
+        Handle { index, version }
     }
 
     #[inline]

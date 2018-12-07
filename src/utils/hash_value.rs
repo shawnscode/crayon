@@ -4,7 +4,7 @@ use std::path::Path;
 
 use super::hash;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Eq)]
 pub struct HashValue<T>(u64, PhantomData<T>)
 where
     T: Hash + ?Sized;
@@ -28,6 +28,15 @@ where
 }
 
 impl<T> Copy for HashValue<T> where T: Hash + ?Sized {}
+
+impl<T> PartialEq for HashValue<T>
+where
+    T: Hash + ?Sized,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq(&other.0)
+    }
+}
 
 impl<T> Hash for HashValue<T>
 where
@@ -105,7 +114,6 @@ mod test {
 
     #[test]
     fn hash_path() {
-        let h = HashValue::<Path>::from("str_path");
-        let _ = HashValue::<Path>::from(h);
+        let _ = HashValue::<Path>::from("str_path");
     }
 }

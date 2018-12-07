@@ -1,4 +1,5 @@
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use crate::sched::prelude::LatchProbe;
 use crate::window::prelude::{Event, EventListener, EventListenerHandle, WindowEvent};
@@ -18,13 +19,13 @@ pub struct EngineSystem {
 }
 
 struct EngineState {
-    alive: Mutex<bool>,
+    alive: AtomicBool,
 }
 
 impl EventListener for Arc<EngineState> {
     fn on(&mut self, v: &Event) -> Result<()> {
-        if let &Event::Window(WindowEvent::Closed) = v {
-            *self.alive.lock().unwrap() = false;
+        if let Event::Window(WindowEvent::Closed) = *v {
+            self.alive.store(false, Ordering::Relaxed);
         }
 
         Ok(())
@@ -59,12 +60,12 @@ impl EngineSystem {
         crate::res::setup(params.res)?;
 
         let state = Arc::new(EngineState {
-            alive: Mutex::new(true),
+            alive: AtomicBool::new(true),
         });
 
         let sys = EngineSystem {
             events: crate::window::attach(state.clone()),
-            state: state,
+            state,
             headless: false,
         };
 
@@ -83,12 +84,12 @@ impl EngineSystem {
         crate::res::setup(params.res)?;
 
         let state = Arc::new(EngineState {
-            alive: Mutex::new(false),
+            alive: AtomicBool::new(false),
         });
 
         let sys = EngineSystem {
             events: crate::window::attach(state.clone()),
-            state: state,
+            state,
             headless: true,
         };
 
@@ -97,7 +98,7 @@ impl EngineSystem {
 
     #[inline]
     pub fn shutdown(&self) {
-        *self.state.alive.lock().unwrap() = false;
+        self.state.alive.store(false, Ordering::Relaxed);
     }
 
     #[inline]
@@ -141,7 +142,8 @@ impl EngineSystem {
                         super::foreach(|v| v.on_update())?;
                         super::foreach(|v| v.on_render())?;
                         super::foreach_rev(|v| v.on_post_update())?;
-                        Ok(*state.alive.lock().unwrap())
+
+                        Ok(state.alive.load(Ordering::Relaxed))
                     },
                     move || {
                         unsafe { crate::sched::terminate() };

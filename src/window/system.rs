@@ -74,7 +74,7 @@ impl Drop for WindowSystem {
 
 impl WindowSystem {
     /// Creates a new `WindowSystem` and initalize OpenGL context.
-    pub fn new(params: WindowParams) -> Result<Self> {
+    pub fn from(params: WindowParams) -> Result<Self> {
         let state = Arc::new(WindowState {
             last_frame_listeners: Mutex::new(Vec::new()),
             listeners: Mutex::new(ObjectPool::new()),
@@ -99,12 +99,10 @@ impl WindowSystem {
             visitor: RwLock::new(backends::new_headless()),
         });
 
-        let window = WindowSystem {
+        WindowSystem {
             state: state.clone(),
             lis: crate::application::attach(state),
-        };
-
-        window
+        }
     }
 
     /// Adds a event listener.

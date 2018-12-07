@@ -42,7 +42,7 @@ impl VideoState {
             meshes: RwLock::new(ResourcePool::new(MeshLoader::new(frames.clone()))),
             textures: RwLock::new(ResourcePool::new(TextureLoader::new(frames.clone()))),
             render_textures: RwLock::new(ObjectPool::new()),
-            frames: frames,
+            frames,
         }
     }
 }
@@ -96,9 +96,9 @@ impl VideoSystem {
         Ok(VideoSystem {
             state: state.clone(),
             lis: crate::application::attach(Lifecycle {
+                state,
+                visitor,
                 last_dimensions: dimensions_pixels(),
-                state: state,
-                visitor: visitor,
             }),
         })
     }
@@ -111,9 +111,9 @@ impl VideoSystem {
         VideoSystem {
             state: state.clone(),
             lis: crate::application::attach(Lifecycle {
+                state,
+                visitor,
                 last_dimensions: Vector2::new(0, 0),
-                state: state,
-                visitor: visitor,
             }),
         }
     }
@@ -126,10 +126,10 @@ impl VideoSystem {
 impl VideoSystem {
     /// Creates an surface with `SurfaceParams`.
     pub fn create_surface(&self, params: SurfaceParams) -> Result<SurfaceHandle> {
-        let handle = self.state.surfaces.write().unwrap().create(params).into();
+        let handle = self.state.surfaces.write().unwrap().create(params);
 
         {
-            let cmd = Command::CreateSurface(handle, params);
+            let cmd = Command::CreateSurface(Box::new((handle, params)));
             self.state.frames.write().cmds.push(cmd);
         }
 
@@ -174,7 +174,7 @@ impl VideoSystem {
         let handle = self.state.shaders.write().unwrap().create(params.clone());
 
         {
-            let cmd = Command::CreateShader(handle, params, vs, fs);
+            let cmd = Command::CreateShader(Box::new((handle, params, vs, fs)));
             self.state.frames.write().cmds.push(cmd);
         }
 
@@ -356,7 +356,7 @@ impl VideoSystem {
         let handle = self.state.render_textures.write().unwrap().create(params);
 
         {
-            let cmd = Command::CreateRenderTexture(handle, params);
+            let cmd = Command::CreateRenderTexture(Box::new((handle, params)));
             self.state.frames.write().cmds.push(cmd);
         }
 

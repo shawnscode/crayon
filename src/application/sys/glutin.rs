@@ -5,7 +5,7 @@ pub fn timestamp() -> Timestamp {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap();
 
-    let ms = duration.subsec_millis() as u64 + duration.as_secs() * 1000;
+    let ms = u64::from(duration.subsec_millis()) + duration.as_secs() * 1000;
     Timestamp::from_millis(ms)
 }
 

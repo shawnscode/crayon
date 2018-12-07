@@ -201,11 +201,11 @@ pub struct Keyboard {
 impl Keyboard {
     pub fn new(setup: KeyboardParams) -> Self {
         Keyboard {
+            setup,
             downs: FastHashMap::default(),
             presses: FastHashSet::default(),
             releases: FastHashSet::default(),
             chars: Vec::with_capacity(setup.max_chars),
-            setup: setup,
             now: Timestamp::now(),
         }
     }
@@ -227,9 +227,11 @@ impl Keyboard {
         let last_frame_ts = self.now;
         for v in self.downs.values_mut() {
             match *v {
-                KeyDownState::Start(ts) => if (last_frame_ts - ts) > self.setup.repeat_timeout {
-                    *v = KeyDownState::Press(ts);
-                },
+                KeyDownState::Start(ts) => {
+                    if (last_frame_ts - ts) > self.setup.repeat_timeout {
+                        *v = KeyDownState::Press(ts);
+                    }
+                }
                 KeyDownState::Press(ts) => {
                     if (last_frame_ts - ts) > self.setup.repeat_interval_timeout {
                         *v = KeyDownState::Press(last_frame_ts);
@@ -243,10 +245,12 @@ impl Keyboard {
 
     #[inline]
     pub fn on_key_pressed(&mut self, key: Key) {
-        if !self.downs.contains_key(&key) {
-            self.presses.insert(key);
-            self.downs.insert(key, KeyDownState::Start(self.now));
-        }
+        let presses = &mut self.presses;
+        let now = self.now;
+        self.downs.entry(key).or_insert_with(|| {
+            presses.insert(key);
+            KeyDownState::Start(now)
+        });
     }
 
     #[inline]

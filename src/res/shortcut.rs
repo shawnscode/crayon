@@ -5,7 +5,7 @@ use crate::utils::hash::FastHashMap;
 
 /// Central registry for shortcut definitions. Shortcuts are path aliases that
 /// could be resolved into full path.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct ShortcutResolver {
     registry: FastHashMap<String, String>,
 }
@@ -61,8 +61,8 @@ impl ShortcutResolver {
 
                 if let Some(index) = dst.find(':') {
                     // ignore DOS drive letters.
-                    if let Some(fullname) = self.registry.get(dst.get_unchecked(0..index + 1)) {
-                        dst.replace_range(0..index + 1, fullname);
+                    if let Some(fullname) = self.registry.get(dst.get_unchecked(0..=index)) {
+                        dst.replace_range(0..=index, fullname);
                     } else {
                         return None;
                     }

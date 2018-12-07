@@ -7,6 +7,6 @@ use super::Visitor;
 use crate::errors::*;
 
 pub fn new(params: WindowParams) -> Result<Box<Visitor>> {
-    let visitor = self::visitor::GlutinVisitor::new(params)?;
+    let visitor = self::visitor::GlutinVisitor::from(params)?;
     Ok(Box::new(visitor))
 }

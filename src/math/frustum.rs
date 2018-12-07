@@ -35,21 +35,21 @@ pub enum Projection<S: BaseFloat> {
 }
 
 impl<S: BaseFloat> Projection<S> {
-    pub fn ortho(w: S, h: S, n: S, f: S) -> Self {
+    pub fn ortho(width: S, height: S, near: S, far: S) -> Self {
         Projection::Ortho {
-            width: w,
-            height: h,
-            near: n,
-            far: f,
+            width,
+            height,
+            near,
+            far,
         }
     }
 
-    pub fn perspective(fovy: Rad<S>, aspect: S, n: S, f: S) -> Self {
+    pub fn perspective(fovy: Rad<S>, aspect: S, near: S, far: S) -> Self {
         Projection::Perspective {
-            fovy: fovy,
-            aspect: aspect,
-            near: n,
-            far: f,
+            fovy,
+            aspect,
+            near,
+            far,
         }
     }
 
@@ -157,13 +157,18 @@ impl<S: BaseFloat> Projection<S> {
 
         let (hw, hh) = (w * half, h * half);
 
-        let (l, r) = (-hw, hw);
-        let (b, t) = (-hh, hh);
+        let (l0, r0) = (-hw, hw);
+        let (b0, t0) = (-hh, hh);
 
-        let c0 = [two / (r - l), zero, zero, zero];
-        let c1 = [zero, two / (t - b), zero, zero];
+        let c0 = [two / (r0 - l0), zero, zero, zero];
+        let c1 = [zero, two / (t0 - b0), zero, zero];
         let c2 = [zero, zero, two / (f - n), zero];
-        let c3 = [(r + l) / (l - r), (t + b) / (b - t), (f + n) / (n - f), one];
+        let c3 = [
+            (r0 + l0) / (l0 - r0),
+            (t0 + b0) / (b0 - t0),
+            (f + n) / (n - f),
+            one,
+        ];
         Matrix4::from_cols(c0.into(), c1.into(), c2.into(), c3.into())
     }
 
@@ -209,7 +214,7 @@ impl<S: BaseFloat> Frustum<S> {
         let mat = Projection::matrix(projection);
 
         Frustum {
-            projection: projection,
+            projection,
 
             left: Plane::from_vector4_alt(mat.row(3) + mat.row(0))
                 .normalize()

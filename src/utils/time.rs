@@ -16,8 +16,8 @@ impl Timestamp {
     }
 
     #[inline]
-    pub fn elapsed(&self) -> Duration {
-        crate::application::sys::timestamp() - *self
+    pub fn elapsed(self) -> Duration {
+        crate::application::sys::timestamp() - self
     }
 }
 

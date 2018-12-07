@@ -57,9 +57,10 @@ impl Request {
     /// Return the response if exists.
     #[inline]
     pub fn response(&self) -> Option<&Response> {
-        match self {
-            &Request::Ok(ref rsp) => Some(rsp),
-            _ => None,
+        if let Request::Ok(ref rsp) = *self {
+            Some(rsp)
+        } else {
+            None
         }
     }
 }
@@ -73,10 +74,13 @@ impl Into<Option<Response>> for Request {
     }
 }
 
+type FrameTasks = Mutex<Vec<(Request, Box<dyn FnMut(Response) + Send>)>>;
+
+#[derive(Default)]
 pub struct RequestQueue {
     // FIXME: Use FnOnce instead of Box<Fn> when its stable.
-    last_frame_tasks: Mutex<Vec<(Request, Box<dyn FnMut(Response) + Send>)>>,
-    tasks: Mutex<Vec<(Request, Box<dyn FnMut(Response) + Send>)>>,
+    last_frame_tasks: FrameTasks,
+    tasks: FrameTasks,
     idxes: Mutex<Vec<usize>>,
 }
 

@@ -145,13 +145,13 @@ impl GLVisitor {
         };
 
         let mut visitor = GLVisitor {
-            state: state,
+            state,
+            capabilities,
             surfaces: DataVec::new(),
             shaders: DataVec::new(),
             meshes: DataVec::new(),
             textures: DataVec::new(),
             render_textures: DataVec::new(),
-            capabilities: capabilities,
         };
 
         Self::reset_render_state(&mut visitor.state)?;
@@ -172,10 +172,10 @@ impl Visitor for GLVisitor {
         params: SurfaceParams,
     ) -> Result<()> {
         let mut data = GLSurfaceData {
-            handle: handle,
+            handle,
+            params,
             id: None,
             dimensions: None,
-            params: params,
         };
 
         if params.colors[0].is_some() || params.depth_stencil.is_some() {
@@ -312,9 +312,9 @@ impl Visitor for GLVisitor {
         check()?;
 
         let shader = GLShaderData {
-            handle: handle,
-            id: id,
-            params: params,
+            handle,
+            id,
+            params,
             uniforms: RefCell::new(FastHashMap::default()),
             attributes: RefCell::new(FastHashMap::default()),
         };
@@ -442,9 +442,9 @@ impl Visitor for GLVisitor {
         self.textures.create(
             handle,
             GLTextureData {
-                handle: handle,
-                id: id,
-                params: params,
+                handle,
+                id,
+                params,
                 allocated: RefCell::new(allocated),
             },
         );
@@ -582,14 +582,8 @@ impl Visitor for GLVisitor {
 
         check()?;
 
-        self.render_textures.create(
-            handle,
-            GLRenderTextureData {
-                handle: handle,
-                id: id,
-                params: params,
-            },
-        );
+        self.render_textures
+            .create(handle, GLRenderTextureData { handle, id, params });
 
         Ok(())
     }
@@ -638,10 +632,10 @@ impl Visitor for GLVisitor {
         self.meshes.create(
             handle,
             GLMeshData {
-                handle: handle,
-                vbo: vbo,
-                ibo: ibo,
-                params: params,
+                handle,
+                vbo,
+                ibo,
+                params,
             },
         );
 
@@ -891,7 +885,7 @@ impl Visitor for GLVisitor {
     }
 
     unsafe fn flush(&mut self) -> Result<()> {
-        if self.state.cleared_surfaces.len() == 0 {
+        if self.state.cleared_surfaces.is_empty() {
             Self::clear(Color::black(), None, None)?;
         }
 
@@ -1012,13 +1006,11 @@ impl GLVisitor {
                             GLsizei::from(stride),
                             offset as *const u8 as *const ::std::os::raw::c_void,
                         );
-                    } else {
-                        if required {
-                            bail!(
-                                "Can't find attribute {:?} description in vertex buffer.",
-                                name
-                            );
-                        }
+                    } else if required {
+                        bail!(
+                            "Can't find attribute {:?} description in vertex buffer.",
+                            name
+                        );
                     }
                 }
 
@@ -1216,20 +1208,17 @@ impl GLVisitor {
     /// Set the scissor box relative to the top-lef corner of th window, in pixels.
     unsafe fn set_scissor(state: &mut GLMutableState, scissor: SurfaceScissor) -> Result<()> {
         match scissor {
-            SurfaceScissor::Disable => if state.scissor != SurfaceScissor::Disable {
-                gl::Disable(gl::SCISSOR_TEST);
-            },
+            SurfaceScissor::Disable => {
+                if state.scissor != SurfaceScissor::Disable {
+                    gl::Disable(gl::SCISSOR_TEST);
+                }
+            }
             SurfaceScissor::Enable { position, size } => {
                 if state.scissor == SurfaceScissor::Disable {
                     gl::Enable(gl::SCISSOR_TEST);
                 }
 
-                gl::Scissor(
-                    GLint::from(position.x),
-                    GLint::from(position.y),
-                    size.x as i32,
-                    size.y as i32,
-                );
+                gl::Scissor(position.x, position.y, size.x as i32, size.y as i32);
             }
         }
 
@@ -1241,8 +1230,8 @@ impl GLVisitor {
     unsafe fn set_viewport(state: &mut GLMutableState, vp: SurfaceViewport) -> Result<()> {
         if state.view != vp {
             gl::Viewport(
-                GLint::from(vp.position.x),
-                GLint::from(vp.position.y),
+                vp.position.x,
+                vp.position.y,
                 vp.size.x as i32,
                 vp.size.y as i32,
             );
@@ -1308,38 +1297,42 @@ impl GLVisitor {
             }
             RenderTextureFormat::Depth16
             | RenderTextureFormat::Depth24
-            | RenderTextureFormat::Depth32 => if params.sampler {
-                gl::FramebufferTexture2D(
-                    gl::FRAMEBUFFER,
-                    gl::DEPTH_ATTACHMENT,
-                    gl::TEXTURE_2D,
-                    id,
-                    0,
-                );
-            } else {
-                gl::FramebufferRenderbuffer(
-                    gl::FRAMEBUFFER,
-                    gl::DEPTH_ATTACHMENT,
-                    gl::RENDERBUFFER,
-                    id,
-                );
-            },
-            RenderTextureFormat::Depth24Stencil8 => if params.sampler {
-                gl::FramebufferTexture2D(
-                    gl::FRAMEBUFFER,
-                    gl::DEPTH_STENCIL_ATTACHMENT,
-                    gl::TEXTURE_2D,
-                    id,
-                    0,
-                );
-            } else {
-                gl::FramebufferRenderbuffer(
-                    gl::FRAMEBUFFER,
-                    gl::DEPTH_STENCIL_ATTACHMENT,
-                    gl::RENDERBUFFER,
-                    id,
-                );
-            },
+            | RenderTextureFormat::Depth32 => {
+                if params.sampler {
+                    gl::FramebufferTexture2D(
+                        gl::FRAMEBUFFER,
+                        gl::DEPTH_ATTACHMENT,
+                        gl::TEXTURE_2D,
+                        id,
+                        0,
+                    );
+                } else {
+                    gl::FramebufferRenderbuffer(
+                        gl::FRAMEBUFFER,
+                        gl::DEPTH_ATTACHMENT,
+                        gl::RENDERBUFFER,
+                        id,
+                    );
+                }
+            }
+            RenderTextureFormat::Depth24Stencil8 => {
+                if params.sampler {
+                    gl::FramebufferTexture2D(
+                        gl::FRAMEBUFFER,
+                        gl::DEPTH_STENCIL_ATTACHMENT,
+                        gl::TEXTURE_2D,
+                        id,
+                        0,
+                    );
+                } else {
+                    gl::FramebufferRenderbuffer(
+                        gl::FRAMEBUFFER,
+                        gl::DEPTH_STENCIL_ATTACHMENT,
+                        gl::RENDERBUFFER,
+                        id,
+                    );
+                }
+            }
         }
 
         check()

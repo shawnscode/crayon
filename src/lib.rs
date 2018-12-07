@@ -23,6 +23,8 @@
 //! cargo run --example modules_3d_prefab
 //! ```
 
+#![allow(clippy::new_ret_no_self)]
+
 #[cfg(not(target_arch = "wasm32"))]
 extern crate gl;
 #[cfg(not(target_arch = "wasm32"))]
