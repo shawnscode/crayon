@@ -107,7 +107,7 @@ pub fn set_pitch(handle: AudioSourceHandle, pitch: f32) {
 mod inside {
     use super::system::AudioSystem;
 
-    static mut CTX: *const AudioSystem = 0 as *const AudioSystem;
+    static mut CTX: *const AudioSystem = std::ptr::null();
 
     #[inline]
     pub fn ctx() -> &'static AudioSystem {
@@ -140,7 +140,7 @@ mod inside {
             }
 
             drop(Box::from_raw(CTX as *mut AudioSystem));
-            CTX = 0 as *const AudioSystem;
+            CTX = std::ptr::null();
         }
     }
 }

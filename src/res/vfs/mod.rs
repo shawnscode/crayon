@@ -5,8 +5,8 @@ pub mod http;
 
 use std::sync::Arc;
 
-use sched::prelude::LockLatch;
-use utils::hash::FastHashMap;
+use crate::sched::prelude::LockLatch;
+use crate::utils::hash::FastHashMap;
 
 use super::request::Response;
 use super::url::Url;
@@ -15,7 +15,7 @@ pub trait VFS: std::fmt::Debug + Send + Sync + 'static {
     fn request(&self, url: &Url, state: Arc<LockLatch<Response>>);
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct SchemaResolver {
     schemas: FastHashMap<String, Arc<VFS>>,
 }

@@ -39,7 +39,7 @@ pub mod prelude {
     pub use super::Params;
 }
 
-use errors::*;
+use crate::errors::*;
 
 use self::lifecycle::{LifecycleListener, LifecycleListenerHandle};
 
@@ -48,9 +48,9 @@ use self::inside::{ctx, lifecycle_ctx, time_ctx, CTX, LIFECYCLE_CTX, TIME_CTX};
 use self::lifecycle::LifecycleSystem;
 use self::time::TimeSystem;
 
-use input::InputParams;
-use res::ResourceParams;
-use window::WindowParams;
+use crate::input::InputParams;
+use crate::res::ResourceParams;
+use crate::window::WindowParams;
 
 /// A structure containing configuration data for the game engine, which are
 /// used to specify hardware setup stuff to create the window and other
@@ -155,13 +155,13 @@ pub fn discard() {
 
 pub(crate) unsafe fn late_discard() {
     drop(Box::from_raw(CTX as *mut EngineSystem));
-    CTX = 0 as *const EngineSystem;
+    CTX = std::ptr::null();
 
     drop(Box::from_raw(TIME_CTX as *mut TimeSystem));
-    TIME_CTX = 0 as *const TimeSystem;
+    TIME_CTX = std::ptr::null();
 
     drop(Box::from_raw(LIFECYCLE_CTX as *mut LifecycleSystem));
-    LIFECYCLE_CTX = 0 as *const LifecycleSystem;
+    LIFECYCLE_CTX = std::ptr::null();
 }
 
 /// Checks if the engine is enabled.
@@ -257,9 +257,9 @@ mod inside {
     use super::lifecycle::LifecycleSystem;
     use super::time::TimeSystem;
 
-    pub static mut LIFECYCLE_CTX: *const LifecycleSystem = 0 as *const LifecycleSystem;
-    pub static mut TIME_CTX: *const TimeSystem = 0 as *const TimeSystem;
-    pub static mut CTX: *const EngineSystem = 0 as *const EngineSystem;
+    pub static mut LIFECYCLE_CTX: *const LifecycleSystem = std::ptr::null();
+    pub static mut TIME_CTX: *const TimeSystem = std::ptr::null();
+    pub static mut CTX: *const EngineSystem = std::ptr::null();
 
     pub fn lifecycle_ctx() -> &'static LifecycleSystem {
         unsafe {

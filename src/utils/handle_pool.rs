@@ -22,21 +22,26 @@ impl Ord for InverseHandleIndex {
 /// `HandlePool` manages the manipulations of a `Handle` collection, which are
 /// created with a continuous `index` field. It also have the ability to find
 /// out the current status of a specified `Handle`.
-#[derive(Default)]
 pub struct HandlePool<T: HandleLike> {
     versions: Vec<HandleIndex>,
     frees: BinaryHeap<InverseHandleIndex>,
     _marker: PhantomData<T>,
 }
 
-impl<T: HandleLike> HandlePool<T> {
-    /// Constructs a new, empty `HandlePool`.
-    pub fn new() -> HandlePool<T> {
+impl<T: HandleLike> Default for HandlePool<T> {
+    fn default() -> Self {
         HandlePool {
             versions: Vec::new(),
             frees: BinaryHeap::new(),
             _marker: PhantomData::default(),
         }
+    }
+}
+
+impl<T: HandleLike> HandlePool<T> {
+    /// Constructs a new, empty `HandlePool`.
+    pub fn new() -> HandlePool<T> {
+        Default::default()
     }
 
     /// Constructs a new `HandlePool` with the specified capacity.
@@ -48,8 +53,8 @@ impl<T: HandleLike> HandlePool<T> {
         }
 
         HandlePool {
-            versions: versions,
-            frees: frees,
+            versions,
+            frees,
             _marker: PhantomData::default(),
         }
     }
@@ -98,11 +103,9 @@ impl<T: HandleLike> HandlePool<T> {
         unsafe {
             for i in 0..self.versions.len() {
                 let v = *self.versions.get_unchecked(i);
-                if v & 0x1 == 1 {
-                    if !predicate(T::new(i as u32, v)) {
-                        self.versions[i] += 1;
-                        self.frees.push(InverseHandleIndex(i as u32));
-                    }
+                if v & 0x1 == 1 && !predicate(T::new(i as u32, v)) {
+                    self.versions[i] += 1;
+                    self.frees.push(InverseHandleIndex(i as u32));
                 }
             }
         }

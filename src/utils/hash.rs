@@ -55,7 +55,7 @@ mod hasher {
     use std::ops::BitXor;
 
     const ROTATE: u32 = 5;
-    const SEED64: u64 = 0x517cc1b727220a95;
+    const SEED64: u64 = 0x517c_c1b7_2722_0a95;
     const SEED32: u32 = (SEED64 & 0xFFFF_FFFF) as u32;
 
     #[cfg(target_pointer_width = "32")]
@@ -64,7 +64,7 @@ mod hasher {
     const SEED: usize = SEED64 as usize;
 
     trait HashWord {
-        fn hash_word(&mut self, Self);
+        fn hash_word(&mut self, word: Self);
     }
 
     macro_rules! impl_hash_word {
@@ -88,7 +88,11 @@ mod hasher {
             assert!($size <= $src.len());
             let mut data: $ty = 0;
             unsafe {
-                ::std::ptr::copy_nonoverlapping($src.as_ptr(), &mut data as *mut $ty as *mut u8, $size);
+                ::std::ptr::copy_nonoverlapping(
+                    $src.as_ptr(),
+                    &mut data as *mut $ty as *mut u8,
+                    $size,
+                );
             }
             data.$which()
         }};
@@ -127,7 +131,7 @@ mod hasher {
         }
 
         for byte in bytes {
-            hash.hash_word(*byte as u32);
+            hash.hash_word(u32::from(*byte));
         }
         hash
     }
@@ -142,12 +146,12 @@ mod hasher {
 
         if bytes.len() >= 4 {
             let n = read_u32(bytes);
-            hash.hash_word(n as u64);
+            hash.hash_word(u64::from(n));
             bytes = bytes.split_at(4).1;
         }
 
         for byte in bytes {
-            hash.hash_word(*byte as u64);
+            hash.hash_word(u64::from(*byte));
         }
         hash
     }
@@ -155,7 +159,7 @@ mod hasher {
     #[inline]
     #[cfg(target_pointer_width = "32")]
     fn write(hash: usize, bytes: &[u8]) -> usize {
-        write32(hash as u32, bytes) as usize
+        write32(hash as u64, bytes) as usize
     }
 
     #[inline]
@@ -256,12 +260,12 @@ mod hasher {
 
         #[inline]
         fn write_u8(&mut self, i: u8) {
-            self.hash.hash_word(i as u32);
+            self.hash.hash_word(u32::from(i));
         }
 
         #[inline]
         fn write_u16(&mut self, i: u16) {
-            self.hash.hash_word(i as u32);
+            self.hash.hash_word(u32::from(i));
         }
 
         #[inline]
@@ -289,7 +293,7 @@ mod hasher {
 
         #[inline]
         fn finish(&self) -> u64 {
-            self.hash as u64
+            u64::from(self.hash)
         }
     }
 
@@ -321,17 +325,17 @@ mod hasher {
 
         #[inline]
         fn write_u8(&mut self, i: u8) {
-            self.hash.hash_word(i as u64);
+            self.hash.hash_word(u64::from(i));
         }
 
         #[inline]
         fn write_u16(&mut self, i: u16) {
-            self.hash.hash_word(i as u64);
+            self.hash.hash_word(u64::from(i));
         }
 
         #[inline]
         fn write_u32(&mut self, i: u32) {
-            self.hash.hash_word(i as u64);
+            self.hash.hash_word(u64::from(i));
         }
 
         fn write_u64(&mut self, i: u64) {

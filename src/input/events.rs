@@ -1,4 +1,4 @@
-use math::prelude::Vector2;
+use crate::math::prelude::Vector2;
 
 use super::keyboard::Key;
 use super::mouse::MouseButton;

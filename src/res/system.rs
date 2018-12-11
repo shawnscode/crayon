@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 
 use uuid::Uuid;
 
-use application::prelude::{LifecycleListener, LifecycleListenerHandle};
+use crate::application::prelude::{LifecycleListener, LifecycleListenerHandle};
 
 use super::manifest::ManfiestResolver;
 use super::request::{Request, RequestQueue, Response};

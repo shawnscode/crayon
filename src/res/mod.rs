@@ -61,7 +61,7 @@ use std::sync::Arc;
 use failure::ResultExt;
 use uuid::Uuid;
 
-use sched::prelude::{CountLatch, Latch};
+use crate::sched::prelude::{CountLatch, Latch};
 
 use self::ins::{ctx, CTX};
 use self::request::{Request, Response};
@@ -133,7 +133,7 @@ pub(crate) unsafe fn discard() {
     }
 
     drop(Box::from_raw(CTX as *mut ResourceSystem));
-    CTX = 0 as *const ResourceSystem;
+    CTX = std::ptr::null();
 }
 
 /// Checks if the resource system is enabled.
@@ -194,7 +194,7 @@ pub fn load_from<T: AsRef<str>>(filename: T) -> Result<Request, failure::Error> 
 mod ins {
     use super::system::ResourceSystem;
 
-    pub static mut CTX: *const ResourceSystem = 0 as *const ResourceSystem;
+    pub static mut CTX: *const ResourceSystem = std::ptr::null();
 
     #[inline]
     pub fn ctx() -> &'static ResourceSystem {

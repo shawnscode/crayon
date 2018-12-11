@@ -60,12 +60,7 @@ impl<S: BaseFloat> From<[u8; 4]> for Color<S> {
 
 impl<S: BaseFloat> Color<S> {
     pub fn new(r: S, g: S, b: S, a: S) -> Self {
-        Color {
-            r: r,
-            g: g,
-            b: b,
-            a: a,
-        }
+        Color { r, g, b, a }
     }
 
     /// Creates `Color` from a u32 encoded `ARGB`.

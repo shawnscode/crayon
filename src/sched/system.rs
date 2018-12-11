@@ -74,7 +74,7 @@ impl SchedulerSystem {
                     }
                 }));
 
-                scheduler.inject_or_push(HeapJob::as_job_ref(job));
+                scheduler.inject_or_push(HeapJob::transmute(job));
             }
         } else {
             func();

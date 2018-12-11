@@ -2,12 +2,12 @@ use glutin;
 
 use super::super::super::events::{Event, WindowEvent};
 
-use input::events::InputEvent;
-use input::keyboard::Key;
-use input::mouse::MouseButton;
-use input::touchpad::TouchState;
+use crate::input::events::InputEvent;
+use crate::input::keyboard::Key;
+use crate::input::mouse::MouseButton;
+use crate::input::touchpad::TouchState;
 
-use math::prelude::Vector2;
+use crate::math::prelude::Vector2;
 
 pub fn from_event(source: glutin::Event, dimensions: Vector2<u32>) -> Option<Event> {
     match source {

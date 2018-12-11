@@ -3,8 +3,8 @@ mod visitor;
 
 use super::Visitor;
 
-use errors::*;
-use window::WindowParams;
+use crate::errors::*;
+use crate::window::WindowParams;
 
 pub fn new(params: WindowParams) -> Result<Box<Visitor>> {
     let visitor = visitor::WebVisitor::new(params)?;

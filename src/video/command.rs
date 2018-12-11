@@ -1,5 +1,5 @@
-use math::prelude::Aabb2;
-use utils::prelude::{DataBuffer, HashValue};
+use crate::math::prelude::Aabb2;
+use crate::utils::prelude::{DataBuffer, HashValue};
 
 use super::assets::prelude::*;
 use super::backends::frame::Command;
@@ -7,6 +7,7 @@ use super::errors::*;
 use super::MAX_UNIFORM_VARIABLES;
 
 /// The command buffer of video system.
+#[derive(Default)]
 pub struct CommandBuffer {
     cmds: Vec<Command>,
     bufs: DataBuffer,
@@ -123,13 +124,19 @@ pub struct DrawCommandBuffer<T: Ord + Copy> {
     bufs: DataBuffer,
 }
 
-impl<T: Ord + Copy> DrawCommandBuffer<T> {
-    #[inline]
-    pub fn new() -> Self {
+impl<T: Ord + Copy> Default for DrawCommandBuffer<T> {
+    fn default() -> Self {
         DrawCommandBuffer {
             cmds: Vec::with_capacity(32),
             bufs: DataBuffer::with_capacity(512),
         }
+    }
+}
+
+impl<T: Ord + Copy> DrawCommandBuffer<T> {
+    #[inline]
+    pub fn new() -> Self {
+        Default::default()
     }
 
     /// Draws ur mesh.
@@ -152,15 +159,11 @@ impl<T: Ord + Copy> DrawCommandBuffer<T> {
 
         self.cmds.as_mut_slice().sort_by_key(|v| v.0);
         for v in self.cmds.drain(..) {
-            match v {
-                (_, Command::Draw(shader, mesh, mesh_index, ptr)) => {
-                    let vars = self.bufs.as_slice(ptr);
-                    let ptr = frame.bufs.extend_from_slice(vars);
-                    let cmd = Command::Draw(shader, mesh, mesh_index, ptr);
-                    frame.cmds.push(cmd);
-                }
-
-                _ => {}
+            if let (_, Command::Draw(shader, mesh, mesh_index, ptr)) = v {
+                let vars = self.bufs.as_slice(ptr);
+                let ptr = frame.bufs.extend_from_slice(vars);
+                let cmd = Command::Draw(shader, mesh, mesh_index, ptr);
+                frame.cmds.push(cmd);
             }
         }
 
@@ -185,10 +188,10 @@ impl Draw {
     pub fn new(shader: ShaderHandle, mesh: MeshHandle) -> Self {
         let nil = (HashValue::zero(), UniformVariable::I32(0));
         Draw {
-            shader: shader,
+            shader,
+            mesh,
             uniforms: [nil; MAX_UNIFORM_VARIABLES],
             uniforms_len: 0,
-            mesh: mesh,
             mesh_index: MeshIndex::All,
         }
     }

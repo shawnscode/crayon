@@ -1,9 +1,9 @@
 use std::sync::{Arc, Mutex, RwLock};
 
-use application::prelude::{LifecycleListener, LifecycleListenerHandle};
-use errors::*;
-use math::prelude::Vector2;
-use utils::object_pool::ObjectPool;
+use crate::application::prelude::{LifecycleListener, LifecycleListenerHandle};
+use crate::errors::*;
+use crate::math::prelude::Vector2;
+use crate::utils::object_pool::ObjectPool;
 
 use super::backends::{self, Visitor};
 use super::events::Event;
@@ -74,7 +74,7 @@ impl Drop for WindowSystem {
 
 impl WindowSystem {
     /// Creates a new `WindowSystem` and initalize OpenGL context.
-    pub fn new(params: WindowParams) -> Result<Self> {
+    pub fn from(params: WindowParams) -> Result<Self> {
         let state = Arc::new(WindowState {
             last_frame_listeners: Mutex::new(Vec::new()),
             listeners: Mutex::new(ObjectPool::new()),
@@ -99,12 +99,10 @@ impl WindowSystem {
             visitor: RwLock::new(backends::new_headless()),
         });
 
-        let window = WindowSystem {
+        WindowSystem {
             state: state.clone(),
             lis: crate::application::attach(state),
-        };
-
-        window
+        }
     }
 
     /// Adds a event listener.

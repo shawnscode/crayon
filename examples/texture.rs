@@ -5,7 +5,7 @@ extern crate env_logger;
 use crayon::errors::*;
 use crayon::prelude::*;
 
-impl_vertex!{
+impl_vertex! {
     Vertex {
         position => [Position; Float; 2; false],
     }
@@ -20,7 +20,7 @@ struct Window {
 }
 
 impl Window {
-    fn new() -> Result<Self> {
+    fn build() -> Result<Self> {
         let verts: [Vertex; 4] = [
             Vertex::new([-1.0, -1.0]),
             Vertex::new([1.0, -1.0]),
@@ -64,10 +64,10 @@ impl Window {
         let texture = video::create_texture_from("res:crate.bmp")?;
 
         Ok(Window {
-            surface: surface,
-            shader: shader,
-            mesh: mesh,
-            texture: texture,
+            surface,
+            shader,
+            mesh,
+            texture,
             vcmds: CommandBuffer::new(),
         })
     }
@@ -102,5 +102,5 @@ main!({
     params.window.size = (464, 434).into();
     params.res.shortcuts.add("res:", res).unwrap();
     params.res.dirs.push("res:".into());
-    crayon::application::setup(params, || Window::new()).unwrap();
+    crayon::application::setup(params, Window::build).unwrap();
 });

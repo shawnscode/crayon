@@ -185,7 +185,7 @@ mod system;
 /// Maximum touches that would be tracked at sametime.
 pub const MAX_TOUCHES: usize = 4;
 
-use math::prelude::Vector2;
+use crate::math::prelude::Vector2;
 
 use self::ins::{ctx, CTX};
 use self::keyboard::{Key, KeyboardParams};
@@ -217,7 +217,7 @@ pub(crate) unsafe fn discard() {
     }
 
     drop(Box::from_raw(CTX as *mut InputSystem));
-    CTX = 0 as *const InputSystem;
+    CTX = std::ptr::null();
 }
 
 /// Checks if the resource system is enabled.
@@ -361,7 +361,7 @@ pub fn finger_pan() -> GesturePan {
 mod ins {
     use super::system::InputSystem;
 
-    pub static mut CTX: *const InputSystem = 0 as *const InputSystem;
+    pub static mut CTX: *const InputSystem = std::ptr::null();
 
     #[inline]
     pub fn ctx() -> &'static InputSystem {

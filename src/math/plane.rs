@@ -31,7 +31,7 @@ impl<S: BaseFloat> Plane<S> {
     /// plane will be perpendicular to `n`, and `d` units offset from the
     /// origin.
     pub fn new(n: Vector3<S>, d: S) -> Plane<S> {
-        Plane { n: n, d: d }
+        Plane { n, d }
     }
 
     /// # Arguments
@@ -43,7 +43,7 @@ impl<S: BaseFloat> Plane<S> {
     pub fn from_abcd(a: S, b: S, c: S, d: S) -> Plane<S> {
         Plane {
             n: Vector3::new(a, b, c),
-            d: d,
+            d,
         }
     }
 
@@ -78,16 +78,16 @@ impl<S: BaseFloat> Plane<S> {
         } else {
             // compute the normal and the distance to the plane
             let n = n.normalize();
-            let d = -a.dot(n);
+            let dis = -a.dot(n);
 
-            Some(Plane::new(n, d))
+            Some(Plane::new(n, dis))
         }
     }
 
     /// Construct a plane from a point and a normal vector.
     /// The plane will contain the point `p` and be perpendicular to `n`.
     pub fn from_point_normal(p: Point3<S>, n: Vector3<S>) -> Plane<S> {
-        Plane { n: n, d: p.dot(n) }
+        Plane { n, d: p.dot(n) }
     }
 
     /// Normalize a plane.
@@ -126,7 +126,7 @@ pub enum PlaneRelation {
 /// Generic 3D bound.
 pub trait PlaneBound<S: BaseFloat>: fmt::Debug {
     /// Classify the spatial relation with a plane.
-    fn relate(&self, Plane<S>) -> PlaneRelation;
+    fn relate(&self, plane: Plane<S>) -> PlaneRelation;
 }
 
 impl<S: BaseFloat> PlaneBound<S> for Point3<S> {

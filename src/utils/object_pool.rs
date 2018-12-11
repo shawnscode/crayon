@@ -3,19 +3,24 @@ use super::handle_pool::HandlePool;
 
 /// A named object collections. Every time u create or free a handle, a
 /// attached instance `T` will be created/ freed.
-#[derive(Default)]
 pub struct ObjectPool<H: HandleLike, T: Sized> {
     handles: HandlePool<H>,
     entries: Vec<T>,
 }
 
-impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
-    /// Constructs a new, empty `ObjectPool`.
-    pub fn new() -> Self {
+impl<H: HandleLike, T: Sized> Default for ObjectPool<H, T> {
+    fn default() -> Self {
         ObjectPool {
             handles: HandlePool::new(),
             entries: Vec::new(),
         }
+    }
+}
+
+impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
+    /// Constructs a new, empty `ObjectPool`.
+    pub fn new() -> Self {
+        Default::default()
     }
 
     /// Constructs a new `ObjectPool` with the specified capacity.
@@ -94,8 +99,8 @@ impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
             if predicate(handle, v) {
                 true
             } else {
-                let mut w = ::std::mem::uninitialized();
-                ::std::mem::swap(&mut v, &mut w);
+                #[allow(clippy::invalid_ref)]
+                std::mem::swap(&mut v, &mut std::mem::uninitialized());
                 false
             }
         });
@@ -123,7 +128,7 @@ impl<H: HandleLike, T: Sized> ObjectPool<H, T> {
 
     /// an iterator visiting all key-value pairs in order. the iterator element type is (h, &mut t).
     #[inline]
-    pub fn iter_mut<'a>(&'a mut self) -> impl DoubleEndedIterator<Item = (H, &'a mut T)> {
+    pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = (H, &mut T)> {
         let entries = &mut self.entries;
         self.handles.iter().map(move |v| unsafe {
             let w = entries.get_unchecked_mut(v.index() as usize);

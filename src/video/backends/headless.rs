@@ -1,8 +1,8 @@
 use super::super::assets::prelude::*;
 use super::{UniformVar, Visitor};
 
-use errors::*;
-use math::prelude::{Aabb2, Vector2};
+use crate::errors::*;
+use crate::math::prelude::{Aabb2, Vector2};
 
 pub struct HeadlessVisitor {}
 

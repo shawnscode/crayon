@@ -1,10 +1,10 @@
 //! Immutable or dynamic vertex and index data.
 
-use math::prelude::Aabb3;
+use crate::math::prelude::Aabb3;
+use crate::video::assets::shader::Attribute;
+use crate::video::errors::{Error, Result};
+use crate::video::MAX_VERTEX_ATTRIBUTES;
 use smallvec::SmallVec;
-use video::assets::shader::Attribute;
-use video::errors::{Error, Result};
-use video::MAX_VERTEX_ATTRIBUTES;
 
 impl_handle!(MeshHandle);
 
@@ -124,8 +124,8 @@ pub enum MeshPrimitive {
 }
 
 impl MeshPrimitive {
-    pub fn assemble(&self, indices: u32) -> u32 {
-        match *self {
+    pub fn assemble(self, indices: u32) -> u32 {
+        match self {
             MeshPrimitive::Points => indices,
             MeshPrimitive::Lines => indices / 2,
             MeshPrimitive::LineStrip => indices - 1,
@@ -134,8 +134,8 @@ impl MeshPrimitive {
         }
     }
 
-    pub fn assemble_triangles(&self, indices: u32) -> u32 {
-        match *self {
+    pub fn assemble_triangles(self, indices: u32) -> u32 {
+        match self {
             MeshPrimitive::Points | MeshPrimitive::Lines | MeshPrimitive::LineStrip => 0,
             MeshPrimitive::Triangles => indices / 3,
             MeshPrimitive::TriangleStrip => indices - 2,
@@ -153,8 +153,8 @@ pub enum IndexFormat {
 }
 
 impl IndexFormat {
-    pub fn stride(&self) -> usize {
-        match *self {
+    pub fn stride(self) -> usize {
+        match self {
             IndexFormat::U16 => 2,
             IndexFormat::U32 => 4,
         }
@@ -276,7 +276,7 @@ impl VertexLayoutBuilder {
 
     pub fn with(
         mut self,
-        attribute: Attribute,
+        name: Attribute,
         format: VertexFormat,
         size: u8,
         normalized: bool,
@@ -284,15 +284,15 @@ impl VertexLayoutBuilder {
         assert!(size > 0 && size <= 4);
 
         let desc = VertexAttribute {
-            name: attribute,
-            format: format,
-            size: size,
-            normalized: normalized,
+            name,
+            format,
+            size,
+            normalized,
         };
 
         for i in 0..self.0.len {
             let i = i as usize;
-            if self.0.elements[i].name == attribute {
+            if self.0.elements[i].name == name {
                 self.0.elements[i] = desc;
                 return self;
             }
@@ -386,7 +386,7 @@ pub mod macros {
 
         pub fn with(
             &mut self,
-            attribute: Attribute,
+            name: Attribute,
             format: VertexFormat,
             size: u8,
             normalized: bool,
@@ -395,15 +395,15 @@ pub mod macros {
             assert!(size > 0 && size <= 4);
 
             let desc = VertexAttribute {
-                name: attribute,
-                format: format,
-                size: size,
-                normalized: normalized,
+                name,
+                format,
+                size,
+                normalized,
             };
 
             for i in 0..self.0.len {
                 let i = i as usize;
-                if self.0.elements[i].name == attribute {
+                if self.0.elements[i].name == name {
                     self.0.elements[i] = desc;
                     return self;
                 }

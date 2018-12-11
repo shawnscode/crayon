@@ -7,7 +7,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{XmlHttpRequest, XmlHttpRequestResponseType};
 
-use sched::prelude::LockLatch;
+use crate::sched::prelude::LockLatch;
 
 use super::super::request::Response;
 use super::super::url::Url;

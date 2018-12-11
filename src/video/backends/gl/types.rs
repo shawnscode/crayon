@@ -163,8 +163,8 @@ pub fn texture_format(format: TextureFormat, caps: &Capabilities) -> (GLenum, GL
 }
 
 impl TextureFormat {
-    pub fn is_support(&self, capabilities: &Capabilities) -> bool {
-        match *self {
+    pub fn is_support(self, capabilities: &Capabilities) -> bool {
+        match self {
             TextureFormat::Etc2RGB4BPP | TextureFormat::Etc2RGBA8BPP => {
                 capabilities.has_compression(TextureCompression::ETC2)
             }

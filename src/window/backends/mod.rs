@@ -1,7 +1,7 @@
 mod headless;
 
-use errors::*;
-use math::prelude::Vector2;
+use crate::errors::*;
+use crate::math::prelude::Vector2;
 
 use super::events::Event;
 

@@ -9,11 +9,11 @@ use web_sys::{
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as WebGL;
 
-use errors::*;
-use math::prelude::*;
-use utils::hash::{FastHashMap, FastHashSet};
-use utils::hash_value::HashValue;
-use video::assets::prelude::*;
+use crate::errors::*;
+use crate::math::prelude::*;
+use crate::utils::hash::{FastHashMap, FastHashSet};
+use crate::utils::hash_value::HashValue;
+use crate::video::assets::prelude::*;
 
 use super::super::utils::DataVec;
 use super::super::{UniformVar, Visitor};

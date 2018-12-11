@@ -37,7 +37,7 @@ pub(crate) unsafe fn discard() {
     }
 
     drop(Box::from_raw(CTX as *mut SchedulerSystem));
-    CTX = 0 as *const SchedulerSystem;
+    CTX = std::ptr::null();
 }
 
 pub(crate) unsafe fn terminate() {
@@ -85,7 +85,7 @@ where
 mod ins {
     use super::system::SchedulerSystem;
 
-    pub static mut CTX: *const SchedulerSystem = 0 as *const SchedulerSystem;
+    pub static mut CTX: *const SchedulerSystem = std::ptr::null();
 
     pub fn ctx() -> &'static SchedulerSystem {
         unsafe {

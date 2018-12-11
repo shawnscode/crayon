@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use math::prelude::{MetricSpace, Vector2};
-use utils::hash::{FastHashMap, FastHashSet};
-use utils::time::Timestamp;
+use crate::math::prelude::{MetricSpace, Vector2};
+use crate::utils::hash::{FastHashMap, FastHashSet};
+use crate::utils::time::Timestamp;
 
 /// The setup parameters of mouse device.
 ///
@@ -51,6 +51,7 @@ pub struct Mouse {
 impl Mouse {
     pub fn new(params: MouseParams) -> Self {
         Mouse {
+            params,
             downs: FastHashSet::default(),
             presses: FastHashSet::default(),
             releases: FastHashSet::default(),
@@ -58,7 +59,6 @@ impl Mouse {
             position: Vector2::new(0.0, 0.0),
             scrol: Vector2::new(0.0, 0.0),
             click_detectors: FastHashMap::default(),
-            params: params,
         }
     }
 
@@ -195,6 +195,8 @@ struct ClickDetector {
 impl ClickDetector {
     pub fn new(params: MouseParams) -> Self {
         ClickDetector {
+            params,
+
             last_press_time: Timestamp::now(),
             last_press_position: Vector2::new(0.0, 0.0),
 
@@ -203,8 +205,6 @@ impl ClickDetector {
 
             clicks: 0,
             frame_clicks: 0,
-
-            params: params,
         }
     }
 

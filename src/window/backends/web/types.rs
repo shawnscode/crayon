@@ -1,4 +1,4 @@
-use input::prelude::Key;
+use crate::input::prelude::Key;
 
 pub fn from_virtual_key_code(key: &str) -> Option<Key> {
     match key {

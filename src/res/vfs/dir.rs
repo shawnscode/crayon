@@ -2,13 +2,13 @@ use std::fs;
 use std::io::Read;
 use std::sync::Arc;
 
-use sched::prelude::LockLatch;
+use crate::sched::prelude::LockLatch;
 
 use super::super::request::Response;
 use super::super::url::Url;
 use super::VFS;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Dir {}
 
 impl Dir {
@@ -16,7 +16,7 @@ impl Dir {
         Dir {}
     }
 
-    fn load_from(&self, location: &str) -> Response {
+    fn load_from(self, location: &str) -> Response {
         let mut file = fs::File::open(location)?;
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)?;

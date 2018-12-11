@@ -6,11 +6,11 @@ use web_sys::{
     self, Document, Element, HtmlCanvasElement, KeyboardEvent, MouseEvent, Node, UiEvent, Window,
 };
 
-use input::prelude::{InputEvent, MouseButton};
-use window::prelude::{Event, WindowEvent, WindowParams};
+use crate::input::prelude::{InputEvent, MouseButton};
+use crate::window::prelude::{Event, WindowEvent, WindowParams};
 
-use errors::*;
-use math::prelude::Vector2;
+use crate::math::prelude::Vector2;
+use crate::errors::*;
 
 use super::{types, Visitor};
 

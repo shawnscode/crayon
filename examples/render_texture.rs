@@ -4,7 +4,7 @@ extern crate crayon;
 use crayon::errors::*;
 use crayon::prelude::*;
 
-impl_vertex!{
+impl_vertex! {
     Vertex {
         position => [Position; Float; 2; false],
     }
@@ -25,7 +25,7 @@ struct Window {
 }
 
 impl Window {
-    pub fn new() -> Result<Self> {
+    pub fn build() -> Result<Self> {
         let attributes = AttributeLayoutBuilder::new()
             .with(Attribute::Position, 2)
             .finish();
@@ -73,9 +73,9 @@ impl Window {
 
             (
                 Pass {
-                    surface: surface,
-                    shader: shader,
-                    mesh: mesh,
+                    surface,
+                    shader,
+                    mesh,
                 },
                 rendered_texture,
             )
@@ -118,15 +118,15 @@ impl Window {
             let shader = video::create_shader(params, vs, fs)?;
 
             Pass {
-                surface: surface,
-                shader: shader,
-                mesh: mesh,
+                surface,
+                shader,
+                mesh,
             }
         };
 
         Ok(Window {
-            pass: pass,
-            post_effect: post_effect,
+            pass,
+            post_effect,
             texture: rendered_texture,
 
             batch: CommandBuffer::new(),
@@ -172,5 +172,5 @@ main!({
     let mut params = Params::default();
     params.window.title = "CR: RenderTexture".into();
     params.window.size = (568, 320).into();
-    crayon::application::setup(params, || Window::new()).unwrap();
+    crayon::application::setup(params, Window::build).unwrap();
 });

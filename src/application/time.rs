@@ -5,8 +5,8 @@ use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use application::{LifecycleListener, LifecycleListenerHandle};
-use utils::time::Timestamp;
+use crate::application::{LifecycleListener, LifecycleListenerHandle};
+use crate::utils::time::Timestamp;
 
 use super::Params;
 
@@ -117,7 +117,7 @@ impl TimeSystem {
         };
 
         TimeSystem {
-            shared: shared,
+            shared,
             lis: crate::application::attach(state),
         }
     }
@@ -157,7 +157,7 @@ impl TimeSystem {
         if ts.subsec_nanos() == 0 {
             0
         } else {
-            (1000000000.0 / f64::from(ts.subsec_nanos())) as u32
+            (1_000_000_000.0 / f64::from(ts.subsec_nanos())) as u32
         }
     }
 

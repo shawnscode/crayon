@@ -211,9 +211,10 @@ pub mod prelude {
 use std::sync::Arc;
 use uuid::Uuid;
 
-use math::prelude::Aabb2;
-use res::utils::prelude::ResourceState;
-use utils::double_buf::DoubleBuf;
+use crate::math::prelude::Aabb2;
+use crate::prelude::CrResult;
+use crate::res::utils::prelude::ResourceState;
+use crate::utils::double_buf::DoubleBuf;
 
 use self::assets::prelude::*;
 use self::backends::frame::Frame;
@@ -222,7 +223,7 @@ use self::ins::{ctx, CTX};
 use self::system::VideoSystem;
 
 /// Setup the video system.
-pub(crate) unsafe fn setup() -> ::errors::Result<()> {
+pub(crate) unsafe fn setup() -> CrResult<()> {
     debug_assert!(CTX.is_null(), "duplicated setup of video system.");
 
     let ctx = VideoSystem::new()?;
@@ -245,7 +246,7 @@ pub(crate) unsafe fn discard() {
     }
 
     drop(Box::from_raw(CTX as *mut VideoSystem));
-    CTX = 0 as *const VideoSystem;
+    CTX = std::ptr::null();
 }
 
 pub(crate) unsafe fn frames() -> Arc<DoubleBuf<Frame>> {
@@ -303,7 +304,7 @@ pub fn delete_shader(handle: ShaderHandle) {
 
 /// Create a new mesh object.
 #[inline]
-pub fn create_mesh<T>(params: MeshParams, data: T) -> ::errors::Result<MeshHandle>
+pub fn create_mesh<T>(params: MeshParams, data: T) -> CrResult<MeshHandle>
 where
     T: Into<Option<MeshData>>,
 {
@@ -312,13 +313,13 @@ where
 
 /// Creates a mesh object from file asynchronously.
 #[inline]
-pub fn create_mesh_from<T: AsRef<str>>(url: T) -> ::errors::Result<MeshHandle> {
+pub fn create_mesh_from<T: AsRef<str>>(url: T) -> CrResult<MeshHandle> {
     ctx().create_mesh_from(url)
 }
 
 /// Creates a mesh object from file asynchronously.
 #[inline]
-pub fn create_mesh_from_uuid(uuid: Uuid) -> ::errors::Result<MeshHandle> {
+pub fn create_mesh_from_uuid(uuid: Uuid) -> CrResult<MeshHandle> {
     ctx().create_mesh_from_uuid(uuid)
 }
 
@@ -338,11 +339,7 @@ pub fn mesh_state(handle: MeshHandle) -> ResourceState {
 /// into the buffer object's data store where data replacement will begin, measured
 /// in bytes.
 #[inline]
-pub fn update_vertex_buffer(
-    handle: MeshHandle,
-    offset: usize,
-    data: &[u8],
-) -> ::errors::Result<()> {
+pub fn update_vertex_buffer(handle: MeshHandle, offset: usize, data: &[u8]) -> CrResult<()> {
     ctx().update_vertex_buffer(handle, offset, data)
 }
 
@@ -350,7 +347,7 @@ pub fn update_vertex_buffer(
 /// into the buffer object's data store where data replacement will begin, measured
 /// in bytes.
 #[inline]
-pub fn update_index_buffer(handle: MeshHandle, offset: usize, data: &[u8]) -> ::errors::Result<()> {
+pub fn update_index_buffer(handle: MeshHandle, offset: usize, data: &[u8]) -> CrResult<()> {
     ctx().update_index_buffer(handle, offset, data)
 }
 
@@ -363,7 +360,7 @@ pub fn delete_mesh(handle: MeshHandle) {
 /// Create texture object. A texture is an image loaded in video memory,
 /// which can be sampled in shaders.
 #[inline]
-pub fn create_texture<T>(params: TextureParams, data: T) -> ::errors::Result<TextureHandle>
+pub fn create_texture<T>(params: TextureParams, data: T) -> CrResult<TextureHandle>
 where
     T: Into<Option<TextureData>>,
 {
@@ -372,13 +369,13 @@ where
 
 /// Creates a texture object from file asynchronously.
 #[inline]
-pub fn create_texture_from<T: AsRef<str>>(url: T) -> ::errors::Result<TextureHandle> {
+pub fn create_texture_from<T: AsRef<str>>(url: T) -> CrResult<TextureHandle> {
     ctx().create_texture_from(url)
 }
 
 /// Creates a texture object from file asynchronously.
 #[inline]
-pub fn create_texture_from_uuid(uuid: Uuid) -> ::errors::Result<TextureHandle> {
+pub fn create_texture_from_uuid(uuid: Uuid) -> CrResult<TextureHandle> {
     ctx().create_texture_from_uuid(uuid)
 }
 
@@ -390,11 +387,7 @@ pub fn texture_state(handle: TextureHandle) -> ResourceState {
 
 /// Update a contiguous subregion of an existing two-dimensional texture object.
 #[inline]
-pub fn update_texture(
-    handle: TextureHandle,
-    area: Aabb2<u32>,
-    data: &[u8],
-) -> ::errors::Result<()> {
+pub fn update_texture(handle: TextureHandle, area: Aabb2<u32>, data: &[u8]) -> CrResult<()> {
     ctx().update_texture(handle, area, data)
 }
 
@@ -431,7 +424,7 @@ pub fn delete_render_texture(handle: RenderTextureHandle) {
 mod ins {
     use super::system::VideoSystem;
 
-    pub static mut CTX: *const VideoSystem = 0 as *const VideoSystem;
+    pub static mut CTX: *const VideoSystem = std::ptr::null();
 
     #[inline]
     pub fn ctx() -> &'static VideoSystem {

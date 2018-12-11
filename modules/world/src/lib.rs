@@ -84,7 +84,7 @@ pub fn default() -> WorldDefaultResources {
 mod inside {
     use super::system::WorldSystem;
 
-    static mut CTX: *const WorldSystem = 0 as *const WorldSystem;
+    static mut CTX: *const WorldSystem = std::ptr::null();
 
     #[inline]
     pub fn ctx() -> &'static WorldSystem {
@@ -117,7 +117,7 @@ mod inside {
             }
 
             drop(Box::from_raw(CTX as *mut WorldSystem));
-            CTX = 0 as *const WorldSystem;
+            CTX = std::ptr::null();
         }
     }
 }

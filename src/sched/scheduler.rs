@@ -43,13 +43,14 @@ impl Scheduler {
                 stealer: v,
                 primed: LockLatch::new(),
                 terminated: LockLatch::new(),
-            }).collect();
+            })
+            .collect();
 
         let scheduler = Arc::new(Scheduler {
             threads: stealers,
             injector: Mutex::new(w),
             inject_stealer: s,
-            panic_handler: panic_handler,
+            panic_handler,
             terminator: CountLatch::new(),
             watcher: Watcher(Mutex::new(()), Condvar::new()),
         });
@@ -206,9 +207,9 @@ impl Scheduler {
 
     unsafe fn main_loop(scheduler: Arc<Scheduler>, index: usize, worker: deque::Worker<JobRef>) {
         let worker_thread = WorkerThread {
-            scheduler: scheduler,
-            index: index,
-            worker: worker,
+            scheduler,
+            index,
+            worker,
             rand: XorShift64Star::new(),
         };
 
@@ -255,8 +256,7 @@ pub struct WorkerThread {
 // it will remain valid at least until the worker is fully unwound. Using an
 // unsafe pointer avoids the need for a RefCell<T> etc.
 thread_local! {
-    static WORKER_THREAD_STATE: Cell<*const WorkerThread> =
-        Cell::new(0 as *const WorkerThread)
+    static WORKER_THREAD_STATE: Cell<*const WorkerThread> = Cell::new(std::ptr::null());
 }
 
 impl WorkerThread {
@@ -345,11 +345,13 @@ struct XorShift64Star {
 
 impl XorShift64Star {
     fn new() -> Self {
+        use crate::utils::hash;
+
         // Any non-zero seed will do -- this uses the hash of a global counter.
         let mut seed = 0;
         while seed == 0 {
             static COUNTER: AtomicUsize = ATOMIC_USIZE_INIT;
-            seed = ::utils::hash::hash64(&COUNTER.fetch_add(1, Ordering::Relaxed));
+            seed = hash::hash64(&COUNTER.fetch_add(1, Ordering::Relaxed));
         }
 
         XorShift64Star {

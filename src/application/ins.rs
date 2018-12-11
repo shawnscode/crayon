@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+use crate::errors::*;
 use byteorder::{LittleEndian, WriteBytesExt};
-use errors::*;
 
 pub const PORT: u32 = 9338;
 
@@ -20,11 +20,11 @@ pub struct InspectSystem {
 }
 
 impl InspectSystem {
-    pub fn new() -> Self {
-        let listener = TcpListener::bind(format!("127.0.0.1:{}", PORT)).unwrap();
+    pub fn new(port: u32) -> Self {
+        let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
 
         InspectSystem {
-            listener: listener,
+            listener,
             ins: HashMap::new(),
         }
     }
@@ -54,7 +54,8 @@ impl InspectSystem {
                 }
 
                 ::std::thread::sleep(Duration::from_secs(1));
-            }).unwrap();
+            })
+            .unwrap();
     }
 
     fn connect(&mut self) -> Result<(TcpStream, SocketAddr)> {
@@ -81,7 +82,7 @@ impl InspectSystem {
                 buf.append(&mut element);
             }
 
-            stream.write(&buf)?;
+            stream.write_all(&buf)?;
             ::std::thread::sleep(Duration::from_secs(1));
         }
     }
