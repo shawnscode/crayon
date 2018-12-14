@@ -39,6 +39,7 @@ before_install:
     - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install git-lfs; fi
 
 before_script:
+    - rustup component add clippy
     - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then git lfs install; git lfs pull; fi
 # Start Xvfb so that we could have a virtual graphics driver.
 #   - |
@@ -55,6 +56,7 @@ script:
     - cargo build --all --verbose --no-default-features
     - cargo test --all --verbose --no-default-features
     - cargo build --examples --all
+    - cargo clippy --all-targets --all-features -- -D warnings
     - |
       for file in examples/*.rs; do
           if [[ -f $file ]]; then

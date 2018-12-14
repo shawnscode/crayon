@@ -159,7 +159,7 @@ mod hasher {
     #[inline]
     #[cfg(target_pointer_width = "32")]
     fn write(hash: usize, bytes: &[u8]) -> usize {
-        write32(hash as u64, bytes) as usize
+        write32(hash as u32, bytes) as usize
     }
 
     #[inline]

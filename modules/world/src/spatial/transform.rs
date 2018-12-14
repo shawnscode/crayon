@@ -35,7 +35,7 @@ impl Transform {
     /// Returns a transform that "un-does" this one.
     #[inline]
     pub fn inverse(self) -> Option<Self> {
-        use crayon::Rotation;
+        use crayon::math::prelude::Rotation;
 
         if self.scale <= ::std::f32::EPSILON {
             None
@@ -106,7 +106,7 @@ impl Transform {
     // Returns the view matrix from world space to view space.
     #[inline]
     pub fn view_matrix(&self) -> Matrix4<f32> {
-        use crayon::Matrix;
+        use crayon::math::prelude::Matrix;
 
         // M = ( T * R ) ^ -1
         let it = Matrix4::from_translation(-self.position);

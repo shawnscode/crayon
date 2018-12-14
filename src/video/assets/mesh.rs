@@ -425,26 +425,17 @@ pub mod macros {
     }
 
     #[macro_export]
-    macro_rules! offset_of {
-        ($ty:ty, $field:ident) => {{
-            use std;
-            let ptr: *const $ty = std::ptr::null();
-            unsafe { &(*ptr).$field as *const _ as usize }
-        }};
-    }
-
-    #[macro_export]
     macro_rules! impl_vertex {
         ($name: ident { $($field: ident => [$attribute: tt; $format: tt; $size: tt; $normalized: tt],)* }) => (
             #[repr(C)]
             #[derive(Debug, Copy, Clone, Default)]
             pub struct $name {
-                $($field: impl_vertex_field!{VertexFormat::$format, $size}, )*
+                $($field: $crate::impl_vertex_field!{VertexFormat::$format, $size}, )*
             }
 
             impl $name {
                 #[allow(dead_code)]
-                pub fn new($($field: impl_vertex_field!{VertexFormat::$format, $size}, ) *) -> Self {
+                pub fn new($($field: $crate::impl_vertex_field!{VertexFormat::$format, $size}, ) *) -> Self {
                     $name {
                         $($field: $field,)*
                     }
@@ -459,7 +450,7 @@ pub mod macros {
                         $crate::video::assets::mesh::VertexFormat::$format,
                         $size,
                         $normalized,
-                        offset_of!($name, $field) as u8); ) *
+                        $crate::offset_of!($name, $field) as u8); ) *
 
                     builder.finish(::std::mem::size_of::<$name>() as u8)
                 }
@@ -486,6 +477,17 @@ pub mod macros {
         )
     }
 
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! offset_of {
+        ($ty:ty, $field:ident) => {{
+            use std;
+            let ptr: *const $ty = std::ptr::null();
+            unsafe { &(*ptr).$field as *const _ as usize }
+        }};
+    }
+
+    #[doc(hidden)]
     #[macro_export]
     macro_rules! impl_vertex_field {
         (VertexFormat::Byte,2) => {
