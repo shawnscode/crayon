@@ -25,12 +25,12 @@ gl = "0.10.0"
 glutin = "0.18.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2.28"
-js-sys = "0.3.5"
+wasm-bindgen = "0.2.29"
+js-sys = "0.3.6"
 console_error_panic_hook = "0.1.5"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
-version = "0.3.5"
+version = "0.3.6"
 features = [
     'Node',
     'Document',
