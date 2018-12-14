@@ -1,6 +1,6 @@
 [package]
 name = "crayon"
-version = "0.7.0"
+version = "0.7.1"
 authors = [ "Jingkai Mao <oammix@gmail.com>" ]
 edition = "2018"
 description = "A small, portable and extensible game framework."
