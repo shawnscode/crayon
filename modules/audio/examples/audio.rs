@@ -18,7 +18,7 @@ impl LatchProbe for WindowResources {
 }
 
 impl WindowResources {
-    pub fn new() -> crayon::errors::Result<Self> {
+    pub fn new() -> CrResult<Self> {
         crayon_audio::setup()?;
         Ok(WindowResources {
             music: crayon_audio::create_clip_from("res:music.mp3")?,
@@ -43,7 +43,7 @@ impl Drop for Window {
 }
 
 impl Window {
-    fn new(resources: &WindowResources) -> crayon::errors::Result<Self> {
+    fn new(resources: &WindowResources) -> CrResult<Self> {
         let mut params = AudioSource::from(resources.music);
         params.loops = AudioSourceWrap::Infinite;
 
@@ -57,7 +57,7 @@ impl Window {
 }
 
 impl LifecycleListener for Window {
-    fn on_update(&mut self) -> crayon::errors::Result<()> {
+    fn on_update(&mut self) -> CrResult<()> {
         if input::is_key_down(Key::K) {
             crayon_audio::play(self.resources.sfx)?;
         }

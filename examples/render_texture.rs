@@ -1,7 +1,6 @@
-#[macro_use]
 extern crate crayon;
 
-use crayon::errors::*;
+use crayon::impl_vertex;
 use crayon::prelude::*;
 
 impl_vertex! {
@@ -25,7 +24,7 @@ struct Window {
 }
 
 impl Window {
-    pub fn build() -> Result<Self> {
+    pub fn build() -> CrResult<Self> {
         let attributes = AttributeLayoutBuilder::new()
             .with(Attribute::Position, 2)
             .finish();
@@ -150,7 +149,7 @@ impl Drop for Window {
 }
 
 impl LifecycleListener for Window {
-    fn on_update(&mut self) -> Result<()> {
+    fn on_update(&mut self) -> CrResult<()> {
         let surface = self.pass.surface;
         let dc = Draw::new(self.pass.shader, self.pass.mesh);
         self.batch.draw(dc);

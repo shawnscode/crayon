@@ -4,7 +4,7 @@ extern crate cpal;
 #[cfg(target_arch = "wasm32")]
 extern crate js_sys;
 #[cfg(target_arch = "wasm32")]
-pub extern crate wasm_bindgen;
+extern crate wasm_bindgen;
 #[cfg(target_arch = "wasm32")]
 extern crate web_sys;
 

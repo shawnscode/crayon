@@ -35,7 +35,7 @@ extern crate console_error_panic_hook;
 #[cfg(target_arch = "wasm32")]
 extern crate js_sys;
 #[cfg(target_arch = "wasm32")]
-pub extern crate wasm_bindgen;
+extern crate wasm_bindgen;
 #[cfg(target_arch = "wasm32")]
 extern crate web_sys;
 
@@ -58,12 +58,10 @@ extern crate smallvec;
 pub extern crate bincode;
 pub extern crate uuid;
 
-#[doc(hidden)]
-pub use cgmath::*;
-#[doc(hidden)]
-pub use log::*;
+pub use cgmath::{assert_relative_eq, assert_relative_ne, assert_ulps_eq, assert_ulps_ne};
+pub use cgmath::{relative_eq, relative_ne, ulps_eq, ulps_ne};
+pub use log::{error, info, warn};
 
-#[macro_use]
 pub mod errors;
 #[macro_use]
 pub mod utils;

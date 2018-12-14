@@ -1,8 +1,7 @@
-#[macro_use]
 extern crate crayon;
 extern crate env_logger;
 
-use crayon::errors::*;
+use crayon::impl_vertex;
 use crayon::prelude::*;
 
 impl_vertex! {
@@ -20,7 +19,7 @@ struct Window {
 }
 
 impl Window {
-    fn build() -> Result<Self> {
+    fn build() -> CrResult<Self> {
         let verts: [Vertex; 4] = [
             Vertex::new([-1.0, -1.0]),
             Vertex::new([1.0, -1.0]),
@@ -82,7 +81,7 @@ impl Drop for Window {
 }
 
 impl LifecycleListener for Window {
-    fn on_update(&mut self) -> Result<()> {
+    fn on_update(&mut self) -> CrResult<()> {
         let mut dc = Draw::new(self.shader, self.mesh);
         dc.set_uniform_variable("renderedTexture", self.texture);
         self.vcmds.draw(dc);
