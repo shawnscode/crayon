@@ -108,8 +108,8 @@ impl WebVisitor {
                 let rect = canvas.get_bounding_client_rect();
 
                 let position = (
-                    v.layer_x() as f32 - rect.x() as f32,
-                    height - v.layer_y() as f32 + rect.y() as f32,
+                    v.client_x() as f32 - rect.x() as f32,
+                    height - v.client_y() as f32 + rect.y() as f32,
                 );
 
                 let evt = Event::InputDevice(InputEvent::MouseMoved { position });
