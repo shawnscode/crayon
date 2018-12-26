@@ -54,6 +54,11 @@ impl WebVisitor {
             .set_attribute("id", "canvas")
             .unwrap();
 
+        canvas
+            .unchecked_ref::<Element>()
+            .set_attribute("tabindex", "1")
+            .unwrap();
+
         AsRef::<Node>::as_ref(&body)
             .append_child(canvas.as_ref())
             .unwrap();
