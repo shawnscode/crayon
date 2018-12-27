@@ -54,6 +54,7 @@ features = [
     'XmlHttpRequestResponseType',
     'Response',
     'EventTarget',
+    'Event',
     'MouseEvent',
     'KeyboardEvent',
     'UiEvent'

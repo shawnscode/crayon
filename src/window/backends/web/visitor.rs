@@ -130,13 +130,14 @@ impl WebVisitor {
             let clone = events.clone();
             Closure::wrap(Box::new(move |v: KeyboardEvent| {
                 if let Some(key) = types::from_virtual_key_code(&v.key()) {
+                    v.prevent_default();
                     let evt = Event::InputDevice(InputEvent::KeyboardPressed { key });
                     clone.lock().unwrap().push(evt);
                 }
             }) as Box<FnMut(_)>)
         };
 
-        canvas
+        window
             .add_event_listener_with_callback("keydown", on_key_down.as_ref().unchecked_ref())
             .unwrap();
 
@@ -144,13 +145,14 @@ impl WebVisitor {
             let clone = events.clone();
             Closure::wrap(Box::new(move |v: KeyboardEvent| {
                 if let Some(key) = types::from_virtual_key_code(&v.key()) {
+                    v.prevent_default();
                     let evt = Event::InputDevice(InputEvent::KeyboardReleased { key });
                     clone.lock().unwrap().push(evt);
                 }
             }) as Box<FnMut(_)>)
         };
 
-        canvas
+        window
             .add_event_listener_with_callback("keyup", on_key_up.as_ref().unchecked_ref())
             .unwrap();
 
@@ -162,7 +164,7 @@ impl WebVisitor {
             }) as Box<FnMut(_)>)
         };
 
-        canvas
+        window
             .add_event_listener_with_callback("focus", on_focus.as_ref().unchecked_ref())
             .unwrap();
 
@@ -174,7 +176,7 @@ impl WebVisitor {
             }) as Box<FnMut(_)>)
         };
 
-        canvas
+        window
             .add_event_listener_with_callback("blur", on_lost_focus.as_ref().unchecked_ref())
             .unwrap();
 
