@@ -54,6 +54,11 @@ impl WebVisitor {
             .set_attribute("id", "canvas")
             .unwrap();
 
+        canvas
+            .unchecked_ref::<Element>()
+            .set_attribute("tabindex", "1")
+            .unwrap();
+
         AsRef::<Node>::as_ref(&body)
             .append_child(canvas.as_ref())
             .unwrap();
@@ -108,8 +113,8 @@ impl WebVisitor {
                 let rect = canvas.get_bounding_client_rect();
 
                 let position = (
-                    v.layer_x() as f32 - rect.x() as f32,
-                    height - v.layer_y() as f32 + rect.y() as f32,
+                    v.client_x() as f32 - rect.x() as f32,
+                    height - v.client_y() as f32 + rect.y() as f32,
                 );
 
                 let evt = Event::InputDevice(InputEvent::MouseMoved { position });
