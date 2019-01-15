@@ -37,11 +37,11 @@ impl Drop for EngineSystem {
         crate::window::detach(self.events);
 
         unsafe {
-            crate::res::discard();
-            crate::input::discard();
-            crate::video::discard();
-            crate::window::discard();
-            crate::sched::discard();
+            crate::res::inside::discard();
+            crate::input::inside::discard();
+            crate::video::inside::discard();
+            crate::window::inside::discard();
+            crate::sched::inside::discard();
         }
     }
 }
@@ -50,14 +50,14 @@ impl EngineSystem {
     /// Setup engine with specified settings.
     pub unsafe fn new(params: Params) -> Result<Self> {
         #[cfg(not(target_arch = "wasm32"))]
-        crate::sched::setup(4, None, None);
+        crate::sched::inside::setup(4, None, None);
         #[cfg(target_arch = "wasm32")]
-        crate::sched::setup(0, None, None);
+        crate::sched::inside::setup(0, None, None);
 
-        crate::window::setup(params.window)?;
-        crate::video::setup()?;
-        crate::input::setup(params.input);
-        crate::res::setup(params.res)?;
+        crate::window::inside::setup(params.window)?;
+        crate::video::inside::setup()?;
+        crate::input::inside::setup(params.input);
+        crate::res::inside::setup(params.res)?;
 
         let state = Arc::new(EngineState {
             alive: AtomicBool::new(true),
@@ -74,14 +74,14 @@ impl EngineSystem {
 
     pub unsafe fn new_headless(params: Params) -> Result<Self> {
         #[cfg(not(target_arch = "wasm32"))]
-        crate::sched::setup(4, None, None);
+        crate::sched::inside::setup(4, None, None);
         #[cfg(target_arch = "wasm32")]
-        crate::sched::setup(0, None, None);
+        crate::sched::inside::setup(0, None, None);
 
-        crate::window::headless();
-        crate::video::headless();
-        crate::input::setup(params.input);
-        crate::res::setup(params.res)?;
+        crate::window::inside::headless();
+        crate::video::inside::headless();
+        crate::input::inside::setup(params.input);
+        crate::res::inside::setup(params.res)?;
 
         let state = Arc::new(EngineState {
             alive: AtomicBool::new(false),
@@ -146,7 +146,7 @@ impl EngineSystem {
                         Ok(state.alive.load(Ordering::Relaxed))
                     },
                     move || {
-                        unsafe { crate::sched::terminate() };
+                        unsafe { crate::sched::inside::terminate() };
                         crate::application::detach(application);
                         unsafe { super::late_discard() };
                         Ok(())

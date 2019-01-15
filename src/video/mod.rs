@@ -208,50 +208,15 @@ pub mod prelude {
     pub use super::command::{CommandBuffer, Draw, DrawCommandBuffer};
 }
 
-use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::math::prelude::Aabb2;
 use crate::prelude::CrResult;
 use crate::res::utils::prelude::ResourceState;
-use crate::utils::double_buf::DoubleBuf;
 
 use self::assets::prelude::*;
-use self::backends::frame::Frame;
 use self::errors::*;
-use self::ins::{ctx, CTX};
-use self::system::VideoSystem;
-
-/// Setup the video system.
-pub(crate) unsafe fn setup() -> CrResult<()> {
-    debug_assert!(CTX.is_null(), "duplicated setup of video system.");
-
-    let ctx = VideoSystem::new()?;
-    CTX = Box::into_raw(Box::new(ctx));
-    Ok(())
-}
-
-/// Setup the video system.
-pub(crate) unsafe fn headless() {
-    debug_assert!(CTX.is_null(), "duplicated setup of video system.");
-
-    let ctx = VideoSystem::headless();
-    CTX = Box::into_raw(Box::new(ctx));
-}
-
-/// Discard the video system.
-pub(crate) unsafe fn discard() {
-    if CTX.is_null() {
-        return;
-    }
-
-    drop(Box::from_raw(CTX as *mut VideoSystem));
-    CTX = std::ptr::null();
-}
-
-pub(crate) unsafe fn frames() -> Arc<DoubleBuf<Frame>> {
-    ctx().frames()
-}
+use self::inside::ctx;
 
 /// Creates an surface with `SurfaceParams`.
 #[inline]
@@ -421,7 +386,13 @@ pub fn delete_render_texture(handle: RenderTextureHandle) {
     ctx().delete_render_texture(handle)
 }
 
-mod ins {
+pub(crate) mod inside {
+    use std::sync::Arc;
+
+    use crate::errors::*;
+    use crate::utils::double_buf::DoubleBuf;
+
+    use super::backends::frame::Frame;
     use super::system::VideoSystem;
 
     pub static mut CTX: *const VideoSystem = std::ptr::null();
@@ -436,5 +407,36 @@ mod ins {
 
             &*CTX
         }
+    }
+
+    /// Setup the video system.
+    pub unsafe fn setup() -> Result<()> {
+        debug_assert!(CTX.is_null(), "duplicated setup of video system.");
+
+        let ctx = VideoSystem::new()?;
+        CTX = Box::into_raw(Box::new(ctx));
+        Ok(())
+    }
+
+    /// Setup the video system.
+    pub unsafe fn headless() {
+        debug_assert!(CTX.is_null(), "duplicated setup of video system.");
+
+        let ctx = VideoSystem::headless();
+        CTX = Box::into_raw(Box::new(ctx));
+    }
+
+    /// Discard the video system.
+    pub unsafe fn discard() {
+        if CTX.is_null() {
+            return;
+        }
+
+        drop(Box::from_raw(CTX as *mut VideoSystem));
+        CTX = std::ptr::null();
+    }
+
+    pub unsafe fn frames() -> Arc<DoubleBuf<Frame>> {
+        ctx().frames()
     }
 }

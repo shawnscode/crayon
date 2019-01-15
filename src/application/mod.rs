@@ -126,7 +126,7 @@ where
             CTX = Box::into_raw(Box::new(EngineSystem::new(params)?));
         };
 
-        let latch = crate::res::load_manifests(dirs)?;
+        let latch = crate::res::inside::load_manifests(dirs)?;
         ctx().run(latch, closure)
     }
 }
@@ -261,6 +261,17 @@ mod inside {
     pub static mut TIME_CTX: *const TimeSystem = std::ptr::null();
     pub static mut CTX: *const EngineSystem = std::ptr::null();
 
+    pub fn ctx() -> &'static EngineSystem {
+        unsafe {
+            debug_assert!(
+                !TIME_CTX.is_null(),
+                "engine has not been initialized properly."
+            );
+
+            &*CTX
+        }
+    }
+
     pub fn lifecycle_ctx() -> &'static LifecycleSystem {
         unsafe {
             debug_assert!(
@@ -280,17 +291,6 @@ mod inside {
             );
 
             &*TIME_CTX
-        }
-    }
-
-    pub fn ctx() -> &'static EngineSystem {
-        unsafe {
-            debug_assert!(
-                !TIME_CTX.is_null(),
-                "engine has not been initialized properly."
-            );
-
-            &*CTX
         }
     }
 }

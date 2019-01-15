@@ -187,10 +187,9 @@ pub const MAX_TOUCHES: usize = 4;
 
 use crate::math::prelude::Vector2;
 
-use self::ins::{ctx, CTX};
+use self::inside::{ctx, CTX};
 use self::keyboard::{Key, KeyboardParams};
 use self::mouse::{MouseButton, MouseParams};
-use self::system::InputSystem;
 use self::touchpad::{GesturePan, GestureTap, TouchPadParams};
 
 /// The setup parameters of all supported input devices.
@@ -200,24 +199,6 @@ pub struct InputParams {
     pub keyboard: KeyboardParams,
     pub mouse: MouseParams,
     pub touchpad: TouchPadParams,
-}
-
-/// Setup the resource system.
-pub(crate) unsafe fn setup(params: InputParams) {
-    debug_assert!(CTX.is_null(), "duplicated setup of resource system.");
-
-    let ctx = InputSystem::new(params);
-    CTX = Box::into_raw(Box::new(ctx));
-}
-
-/// Discard the resource system.
-pub(crate) unsafe fn discard() {
-    if CTX.is_null() {
-        return;
-    }
-
-    drop(Box::from_raw(CTX as *mut InputSystem));
-    CTX = std::ptr::null();
 }
 
 /// Checks if the resource system is enabled.
@@ -358,8 +339,9 @@ pub fn finger_pan() -> GesturePan {
     ctx().finger_pan()
 }
 
-mod ins {
+pub(crate) mod inside {
     use super::system::InputSystem;
+    use super::InputParams;
 
     pub static mut CTX: *const InputSystem = std::ptr::null();
 
@@ -373,5 +355,23 @@ mod ins {
 
             &*CTX
         }
+    }
+
+    /// Setup the resource system.
+    pub unsafe fn setup(params: InputParams) {
+        debug_assert!(CTX.is_null(), "duplicated setup of resource system.");
+
+        let ctx = InputSystem::new(params);
+        CTX = Box::into_raw(Box::new(ctx));
+    }
+
+    /// Discard the resource system.
+    pub unsafe fn discard() {
+        if CTX.is_null() {
+            return;
+        }
+
+        drop(Box::from_raw(CTX as *mut InputSystem));
+        CTX = std::ptr::null();
     }
 }

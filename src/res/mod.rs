@@ -56,17 +56,11 @@ pub mod prelude {
 
 mod system;
 
-use std::sync::Arc;
-
-use failure::ResultExt;
 use uuid::Uuid;
 
-use crate::sched::prelude::{CountLatch, Latch};
-
-use self::ins::{ctx, CTX};
+use self::inside::{ctx, CTX};
 use self::request::{Request, Response};
 use self::shortcut::ShortcutResolver;
-use self::system::ResourceSystem;
 use self::vfs::SchemaResolver;
 
 #[derive(Debug, Clone)]
@@ -91,49 +85,6 @@ impl Default for ResourceParams {
 
         params
     }
-}
-
-/// Setup the resource system.
-pub(crate) unsafe fn setup(params: ResourceParams) -> Result<(), failure::Error> {
-    debug_assert!(CTX.is_null(), "duplicated setup of resource system.");
-
-    let ctx = ResourceSystem::new(params)?;
-    CTX = Box::into_raw(Box::new(ctx));
-    Ok(())
-}
-
-/// Attach manifests to this registry.
-pub(crate) fn load_manifests(dirs: Vec<String>) -> Result<Arc<CountLatch>, failure::Error> {
-    let latch = Arc::new(CountLatch::new());
-
-    for v in dirs {
-        let clone = latch.clone();
-        clone.increment();
-
-        let prefix = v.clone();
-        ctx().load_manifest_with_callback(v, move |rsp| {
-            let bytes = rsp
-                .with_context(|_| format!("Failed to load manifest from {}", prefix))
-                .unwrap();
-
-            let mut cursor = std::io::Cursor::new(bytes);
-            ctx().attach(&prefix, &mut cursor).unwrap();
-            clone.set();
-        })?;
-    }
-
-    latch.set();
-    Ok(latch)
-}
-
-/// Discard the resource system.
-pub(crate) unsafe fn discard() {
-    if CTX.is_null() {
-        return;
-    }
-
-    drop(Box::from_raw(CTX as *mut ResourceSystem));
-    CTX = std::ptr::null();
 }
 
 /// Checks if the resource system is enabled.
@@ -191,8 +142,15 @@ pub fn load_from<T: AsRef<str>>(filename: T) -> Result<Request, failure::Error> 
     ctx().load_from(filename)
 }
 
-mod ins {
+pub(crate) mod inside {
+    use std::sync::Arc;
+
+    use failure::ResultExt;
+
+    use crate::sched::prelude::{CountLatch, Latch};
+
     use super::system::ResourceSystem;
+    use super::ResourceParams;
 
     pub static mut CTX: *const ResourceSystem = std::ptr::null();
 
@@ -206,5 +164,48 @@ mod ins {
 
             &*CTX
         }
+    }
+
+    /// Setup the resource system.
+    pub unsafe fn setup(params: ResourceParams) -> Result<(), failure::Error> {
+        debug_assert!(CTX.is_null(), "duplicated setup of resource system.");
+
+        let ctx = ResourceSystem::new(params)?;
+        CTX = Box::into_raw(Box::new(ctx));
+        Ok(())
+    }
+
+    /// Attach manifests to this registry.
+    pub fn load_manifests(dirs: Vec<String>) -> Result<Arc<CountLatch>, failure::Error> {
+        let latch = Arc::new(CountLatch::new());
+
+        for v in dirs {
+            let clone = latch.clone();
+            clone.increment();
+
+            let prefix = v.clone();
+            ctx().load_manifest_with_callback(v, move |rsp| {
+                let bytes = rsp
+                    .with_context(|_| format!("Failed to load manifest from {}", prefix))
+                    .unwrap();
+
+                let mut cursor = std::io::Cursor::new(bytes);
+                ctx().attach(&prefix, &mut cursor).unwrap();
+                clone.set();
+            })?;
+        }
+
+        latch.set();
+        Ok(latch)
+    }
+
+    /// Discard the resource system.
+    pub unsafe fn discard() {
+        if CTX.is_null() {
+            return;
+        }
+
+        drop(Box::from_raw(CTX as *mut ResourceSystem));
+        CTX = std::ptr::null();
     }
 }

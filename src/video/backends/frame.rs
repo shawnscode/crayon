@@ -35,7 +35,7 @@ pub enum Command {
 }
 
 #[derive(Debug, Clone, Default)]
-pub(crate) struct Frame {
+pub struct Frame {
     pub cmds: Vec<Command>,
     pub bufs: DataBuffer,
 }
