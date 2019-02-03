@@ -20,7 +20,9 @@ module.exports = {
         })
     ],
     devServer: {
-        contentBase: [__dirname, path.join(__dirname, '../..')]
+        contentBase: [__dirname, path.join(__dirname, '../..')],
+        inline:true,
+        port: 80
     },
     mode: 'development'
 };
