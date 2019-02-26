@@ -192,6 +192,7 @@ use self::keyboard::{Key, KeyboardParams};
 use self::mouse::{MouseButton, MouseParams};
 use self::system::InputSystem;
 use self::touchpad::{GesturePan, GestureTap, TouchPadParams};
+use crate::utils::hash::FastHashSet;
 
 /// The setup parameters of all supported input devices.
 #[derive(Debug, Clone, Copy, Default)]
@@ -250,12 +251,20 @@ pub fn is_key_press(key: Key) -> bool {
     ctx().is_key_press(key)
 }
 
+#[inline]
+pub fn key_presses() -> FastHashSet<Key> {
+    ctx().key_presses()
+}
+
 /// Checks if a key has been released during the last frame.
 #[inline]
 pub fn is_key_release(key: Key) -> bool {
     ctx().is_key_release(key)
 }
-
+#[inline]
+pub fn key_releases() -> FastHashSet<Key>{
+    ctx().key_releases()
+}
 /// Checks if a key has been repeated during the last frame.
 #[inline]
 pub fn is_key_repeat(key: Key) -> bool {
@@ -284,6 +293,12 @@ pub fn is_mouse_down(button: MouseButton) -> bool {
 #[inline]
 pub fn is_mouse_press(button: MouseButton) -> bool {
     ctx().is_mouse_press(button)
+}
+
+/// Checks if a mouse button has been pressed during last frame.
+#[inline]
+pub fn mouse_presses() -> FastHashSet<MouseButton> {
+    ctx().mouse_presses()
 }
 
 /// Checks if a mouse button has been released during last frame.

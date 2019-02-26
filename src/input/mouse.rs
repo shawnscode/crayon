@@ -29,7 +29,7 @@ impl Default for MouseParams {
 }
 
 /// Describes a button of a mouse controller.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize)]
 pub enum MouseButton {
     Left,
     Right,
@@ -141,8 +141,18 @@ impl Mouse {
     }
 
     #[inline]
+    pub fn button_presses(&self) -> FastHashSet<MouseButton> {
+        self.presses.clone()
+    }
+
+    #[inline]
     pub fn is_button_release(&self, button: MouseButton) -> bool {
         self.releases.contains(&button)
+    }
+
+    #[inline]
+    pub fn button_releases(&self) -> FastHashSet<MouseButton> {
+        self.releases.clone()
     }
 
     #[inline]
