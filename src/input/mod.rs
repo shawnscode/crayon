@@ -307,6 +307,10 @@ pub fn is_mouse_release(button: MouseButton) -> bool {
     ctx().is_mouse_release(button)
 }
 
+#[inline]
+pub fn mouse_releases() -> FastHashSet<MouseButton> {
+    ctx().mouse_releases()
+}
 /// Checks if a mouse button has been clicked during last frame.
 #[inline]
 pub fn is_mouse_click(button: MouseButton) -> bool {

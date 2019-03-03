@@ -360,7 +360,7 @@ pub fn delete_mesh(handle: MeshHandle) {
 /// Create texture object. A texture is an image loaded in video memory,
 /// which can be sampled in shaders.
 #[inline]
-pub fn create_texture<T>(params: TextureParams, data: T) -> CrResult<TextureHandle>
+pub fn create_texture<T>(params: TextureParams, data: T) -> CrResult<(TextureParams,TextureHandle)>
 where
     T: Into<Option<TextureData>>,
 {
