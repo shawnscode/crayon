@@ -31,11 +31,10 @@ impl ResourceLoader for TextureLoader {
         if bytes[0..8] != MAGIC[..] {
             bail!("[TextureLoader] MAGIC number not match.");
         }
-        dbg!("k");
         let mut file = Cursor::new(&bytes[8..]);
         let params: TextureParams = bincode::deserialize_from(&mut file)?;
         let data = bincode::deserialize_from(&mut file)?;
-        println!(
+        info!(
             "[TextureLoader] load {:?} ({}x{} - {:?}).",
             handle, params.dimensions.x, params.dimensions.y, params.format
         );

@@ -396,6 +396,11 @@ pub fn update_texture(handle: TextureHandle, area: Aabb2<u32>, data: &[u8]) -> C
 pub fn delete_texture(handle: TextureHandle) {
     ctx().delete_texture(handle);
 }
+/// Gets the `TextureParams` if available.
+#[inline]
+pub fn texture(handle: TextureHandle)->Option<TextureParams> {
+    ctx().texture(handle)
+}
 
 /// Create render texture object, which could be attached with a framebuffer.
 #[inline]
