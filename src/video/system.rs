@@ -296,12 +296,12 @@ impl VideoSystem {
 impl VideoSystem {
     /// Create texture object. A texture is an image loaded in video memory,
     /// which can be sampled in shaders.
-    pub fn create_texture<T>(&self, params: TextureParams, data: T) -> CrResult<(TextureParams,TextureHandle)>
+    pub fn create_texture<T>(&self, params: TextureParams, data: T) -> CrResult<TextureHandle>
     where
         T: Into<Option<TextureData>>,
     {
         let mut textures = self.state.textures.write().unwrap();
-        Ok((params.clone(),textures.create((params, data.into())).unwrap()))
+        textures.create((params, data.into()))
     }
 
     /// Creates a texture object from file asynchronously.
