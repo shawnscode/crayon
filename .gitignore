@@ -6,3 +6,4 @@ target
 dist
 node_modules
 examples/resources
+tools/wasm-template
