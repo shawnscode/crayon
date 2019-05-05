@@ -471,7 +471,7 @@ impl Visitor for GLVisitor {
             bail!("Trying to update compressed texture.");
         }
 
-        if data.len() > area.volume() as usize
+        if data.len() > texture.params.format.size(area.dim()) as usize
             || area.min.x >= texture.params.dimensions.x
             || area.min.y >= texture.params.dimensions.y
         {
