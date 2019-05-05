@@ -1,5 +1,5 @@
 use std::cell::Cell;
-use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::{mem, thread};
 
@@ -350,7 +350,7 @@ impl XorShift64Star {
         // Any non-zero seed will do -- this uses the hash of a global counter.
         let mut seed = 0;
         while seed == 0 {
-            static COUNTER: AtomicUsize = ATOMIC_USIZE_INIT;
+            static COUNTER: AtomicUsize = AtomicUsize::new(0);
             seed = hash::hash64(&COUNTER.fetch_add(1, Ordering::Relaxed));
         }
 

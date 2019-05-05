@@ -10,8 +10,8 @@ pub mod prelude {
 mod backends;
 mod system;
 
-use self::ins::{ctx, CTX};
-use self::system::{EventListener, EventListenerHandle, WindowSystem};
+use self::inside::ctx;
+use self::system::{EventListener, EventListenerHandle};
 
 use crate::errors::*;
 use crate::math::prelude::Vector2;
@@ -38,38 +38,6 @@ impl Default for WindowParams {
             vsync: false,
         }
     }
-}
-
-/// Setup the window system.
-pub(crate) unsafe fn setup(params: WindowParams) -> Result<()> {
-    debug_assert!(CTX.is_null(), "duplicated setup of window system.");
-
-    let ctx = WindowSystem::from(params)?;
-    CTX = Box::into_raw(Box::new(ctx));
-    Ok(())
-}
-
-pub(crate) unsafe fn headless() {
-    debug_assert!(CTX.is_null(), "duplicated setup of window system.");
-
-    let ctx = WindowSystem::headless();
-    CTX = Box::into_raw(Box::new(ctx));
-}
-
-/// Resize the GL context.
-#[inline]
-pub(crate) fn resize(dimensions: Vector2<u32>) {
-    ctx().resize(dimensions);
-}
-
-/// Discard the window system.
-pub(crate) unsafe fn discard() {
-    if CTX.is_null() {
-        return;
-    }
-
-    drop(Box::from_raw(CTX as *mut WindowSystem));
-    CTX = std::ptr::null();
 }
 
 /// Adds a event listener.
@@ -143,8 +111,12 @@ pub fn device_pixel_ratio() -> f32 {
     ctx().device_pixel_ratio()
 }
 
-mod ins {
+pub(crate) mod inside {
+    use crate::errors::*;
+    use crate::math::prelude::Vector2;
+
     use super::system::WindowSystem;
+    use super::WindowParams;
 
     pub static mut CTX: *const WindowSystem = std::ptr::null();
 
@@ -158,5 +130,37 @@ mod ins {
 
             &*CTX
         }
+    }
+
+    /// Setup the window system.
+    pub unsafe fn setup(params: WindowParams) -> Result<()> {
+        debug_assert!(CTX.is_null(), "duplicated setup of window system.");
+
+        let ctx = WindowSystem::from(params)?;
+        CTX = Box::into_raw(Box::new(ctx));
+        Ok(())
+    }
+
+    pub unsafe fn headless() {
+        debug_assert!(CTX.is_null(), "duplicated setup of window system.");
+
+        let ctx = WindowSystem::headless();
+        CTX = Box::into_raw(Box::new(ctx));
+    }
+
+    /// Resize the GL context.
+    #[inline]
+    pub fn resize(dimensions: Vector2<u32>) {
+        ctx().resize(dimensions);
+    }
+
+    /// Discard the window system.
+    pub unsafe fn discard() {
+        if CTX.is_null() {
+            return;
+        }
+
+        drop(Box::from_raw(CTX as *mut WindowSystem));
+        CTX = std::ptr::null();
     }
 }

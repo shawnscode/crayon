@@ -69,7 +69,7 @@ impl LifecycleListener for Lifecycle {
         // Resize the window, which would recreate the underlying framebuffer.
         if dimensions != self.last_dimensions {
             self.last_dimensions = dimensions;
-            crate::window::resize(dimensions);
+            crate::window::inside::resize(dimensions);
         }
 
         self.state

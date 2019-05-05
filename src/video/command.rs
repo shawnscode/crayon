@@ -80,7 +80,7 @@ impl CommandBuffer {
     ///
     /// Notes that this method has no effect on the allocated capacity of the underlying storage.
     pub fn submit(&mut self, surface: SurfaceHandle) -> Result<()> {
-        let doubele_frame = unsafe { super::frames() };
+        let doubele_frame = unsafe { super::inside::frames() };
         let mut frame = doubele_frame.write();
         frame.cmds.push(Command::Bind(surface));
 
@@ -153,7 +153,7 @@ impl<T: Ord + Copy> DrawCommandBuffer<T> {
     ///
     /// Notes that this method has no effect on the allocated capacity of the underlying storage.
     pub fn submit(&mut self, surface: SurfaceHandle) -> Result<()> {
-        let doubele_frame = unsafe { super::frames() };
+        let doubele_frame = unsafe { super::inside::frames() };
         let mut frame = doubele_frame.write();
         frame.cmds.push(Command::Bind(surface));
 
