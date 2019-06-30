@@ -18,14 +18,14 @@ appveyor = { repository = "shawnscode/crayon", branch = "master", service = "git
 codecov = { repository = "shawnscode/crayon", branch = "master", service = "github" }
 
 [workspace]
-members = [ "modules/world", "modules/audio" ]
+members = [ "modules/world", "modules/audio","modules/audio" ]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 gl = "0.10.0"
 glutin = "0.18.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2.29"
+wasm-bindgen = "0.2.38"
 js-sys = "0.3.6"
 console_error_panic_hook = "0.1.5"
 

@@ -1,0 +1,13 @@
+[package]
+name = "crayon_bytes"
+version = "0.7.1"
+authors = ["Jingkai Mao <oammix@gmail.com>"]
+description = "The bytes module of crayon game framework."
+repository = "https://github.com/shawnscode/crayon"
+license = "Apache-2.0"
+keywords = ["crayon", "game-dev", "bytes"]
+categories = ["multimedia", "game-engines"]
+
+[dependencies]
+crayon = { path = "../../", version = "0.7.1" }
+failure = "0.1.2"

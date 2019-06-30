@@ -345,6 +345,11 @@ impl VideoSystem {
     pub fn delete_texture(&self, handle: TextureHandle) {
         self.state.textures.write().unwrap().delete(handle);
     }
+    /// Gets the `TextureParams` if available.
+    #[inline]
+    pub fn texture(&self,handle: TextureHandle)->Option<TextureParams>{
+        self.state.textures.read().unwrap().resource(handle).cloned()
+    }
 }
 
 impl VideoSystem {

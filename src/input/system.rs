@@ -8,7 +8,7 @@ use super::keyboard::{Key, Keyboard};
 use super::mouse::{Mouse, MouseButton};
 use super::touchpad::{GesturePan, GestureTap, TouchPad, TouchState};
 use super::InputParams;
-
+use crate::utils::hash::FastHashSet;
 use crate::math::prelude::Vector2;
 
 /// The `InputSystem` struct are used to manage all the events and corresponding
@@ -162,11 +162,19 @@ impl InputSystem {
     pub fn is_key_press(&self, key: Key) -> bool {
         self.state.keyboard.read().unwrap().is_key_press(key)
     }
-
+    /// Checks if a key has been pressed down during the last frame.
+    #[inline]
+    pub fn key_presses(&self) -> FastHashSet<Key> {
+        self.state.keyboard.read().unwrap().key_presses()
+    }
     /// Checks if a key has been released during the last frame.
     #[inline]
     pub fn is_key_release(&self, key: Key) -> bool {
         self.state.keyboard.read().unwrap().is_key_release(key)
+    }
+    #[inline]
+    pub fn key_releases(&self) -> FastHashSet<Key> {
+        self.state.keyboard.read().unwrap().key_releases()
     }
 
     /// Checks if a key has been repeated during the last frame.
@@ -201,10 +209,22 @@ impl InputSystem {
         self.state.mouse.read().unwrap().is_button_press(button)
     }
 
+    /// Checks if a mouse has been released during the last frame.
+    #[inline]
+    pub fn mouse_presses(&self) -> FastHashSet<MouseButton> {
+        self.state.mouse.read().unwrap().mouse_presses()
+    }
+
     /// Checks if a mouse button has been released during last frame.
     #[inline]
     pub fn is_mouse_release(&self, button: MouseButton) -> bool {
         self.state.mouse.read().unwrap().is_button_release(button)
+    }
+
+    /// Checks if a key has been released during the last frame.
+    #[inline]
+    pub fn mouse_releases(&self) -> FastHashSet<MouseButton> {
+        self.state.mouse.read().unwrap().mouse_releases()
     }
 
     /// Checks if a mouse button has been clicked during last frame.
