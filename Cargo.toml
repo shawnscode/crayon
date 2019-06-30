@@ -18,7 +18,7 @@ appveyor = { repository = "shawnscode/crayon", branch = "master", service = "git
 codecov = { repository = "shawnscode/crayon", branch = "master", service = "github" }
 
 [workspace]
-members = [ "modules/world", "modules/audio" ]
+members = [ "modules/world", "modules/audio","modules/audio" ]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 gl = "0.10.0"
