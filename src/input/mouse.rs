@@ -29,7 +29,7 @@ impl Default for MouseParams {
 }
 
 /// Describes a button of a mouse controller.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize)]
 pub enum MouseButton {
     Left,
     Right,
@@ -109,7 +109,10 @@ impl Mouse {
         detector.on_pressed(self.position);
         self.click_detectors.insert(button, detector);
     }
-
+    #[inline]
+    pub fn mouse_presses(&self) -> FastHashSet<MouseButton> {
+        self.presses.clone()
+    }
     #[inline]
     pub fn on_button_released(&mut self, button: MouseButton) {
         self.downs.remove(&button);
@@ -124,7 +127,10 @@ impl Mouse {
         detector.on_released(self.position);
         self.click_detectors.insert(button, detector);
     }
-
+    #[inline]
+    pub fn mouse_releases(&self) -> FastHashSet<MouseButton> {
+        self.releases.clone()
+    }
     #[inline]
     pub fn on_wheel_scroll(&mut self, delta: (f32, f32)) {
         self.scrol = delta.into();
@@ -141,8 +147,18 @@ impl Mouse {
     }
 
     #[inline]
+    pub fn button_presses(&self) -> FastHashSet<MouseButton> {
+        self.presses.clone()
+    }
+
+    #[inline]
     pub fn is_button_release(&self, button: MouseButton) -> bool {
         self.releases.contains(&button)
+    }
+
+    #[inline]
+    pub fn button_releases(&self) -> FastHashSet<MouseButton> {
+        self.releases.clone()
     }
 
     #[inline]

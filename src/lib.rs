@@ -74,6 +74,7 @@ pub mod prelude;
 pub mod res;
 pub mod sched;
 pub mod window;
+pub mod network;
 
 #[macro_export]
 macro_rules! main {

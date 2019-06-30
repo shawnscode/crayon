@@ -275,12 +275,21 @@ impl Keyboard {
     pub fn is_key_press(&self, key: Key) -> bool {
         self.presses.contains(&key)
     }
+    #[inline]
+    pub fn key_presses(&self) -> FastHashSet<Key> {
+        self.presses.clone()
+    }
 
     #[inline]
     pub fn is_key_release(&self, key: Key) -> bool {
         self.releases.contains(&key)
     }
 
+    #[inline]
+    pub fn key_releases(&self) -> FastHashSet<Key> {
+        self.releases.clone()
+    }
+    
     pub fn is_key_repeat(&self, key: Key) -> bool {
         if let Some(v) = self.downs.get(&key) {
             match *v {

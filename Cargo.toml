@@ -23,9 +23,12 @@ members = [ "modules/world", "modules/audio" ]
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 gl = "0.10.0"
 glutin = "0.18.0"
+websocket = "0.22.3"
+tokio = "0.1"
+futures ={ version = "0.1.26", features=["use_std"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2.29"
+wasm-bindgen = "0.2.38"
 js-sys = "0.3.6"
 console_error_panic_hook = "0.1.5"
 
@@ -35,9 +38,9 @@ features = [
     'Node',
     'Document',
     'Element',
+    'ErrorEvent', 
     'DomRect',
     'HtmlCanvasElement',
-    "HtmlElement",
     'WebGlBuffer',
     'WebGl2RenderingContext',
     'WebGlProgram',
@@ -49,13 +52,16 @@ features = [
     'WebGlFramebuffer',
     'WebGlVertexArrayObject',
     'Window',
+    'WebSocket',
     'Performance',
+    'PerformanceTiming',
     'XmlHttpRequest',
     'XmlHttpRequestResponseType',
     'Response',
     'EventTarget',
     'Event',
     'MouseEvent',
+    'MessageEvent',
     'KeyboardEvent',
     'UiEvent'
 ]
